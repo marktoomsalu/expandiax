@@ -58,7 +58,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
           <div className="card px-6 py-12 text-center">
             <h2 className="font-serif text-2xl">Not on your map yet.</h2>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-              Mark it as visited to add years, cities, a memory and up to five photos.
+              One click adds it to your map. Photos, years, cities and a memory are all optional extras for later.
             </p>
             <div className="mt-6 flex justify-center">
               <MarkVisitedButton meta={meta} />
@@ -66,7 +66,6 @@ export default async function ManageCountryPage({ params }: { params: { code: st
           </div>
         ) : (
           <div className="space-y-10">
-            <CountryEditor data={visited} meta={meta} />
             <MediaUploader
               userId={user.id}
               scope="countries"
@@ -80,6 +79,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
               coverTable="visited_countries"
               label="Photos"
             />
+            <CountryEditor data={visited} meta={meta} />
           </div>
         )}
       </div>

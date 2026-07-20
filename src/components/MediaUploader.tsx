@@ -275,7 +275,7 @@ export function MediaUploader(props: Props) {
           {kind === "image" ? "Add photos" : "Add videos"}
         </label>
         <span className="ml-3 text-xs text-muted">
-          {kind === "image" ? "JPEG, PNG or WebP · up to 10 MB each" : "MP4, WebM or MOV · up to 100 MB each"}
+          {kind === "image" ? "JPEG, PNG or WebP · up to 10 MB each" : "MP4, WebM or MOV · up to 300 MB each"}
         </span>
       </div>
 

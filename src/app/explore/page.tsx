@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { RatingStars } from "@/components/Rating";
-import { countryByCode } from "@/lib/countries";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Explore" };
@@ -12,7 +11,7 @@ type ProfileLite = { id: string; username: string; display_name: string; avatar_
 export default async function ExplorePage() {
   const supabase = createClient();
 
-  const [{ data: profilesData }, { data: recentCountries }, { data: recentConcerts }, { data: allVisits }] =
+  const [{ data: profilesData }, { data: recentConcerts }, { data: allVisits }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -20,11 +19,6 @@ export default async function ExplorePage() {
         .eq("is_public", true)
         .order("created_at", { ascending: false })
         .limit(12),
-      supabase
-        .from("visited_countries")
-        .select("id, country_code, country_name, note, created_at, profiles(username, display_name)")
-        .order("created_at", { ascending: false })
-        .limit(8),
       supabase
         .from("concerts")
         .select("id, artist_name, concert_name, concert_date, city, country_name, rating, profiles(username, display_name)")
@@ -81,28 +75,6 @@ export default async function ExplorePage() {
           </ul>
         )}
       </section>
-
-      {/* Recently added countries */}
-      {(recentCountries ?? []).length > 0 && (
-        <section className="mt-14" aria-labelledby="rc-h">
-          <h2 id="rc-h" className="text-2xl">Recently pinned</h2>
-          <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {(recentCountries ?? []).map((c) => {
-              const meta = countryByCode(c.country_code);
-              const p = one(c.profiles as { username: string; display_name: string } | { username: string; display_name: string }[] | null);
-              if (!p) return null;
-              return (
-                <li key={c.id}>
-                  <Link href={`/u/${p.username}/countries/${c.country_code.toLowerCase()}`} className="card group block px-4 py-3.5">
-                    <p className="font-serif text-lg group-hover:text-accent">{meta?.flag} {c.country_name}</p>
-                    <p className="mt-0.5 text-xs text-muted">by {p.display_name}</p>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
 
       {/* Recent concert memories */}
       {(recentConcerts ?? []).length > 0 && (

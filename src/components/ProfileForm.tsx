@@ -5,23 +5,27 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
 import { validateFile } from "@/lib/media";
+import { cn } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 
 export function ProfileForm({
   profile,
   afterSaveHref,
   submitLabel = "Save profile",
+  requireVisibilityChoice = false,
 }: {
   profile: Profile;
   afterSaveHref?: string;
   submitLabel?: string;
+  /** When true, neither Public nor Private is pre-selected — the user must actively pick one. */
+  requireVisibilityChoice?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [bio, setBio] = useState(profile.bio);
   const [homeCountry, setHomeCountry] = useState(profile.home_country_code ?? "");
-  const [isPublic, setIsPublic] = useState(profile.is_public);
+  const [isPublic, setIsPublic] = useState<boolean | null>(requireVisibilityChoice ? null : profile.is_public);
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -52,9 +56,13 @@ export function ProfileForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
     setError(null);
     setSaved(false);
+    if (isPublic === null) {
+      setError("Choose whether your account is public or private.");
+      return;
+    }
+    setBusy(true);
     const { error: upErr } = await supabase
       .from("profiles")
       .update({
@@ -119,14 +127,19 @@ export function ProfileForm({
         </select>
       </div>
 
-      <fieldset className="rounded-lg border border-line p-4">
-        <legend className="px-1 text-sm font-medium">Profile visibility</legend>
+      <fieldset className={cn("rounded-lg border p-4", isPublic === null ? "border-accent/50" : "border-line")}>
+        <legend className="px-1 text-sm font-medium">
+          Profile visibility {requireVisibilityChoice && <span className="text-accent">*</span>}
+        </legend>
+        {requireVisibilityChoice && (
+          <p className="mb-3 text-xs text-muted">Required — choose one before continuing.</p>
+        )}
         <label className="flex cursor-pointer items-start gap-3 text-sm">
-          <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={isPublic} onChange={() => setIsPublic(true)} />
+          <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={isPublic === true} onChange={() => setIsPublic(true)} />
           <span><strong className="font-medium">Public</strong> — anyone with your link can see your map, memories and public concerts.</span>
         </label>
         <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
-          <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={!isPublic} onChange={() => setIsPublic(false)} />
+          <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={isPublic === false} onChange={() => setIsPublic(false)} />
           <span><strong className="font-medium">Private</strong> — only you can see your archive.</span>
         </label>
       </fieldset>

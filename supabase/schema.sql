@@ -14,7 +14,7 @@ create table public.profiles (
   avatar_url text,
   bio text not null default '',
   home_country_code text,
-  is_public boolean not null default true,
+  is_public boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -319,7 +319,7 @@ create policy "concert media delete" on public.concert_media for delete
 -- is enforced by matching the first folder to auth.uid().
 
 insert into storage.buckets (id, name, public, file_size_limit)
-values ('media', 'media', true, 104857600) -- 100 MB hard cap per object
+values ('media', 'media', true, 314572800) -- 300 MB hard cap per object
 on conflict (id) do nothing;
 
 create policy "media is publicly readable"

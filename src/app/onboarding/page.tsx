@@ -22,7 +22,7 @@ export default async function OnboardingPage() {
         A photo and a few words turn a map into a story. You can change all of this later in Settings.
       </p>
       <div className="mt-8">
-        <ProfileForm profile={profile} afterSaveHref="/my-world" submitLabel="Continue to your world" />
+        <ProfileForm profile={profile} afterSaveHref="/my-world" submitLabel="Continue to your world" requireVisibilityChoice />
       </div>
     </div>
   );

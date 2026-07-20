@@ -83,7 +83,7 @@ Uploads go to a single **public** `media` bucket at deterministic paths:
 - **Writes/deletes** are restricted by storage policies to the folder matching the uploader's `auth.uid()`.
 - **Row data** (which URLs appear where) is protected by RLS: private profiles and private concerts return no rows to other users.
 - Because the bucket is public, a raw file URL that has already been shared remains fetchable. This is the simplest secure-enough model for an MVP; the database never leaks *which* URLs exist. Documented as a limitation below.
-- Media caps (5 country photos, 5 concert photos, 3 concert videos) are enforced **in the database by triggers**, with client-side validation (type, 10 MB images / 100 MB videos) and upload progress on top.
+- Media caps (5 country photos, 5 concert photos, 3 concert videos) are enforced **in the database by triggers**, with client-side validation (type, 10 MB images / 300 MB videos) and upload progress on top.
 
 ## Deployment
 
@@ -95,7 +95,7 @@ Deploy anywhere Next.js runs (Vercel is simplest): set the two environment varia
 |---|---|---|
 | Country photos | 5 per country | 10 MB each |
 | Concert photos | 5 per concert | 10 MB each |
-| Concert videos | 3 per concert | 100 MB each |
+| Concert videos | 3 per concert | 300 MB each |
 
 Accepted types: JPEG, PNG, WebP, GIF, AVIF images; MP4, WebM, QuickTime video.
 
