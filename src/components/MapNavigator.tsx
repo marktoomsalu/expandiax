@@ -10,7 +10,7 @@ export function MapNavigator({ visitedCodes }: { visitedCodes: string[] }) {
   return (
     <div>
       <CountrySearch onSelect={go} visitedCodes={visitedCodes} className="max-w-md" />
-      <div className="mt-4 overflow-hidden rounded-card border border-line bg-surface p-2 sm:p-4">
+      <div className="mt-4 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">
         <WorldMap visitedCodes={visitedCodes} onSelect={go} />
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line px-2 pb-1 pt-3 text-xs text-muted">
           <span className="flex items-center gap-2">

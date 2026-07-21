@@ -120,7 +120,7 @@ export default async function PublicProfilePage({ params }: { params: { username
       </div>
 
       {/* Map */}
-      <div className="mt-10 overflow-hidden rounded-card border border-line bg-surface p-2 sm:p-4">
+      <div className="mt-10 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">
         <WorldMapLink visitedCodes={codes} username={profile.username} />
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import Globe, { type GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
@@ -22,6 +23,8 @@ type Props = {
 };
 
 export function WorldGlobeInner({ visitedCodes, onSelect, interactive = true, className }: Props) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const [features, setFeatures] = useState<GeoFeature[]>([]);
@@ -51,7 +54,7 @@ export function WorldGlobeInner({ visitedCodes, onSelect, interactive = true, cl
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
       const w = entry.contentRect.width;
-      setSize({ width: w, height: Math.round(Math.min(w * 0.72, 560)) });
+      setSize({ width: w, height: Math.round(Math.min(w * 0.8, 680)) });
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -64,7 +67,7 @@ export function WorldGlobeInner({ visitedCodes, onSelect, interactive = true, cl
     controls.autoRotate = false;
     controls.enableZoom = interactive;
     controls.enableRotate = true;
-    g.pointOfView({ lat: 18, lng: 14, altitude: 2.15 });
+    g.pointOfView({ lat: 18, lng: 14, altitude: 1.8 });
   }, [interactive]);
 
   function countryOf(f: GeoFeature) {
@@ -79,10 +82,14 @@ export function WorldGlobeInner({ visitedCodes, onSelect, interactive = true, cl
           width={size.width}
           height={size.height}
           backgroundColor="rgba(0,0,0,0)"
-          globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+          globeImageUrl={
+            isDark
+              ? "//unpkg.com/three-globe/example/img/earth-night.jpg"
+              : "//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
+          }
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
           showAtmosphere
-          atmosphereColor="#2dd4c5"
+          atmosphereColor={isDark ? "#2dd4c5" : "#7dd3fc"}
           atmosphereAltitude={0.22}
           polygonsData={features}
           polygonCapColor={(f) => {
@@ -90,7 +97,8 @@ export function WorldGlobeInner({ visitedCodes, onSelect, interactive = true, cl
             const isVisited = c ? visited.has(c.code) : false;
             const isHover = (f as GeoFeature).id === hoverId;
             if (isVisited) return isHover ? "rgba(255,125,96,0.95)" : "rgba(255,99,71,0.85)";
-            return isHover ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.08)";
+            if (isDark) return isHover ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.08)";
+            return isHover ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.02)";
           }}
           polygonSideColor={() => "rgba(20,16,10,0.25)"}
           polygonStrokeColor={() => "rgba(10,8,6,0.55)"}
