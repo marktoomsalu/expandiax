@@ -23,6 +23,7 @@ export function ConcertForm({ concert }: { concert?: Concert }) {
     setlist_notes: concert?.setlist_notes ?? "",
     is_public: concert?.is_public ?? true,
     is_favourite: concert?.is_favourite ?? false,
+    share_to_feed: concert?.share_to_feed ?? true,
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export function ConcertForm({ concert }: { concert?: Concert }) {
       setlist_notes: f.setlist_notes.trim(),
       is_public: f.is_public,
       is_favourite: f.is_favourite,
+      share_to_feed: f.share_to_feed,
     };
 
     if (concert) {
@@ -154,6 +156,10 @@ export function ConcertForm({ concert }: { concert?: Concert }) {
         <label className="flex cursor-pointer items-center gap-2.5 text-sm">
           <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.is_favourite} onChange={(e) => set("is_favourite", e.target.checked)} />
           My favourite concert
+        </label>
+        <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+          <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.share_to_feed} onChange={(e) => set("share_to_feed", e.target.checked)} />
+          Show in followers&rsquo; feeds
         </label>
       </div>
 

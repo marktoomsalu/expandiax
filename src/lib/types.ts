@@ -18,6 +18,7 @@ export type VisitedCountry = {
   note: string;
   cover_media_id: string | null;
   is_favourite: boolean;
+  share_to_feed: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -55,6 +56,7 @@ export type Concert = {
   cover_media_id: string | null;
   is_favourite: boolean;
   is_public: boolean;
+  share_to_feed: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -77,5 +79,6 @@ export type FeedEvent = {
   title: string;
   subtitle: string | null;
   cover_url: string | null;
+  cover_media_type: "image" | "video" | null;
   created_at: string;
 };

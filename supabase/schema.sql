@@ -27,6 +27,7 @@ create table public.visited_countries (
   note text not null default '',
   cover_media_id uuid, -- FK added below (circular reference)
   is_favourite boolean not null default false,
+  share_to_feed boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, country_code)
@@ -77,6 +78,7 @@ create table public.concerts (
   cover_media_id uuid, -- FK added below
   is_favourite boolean not null default false,
   is_public boolean not null default true,
+  share_to_feed boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -379,7 +381,9 @@ create policy "users unfollow"
   using (follower_id = auth.uid());
 
 -- security_invoker means this view enforces the RLS of visited_countries /
--- concerts / country_media / concert_media as the querying user.
+-- concerts / country_media / concert_media as the querying user. Falls back
+-- to the first photo/video (by display_order) when no cover is explicitly
+-- set, and carries media_type so the feed can render video too.
 create view public.feed_events
 with (security_invoker = true) as
   select
@@ -390,9 +394,17 @@ with (security_invoker = true) as
     vc.country_name as title,
     null::text as subtitle,
     cm.public_url as cover_url,
+    cm.media_type as cover_media_type,
     vc.created_at as created_at
   from public.visited_countries vc
-  left join public.country_media cm on cm.id = vc.cover_media_id
+  left join lateral (
+    select public_url, media_type
+    from public.country_media
+    where visited_country_id = vc.id
+    order by (id = vc.cover_media_id) desc, display_order asc
+    limit 1
+  ) cm on true
+  where vc.share_to_feed
   union all
   select
     'concert'::text as kind,
@@ -402,12 +414,56 @@ with (security_invoker = true) as
     c.artist_name as title,
     nullif(c.concert_name, '') as subtitle,
     cm.public_url as cover_url,
+    cm.media_type as cover_media_type,
     c.created_at as created_at
   from public.concerts c
-  left join public.concert_media cm on cm.id = c.cover_media_id
-  where c.is_public;
+  left join lateral (
+    select public_url, media_type
+    from public.concert_media
+    where concert_id = c.id
+    order by (id = c.cover_media_id) desc, display_order asc
+    limit 1
+  ) cm on true
+  where c.is_public and c.share_to_feed;
 
 grant select on public.feed_events to authenticated;
+
+-- ---------- Likes (hearts) ----------
+
+create table public.likes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  kind text not null check (kind in ('country', 'concert')),
+  target_id uuid not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, kind, target_id)
+);
+
+create index likes_target_idx on public.likes (kind, target_id);
+
+alter table public.likes enable row level security;
+
+create policy "likes readable when target visible"
+  on public.likes for select
+  using (
+    (kind = 'country' and (public.owns_visited_country(target_id) or public.visited_country_is_public(target_id)))
+    or
+    (kind = 'concert' and (public.owns_concert(target_id) or public.concert_is_public(target_id)))
+  );
+
+create policy "users like visible content"
+  on public.likes for insert
+  with check (
+    user_id = auth.uid()
+    and (
+      (kind = 'country' and (public.owns_visited_country(target_id) or public.visited_country_is_public(target_id)))
+      or
+      (kind = 'concert' and (public.owns_concert(target_id) or public.concert_is_public(target_id)))
+    )
+  );
+
+create policy "users unlike" on public.likes for delete
+  using (user_id = auth.uid());
 
 -- ---------- Self-service account deletion ----------
 -- Cascades through profiles -> visited_countries / concerts -> their child

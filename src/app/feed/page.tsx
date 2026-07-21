@@ -3,6 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
+import { LikeButton } from "@/components/LikeButton";
 import { countryByCode } from "@/lib/countries";
 import { formatRelative } from "@/lib/utils";
 import type { FeedEvent, Profile } from "@/lib/types";
@@ -21,6 +22,8 @@ export default async function FeedPage() {
 
   let events: FeedEvent[] = [];
   let actors = new Map<string, Pick<Profile, "id" | "username" | "display_name" | "avatar_url">>();
+  const likeCounts = new Map<string, number>();
+  const likedByMe = new Set<string>();
 
   if (followeeIds.length > 0) {
     const { data: feedData } = await supabase
@@ -33,11 +36,17 @@ export default async function FeedPage() {
 
     if (events.length > 0) {
       const actorIds = [...new Set(events.map((e) => e.actor_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, username, display_name, avatar_url")
-        .in("id", actorIds);
+      const refIds = events.map((e) => e.ref_id);
+      const [{ data: profiles }, { data: likeRows }] = await Promise.all([
+        supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", actorIds),
+        supabase.from("likes").select("kind, target_id, user_id").in("target_id", refIds),
+      ]);
       actors = new Map((profiles ?? []).map((p) => [p.id, p]));
+      for (const row of likeRows ?? []) {
+        const key = `${row.kind}:${row.target_id}`;
+        likeCounts.set(key, (likeCounts.get(key) ?? 0) + 1);
+        if (row.user_id === user.id) likedByMe.add(key);
+      }
     }
   }
 
@@ -63,38 +72,39 @@ export default async function FeedPage() {
           />
         </div>
       ) : (
-        <ul className="mt-8 space-y-4">
+        <ul className="mt-8 space-y-6">
           {events.map((event) => {
             const actor = actors.get(event.actor_id);
             if (!actor) return null;
             const meta = countryByCode(event.country_code);
+            const key = `${event.kind}:${event.ref_id}`;
             const href =
               event.kind === "country"
                 ? `/u/${actor.username}/countries/${event.country_code.toLowerCase()}`
                 : `/u/${actor.username}/concerts/${event.ref_id}`;
             return (
-              <li key={`${event.kind}-${event.ref_id}`} className="card overflow-hidden p-4 sm:p-5">
-                <div className="flex items-center gap-3">
-                  <Link
-                    href={`/u/${actor.username}`}
-                    aria-label={actor.display_name}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-raised font-serif text-sm text-muted"
-                  >
-                    {actor.avatar_url ? (
-                      <Image src={actor.avatar_url} alt="" width={36} height={36} className="h-full w-full object-cover" />
-                    ) : (
-                      actor.display_name.charAt(0)
-                    )}
-                  </Link>
-                  <div className="min-w-0">
-                    <Link href={`/u/${actor.username}`} className="text-sm font-medium hover:text-accent">
-                      {actor.display_name}
+              <li key={key} className="card overflow-hidden">
+                <div className="p-4 sm:p-5">
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={`/u/${actor.username}`}
+                      aria-label={actor.display_name}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-raised font-serif text-sm text-muted"
+                    >
+                      {actor.avatar_url ? (
+                        <Image src={actor.avatar_url} alt="" width={40} height={40} className="h-full w-full object-cover" />
+                      ) : (
+                        actor.display_name.charAt(0)
+                      )}
                     </Link>
-                    <span className="text-xs text-muted"> · {formatRelative(event.created_at)}</span>
+                    <div className="min-w-0">
+                      <Link href={`/u/${actor.username}`} className="text-sm font-medium hover:text-accent">
+                        {actor.display_name}
+                      </Link>
+                      <span className="text-xs text-muted"> · {formatRelative(event.created_at)}</span>
+                    </div>
                   </div>
-                </div>
-                <Link href={href} className="group mt-3 flex items-center gap-4">
-                  <p className="min-w-0 flex-1 text-sm leading-relaxed text-ink">
+                  <Link href={href} className="mt-3 block text-sm leading-relaxed text-ink hover:text-accent">
                     {event.kind === "country" ? (
                       <>
                         Added <span className="font-serif text-base">{meta?.flag} {event.title}</span> to their map.
@@ -105,17 +115,34 @@ export default async function FeedPage() {
                         {event.subtitle && <span className="italic text-muted"> · {event.subtitle}</span>}.
                       </>
                     )}
-                  </p>
-                  {event.cover_url && (
-                    <Image
-                      src={event.cover_url}
-                      alt=""
-                      width={80}
-                      height={80}
-                      className="h-16 w-16 shrink-0 rounded-lg object-cover transition-transform duration-300 group-hover:scale-[1.03] sm:h-20 sm:w-20"
-                    />
-                  )}
-                </Link>
+                  </Link>
+                </div>
+
+                {event.cover_url && (
+                  <div className="relative aspect-[4/3] w-full bg-raised">
+                    {event.cover_media_type === "video" ? (
+                      <video
+                        src={event.cover_url}
+                        controls
+                        preload="metadata"
+                        className="absolute inset-0 h-full w-full bg-black object-contain"
+                      />
+                    ) : (
+                      <Link href={href} className="absolute inset-0 block">
+                        <Image src={event.cover_url} alt="" fill sizes="(min-width: 640px) 640px, 100vw" className="object-cover" />
+                      </Link>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center border-t border-line px-4 py-3 sm:px-5">
+                  <LikeButton
+                    kind={event.kind}
+                    targetId={event.ref_id}
+                    initialLiked={likedByMe.has(key)}
+                    initialCount={likeCounts.get(key) ?? 0}
+                  />
+                </div>
               </li>
             );
           })}

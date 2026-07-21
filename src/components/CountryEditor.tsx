@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MapPinPlus, Plus, X } from "lucide-react";
+import { Heart, MapPinPlus, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -66,6 +66,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [favouriteBusy, setFavouriteBusy] = useState(false);
+  const [feedBusy, setFeedBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const visits = [...data.country_visits].sort((a, b) => a.year - b.year);
@@ -126,6 +127,16 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
     router.refresh();
   }
 
+  async function toggleShareToFeed() {
+    setFeedBusy(true);
+    await supabase
+      .from("visited_countries")
+      .update({ share_to_feed: !data.share_to_feed })
+      .eq("id", data.id);
+    setFeedBusy(false);
+    router.refresh();
+  }
+
   async function removeCountry() {
     setRemoving(true);
     const paths = data.country_media.map((m) => m.storage_path);
@@ -142,21 +153,39 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
           <h3 className="font-serif text-lg">Trip details</h3>
           <p className="text-xs text-muted">Optional — add as much or as little as you like, any time.</p>
         </div>
-        <button
-          type="button"
-          onClick={toggleFavourite}
-          disabled={favouriteBusy}
-          aria-pressed={data.is_favourite}
-          className={cn(
-            "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-            data.is_favourite
-              ? "border-accent bg-accent-soft text-accent"
-              : "border-line text-muted hover:text-accent"
-          )}
-        >
-          <Heart size={13} className={data.is_favourite ? "fill-accent" : undefined} />
-          {data.is_favourite ? "Favourite" : "Mark favourite"}
-        </button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleShareToFeed}
+            disabled={feedBusy}
+            aria-pressed={data.share_to_feed}
+            title={data.share_to_feed ? "Visible in followers' feeds" : "Hidden from the feed"}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              data.share_to_feed
+                ? "border-accent bg-accent-soft text-accent"
+                : "border-line text-muted hover:text-accent"
+            )}
+          >
+            <Rss size={13} />
+            {data.share_to_feed ? "In feed" : "Not in feed"}
+          </button>
+          <button
+            type="button"
+            onClick={toggleFavourite}
+            disabled={favouriteBusy}
+            aria-pressed={data.is_favourite}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              data.is_favourite
+                ? "border-accent bg-accent-soft text-accent"
+                : "border-line text-muted hover:text-accent"
+            )}
+          >
+            <Heart size={13} className={data.is_favourite ? "fill-accent" : undefined} />
+            {data.is_favourite ? "Favourite" : "Mark favourite"}
+          </button>
+        </div>
       </div>
 
       {/* Visits — each can have its own highlight, and you can log the same year twice */}
