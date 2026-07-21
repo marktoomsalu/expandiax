@@ -458,3 +458,28 @@ alter table public.reports enable row level security;
 
 create policy "users file reports" on public.reports for insert
   with check (reporter_id = auth.uid());
+
+-- ---------- Follow notification email ----------
+-- Fires the notify-follow Edge Function (supabase/functions/notify-follow)
+-- on every new follow. Deploy the function first:
+--   npx supabase functions deploy notify-follow --no-verify-jwt
+
+create extension if not exists pg_net with schema extensions;
+
+create or replace function public.trigger_notify_follow()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform net.http_post(
+    url := 'https://ynjiqozehyipeuaxqroe.supabase.co/functions/v1/notify-follow',
+    headers := '{"Content-Type": "application/json"}'::jsonb,
+    body := jsonb_build_object('record', row_to_json(new))
+  );
+  return new;
+end;
+$$;
+
+create trigger notify_follow_after_insert
+  after insert on public.follows
+  for each row execute function public.trigger_notify_follow();
