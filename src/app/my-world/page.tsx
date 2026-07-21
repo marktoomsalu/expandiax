@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MapNavigator } from "@/components/MapNavigator";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
+import { ContinentCard } from "@/components/ContinentCard";
 import { CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
 
@@ -31,6 +32,15 @@ export default async function MyWorldPage() {
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
   const continents = continentCounts(codes);
   const visitedContinents = continents.filter((c) => c.visited > 0).length;
+  const countriesByContinent = new Map<string, { code: string; name: string; flag: string }[]>();
+  for (const code of codes) {
+    const meta = countryByCode(code);
+    if (!meta) continue;
+    const list = countriesByContinent.get(meta.continent) ?? [];
+    list.push({ code: meta.code, name: meta.name, flag: meta.flag });
+    countriesByContinent.set(meta.continent, list);
+  }
+  for (const list of countriesByContinent.values()) list.sort((a, b) => a.name.localeCompare(b.name));
   const latest = countries[0];
 
   return (
@@ -73,24 +83,18 @@ export default async function MyWorldPage() {
 
           <section className="mt-10" aria-labelledby="continents-h">
             <h2 id="continents-h" className="text-xl">By continent</h2>
+            <p className="mt-1 text-xs text-muted">Tap a continent to see which countries you&rsquo;ve visited there.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {continents.map((c) => {
-                const color = CONTINENT_COLORS[c.name];
-                return (
-                  <div key={c.name} className="card px-4 py-3">
-                    <div className="flex items-baseline justify-between text-sm">
-                      <span className="flex items-center gap-2 font-medium">
-                        <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                        {c.name}
-                      </span>
-                      <span className="text-muted">{c.visited} / {c.total}</span>
-                    </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-raised" role="progressbar" aria-label={`${c.name} progress`} aria-valuenow={c.visited} aria-valuemin={0} aria-valuemax={c.total}>
-                      <div className="h-full rounded-full transition-all" style={{ width: `${c.total ? (c.visited / c.total) * 100 : 0}%`, backgroundColor: color }} />
-                    </div>
-                  </div>
-                );
-              })}
+              {continents.map((c) => (
+                <ContinentCard
+                  key={c.name}
+                  name={c.name}
+                  color={CONTINENT_COLORS[c.name]}
+                  visited={c.visited}
+                  total={c.total}
+                  countries={countriesByContinent.get(c.name) ?? []}
+                />
+              ))}
             </div>
           </section>
 
