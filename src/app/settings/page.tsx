@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileForm } from "@/components/ProfileForm";
 import { SignOutButton } from "@/components/SignOutButton";
+import { ExportDataButton, DeleteAccountButton } from "@/components/AccountActions";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Settings" };
@@ -31,6 +32,19 @@ export default async function SettingsPage() {
           View public profile
         </Link>
         <SignOutButton />
+      </div>
+
+      <div className="mt-8 space-y-4 border-t border-line pt-6">
+        <div>
+          <p className="text-sm font-medium">Your data</p>
+          <p className="mt-1 text-xs text-muted">Download everything you&rsquo;ve added, as a single file.</p>
+          <div className="mt-3"><ExportDataButton userId={user.id} /></div>
+        </div>
+        <div>
+          <p className="text-sm font-medium text-red-800 dark:text-red-400">Danger zone</p>
+          <p className="mt-1 text-xs text-muted">Permanently delete your account and everything in it.</p>
+          <div className="mt-3"><DeleteAccountButton userId={user.id} /></div>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { RatingStars } from "@/components/Rating";
 import { formatDate } from "@/lib/utils";
@@ -11,7 +12,7 @@ type ProfileLite = { id: string; username: string; display_name: string; avatar_
 export default async function ExplorePage() {
   const supabase = createClient();
 
-  const [{ data: profilesData }, { data: recentConcerts }, { data: allVisits }] =
+  const [{ data: profilesData }, { data: recentConcerts }, { data: countRows }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -25,12 +26,12 @@ export default async function ExplorePage() {
         .eq("is_public", true)
         .order("created_at", { ascending: false })
         .limit(6),
-      supabase.from("visited_countries").select("user_id").limit(1000),
+      supabase.from("public_country_counts").select("user_id, country_count"),
     ]);
 
   const profiles = (profilesData ?? []) as ProfileLite[];
   const countsByUser = new Map<string, number>();
-  for (const v of allVisits ?? []) countsByUser.set(v.user_id, (countsByUser.get(v.user_id) ?? 0) + 1);
+  for (const row of countRows ?? []) countsByUser.set(row.user_id, row.country_count);
   const featured = [...profiles].sort((a, b) => (countsByUser.get(b.id) ?? 0) - (countsByUser.get(a.id) ?? 0)).slice(0, 6);
 
   const artistCounts = new Map<string, number>();
@@ -56,8 +57,7 @@ export default async function ExplorePage() {
               <li key={p.id}>
                 <Link href={`/u/${p.username}`} className="card group flex items-center gap-4 px-4 py-4">
                   {p.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.avatar_url} alt="" className="h-12 w-12 rounded-full border border-line object-cover" />
+                    <Image src={p.avatar_url} alt="" width={48} height={48} className="h-12 w-12 rounded-full border border-line object-cover" />
                   ) : (
                     <span aria-hidden className="flex h-12 w-12 items-center justify-center rounded-full border border-line bg-raised font-serif text-lg text-muted">
                       {p.display_name.charAt(0)}

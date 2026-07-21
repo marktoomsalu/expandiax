@@ -408,3 +408,53 @@ with (security_invoker = true) as
   where c.is_public;
 
 grant select on public.feed_events to authenticated;
+
+-- ---------- Self-service account deletion ----------
+-- Cascades through profiles -> visited_countries / concerts -> their child
+-- tables via the existing "on delete cascade" foreign keys. Does not touch
+-- Storage — the app removes uploaded files client-side before calling this.
+
+create or replace function public.delete_own_account()
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+grant execute on function public.delete_own_account() to authenticated;
+
+-- ---------- Explore page performance ----------
+-- Per-user country counts computed in the database instead of pulling raw
+-- rows into JS. security_invoker means it only ever sees what RLS already
+-- allows the querying role to see.
+
+create view public.public_country_counts
+with (security_invoker = true) as
+  select user_id, count(*) as country_count
+  from public.visited_countries
+  group by user_id;
+
+grant select on public.public_country_counts to anon, authenticated;
+
+-- ---------- Content reporting ----------
+-- Write-only from the app's side — no admin UI yet, review via the Table
+-- Editor (Table Editor -> reports) until one exists.
+
+create table public.reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references public.profiles (id) on delete cascade,
+  target_type text not null check (target_type in ('profile', 'concert', 'country')),
+  target_id uuid not null,
+  target_url text not null,
+  reason text not null check (length(reason) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+
+create index reports_created_idx on public.reports (created_at desc);
+
+alter table public.reports enable row level security;
+
+create policy "users file reports" on public.reports for insert
+  with check (reporter_id = auth.uid());

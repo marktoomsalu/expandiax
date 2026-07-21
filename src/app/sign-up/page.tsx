@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
@@ -74,7 +75,14 @@ export default function SignUpPage() {
         One place for every country you&rsquo;ve set foot in and every concert you never want to forget.
       </p>
 
-      <form onSubmit={onSubmit} className="mt-8 space-y-4">
+      <div className="mt-8">
+        <GoogleSignInButton next="/onboarding" />
+      </div>
+      <div className="my-6 flex items-center gap-3 text-xs text-muted">
+        <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+      </div>
+
+      <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label htmlFor="display_name" className="mb-1.5 block text-sm font-medium">Display name</label>
           <input id="display_name" className="field" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Liis Kask" autoComplete="name" />

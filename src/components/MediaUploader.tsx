@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { ArrowDown, ArrowUp, ImagePlus, Star, Trash2, Video } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { validateFile, storagePath } from "@/lib/media";
@@ -179,8 +180,9 @@ export function MediaUploader(props: Props) {
           {sorted.map((m, i) => (
             <li key={m.id} className="group relative overflow-hidden rounded-lg border border-line bg-raised">
               {m.media_type === "image" ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={m.public_url} alt={m.caption || "Uploaded photo"} className="aspect-[4/3] w-full object-cover" />
+                <div className="relative aspect-[4/3] w-full">
+                  <Image src={m.public_url} alt={m.caption || "Uploaded photo"} fill sizes="(min-width: 640px) 33vw, 50vw" className="object-cover" />
+                </div>
               ) : (
                 <video src={m.public_url} controls preload="metadata" className="aspect-[4/3] w-full bg-black object-contain" />
               )}

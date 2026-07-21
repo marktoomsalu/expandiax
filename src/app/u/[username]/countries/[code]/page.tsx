@@ -1,11 +1,49 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { RatingStars } from "@/components/Rating";
+import { ReportButton } from "@/components/ReportButton";
 import { formatDate } from "@/lib/utils";
 import type { Concert, VisitedCountryFull } from "@/lib/types";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { username: string; code: string };
+}): Promise<Metadata> {
+  const meta = countryByCode(params.code);
+  if (!meta) return { title: "Country" };
+
+  const supabase = createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, username, display_name")
+    .eq("username", params.username.toLowerCase())
+    .maybeSingle();
+  if (!profile) return { title: meta.name };
+
+  const { data: country } = await supabase
+    .from("visited_countries")
+    .select("note, cover_media_id, country_media!country_media_visited_country_id_fkey(id, public_url)")
+    .eq("user_id", profile.id)
+    .eq("country_code", meta.code)
+    .maybeSingle();
+
+  const title = `${meta.flag} ${meta.name} — ${profile.display_name}`;
+  const description = country?.note || `${profile.display_name}'s memories from ${meta.name} on ExpandiaX.`;
+  const cover = country?.country_media.find((m) => m.id === country.cover_media_id) ?? country?.country_media[0];
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, images: cover ? [cover.public_url] : undefined },
+    twitter: { title, description },
+  };
+}
 
 export default async function PublicCountryPage({
   params,
@@ -63,8 +101,14 @@ export default async function PublicCountryPage({
     <div>
       {cover && (
         <div className="relative h-[42vh] min-h-64 w-full overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={cover.public_url} alt={cover.caption || `Photo from ${meta.name}`} className="h-full w-full object-cover" />
+          <Image
+            src={cover.public_url}
+            alt={cover.caption || `Photo from ${meta.name}`}
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" aria-hidden />
         </div>
       )}
@@ -90,8 +134,16 @@ export default async function PublicCountryPage({
           <section className="mt-10" aria-label="Photo gallery">
             <div className="grid grid-cols-2 gap-3">
               {rest.map((m) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={m.id} src={m.public_url} alt={m.caption || `Photo from ${meta.name}`} loading="lazy" className="aspect-[4/3] w-full rounded-lg border border-line object-cover" />
+                <div key={m.id} className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-line">
+                  <Image
+                    src={m.public_url}
+                    alt={m.caption || `Photo from ${meta.name}`}
+                    fill
+                    sizes="50vw"
+                    loading="lazy"
+                    className="object-cover"
+                  />
+                </div>
               ))}
             </div>
           </section>
@@ -128,6 +180,10 @@ export default async function PublicCountryPage({
             </Link>
           ) : <span />}
         </nav>
+
+        <div className="mt-6 flex justify-center">
+          <ReportButton targetType="country" targetId={country.id} targetUrl={`/u/${profile.username}/countries/${meta.code.toLowerCase()}`} />
+        </div>
       </div>
     </div>
   );

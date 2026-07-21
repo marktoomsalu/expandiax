@@ -1,14 +1,49 @@
 import Link from "next/link";
+import Image from "next/image";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { WorldMapLink } from "@/components/WorldMapLink";
 import { RatingStars } from "@/components/Rating";
 import { FollowButton } from "@/components/FollowButton";
+import { ReportButton } from "@/components/ReportButton";
 import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import { formatDate } from "@/lib/utils";
 import type { Concert, ConcertMedia, CountryMedia, Profile, VisitedCountry } from "@/lib/types";
 
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: { year: number }[] };
 type ConcertRow = Concert & { concert_media: ConcertMedia[] };
+
+export async function generateMetadata({ params }: { params: { username: string } }): Promise<Metadata> {
+  const supabase = createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, bio")
+    .eq("username", params.username.toLowerCase())
+    .maybeSingle();
+  if (!profile) return { title: "Profile" };
+
+  const { count } = await supabase
+    .from("visited_countries")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", profile.id);
+
+  const description =
+    profile.bio ||
+    `${profile.display_name}'s world on ExpandiaX — ${count ?? 0} of ${TOTAL_COUNTRIES} countries, and the concerts along the way.`;
+
+  return {
+    title: profile.display_name,
+    description,
+    openGraph: {
+      title: `${profile.display_name} (@${profile.username})`,
+      description,
+    },
+    twitter: {
+      title: `${profile.display_name} (@${profile.username})`,
+      description,
+    },
+  };
+}
 
 export default async function PublicProfilePage({ params }: { params: { username: string } }) {
   const supabase = createClient();
@@ -85,8 +120,13 @@ export default async function PublicProfilePage({ params }: { params: { username
       {/* Header */}
       <header className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
         {profile.avatar_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={profile.avatar_url} alt={`${profile.display_name}'s photo`} className="h-24 w-24 rounded-full border border-line object-cover" />
+          <Image
+            src={profile.avatar_url}
+            alt={`${profile.display_name}'s photo`}
+            width={96}
+            height={96}
+            className="h-24 w-24 rounded-full border border-line object-cover"
+          />
         ) : (
           <div aria-hidden className="flex h-24 w-24 items-center justify-center rounded-full border border-line bg-raised font-serif text-3xl text-muted">
             {profile.display_name.charAt(0)}
@@ -138,8 +178,15 @@ export default async function PublicProfilePage({ params }: { params: { username
               return (
                 <Link key={c.id} href={`/u/${profile.username}/countries/${c.country_code.toLowerCase()}`} className="card group overflow-hidden">
                   {cover && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={cover.public_url} alt={cover.caption || `Photo from ${c.country_name}`} className="aspect-[16/8] w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
+                    <div className="relative aspect-[16/8] w-full">
+                      <Image
+                        src={cover.public_url}
+                        alt={cover.caption || `Photo from ${c.country_name}`}
+                        fill
+                        sizes="(min-width: 640px) 50vw, 100vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                      />
+                    </div>
                   )}
                   <div className="px-5 py-4">
                     <p className="font-serif text-xl">{meta?.flag} {c.country_name}</p>
@@ -167,8 +214,13 @@ export default async function PublicProfilePage({ params }: { params: { username
                   <Link href={`/u/${profile.username}/concerts/${c.id}`} className="card group block overflow-hidden">
                     <div className="relative aspect-[16/9] bg-ink/90">
                       {cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={cover.public_url} alt={cover.caption || `${c.artist_name} live`} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+                        <Image
+                          src={cover.public_url}
+                          alt={cover.caption || `${c.artist_name} live`}
+                          fill
+                          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                        />
                       ) : (
                         <div className="flex h-full items-center justify-center px-4 text-center font-serif text-2xl italic text-canvas/90 dark:text-ink/90">{c.artist_name}</div>
                       )}
@@ -193,8 +245,16 @@ export default async function PublicProfilePage({ params }: { params: { username
           <h2 id="gal-h" className="mt-1 text-2xl md:text-3xl">Selected frames</h2>
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {gallery.map((m) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={m.id} src={m.public_url} alt={m.caption || m.alt} loading="lazy" className="aspect-square w-full rounded-lg border border-line object-cover" />
+              <div key={m.id} className="relative aspect-square w-full overflow-hidden rounded-lg border border-line">
+                <Image
+                  src={m.public_url}
+                  alt={m.caption || m.alt}
+                  fill
+                  sizes="(min-width: 640px) 25vw, 50vw"
+                  loading="lazy"
+                  className="object-cover"
+                />
+              </div>
             ))}
           </div>
         </section>
@@ -204,6 +264,12 @@ export default async function PublicProfilePage({ params }: { params: { username
         <p className="mt-14 text-center text-sm text-muted">
           {profile.display_name} hasn&rsquo;t added any public memories yet.
         </p>
+      )}
+
+      {!isOwnProfile && (
+        <div className="mt-16 flex justify-center border-t border-line pt-6">
+          <ReportButton targetType="profile" targetId={profile.id} targetUrl={`/u/${profile.username}`} />
+        </div>
       )}
     </div>
   );

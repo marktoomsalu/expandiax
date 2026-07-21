@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
 import { validateFile } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
+
+const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
 export function ProfileForm({
   profile,
@@ -22,6 +25,7 @@ export function ProfileForm({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const [username, setUsername] = useState(profile.username);
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [bio, setBio] = useState(profile.bio);
   const [homeCountry, setHomeCountry] = useState(profile.home_country_code ?? "");
@@ -62,10 +66,29 @@ export function ProfileForm({
       setError("Choose whether your account is public or private.");
       return;
     }
+    const uname = username.trim().toLowerCase();
+    if (!USERNAME_RE.test(uname)) {
+      setError("Usernames are 3–24 characters: lowercase letters, numbers and underscores.");
+      return;
+    }
     setBusy(true);
+    if (uname !== profile.username) {
+      const { data: taken } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", uname)
+        .neq("id", profile.id)
+        .maybeSingle();
+      if (taken) {
+        setError(`"${uname}" is already taken. Try another username.`);
+        setBusy(false);
+        return;
+      }
+    }
     const { error: upErr } = await supabase
       .from("profiles")
       .update({
+        username: uname,
         display_name: displayName.trim() || "Traveller",
         bio: bio.trim(),
         home_country_code: homeCountry || null,
@@ -92,8 +115,7 @@ export function ProfileForm({
     <form onSubmit={onSubmit} className="space-y-5">
       <div className="flex items-center gap-4">
         {avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="Your profile photo" className="h-16 w-16 rounded-full border border-line object-cover" />
+          <Image src={avatarUrl} alt="Your profile photo" width={64} height={64} className="h-16 w-16 rounded-full border border-line object-cover" />
         ) : (
           <div aria-hidden className="flex h-16 w-16 items-center justify-center rounded-full border border-line bg-raised font-serif text-xl text-muted">
             {displayName.trim().charAt(0).toUpperCase() || "?"}
@@ -105,6 +127,21 @@ export function ProfileForm({
           </label>
           <input id="avatar" type="file" accept="image/*" className="sr-only" onChange={(e) => onAvatar(e.target.files?.[0])} />
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="pf-username" className="mb-1.5 block text-sm font-medium">Username</label>
+        <input
+          id="pf-username"
+          className="field"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+          aria-describedby="pf-username-hint"
+        />
+        <p id="pf-username-hint" className="mt-1 text-xs text-muted">
+          Your public address: expandiax.example/u/{username.trim().toLowerCase() || "username"}
+        </p>
       </div>
 
       <div>

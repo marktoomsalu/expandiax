@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MapNavigator } from "@/components/MapNavigator";
@@ -107,8 +108,13 @@ export default async function MyWorldPage() {
                       <div className="relative aspect-[3/4] bg-raised">
                         {cover ? (
                           <>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={cover.public_url} alt={cover.caption || `Photo from ${c.country_name}`} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+                            <Image
+                              src={cover.public_url}
+                              alt={cover.caption || `Photo from ${c.country_name}`}
+                              fill
+                              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                              className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                            />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" aria-hidden />
                             <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-12 text-white">
                               <p className="font-serif text-xl drop-shadow-sm">{meta?.flag} {c.country_name}</p>

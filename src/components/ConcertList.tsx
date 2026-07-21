@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Search } from "lucide-react";
 import type { Concert, ConcertMedia } from "@/lib/types";
 import { countryByCode } from "@/lib/countries";
@@ -86,8 +87,13 @@ export function ConcertList({ concerts, hrefBase, editable }: { concerts: Row[];
                 <Link href={`${hrefBase}/${c.id}`} className="card group block overflow-hidden transition-shadow hover:shadow-lg">
                   <div className="relative aspect-[3/4] bg-ink/90">
                     {cover ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={cover.public_url} alt={cover.caption || `${c.artist_name} live`} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+                      <Image
+                        src={cover.public_url}
+                        alt={cover.caption || `${c.artist_name} live`}
+                        fill
+                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                      />
                     ) : (
                       <div className="flex h-full items-center justify-center px-4 text-center font-serif text-2xl italic text-canvas/90 dark:text-ink/90">
                         {c.artist_name}

@@ -1,13 +1,31 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SiteNav } from "@/components/SiteNav";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://expandiax.com"),
   title: { default: "ExpandiaX — Your world, remembered.", template: "%s · ExpandiaX" },
   description:
     "Track the countries you have explored, preserve the moments that mattered and build a visual archive of every concert that made you feel alive.",
+  openGraph: {
+    siteName: "ExpandiaX",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "ExpandiaX",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#ff6347",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -44,6 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </footer>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );

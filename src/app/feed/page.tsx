@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
@@ -80,8 +81,7 @@ export default async function FeedPage() {
                     className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-raised font-serif text-sm text-muted"
                   >
                     {actor.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={actor.avatar_url} alt="" className="h-full w-full object-cover" />
+                      <Image src={actor.avatar_url} alt="" width={36} height={36} className="h-full w-full object-cover" />
                     ) : (
                       actor.display_name.charAt(0)
                     )}
@@ -107,10 +107,11 @@ export default async function FeedPage() {
                     )}
                   </p>
                   {event.cover_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={event.cover_url}
                       alt=""
+                      width={80}
+                      height={80}
                       className="h-16 w-16 shrink-0 rounded-lg object-cover transition-transform duration-300 group-hover:scale-[1.03] sm:h-20 sm:w-20"
                     />
                   )}
