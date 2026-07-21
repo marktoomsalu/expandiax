@@ -27,6 +27,7 @@ export default async function MyWorldPage() {
 
   const countries = (data ?? []) as Row[];
   const codes = countries.map((c) => c.country_code);
+  const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
   const continents = continentCounts(codes);
   const visitedContinents = continents.filter((c) => c.visited > 0).length;
@@ -49,7 +50,7 @@ export default async function MyWorldPage() {
       </div>
 
       <div className="mt-8">
-        <MapNavigator visitedCodes={codes} />
+        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} />
       </div>
 
       {codes.length === 0 ? (

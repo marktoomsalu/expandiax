@@ -17,12 +17,13 @@ type GeoFeature = {
 
 type Props = {
   visitedCodes: string[];
+  visitCounts?: Record<string, number>;
   onSelect?: (code: string) => void;
   interactive?: boolean;
   className?: string;
 };
 
-export function WorldGlobeInner({ visitedCodes, onSelect, interactive = true, className }: Props) {
+export function WorldGlobeInner({ visitedCodes, visitCounts, onSelect, interactive = true, className }: Props) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
@@ -96,7 +97,12 @@ export function WorldGlobeInner({ visitedCodes, onSelect, interactive = true, cl
             const c = countryOf(f as GeoFeature);
             const isVisited = c ? visited.has(c.code) : false;
             const isHover = (f as GeoFeature).id === hoverId;
-            if (isVisited) return isHover ? "rgba(255,125,96,0.95)" : "rgba(255,99,71,0.85)";
+            const count = c ? visitCounts?.[c.code] ?? 0 : 0;
+            if (isVisited) {
+              // Countries visited more than once glow a shade brighter.
+              if (count >= 2) return isHover ? "rgba(255,166,133,1)" : "rgba(255,125,96,0.95)";
+              return isHover ? "rgba(255,125,96,0.95)" : "rgba(255,99,71,0.85)";
+            }
             if (isDark) return isHover ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.08)";
             return isHover ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.02)";
           }}
@@ -106,7 +112,9 @@ export function WorldGlobeInner({ visitedCodes, onSelect, interactive = true, cl
           polygonsTransitionDuration={200}
           polygonLabel={(f) => {
             const c = countryOf(f as GeoFeature);
-            return c ? `${c.flag} ${c.name}` : "";
+            if (!c) return "";
+            const count = visitCounts?.[c.code] ?? 0;
+            return count >= 2 ? `${c.flag} ${c.name} · visited ${count}×` : `${c.flag} ${c.name}`;
           }}
           onPolygonHover={(f) => setHoverId(f ? (f as GeoFeature).id : null)}
           onPolygonClick={(f) => {

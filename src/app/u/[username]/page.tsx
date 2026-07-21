@@ -94,6 +94,7 @@ export default async function PublicProfilePage({ params }: { params: { username
   const countries = (countriesData ?? []) as CountryRow[];
   const concerts = (concertsData ?? []) as ConcertRow[];
   const codes = countries.map((c) => c.country_code);
+  const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
   const visitedContinents = continentCounts(codes).filter((c) => c.visited > 0);
   const uniqueArtists = new Set(concerts.map((c) => c.artist_name)).size;
@@ -143,8 +144,13 @@ export default async function PublicProfilePage({ params }: { params: { username
             {" · "}remembering since {new Date(profile.created_at).getFullYear()}
           </p>
           <p className="mt-1.5 text-sm text-muted">
-            <span className="font-medium text-ink">{followerCount ?? 0}</span> followers ·{" "}
-            <span className="font-medium text-ink">{followingCount ?? 0}</span> following
+            <Link href={`/u/${profile.username}/followers`} className="hover:text-ink">
+              <span className="font-medium text-ink">{followerCount ?? 0}</span> followers
+            </Link>
+            {" · "}
+            <Link href={`/u/${profile.username}/following`} className="hover:text-ink">
+              <span className="font-medium text-ink">{followingCount ?? 0}</span> following
+            </Link>
           </p>
           {profile.bio && <p className="mt-3 max-w-xl leading-relaxed">{profile.bio}</p>}
         </div>
@@ -161,7 +167,7 @@ export default async function PublicProfilePage({ params }: { params: { username
 
       {/* Map */}
       <div className="mt-10 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">
-        <WorldMapLink visitedCodes={codes} username={profile.username} />
+        <WorldMapLink visitedCodes={codes} visitCounts={visitCounts} username={profile.username} />
       </div>
 
       {/* Favourite memories */}

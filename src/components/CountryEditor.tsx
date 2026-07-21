@@ -61,15 +61,16 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
   const [note, setNote] = useState(data.note);
   const [noteSaved, setNoteSaved] = useState(false);
   const [year, setYear] = useState("");
+  const [highlight, setHighlight] = useState("");
   const [city, setCity] = useState("");
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const years = [...data.country_visits].sort((a, b) => a.year - b.year);
+  const visits = [...data.country_visits].sort((a, b) => a.year - b.year);
 
-  async function addYear(e: React.FormEvent) {
+  async function addVisit(e: React.FormEvent) {
     e.preventDefault();
     const y = parseInt(year, 10);
     if (Number.isNaN(y) || y < 1900 || y > 2100) {
@@ -79,15 +80,16 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
     setError(null);
     const { error: err } = await supabase
       .from("country_visits")
-      .insert({ visited_country_id: data.id, year: y });
-    if (err) setError(err.code === "23505" ? `${y} is already on the list.` : "Could not add that year.");
+      .insert({ visited_country_id: data.id, year: y, highlight: highlight.trim() });
+    if (err) setError("Could not add that visit.");
     else {
       setYear("");
+      setHighlight("");
       router.refresh();
     }
   }
 
-  async function removeYear(id: string) {
+  async function removeVisit(id: string) {
     await supabase.from("country_visits").delete().eq("id", id);
     router.refresh();
   }
@@ -157,46 +159,64 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
         </button>
       </div>
 
-      {/* Years + cities, side by side */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <section>
-          <h4 className="text-sm font-medium text-muted">Years visited</h4>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {years.map((v) => (
-              <span key={v.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-sm">
-                {v.year}
-                <button type="button" aria-label={`Remove ${v.year}`} className="text-muted hover:text-red-700" onClick={() => removeYear(v.id)}>
-                  <X size={13} />
+      {/* Visits — each can have its own highlight, and you can log the same year twice */}
+      <section>
+        <h4 className="text-sm font-medium text-muted">Your visits</h4>
+        {visits.length > 0 && (
+          <ul className="mt-2 space-y-2">
+            {visits.map((v) => (
+              <li key={v.id} className="flex items-start justify-between gap-3 rounded-lg border border-line bg-surface px-3.5 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{v.year}</p>
+                  {v.highlight && <p className="mt-0.5 text-sm text-muted">{v.highlight}</p>}
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Remove the ${v.year} visit`}
+                  className="shrink-0 text-muted hover:text-red-700"
+                  onClick={() => removeVisit(v.id)}
+                >
+                  <X size={14} />
                 </button>
-              </span>
+              </li>
             ))}
-            <form onSubmit={addYear} className="flex items-center gap-1.5">
-              <label htmlFor="year-input" className="sr-only">Add a year</label>
-              <input id="year-input" type="number" inputMode="numeric" min={1900} max={2100} placeholder="2024" className="field !w-20 !py-1.5 text-sm" value={year} onChange={(e) => setYear(e.target.value)} />
-              <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add year"><Plus size={15} /></button>
-            </form>
-          </div>
-        </section>
+          </ul>
+        )}
+        <form onSubmit={addVisit} className="mt-3 flex flex-wrap items-center gap-1.5">
+          <label htmlFor="year-input" className="sr-only">Year</label>
+          <input id="year-input" type="number" inputMode="numeric" min={1900} max={2100} placeholder="2024" className="field !w-20 !py-1.5 text-sm" value={year} onChange={(e) => setYear(e.target.value)} />
+          <label htmlFor="highlight-input" className="sr-only">Highlight from this visit</label>
+          <input
+            id="highlight-input"
+            type="text"
+            placeholder="Highlight from this trip (optional)"
+            className="field !py-1.5 min-w-0 flex-1 text-sm"
+            maxLength={200}
+            value={highlight}
+            onChange={(e) => setHighlight(e.target.value)}
+          />
+          <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add visit"><Plus size={15} /></button>
+        </form>
+      </section>
 
-        <section>
-          <h4 className="text-sm font-medium text-muted">Cities</h4>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {data.country_cities.map((c) => (
-              <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-sm">
-                {c.city_name}
-                <button type="button" aria-label={`Remove ${c.city_name}`} className="text-muted hover:text-red-700" onClick={() => removeCity(c.id)}>
-                  <X size={13} />
-                </button>
-              </span>
-            ))}
-            <form onSubmit={addCity} className="flex items-center gap-1.5">
-              <label htmlFor="city-input" className="sr-only">Add a city</label>
-              <input id="city-input" type="text" placeholder="Tallinn" className="field !w-32 !py-1.5 text-sm" value={city} onChange={(e) => setCity(e.target.value)} />
-              <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add city"><Plus size={15} /></button>
-            </form>
-          </div>
-        </section>
-      </div>
+      <section>
+        <h4 className="text-sm font-medium text-muted">Cities</h4>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {data.country_cities.map((c) => (
+            <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-sm">
+              {c.city_name}
+              <button type="button" aria-label={`Remove ${c.city_name}`} className="text-muted hover:text-red-700" onClick={() => removeCity(c.id)}>
+                <X size={13} />
+              </button>
+            </span>
+          ))}
+          <form onSubmit={addCity} className="flex items-center gap-1.5">
+            <label htmlFor="city-input" className="sr-only">Add a city</label>
+            <input id="city-input" type="text" placeholder="Tallinn" className="field !w-32 !py-1.5 text-sm" value={city} onChange={(e) => setCity(e.target.value)} />
+            <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add city"><Plus size={15} /></button>
+          </form>
+        </div>
+      </section>
 
       {/* Note — autosaves on blur */}
       <section>

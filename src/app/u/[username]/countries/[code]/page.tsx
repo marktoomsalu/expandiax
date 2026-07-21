@@ -89,6 +89,9 @@ export default async function PublicCountryPage({
   const cover = media.find((m) => m.id === country.cover_media_id) ?? media[0];
   const rest = media.filter((m) => m.id !== cover?.id);
   const years = [...new Set(country.country_visits.map((v) => v.year))].sort();
+  const highlightedVisits = [...country.country_visits]
+    .filter((v) => v.highlight.trim())
+    .sort((a, b) => a.year - b.year);
   const cities = country.country_cities.map((c) => c.city_name);
   const concerts = (relatedConcerts ?? []) as Concert[];
 
@@ -128,6 +131,19 @@ export default async function PublicCountryPage({
           <blockquote className="mt-8 border-l-2 border-accent pl-5 font-serif text-xl italic leading-relaxed md:text-2xl">
             &ldquo;{country.note}&rdquo;
           </blockquote>
+        )}
+
+        {highlightedVisits.length > 0 && (
+          <section className="mt-10" aria-label="Visit highlights">
+            <ul className="space-y-4">
+              {highlightedVisits.map((v) => (
+                <li key={v.id} className="border-l-2 border-line pl-5">
+                  <p className="eyebrow">{v.year}</p>
+                  <p className="mt-1 text-sm leading-relaxed">{v.highlight}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {rest.length > 0 && (
