@@ -15,14 +15,14 @@ export default async function Image({ params }: { params: { username: string } }
     .maybeSingle();
 
   let countryCount = 0;
-  let concertCount = 0;
+  let eventCount = 0;
   if (profile) {
     const [{ count: cc }, { count: kc }] = await Promise.all([
       supabase.from("visited_countries").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
-      supabase.from("concerts").select("*", { count: "exact", head: true }).eq("user_id", profile.id).eq("is_public", true),
+      supabase.from("events").select("*", { count: "exact", head: true }).eq("user_id", profile.id).eq("is_public", true),
     ]);
     countryCount = cc ?? 0;
-    concertCount = kc ?? 0;
+    eventCount = kc ?? 0;
   }
 
   const name = profile?.display_name ?? params.username;
@@ -81,8 +81,8 @@ export default async function Image({ params }: { params: { username: string } }
             <div style={{ fontSize: 24, opacity: 0.85 }}>of {TOTAL_COUNTRIES} countries ({pct}%)</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 60, fontWeight: 700 }}>{concertCount}</div>
-            <div style={{ fontSize: 24, opacity: 0.85 }}>concerts</div>
+            <div style={{ fontSize: 60, fontWeight: 700 }}>{eventCount}</div>
+            <div style={{ fontSize: 24, opacity: 0.85 }}>events</div>
           </div>
         </div>
         <div style={{ fontSize: 26, fontWeight: 600, opacity: 0.9 }}>ExpandiaX</div>

@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "ExpandiaX",
     short_name: "ExpandiaX",
-    description: "Your world, remembered — countries visited and concerts you never want to forget.",
+    description: "Your world, remembered — countries visited and events you never want to forget.",
     start_url: "/my-world",
     display: "standalone",
     background_color: "#faf9f6",

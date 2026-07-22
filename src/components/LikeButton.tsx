@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  kind: "country" | "concert";
+  kind: "country" | "event";
   targetId: string;
   initialLiked: boolean;
   initialCount: number;

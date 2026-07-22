@@ -175,7 +175,7 @@ export function ProfileForm({
         )}
         <label className="flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "public"} onChange={() => setVisibility("public")} />
-          <span><strong className="font-medium">Public</strong> — anyone with your link can see your map, memories and public concerts.</span>
+          <span><strong className="font-medium">Public</strong> — anyone with your link can see your map, memories and public events.</span>
         </label>
         <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "friends"} onChange={() => setVisibility("friends")} />

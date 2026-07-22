@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
 import { countryByCode } from "@/lib/countries";
+import { eventTypeMeta } from "@/lib/events";
 import { formatDate, formatRelative } from "@/lib/utils";
 import type { FeedEvent, Profile } from "@/lib/types";
 
@@ -20,7 +21,7 @@ export default async function FeedPage() {
   const { data: followingRows } = await supabase.from("follows").select("followee_id").eq("follower_id", user.id);
   const followeeIds = (followingRows ?? []).map((r) => r.followee_id);
 
-  let events: FeedEvent[] = [];
+  let items: FeedEvent[] = [];
   let actors = new Map<string, Pick<Profile, "id" | "username" | "display_name" | "avatar_url">>();
   const likeCounts = new Map<string, number>();
   const likedByMe = new Set<string>();
@@ -32,11 +33,11 @@ export default async function FeedPage() {
       .in("actor_id", followeeIds)
       .order("created_at", { ascending: false })
       .limit(30);
-    events = (feedData ?? []) as FeedEvent[];
+    items = (feedData ?? []) as FeedEvent[];
 
-    if (events.length > 0) {
-      const actorIds = [...new Set(events.map((e) => e.actor_id))];
-      const refIds = events.map((e) => e.ref_id);
+    if (items.length > 0) {
+      const actorIds = [...new Set(items.map((i) => i.actor_id))];
+      const refIds = items.map((i) => i.ref_id);
       const [{ data: profiles }, { data: likeRows }] = await Promise.all([
         supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", actorIds),
         supabase.from("likes").select("kind, target_id, user_id").in("target_id", refIds),
@@ -59,12 +60,12 @@ export default async function FeedPage() {
         <div className="mt-10">
           <EmptyState
             title="Your feed is quiet."
-            body="Follow other travellers to see the countries they pin and the concerts they log, right here."
+            body="Follow other travellers to see the countries they pin and the events they log, right here."
             actionLabel="Explore travellers"
             actionHref="/explore"
           />
         </div>
-      ) : events.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="mt-10">
           <EmptyState
             title="Nothing yet."
@@ -73,15 +74,16 @@ export default async function FeedPage() {
         </div>
       ) : (
         <ul className="mt-8 space-y-6">
-          {events.map((event) => {
-            const actor = actors.get(event.actor_id);
+          {items.map((item) => {
+            const actor = actors.get(item.actor_id);
             if (!actor) return null;
-            const meta = countryByCode(event.country_code);
-            const key = `${event.kind}:${event.ref_id}`;
+            const meta = countryByCode(item.country_code);
+            const key = `${item.kind}:${item.ref_id}`;
             const href =
-              event.kind === "country"
-                ? `/u/${actor.username}/countries/${event.country_code.toLowerCase()}`
-                : `/u/${actor.username}/concerts/${event.ref_id}`;
+              item.kind === "country"
+                ? `/u/${actor.username}/countries/${item.country_code.toLowerCase()}`
+                : `/u/${actor.username}/events/${item.ref_id}`;
+            const typeLabel = item.event_type ? eventTypeMeta(item.event_type).label.toLowerCase() : "event";
             return (
               <li key={key} className="card overflow-hidden">
                 <div className="p-4 sm:p-5">
@@ -101,40 +103,40 @@ export default async function FeedPage() {
                       <Link href={`/u/${actor.username}`} className="text-sm font-medium hover:text-accent">
                         {actor.display_name}
                       </Link>
-                      <span className="text-xs text-muted"> · {formatRelative(event.created_at)}</span>
+                      <span className="text-xs text-muted"> · {formatRelative(item.created_at)}</span>
                     </div>
                   </div>
                   <Link href={href} className="mt-3 block text-sm leading-relaxed text-ink hover:text-accent">
-                    {event.kind === "country" ? (
+                    {item.kind === "country" ? (
                       <>
-                        Added <span className="font-serif text-base">{meta?.flag} {event.title}</span> to their map.
+                        Added <span className="font-serif text-base">{meta?.flag} {item.title}</span> to their map.
                       </>
                     ) : (
                       <>
-                        Logged a concert — <span className="font-serif text-base">{event.title}</span>
-                        {event.subtitle && <span className="italic text-muted"> · {event.subtitle}</span>}.
+                        Logged a {typeLabel} — <span className="font-serif text-base">{item.title}</span>
+                        {item.subtitle && <span className="italic text-muted"> · {item.subtitle}</span>}.
                       </>
                     )}
                   </Link>
-                  {(event.visit_date || event.visit_year) && (
+                  {(item.visit_date || item.visit_year) && (
                     <p className="mt-1 text-xs text-muted">
-                      {event.kind === "country" ? "Visited" : "Was there"} {event.visit_date ? formatDate(event.visit_date) : event.visit_year}
+                      {item.kind === "country" ? "Visited" : "Was there"} {item.visit_date ? formatDate(item.visit_date) : item.visit_year}
                     </p>
                   )}
                 </div>
 
-                {event.cover_url && (
+                {item.cover_url && (
                   <div className="relative aspect-[4/3] w-full bg-raised">
-                    {event.cover_media_type === "video" ? (
+                    {item.cover_media_type === "video" ? (
                       <video
-                        src={event.cover_url}
+                        src={item.cover_url}
                         controls
                         preload="metadata"
                         className="absolute inset-0 h-full w-full bg-black object-contain"
                       />
                     ) : (
                       <Link href={href} className="absolute inset-0 block">
-                        <Image src={event.cover_url} alt="" fill sizes="(min-width: 640px) 640px, 100vw" className="object-cover" />
+                        <Image src={item.cover_url} alt="" fill sizes="(min-width: 640px) 640px, 100vw" className="object-cover" />
                       </Link>
                     )}
                   </div>
@@ -142,8 +144,8 @@ export default async function FeedPage() {
 
                 <div className="flex items-center border-t border-line px-4 py-3 sm:px-5">
                   <LikeButton
-                    kind={event.kind}
-                    targetId={event.ref_id}
+                    kind={item.kind}
+                    targetId={item.ref_id}
                     initialLiked={likedByMe.has(key)}
                     initialCount={likeCounts.get(key) ?? 0}
                   />

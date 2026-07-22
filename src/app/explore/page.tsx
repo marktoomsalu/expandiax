@@ -12,7 +12,7 @@ type ProfileLite = { id: string; username: string; display_name: string; avatar_
 export default async function ExplorePage() {
   const supabase = createClient();
 
-  const [{ data: profilesData }, { data: recentConcerts }, { data: countRows }] =
+  const [{ data: profilesData }, { data: recentEvents }, { data: countRows }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -21,8 +21,8 @@ export default async function ExplorePage() {
         .order("created_at", { ascending: false })
         .limit(12),
       supabase
-        .from("concerts")
-        .select("id, artist_name, concert_name, concert_date, city, country_name, rating, profiles(username, display_name)")
+        .from("events")
+        .select("id, title, subtitle, event_date, city, country_name, rating, profiles(username, display_name)")
         .eq("is_public", true)
         .order("created_at", { ascending: false })
         .limit(6),
@@ -34,9 +34,9 @@ export default async function ExplorePage() {
   for (const row of countRows ?? []) countsByUser.set(row.user_id, row.country_count);
   const featured = [...profiles].sort((a, b) => (countsByUser.get(b.id) ?? 0) - (countsByUser.get(a.id) ?? 0)).slice(0, 6);
 
-  const artistCounts = new Map<string, number>();
-  for (const c of recentConcerts ?? []) artistCounts.set(c.artist_name, (artistCounts.get(c.artist_name) ?? 0) + 1);
-  const popularArtists = [...artistCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const titleCounts = new Map<string, number>();
+  for (const e of recentEvents ?? []) titleCounts.set(e.title, (titleCounts.get(e.title) ?? 0) + 1);
+  const popularTitles = [...titleCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
 
   const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
 
@@ -44,7 +44,7 @@ export default async function ExplorePage() {
     <div className="mx-auto max-w-shell px-5 py-12">
       <p className="eyebrow">Explore</p>
       <h1 className="mt-2 text-4xl md:text-5xl">Worlds worth wandering.</h1>
-      <p className="mt-3 max-w-xl text-muted">Public travellers, fresh countries and the concerts people can&rsquo;t stop replaying.</p>
+      <p className="mt-3 max-w-xl text-muted">Public travellers, fresh countries and the events people can&rsquo;t stop replaying.</p>
 
       {/* Featured travellers */}
       <section className="mt-12" aria-labelledby="ft-h">
@@ -76,21 +76,21 @@ export default async function ExplorePage() {
         )}
       </section>
 
-      {/* Recent concert memories */}
-      {(recentConcerts ?? []).length > 0 && (
+      {/* Recent event memories */}
+      {(recentEvents ?? []).length > 0 && (
         <section className="mt-14" aria-labelledby="cc-h">
-          <h2 id="cc-h" className="text-2xl">Fresh concert memories</h2>
+          <h2 id="cc-h" className="text-2xl">Fresh event memories</h2>
           <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {(recentConcerts ?? []).map((c) => {
-              const p = one(c.profiles as { username: string; display_name: string } | { username: string; display_name: string }[] | null);
+            {(recentEvents ?? []).map((e) => {
+              const p = one(e.profiles as { username: string; display_name: string } | { username: string; display_name: string }[] | null);
               if (!p) return null;
               return (
-                <li key={c.id}>
-                  <Link href={`/u/${p.username}/concerts/${c.id}`} className="card group block px-4 py-4">
-                    <p className="font-serif text-lg group-hover:text-accent">{c.artist_name}</p>
-                    {c.concert_name && <p className="text-sm italic text-muted">{c.concert_name}</p>}
-                    <p className="mt-1.5 text-xs text-muted">{formatDate(c.concert_date)} · {[c.city, c.country_name].filter(Boolean).join(", ")} · by {p.display_name}</p>
-                    <div className="mt-2"><RatingStars value={c.rating} size={13} /></div>
+                <li key={e.id}>
+                  <Link href={`/u/${p.username}/events/${e.id}`} className="card group block px-4 py-4">
+                    <p className="font-serif text-lg group-hover:text-accent">{e.title}</p>
+                    {e.subtitle && <p className="text-sm italic text-muted">{e.subtitle}</p>}
+                    <p className="mt-1.5 text-xs text-muted">{formatDate(e.event_date)} · {[e.city, e.country_name].filter(Boolean).join(", ")} · by {p.display_name}</p>
+                    <div className="mt-2"><RatingStars value={e.rating} size={13} /></div>
                   </Link>
                 </li>
               );
@@ -99,12 +99,12 @@ export default async function ExplorePage() {
         </section>
       )}
 
-      {/* Popular artists */}
-      {popularArtists.length > 0 && (
+      {/* Popular titles */}
+      {popularTitles.length > 0 && (
         <section className="mt-14" aria-labelledby="pa-h">
-          <h2 id="pa-h" className="text-2xl">Artists people are archiving</h2>
+          <h2 id="pa-h" className="text-2xl">What people are archiving</h2>
           <ul className="mt-5 flex flex-wrap gap-2.5">
-            {popularArtists.map(([name, n]) => (
+            {popularTitles.map(([name, n]) => (
               <li key={name} className="rounded-full border border-line bg-surface px-4 py-1.5 font-serif text-sm">
                 {name}{n > 1 && <span className="ml-1.5 text-xs text-muted">×{n}</span>}
               </li>

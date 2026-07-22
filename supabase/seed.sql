@@ -1,5 +1,5 @@
 -- ============================================================
--- Atlas & Encore — demonstration data for one fictional profile
+-- ExpandiaX — demonstration data for one fictional profile
 --
 -- HOW TO USE
 -- 1. Run schema.sql first.
@@ -22,8 +22,8 @@ declare
   uid uuid;
   vc_ee uuid; vc_es uuid; vc_it uuid; vc_pl uuid; vc_fi uuid;
   m1 uuid; m2 uuid; m3 uuid;
-  c_madrid uuid; c_tallinn uuid; c_helsinki uuid;
-  cm1 uuid; cm2 uuid; cm3 uuid;
+  e_madrid uuid; e_tallinn uuid; e_helsinki uuid;
+  em1 uuid; em2 uuid; em3 uuid;
 begin
   select id into uid from auth.users where email = 'demo@atlasencore.example';
   if uid is null then
@@ -83,36 +83,36 @@ begin
   insert into public.country_visits (visited_country_id, year) values (vc_fi, 2023), (vc_fi, 2024);
   insert into public.country_cities (visited_country_id, city_name) values (vc_fi, 'Helsinki');
 
-  -- Concerts --------------------------------------------------
-  insert into public.concerts (user_id, artist_name, concert_name, concert_date, venue, city, country_code, country_name, rating, review, favourite_song, setlist_notes, is_favourite, is_public)
-  values (uid, 'Aurora Vale', 'The Last Summer Tour', '2023-08-26', 'Estadio Metropolitano', 'Madrid', 'ES', 'Spain', 10,
+  -- Events ------------------------------------------------------
+  insert into public.events (user_id, event_type, title, subtitle, event_date, venue, city, country_code, country_name, rating, review, highlight, notes, is_favourite, is_public)
+  values (uid, 'concert', 'Aurora Vale', 'The Last Summer Tour', '2023-08-26', 'Estadio Metropolitano', 'Madrid', 'ES', 'Spain', 10,
     '60,000 phones went dark for the acoustic encore. You could hear the city breathing.',
     'Paper Lanterns', 'Opened with Static Hearts; three-song acoustic encore.', true, true)
-  returning id into c_madrid;
-  insert into public.concert_media (concert_id, storage_path, public_url, media_type, caption, display_order)
-  values (c_madrid, 'seed/con-es-1', 'https://picsum.photos/seed/atlas-con1/1200/700', 'image', 'Lights up', 0)
-  returning id into cm1;
-  insert into public.concert_media (concert_id, storage_path, public_url, media_type, caption, display_order)
-  values (c_madrid, 'seed/con-es-2', 'https://picsum.photos/seed/atlas-con2/1200/700', 'image', 'The encore', 1);
-  update public.concerts set cover_media_id = cm1 where id = c_madrid;
+  returning id into e_madrid;
+  insert into public.event_media (event_id, storage_path, public_url, media_type, caption, display_order)
+  values (e_madrid, 'seed/con-es-1', 'https://picsum.photos/seed/atlas-con1/1200/700', 'image', 'Lights up', 0)
+  returning id into em1;
+  insert into public.event_media (event_id, storage_path, public_url, media_type, caption, display_order)
+  values (e_madrid, 'seed/con-es-2', 'https://picsum.photos/seed/atlas-con2/1200/700', 'image', 'The encore', 1);
+  update public.events set cover_media_id = em1 where id = e_madrid;
 
-  insert into public.concerts (user_id, artist_name, concert_name, concert_date, venue, city, country_code, country_name, rating, review, favourite_song, is_public)
-  values (uid, 'Iron Harbour', 'Northern Steel Tour', '2024-03-15', 'Saku Suurhall', 'Tallinn', 'EE', 'Estonia', 8,
+  insert into public.events (user_id, event_type, title, subtitle, event_date, venue, city, country_code, country_name, rating, review, highlight, is_public)
+  values (uid, 'concert', 'Iron Harbour', 'Northern Steel Tour', '2024-03-15', 'Saku Suurhall', 'Tallinn', 'EE', 'Estonia', 8,
     'Home crowd, wall of guitars, my ears rang until Tuesday and it was worth every decibel.',
     'Rust and Salt', true)
-  returning id into c_tallinn;
-  insert into public.concert_media (concert_id, storage_path, public_url, media_type, caption, display_order)
-  values (c_tallinn, 'seed/con-ee-1', 'https://picsum.photos/seed/atlas-con3/1200/700', 'image', 'Front row', 0)
-  returning id into cm2;
-  update public.concerts set cover_media_id = cm2 where id = c_tallinn;
+  returning id into e_tallinn;
+  insert into public.event_media (event_id, storage_path, public_url, media_type, caption, display_order)
+  values (e_tallinn, 'seed/con-ee-1', 'https://picsum.photos/seed/atlas-con3/1200/700', 'image', 'Front row', 0)
+  returning id into em2;
+  update public.events set cover_media_id = em2 where id = e_tallinn;
 
-  insert into public.concerts (user_id, artist_name, concert_name, concert_date, venue, city, country_code, country_name, rating, review, favourite_song, is_public)
-  values (uid, 'Aurora Vale', 'Midsummer Sound Festival', '2023-06-22', 'Suvilahti', 'Helsinki', 'FI', 'Finland', 10,
+  insert into public.events (user_id, event_type, title, subtitle, event_date, venue, city, country_code, country_name, rating, review, highlight, is_public)
+  values (uid, 'festival', 'Aurora Vale', 'Midsummer Sound Festival', '2023-06-22', 'Suvilahti', 'Helsinki', 'FI', 'Finland', 10,
     'Festival midnight that never got dark. Danced in a raincoat, dried off in the sauna.',
     'Paper Lanterns', true)
-  returning id into c_helsinki;
-  insert into public.concert_media (concert_id, storage_path, public_url, media_type, caption, display_order)
-  values (c_helsinki, 'seed/con-fi-1', 'https://picsum.photos/seed/atlas-con4/1200/700', 'image', 'White night crowd', 0)
-  returning id into cm3;
-  update public.concerts set cover_media_id = cm3 where id = c_helsinki;
+  returning id into e_helsinki;
+  insert into public.event_media (event_id, storage_path, public_url, media_type, caption, display_order)
+  values (e_helsinki, 'seed/con-fi-1', 'https://picsum.photos/seed/atlas-con4/1200/700', 'image', 'White night crowd', 0)
+  returning id into em3;
+  update public.events set cover_media_id = em3 where id = e_helsinki;
 end $$;

@@ -12,15 +12,15 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   userId: string;
-  scope: "countries" | "concerts";
+  scope: "countries" | "events";
   parentId: string;
-  table: "country_media" | "concert_media";
-  fkColumn: "visited_country_id" | "concert_id";
+  table: "country_media" | "event_media";
+  fkColumn: "visited_country_id" | "event_id";
   kind: "image" | "video";
   max: number;
   items: MediaItem[];
   coverId?: string | null;
-  coverTable?: "visited_countries" | "concerts";
+  coverTable?: "visited_countries" | "events";
   captions?: boolean;
   label: string;
 };

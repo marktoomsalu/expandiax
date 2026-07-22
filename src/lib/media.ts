@@ -18,7 +18,7 @@ export function validateFile(file: File, kind: "image" | "video"): string | null
   return null;
 }
 
-export function storagePath(userId: string, scope: "countries" | "concerts", parentId: string, file: File) {
+export function storagePath(userId: string, scope: "countries" | "events", parentId: string, file: File) {
   const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "bin";
   const id = crypto.randomUUID();
   return `${userId}/${scope}/${parentId}/${id}.${ext}`;

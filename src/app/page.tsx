@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Camera, Globe2, Music2 } from "lucide-react";
+import { Camera, Globe2, Music2, Ticket } from "lucide-react";
 import { WorldMap } from "@/components/WorldMap";
 import { FadeIn } from "@/components/FadeIn";
 import { RatingStars } from "@/components/Rating";
@@ -24,7 +24,7 @@ export default function LandingPage() {
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
               Track the countries you have explored, preserve the moments that mattered and build a
-              visual archive of every concert that made you feel alive.
+              visual archive of every event that made you feel alive.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link href="/sign-up" className="btn-accent !px-7 !py-3">Create your world</Link>
@@ -85,9 +85,9 @@ export default function LandingPage() {
             </article>
           </FadeIn>
 
-          {/* Example concert memory */}
+          {/* Example event memory */}
           <FadeIn delay={0.1}>
-            <article className="card overflow-hidden" aria-label="Example concert memory">
+            <article className="card overflow-hidden" aria-label="Example event memory">
               <div className="relative flex aspect-[16/8] items-end bg-[#14110f] px-6 py-5">
                 <div aria-hidden className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_20%,rgba(255,99,71,0.35),transparent_60%),radial-gradient(ellipse_at_20%_100%,rgba(13,148,136,0.28),transparent_55%)]" />
                 <div className="relative text-white">
@@ -127,9 +127,9 @@ export default function LandingPage() {
                 body: `Mark each of the ${TOTAL_COUNTRIES} recognised countries as you go. Add years, cities and the one memory worth keeping.`,
               },
               {
-                icon: Music2,
-                title: "Archive your concerts",
-                body: "Artist, venue, rating, the song that wrecked you — with photos and short videos from the crowd.",
+                icon: Ticket,
+                title: "Archive your events",
+                body: "Concerts, festivals, matches, conferences, weddings — venue, rating, the moment that stuck, with photos and short videos.",
               },
               {
                 icon: Camera,

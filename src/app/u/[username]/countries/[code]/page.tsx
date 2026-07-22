@@ -8,7 +8,7 @@ import { countryByCode } from "@/lib/countries";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
 import { formatDate, formatVisitRange } from "@/lib/utils";
-import type { Concert, VisitedCountryFull } from "@/lib/types";
+import type { Event, VisitedCountryFull } from "@/lib/types";
 
 export async function generateMetadata({
   params,
@@ -61,7 +61,7 @@ export default async function PublicCountryPage({
     .maybeSingle();
   if (!profile) notFound();
 
-  const [{ data }, { data: allCountries }, { data: relatedConcerts }] = await Promise.all([
+  const [{ data }, { data: allCountries }, { data: relatedEvents }] = await Promise.all([
     supabase
       .from("visited_countries")
       .select("*, country_visits(*), country_cities(*), country_media!country_media_visited_country_id_fkey(*)")
@@ -74,12 +74,12 @@ export default async function PublicCountryPage({
       .eq("user_id", profile.id)
       .order("country_name"),
     supabase
-      .from("concerts")
+      .from("events")
       .select("*")
       .eq("user_id", profile.id)
       .eq("country_code", meta.code)
       .eq("is_public", true)
-      .order("concert_date", { ascending: false }),
+      .order("event_date", { ascending: false }),
   ]);
 
   const country = data as VisitedCountryFull | null;
@@ -93,7 +93,7 @@ export default async function PublicCountryPage({
     .filter((v) => v.highlight.trim())
     .sort((a, b) => a.year - b.year);
   const cities = country.country_cities.map((c) => c.city_name);
-  const concerts = (relatedConcerts ?? []) as Concert[];
+  const events = (relatedEvents ?? []) as Event[];
 
   const list = allCountries ?? [];
   const idx = list.findIndex((c) => c.country_code === meta.code);
@@ -165,18 +165,18 @@ export default async function PublicCountryPage({
           </section>
         )}
 
-        {concerts.length > 0 && (
+        {events.length > 0 && (
           <section className="mt-12" aria-labelledby="rel-h">
-            <h2 id="rel-h" className="text-xl">Concerts in {meta.name}</h2>
+            <h2 id="rel-h" className="text-xl">Events in {meta.name}</h2>
             <ul className="mt-4 space-y-3">
-              {concerts.map((c) => (
-                <li key={c.id}>
-                  <Link href={`/u/${profile.username}/concerts/${c.id}`} className="card group flex items-center justify-between px-4 py-3">
+              {events.map((e) => (
+                <li key={e.id}>
+                  <Link href={`/u/${profile.username}/events/${e.id}`} className="card group flex items-center justify-between px-4 py-3">
                     <div>
-                      <p className="font-serif group-hover:text-accent">{c.artist_name}</p>
-                      <p className="text-xs text-muted">{formatDate(c.concert_date)} · {[c.venue, c.city].filter(Boolean).join(", ")}</p>
+                      <p className="font-serif group-hover:text-accent">{e.title}</p>
+                      <p className="text-xs text-muted">{formatDate(e.event_date)} · {[e.venue, e.city].filter(Boolean).join(", ")}</p>
                     </div>
-                    <RatingStars value={c.rating} size={13} />
+                    <RatingStars value={e.rating} size={13} />
                   </Link>
                 </li>
               ))}

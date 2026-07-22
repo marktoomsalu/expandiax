@@ -11,7 +11,7 @@ async function listUserFiles(
   userId: string
 ): Promise<string[]> {
   const paths: string[] = [];
-  for (const folder of ["avatar", "countries", "concerts"]) {
+  for (const folder of ["avatar", "countries", "events"]) {
     const { data: entries } = await supabase.storage.from("media").list(`${userId}/${folder}`, { limit: 1000 });
     for (const entry of entries ?? []) {
       if (entry.id === null) {
@@ -35,15 +35,15 @@ export function ExportDataButton({ userId }: { userId: string }) {
   async function exportData() {
     setBusy(true);
     setError(null);
-    const [{ data: profile }, { data: countries }, { data: concerts }] = await Promise.all([
+    const [{ data: profile }, { data: countries }, { data: events }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).single(),
       supabase
         .from("visited_countries")
         .select("*, country_visits(*), country_cities(*), country_media!country_media_visited_country_id_fkey(*)")
         .eq("user_id", userId),
       supabase
-        .from("concerts")
-        .select("*, concert_media!concert_media_concert_id_fkey(*)")
+        .from("events")
+        .select("*, event_media!event_media_event_id_fkey(*)")
         .eq("user_id", userId),
     ]);
     setBusy(false);
@@ -51,7 +51,7 @@ export function ExportDataButton({ userId }: { userId: string }) {
       setError("Could not prepare your export. Try again.");
       return;
     }
-    const payload = { exported_at: new Date().toISOString(), profile, countries, concerts };
+    const payload = { exported_at: new Date().toISOString(), profile, countries, events };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -103,7 +103,7 @@ export function DeleteAccountButton({ userId }: { userId: string }) {
       <ConfirmDialog
         open={confirmOpen}
         title="Delete your account?"
-        body="Everything goes — your profile, countries, concerts, photos and videos. This cannot be undone. Consider exporting your data first."
+        body="Everything goes — your profile, countries, events, photos and videos. This cannot be undone. Consider exporting your data first."
         confirmLabel="Delete everything"
         busy={busy}
         onConfirm={deleteAccount}

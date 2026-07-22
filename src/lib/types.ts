@@ -46,22 +46,25 @@ export type MediaItem = {
 };
 
 export type CountryMedia = MediaItem & { visited_country_id: string };
-export type ConcertMedia = MediaItem & { concert_id: string };
+export type EventMedia = MediaItem & { event_id: string };
 
-export type Concert = {
+export type EventType = "concert" | "festival" | "sport" | "conference" | "personal" | "other";
+
+export type Event = {
   id: string;
   user_id: string;
-  artist_name: string;
-  concert_name: string;
-  concert_date: string;
+  event_type: EventType;
+  title: string;
+  subtitle: string;
+  event_date: string;
   venue: string;
   city: string;
   country_code: string;
   country_name: string;
   rating: number | null;
   review: string;
-  favourite_song: string;
-  setlist_notes: string;
+  highlight: string;
+  notes: string;
   cover_media_id: string | null;
   is_favourite: boolean;
   is_public: boolean;
@@ -76,12 +79,13 @@ export type VisitedCountryFull = VisitedCountry & {
   country_media: CountryMedia[];
 };
 
-export type ConcertFull = Concert & { concert_media: ConcertMedia[] };
+export type EventFull = Event & { event_media: EventMedia[] };
 
 export type Follow = { follower_id: string; followee_id: string; created_at: string };
 
 export type FeedEvent = {
-  kind: "country" | "concert";
+  kind: "country" | "event";
+  event_type: EventType | null;
   ref_id: string;
   actor_id: string;
   country_code: string;

@@ -1,14 +1,14 @@
 # ExpandiaX
 
-**Your world, remembered.** A premium personal archive for the countries you have visited and the concerts you never want to forget — an interactive world map, editorial country pages, cinematic concert memories, and a shareable public profile.
+**Your world, remembered.** A premium personal archive for the countries you have visited and the events you never want to forget — an interactive world map, editorial country pages, cinematic event memories, and a shareable public profile.
 
 ## Features
 
 - **Accounts & profiles** — email/password or Google auth, unique username, avatar, bio, home country, three-tier visibility (public / friends-only via mutual followers / private).
 - **My World** — interactive SVG world map of all **195 countries**, country search (the map is never the only way in), visit years, cities, a written memory, favourite flag, up to **5 photos per country** with reordering, cover selection and deletion.
-- **Concerts** — artist, tour name, date, venue, city, country, 1–10 rating, review, favourite song, setlist notes, per-concert privacy, up to **5 photos and 3 videos** with captions, covers and reordering. Search, filter (artist / year / country) and sort (newest / oldest / top rated). Dashboard statistics: totals, unique artists, countries and cities with concerts, by-year breakdown, most-seen artist, highest rated, latest, and a manually chosen favourite night.
-- **Public pages** — `/u/[username]` with stats (countries of 195, % of world, continents, concerts, unique artists), map, favourite memories, recent concerts and a photo strip; per-country and per-concert public pages with prev/next navigation and related content. Private profiles and private concerts are invisible to visitors (enforced by Row Level Security, not just UI).
-- **Explore** — featured public travellers, recently pinned countries, fresh concert memories, popular artists. No follows, likes, comments or messaging by design.
+- **Events** — six types (concert, festival, sport, conference, personal, other) each with contextually labelled fields, title/subtitle, date, venue, city, country, 1–10 rating, review, highlight, notes, per-event privacy, up to **5 photos and 3 videos** with captions, covers and reordering. Search, filter (type / year / country) and sort (newest / oldest / top rated). Dashboard statistics: totals, distinct titles, countries and cities with events, by-year breakdown, most repeated, highest rated, latest, and a manually chosen favourite.
+- **Public pages** — `/u/[username]` with stats (countries of 195, % of world, continents, events, distinct titles), map, favourite memories, recent events and a photo strip; per-country and per-event public pages with prev/next navigation and related content. Private profiles and private events are invisible to visitors (enforced by Row Level Security, not just UI).
+- **Explore** — featured public travellers, recently pinned countries, fresh event memories, what people are archiving. No follows, likes, comments or messaging by design.
 - Light + dark mode, reduced-motion support, keyboard-accessible search combobox and dialogs, responsive layout with a bottom navigation bar on mobile.
 
 ## The 195 countries
@@ -68,7 +68,7 @@ npm run lint       # ESLint
 1. Sign up in the app with email `demo@expandiax.example`, username `liiskask` (any password).
 2. Run [`supabase/seed.sql`](supabase/seed.sql) in the SQL Editor.
 
-This fills the profile of fictional traveller **Liis Kask** with Estonia, Spain, Italy, Poland and Finland (years, cities, notes) and three concerts — a stadium pop night in Madrid, a rock show in Tallinn and a festival in Helsinki. Seed images use `picsum.photos` placeholder URLs, so no copyrighted assets are required or redistributed.
+This fills the profile of fictional traveller **Liis Kask** with Estonia, Spain, Italy, Poland and Finland (years, cities, notes) and three events — a stadium pop night in Madrid, a rock show in Tallinn and a festival in Helsinki. Seed images use `picsum.photos` placeholder URLs, so no copyrighted assets are required or redistributed.
 
 ## Storage & privacy model
 
@@ -76,14 +76,14 @@ Uploads go to a single **public** `media` bucket at deterministic paths:
 
 ```
 {user-id}/countries/{visited-country-id}/{uuid}.ext
-{user-id}/concerts/{concert-id}/{uuid}.ext
+{user-id}/events/{event-id}/{uuid}.ext
 {user-id}/avatar/{uuid}.ext
 ```
 
 - **Writes/deletes** are restricted by storage policies to the folder matching the uploader's `auth.uid()`.
-- **Row data** (which URLs appear where) is protected by RLS: private profiles and private concerts return no rows to other users.
+- **Row data** (which URLs appear where) is protected by RLS: private profiles and private events return no rows to other users.
 - Because the bucket is public, a raw file URL that has already been shared remains fetchable. This is the simplest secure-enough model for an MVP; the database never leaks *which* URLs exist. Documented as a limitation below.
-- Media caps (5 country photos, 5 concert photos, 3 concert videos) are enforced **in the database by triggers**, with client-side validation (type, 10 MB images / 300 MB videos) and upload progress on top.
+- Media caps (5 country photos, 5 event photos, 3 event videos) are enforced **in the database by triggers**, with client-side validation (type, 10 MB images / 300 MB videos) and upload progress on top.
 
 ## Deployment
 
@@ -94,8 +94,8 @@ Deploy anywhere Next.js runs (Vercel is simplest): set the two environment varia
 | Media | Max count | Max size |
 |---|---|---|
 | Country photos | 5 per country | 10 MB each |
-| Concert photos | 5 per concert | 10 MB each |
-| Concert videos | 3 per concert | 300 MB each |
+| Event photos | 5 per event | 10 MB each |
+| Event videos | 3 per event | 300 MB each |
 
 Accepted types: JPEG, PNG, WebP, GIF, AVIF images; MP4, WebM, QuickTime video.
 

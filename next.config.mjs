@@ -8,6 +8,13 @@ const nextConfig = {
       { protocol: "https", hostname: "picsum.photos" },
     ],
   },
+  async redirects() {
+    return [
+      { source: "/concerts", destination: "/events", permanent: true },
+      { source: "/concerts/:path*", destination: "/events/:path*", permanent: true },
+      { source: "/u/:username/concerts/:id", destination: "/u/:username/events/:id", permanent: true },
+    ];
+  },
 };
 
 // No-ops safely when NEXT_PUBLIC_SENTRY_DSN is unset — no org/project needed

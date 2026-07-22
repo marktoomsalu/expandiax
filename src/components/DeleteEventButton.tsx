@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "./ConfirmDialog";
 
-export function DeleteConcertButton({ concertId, mediaPaths }: { concertId: string; mediaPaths: string[] }) {
+export function DeleteEventButton({ eventId, mediaPaths }: { eventId: string; mediaPaths: string[] }) {
   const router = useRouter();
   const supabase = createClient();
   const [open, setOpen] = useState(false);
@@ -13,22 +13,22 @@ export function DeleteConcertButton({ concertId, mediaPaths }: { concertId: stri
 
   async function onConfirm() {
     setBusy(true);
-    await supabase.from("concerts").delete().eq("id", concertId);
+    await supabase.from("events").delete().eq("id", eventId);
     if (mediaPaths.length) await supabase.storage.from("media").remove(mediaPaths);
-    router.push("/concerts");
+    router.push("/events");
     router.refresh();
   }
 
   return (
     <>
       <button type="button" className="btn-danger" onClick={() => setOpen(true)}>
-        Delete concert
+        Delete event
       </button>
       <ConfirmDialog
         open={open}
-        title="Delete this concert?"
+        title="Delete this event?"
         body="The entry and all of its photos and videos will be removed. This cannot be undone."
-        confirmLabel="Delete concert"
+        confirmLabel="Delete event"
         busy={busy}
         onConfirm={onConfirm}
         onCancel={() => setOpen(false)}

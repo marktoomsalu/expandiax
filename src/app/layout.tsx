@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://expandiax.com"),
   title: { default: "ExpandiaX — Your world, remembered.", template: "%s · ExpandiaX" },
   description:
-    "Track the countries you have explored, preserve the moments that mattered and build a visual archive of every concert that made you feel alive.",
+    "Track the countries you have explored, preserve the moments that mattered and build a visual archive of every event that made you feel alive.",
   openGraph: {
     siteName: "ExpandiaX",
     type: "website",

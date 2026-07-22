@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, Globe2, Music2, Plus, Rss, UserRound } from "lucide-react";
+import { Compass, Globe2, Plus, Rss, Ticket, UserRound } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +28,7 @@ export function SiteNav({ user }: { user: NavUser }) {
     { href: "/my-world", label: "My World", icon: Globe2 },
   ];
   const rightLinks = [
-    { href: "/concerts", label: "Concerts", icon: Music2 },
+    { href: "/events", label: "Events", icon: Ticket },
     { href: `/u/${user?.username}`, label: "Profile", icon: UserRound },
   ];
   const guestLinks = [{ href: "/explore", label: "Explore", icon: Compass }];
@@ -88,12 +88,12 @@ export function SiteNav({ user }: { user: NavUser }) {
                     </Link>
                     <div className="h-px bg-line" aria-hidden />
                     <Link
-                      href="/concerts/new"
+                      href="/events/new"
                       role="menuitem"
                       onClick={() => setAddOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-3 text-sm hover:bg-raised"
                     >
-                      <Music2 size={16} className="text-accent" /> Add a concert
+                      <Ticket size={16} className="text-accent" /> Add an event
                     </Link>
                   </div>
                 </>

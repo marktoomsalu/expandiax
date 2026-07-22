@@ -1,5 +1,5 @@
 -- ============================================================
--- Atlas & Encore — Supabase schema, security and storage setup
+-- ExpandiaX — Supabase schema, security and storage setup
 -- Run this whole file in the Supabase SQL editor (or via CLI).
 -- Safe to run once on a fresh project.
 -- ============================================================
@@ -64,20 +64,25 @@ alter table public.visited_countries
   add constraint visited_countries_cover_media_fk
   foreign key (cover_media_id) references public.country_media (id) on delete set null;
 
-create table public.concerts (
+-- Events: concerts, festivals, sport, conferences, personal occasions
+-- (weddings etc.) or anything else — event_type is just a label, every
+-- event shares the same fields.
+create table public.events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
-  artist_name text not null check (length(artist_name) between 1 and 120),
-  concert_name text not null default '',
-  concert_date date not null,
+  event_type text not null default 'concert'
+    check (event_type in ('concert', 'festival', 'sport', 'conference', 'personal', 'other')),
+  title text not null check (length(title) between 1 and 120),
+  subtitle text not null default '',
+  event_date date not null,
   venue text not null default '',
   city text not null default '',
   country_code text not null check (country_code ~ '^[A-Z]{2}$'),
   country_name text not null,
   rating int check (rating between 1 and 10),
   review text not null default '',
-  favourite_song text not null default '',
-  setlist_notes text not null default '',
+  highlight text not null default '',
+  notes text not null default '',
   cover_media_id uuid, -- FK added below
   is_favourite boolean not null default false,
   is_public boolean not null default true,
@@ -86,9 +91,9 @@ create table public.concerts (
   updated_at timestamptz not null default now()
 );
 
-create table public.concert_media (
+create table public.event_media (
   id uuid primary key default gen_random_uuid(),
-  concert_id uuid not null references public.concerts (id) on delete cascade,
+  event_id uuid not null references public.events (id) on delete cascade,
   storage_path text not null,
   public_url text not null,
   media_type text not null check (media_type in ('image', 'video')),
@@ -97,9 +102,9 @@ create table public.concert_media (
   created_at timestamptz not null default now()
 );
 
-alter table public.concerts
-  add constraint concerts_cover_media_fk
-  foreign key (cover_media_id) references public.concert_media (id) on delete set null;
+alter table public.events
+  add constraint events_cover_media_fk
+  foreign key (cover_media_id) references public.event_media (id) on delete set null;
 
 -- ---------- Indexes ----------
 
@@ -107,9 +112,9 @@ create index visited_countries_user_idx on public.visited_countries (user_id);
 create index country_visits_vc_idx on public.country_visits (visited_country_id);
 create index country_cities_vc_idx on public.country_cities (visited_country_id);
 create index country_media_vc_idx on public.country_media (visited_country_id, display_order);
-create index concerts_user_date_idx on public.concerts (user_id, concert_date desc);
-create index concerts_country_idx on public.concerts (user_id, country_code);
-create index concert_media_concert_idx on public.concert_media (concert_id, display_order);
+create index events_user_date_idx on public.events (user_id, event_date desc);
+create index events_country_idx on public.events (user_id, country_code);
+create index event_media_event_idx on public.event_media (event_id, display_order);
 create index profiles_visibility_idx on public.profiles (visibility) where visibility = 'public';
 
 -- ---------- Helper functions ----------
@@ -179,7 +184,7 @@ create trigger profiles_touch before update on public.profiles
   for each row execute function public.set_updated_at();
 create trigger visited_countries_touch before update on public.visited_countries
   for each row execute function public.set_updated_at();
-create trigger concerts_touch before update on public.concerts
+create trigger events_touch before update on public.events
   for each row execute function public.set_updated_at();
 
 -- Create a profile automatically when a user signs up.
@@ -219,24 +224,24 @@ $$;
 create trigger country_media_cap before insert on public.country_media
   for each row execute function public.enforce_country_media_cap();
 
-create or replace function public.enforce_concert_media_cap()
+create or replace function public.enforce_event_media_cap()
 returns trigger language plpgsql as $$
 declare n int;
 begin
-  select count(*) into n from public.concert_media
-  where concert_id = new.concert_id and media_type = new.media_type;
+  select count(*) into n from public.event_media
+  where event_id = new.event_id and media_type = new.media_type;
   if new.media_type = 'image' and n >= 5 then
-    raise exception 'A concert can have at most 5 photos.';
+    raise exception 'An event can have at most 5 photos.';
   end if;
   if new.media_type = 'video' and n >= 3 then
-    raise exception 'A concert can have at most 3 videos.';
+    raise exception 'An event can have at most 3 videos.';
   end if;
   return new;
 end;
 $$;
 
-create trigger concert_media_cap before insert on public.concert_media
-  for each row execute function public.enforce_concert_media_cap();
+create trigger event_media_cap before insert on public.event_media
+  for each row execute function public.enforce_event_media_cap();
 
 -- ---------- Row Level Security ----------
 
@@ -245,8 +250,8 @@ alter table public.visited_countries enable row level security;
 alter table public.country_visits enable row level security;
 alter table public.country_cities enable row level security;
 alter table public.country_media enable row level security;
-alter table public.concerts enable row level security;
-alter table public.concert_media enable row level security;
+alter table public.events enable row level security;
+alter table public.event_media enable row level security;
 
 -- profiles
 create policy "profiles are viewable when visible or own"
@@ -302,45 +307,45 @@ create policy "country media update" on public.country_media for update
 create policy "country media delete" on public.country_media for delete
   using (public.owns_visited_country(visited_country_id));
 
--- concerts
-create policy "concerts readable when owner or public"
-  on public.concerts for select
+-- events
+create policy "events readable when owner or public"
+  on public.events for select
   using (user_id = auth.uid()
          or (is_public and public.is_profile_public(user_id)));
-create policy "owner inserts concerts" on public.concerts for insert
+create policy "owner inserts events" on public.events for insert
   with check (user_id = auth.uid());
-create policy "owner updates concerts" on public.concerts for update
+create policy "owner updates events" on public.events for update
   using (user_id = auth.uid()) with check (user_id = auth.uid());
-create policy "owner deletes concerts" on public.concerts for delete
+create policy "owner deletes events" on public.events for delete
   using (user_id = auth.uid());
 
--- concert media follows the parent concert
-create or replace function public.owns_concert(c_id uuid)
+-- event media follows the parent event
+create or replace function public.owns_event(e_id uuid)
 returns boolean
 language sql stable security definer set search_path = public
 as $$
-  select exists (select 1 from public.concerts where id = c_id and user_id = auth.uid());
+  select exists (select 1 from public.events where id = e_id and user_id = auth.uid());
 $$;
 
-create or replace function public.concert_is_public(c_id uuid)
+create or replace function public.event_is_public(e_id uuid)
 returns boolean
 language sql stable security definer set search_path = public
 as $$
   select exists (
-    select 1 from public.concerts c
-    where c.id = c_id and c.is_public and public.is_profile_public(c.user_id)
+    select 1 from public.events e
+    where e.id = e_id and e.is_public and public.is_profile_public(e.user_id)
   );
 $$;
 
-create policy "concert media readable" on public.concert_media for select
-  using (public.owns_concert(concert_id) or public.concert_is_public(concert_id));
-create policy "concert media insert" on public.concert_media for insert
-  with check (public.owns_concert(concert_id));
-create policy "concert media update" on public.concert_media for update
-  using (public.owns_concert(concert_id))
-  with check (public.owns_concert(concert_id));
-create policy "concert media delete" on public.concert_media for delete
-  using (public.owns_concert(concert_id));
+create policy "event media readable" on public.event_media for select
+  using (public.owns_event(event_id) or public.event_is_public(event_id));
+create policy "event media insert" on public.event_media for insert
+  with check (public.owns_event(event_id));
+create policy "event media update" on public.event_media for update
+  using (public.owns_event(event_id))
+  with check (public.owns_event(event_id));
+create policy "event media delete" on public.event_media for delete
+  using (public.owns_event(event_id));
 
 -- ---------- Storage ----------
 -- One public bucket. Every object lives under <user_id>/... so ownership
@@ -407,16 +412,17 @@ create policy "users unfollow"
   using (follower_id = auth.uid());
 
 -- security_invoker means this view enforces the RLS of visited_countries /
--- concerts / country_media / concert_media as the querying user. Falls back
--- to the first photo/video (by display_order) when no cover is explicitly
+-- events / country_media / event_media as the querying user. Falls back to
+-- the first photo/video (by display_order) when no cover is explicitly
 -- set, and carries media_type so the feed can render video too. visit_year/
 -- visit_date carry when the thing actually happened (most recent logged
--- visit for countries, the concert date for concerts) — not when it was
--- added to the app.
+-- visit for countries, the event date for events) — not when it was added
+-- to the app. event_type is null for country entries.
 create view public.feed_events
 with (security_invoker = true) as
   select
     'country'::text as kind,
+    null::text as event_type,
     vc.id as ref_id,
     vc.user_id as actor_id,
     vc.country_code as country_code,
@@ -445,26 +451,27 @@ with (security_invoker = true) as
   where vc.share_to_feed
   union all
   select
-    'concert'::text as kind,
-    c.id as ref_id,
-    c.user_id as actor_id,
-    c.country_code as country_code,
-    c.artist_name as title,
-    nullif(c.concert_name, '') as subtitle,
+    'event'::text as kind,
+    e.event_type as event_type,
+    e.id as ref_id,
+    e.user_id as actor_id,
+    e.country_code as country_code,
+    e.title as title,
+    nullif(e.subtitle, '') as subtitle,
     cm.public_url as cover_url,
     cm.media_type as cover_media_type,
-    extract(year from c.concert_date)::int as visit_year,
-    c.concert_date as visit_date,
-    c.created_at as created_at
-  from public.concerts c
+    extract(year from e.event_date)::int as visit_year,
+    e.event_date as visit_date,
+    e.created_at as created_at
+  from public.events e
   left join lateral (
     select public_url, media_type
-    from public.concert_media
-    where concert_id = c.id
-    order by (id = c.cover_media_id) desc, display_order asc
+    from public.event_media
+    where event_id = e.id
+    order by (id = e.cover_media_id) desc, display_order asc
     limit 1
   ) cm on true
-  where c.is_public and c.share_to_feed;
+  where e.is_public and e.share_to_feed;
 
 grant select on public.feed_events to authenticated;
 
@@ -473,7 +480,7 @@ grant select on public.feed_events to authenticated;
 create table public.likes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
-  kind text not null check (kind in ('country', 'concert')),
+  kind text not null check (kind in ('country', 'event')),
   target_id uuid not null,
   created_at timestamptz not null default now(),
   unique (user_id, kind, target_id)
@@ -488,7 +495,7 @@ create policy "likes readable when target visible"
   using (
     (kind = 'country' and (public.owns_visited_country(target_id) or public.visited_country_is_public(target_id)))
     or
-    (kind = 'concert' and (public.owns_concert(target_id) or public.concert_is_public(target_id)))
+    (kind = 'event' and (public.owns_event(target_id) or public.event_is_public(target_id)))
   );
 
 create policy "users like visible content"
@@ -498,7 +505,7 @@ create policy "users like visible content"
     and (
       (kind = 'country' and (public.owns_visited_country(target_id) or public.visited_country_is_public(target_id)))
       or
-      (kind = 'concert' and (public.owns_concert(target_id) or public.concert_is_public(target_id)))
+      (kind = 'event' and (public.owns_event(target_id) or public.event_is_public(target_id)))
     )
   );
 
@@ -506,7 +513,7 @@ create policy "users unlike" on public.likes for delete
   using (user_id = auth.uid());
 
 -- ---------- Self-service account deletion ----------
--- Cascades through profiles -> visited_countries / concerts -> their child
+-- Cascades through profiles -> visited_countries / events -> their child
 -- tables via the existing "on delete cascade" foreign keys. Does not touch
 -- Storage — the app removes uploaded files client-side before calling this.
 
@@ -541,7 +548,7 @@ grant select on public.public_country_counts to anon, authenticated;
 create table public.reports (
   id uuid primary key default gen_random_uuid(),
   reporter_id uuid not null references public.profiles (id) on delete cascade,
-  target_type text not null check (target_type in ('profile', 'concert', 'country')),
+  target_type text not null check (target_type in ('profile', 'event', 'country')),
   target_id uuid not null,
   target_url text not null,
   reason text not null check (length(reason) between 1 and 500),

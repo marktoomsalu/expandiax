@@ -72,7 +72,7 @@ export default function SignUpPage() {
       <p className="eyebrow">Create account</p>
       <h1 className="mt-2 text-3xl md:text-4xl">Begin your archive.</h1>
       <p className="mt-3 text-sm text-muted">
-        One place for every country you&rsquo;ve set foot in and every concert you never want to forget.
+        One place for every country you&rsquo;ve set foot in and every event you never want to forget.
       </p>
 
       <div className="mt-8">
