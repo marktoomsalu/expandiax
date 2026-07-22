@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EventForm } from "@/components/EventForm";
 import { MediaUploader } from "@/components/MediaUploader";
 import { DeleteEventButton } from "@/components/DeleteEventButton";
+import { dedupeRecentArtists } from "@/lib/events";
 import type { EventFull } from "@/lib/types";
 
 export const metadata = { title: "Edit event" };
@@ -22,7 +23,7 @@ export default async function EditEventPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
 
-  const [{ data: profile }, { data }] = await Promise.all([
+  const [{ data: profile }, { data }, { data: artistRows }] = await Promise.all([
     supabase.from("profiles").select("username").eq("id", user.id).single(),
     supabase
       .from("events")
@@ -30,10 +31,20 @@ export default async function EditEventPage({
       .eq("id", params.id)
       .eq("user_id", user.id)
       .maybeSingle(),
+    supabase
+      .from("events")
+      .select("spotify_artist_id, spotify_artist_name, spotify_artist_image")
+      .eq("user_id", user.id)
+      .neq("id", params.id)
+      .not("spotify_artist_id", "is", null)
+      .order("event_date", { ascending: false })
+      .limit(50),
   ]);
 
   const event = data as EventFull | null;
   if (!event) notFound();
+
+  const recentArtists = dedupeRecentArtists(artistRows ?? []);
 
   const images = event.event_media.filter((m) => m.media_type === "image");
   const videos = event.event_media.filter((m) => m.media_type === "video");
@@ -66,7 +77,7 @@ export default async function EditEventPage({
       </div>
 
       <div className="mt-8">
-        <EventForm event={event} />
+        <EventForm event={event} recentArtists={recentArtists} />
       </div>
 
       <div className="mt-12 space-y-10 border-t border-line pt-8">

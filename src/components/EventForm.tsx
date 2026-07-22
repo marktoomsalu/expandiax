@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES, countryByCode } from "@/lib/countries";
-import { EVENT_TYPES, eventTypeMeta } from "@/lib/events";
+import { EVENT_TYPES, eventTypeMeta, type RecentArtist } from "@/lib/events";
 import { RatingInput } from "./Rating";
 import { ArtistPicker, type SpotifyArtist } from "./ArtistPicker";
 import { cn } from "@/lib/utils";
 import type { Event, EventType } from "@/lib/types";
 
-export function EventForm({ event }: { event?: Event }) {
+export function EventForm({ event, recentArtists = [] }: { event?: Event; recentArtists?: RecentArtist[] }) {
   const router = useRouter();
   const supabase = createClient();
   const [f, setF] = useState({
@@ -38,6 +40,15 @@ export function EventForm({ event }: { event?: Event }) {
 
   const set = <K extends keyof typeof f>(key: K, value: (typeof f)[K]) =>
     setF((cur) => ({ ...cur, [key]: value }));
+
+  const applyArtist = (artist: SpotifyArtist | null) =>
+    setF((cur) => ({
+      ...cur,
+      spotify_artist_id: artist?.id ?? null,
+      spotify_artist_name: artist?.name ?? null,
+      spotify_artist_image: artist?.image ?? null,
+      title: artist ? artist.name : cur.title,
+    }));
 
   const meta = eventTypeMeta(f.event_type);
 
@@ -139,21 +150,37 @@ export function EventForm({ event }: { event?: Event }) {
             Found them? Their photo becomes the cover and fills in {meta.titleLabel.toLowerCase()} below — no
             need to type it twice. Not on Spotify? Just skip this and type it in yourself.
           </p>
+
+          {!f.spotify_artist_id && recentArtists.length > 0 && (
+            <div className="mb-2">
+              <p className="mb-1.5 text-xs text-muted">Seen before</p>
+              <div className="flex flex-wrap gap-1.5">
+                {recentArtists.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => applyArtist(a)}
+                    className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
+                  >
+                    {a.image ? (
+                      <Image src={a.image} alt="" width={18} height={18} className="h-[18px] w-[18px] rounded-full object-cover" />
+                    ) : (
+                      <User size={12} />
+                    )}
+                    {a.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <ArtistPicker
             value={
               f.spotify_artist_id
                 ? { id: f.spotify_artist_id, name: f.spotify_artist_name ?? "", image: f.spotify_artist_image }
                 : null
             }
-            onChange={(artist: SpotifyArtist | null) =>
-              setF((cur) => ({
-                ...cur,
-                spotify_artist_id: artist?.id ?? null,
-                spotify_artist_name: artist?.name ?? null,
-                spotify_artist_image: artist?.image ?? null,
-                title: artist ? artist.name : cur.title,
-              }))
-            }
+            onChange={applyArtist}
           />
         </div>
       )}
