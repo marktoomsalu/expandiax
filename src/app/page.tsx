@@ -27,7 +27,7 @@ export default function LandingPage() {
               visual archive of every event that made you feel alive.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Link href="/sign-up" className="btn-accent !px-7 !py-3">Create your world</Link>
+              <Link href="/sign-in" className="btn-accent !px-7 !py-3">Sign in</Link>
               <Link href="/explore" className="btn-ghost !px-7 !py-3">Explore travellers</Link>
             </div>
           </FadeIn>
@@ -156,7 +156,7 @@ export default function LandingPage() {
             Some nights deserve more than a camera roll.
           </h2>
           <div className="mt-9">
-            <Link href="/sign-up" className="btn-accent !px-8 !py-3.5 !text-base">Start your archive — it&rsquo;s free</Link>
+            <Link href="/sign-in" className="btn-accent !px-8 !py-3.5 !text-base">Sign in</Link>
           </div>
         </FadeIn>
       </section>

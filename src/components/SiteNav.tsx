@@ -42,11 +42,11 @@ export function SiteNav({ user }: { user: NavUser }) {
             <ThemeToggle />
             {!user && (
               <>
-                <Link href="/sign-in" className="hidden font-sans text-sm text-muted hover:text-ink sm:block">
-                  Sign in
-                </Link>
-                <Link href="/sign-up" className="btn-accent !py-2 text-sm">
+                <Link href="/sign-up" className="hidden font-sans text-sm text-muted hover:text-ink sm:block">
                   Create account
+                </Link>
+                <Link href="/sign-in" className="btn-accent !py-2 text-sm">
+                  Sign in
                 </Link>
               </>
             )}
