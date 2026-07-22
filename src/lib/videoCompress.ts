@@ -26,9 +26,15 @@ async function getFFmpeg(): Promise<FFmpeg> {
 }
 
 /**
- * Re-encodes a video client-side to ~720p / a lower bitrate so it uploads
- * fast on a slow connection. Runs entirely in the browser via ffmpeg.wasm —
- * nothing is sent anywhere to be compressed.
+ * Re-encodes a video client-side to a smaller resolution and bitrate so it
+ * uploads fast on a slow connection. Runs entirely in the browser via
+ * ffmpeg.wasm — nothing is sent anywhere to be compressed.
+ *
+ * The single-threaded core (see getFFmpeg above) means this is CPU-bound on
+ * one core, so "ultrafast" + a smaller target resolution are the two levers
+ * that actually matter for wall-clock time here — x264's preset ladder is
+ * the single biggest speed lever, and encode time scales roughly with pixel
+ * count, so a smaller frame beats a smaller CRF for cutting wait time.
  */
 export async function compressVideo(file: File, onProgress?: (pct: number) => void): Promise<File> {
   const { fetchFile } = await import("@ffmpeg/util");
@@ -46,12 +52,12 @@ export async function compressVideo(file: File, onProgress?: (pct: number) => vo
     await ffmpeg.writeFile(inputName, await fetchFile(file));
     await ffmpeg.exec([
       "-i", inputName,
-      "-vf", "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))'",
+      "-vf", "scale='if(gt(iw,ih),min(960,iw),-2)':'if(gt(iw,ih),-2,min(960,ih))'",
       "-c:v", "libx264",
-      "-preset", "veryfast",
-      "-crf", "28",
+      "-preset", "ultrafast",
+      "-crf", "30",
       "-c:a", "aac",
-      "-b:a", "128k",
+      "-b:a", "96k",
       "-movflags", "+faststart",
       outputName,
     ]);
