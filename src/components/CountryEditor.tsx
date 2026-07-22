@@ -6,6 +6,7 @@ import { Heart, MapPinPlus, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { SoundtrackPicker } from "./SoundtrackPicker";
 import { MONTH_NAMES, cn, formatVisitRange, visitSortKey } from "@/lib/utils";
 
 type Meta = { code: string; name: string; flag: string };
@@ -337,6 +338,14 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
             <input id="city-input" type="text" placeholder="Tallinn" className="field !w-32 !py-1.5 text-sm" value={city} onChange={(e) => setCity(e.target.value)} />
             <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add city"><Plus size={15} /></button>
           </form>
+        </div>
+      </section>
+
+      <section>
+        <h4 className="text-sm font-medium text-muted">Soundtrack</h4>
+        <p className="text-xs text-muted">The song this trip sounded like — shown on the country page and playable in your feed.</p>
+        <div className="mt-2">
+          <SoundtrackPicker countryId={data.id} initialTrackId={data.spotify_track_id} />
         </div>
       </section>
 

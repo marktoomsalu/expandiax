@@ -28,6 +28,13 @@ create table public.visited_countries (
   cover_media_id uuid, -- FK added below (circular reference)
   is_favourite boolean not null default false,
   share_to_feed boolean not null default true,
+  -- The soundtrack of that trip — a Spotify track, cached at pick time so
+  -- pages can render it without a live Spotify call. Played via Spotify's
+  -- official embed widget, never streamed directly.
+  spotify_track_id text,
+  spotify_track_name text,
+  spotify_track_artist text,
+  spotify_track_image text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, country_code)
@@ -440,6 +447,9 @@ with (security_invoker = true) as
     lv.year as visit_year,
     coalesce(lv.visited_to, lv.visited_from) as visit_date,
     lv.date_precision as visit_date_precision,
+    vc.spotify_track_id as spotify_track_id,
+    vc.spotify_track_name as spotify_track_name,
+    vc.spotify_track_artist as spotify_track_artist,
     vc.created_at as created_at
   from public.visited_countries vc
   left join lateral (
@@ -473,6 +483,9 @@ with (security_invoker = true) as
     extract(year from e.event_date)::int as visit_year,
     e.event_date as visit_date,
     'day'::text as visit_date_precision,
+    null::text as spotify_track_id,
+    null::text as spotify_track_name,
+    null::text as spotify_track_artist,
     e.created_at as created_at
   from public.events e
   left join lateral (

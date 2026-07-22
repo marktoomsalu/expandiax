@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
+import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { formatDate, formatVisitRange } from "@/lib/utils";
 import type { Event, VisitedCountryFull } from "@/lib/types";
 
@@ -131,6 +132,12 @@ export default async function PublicCountryPage({
           <blockquote className="mt-8 border-l-2 border-accent pl-5 font-serif text-xl italic leading-relaxed md:text-2xl">
             &ldquo;{country.note}&rdquo;
           </blockquote>
+        )}
+
+        {country.spotify_track_id && (
+          <div className="mt-8">
+            <SpotifyEmbed trackId={country.spotify_track_id} compact />
+          </div>
         )}
 
         {highlightedVisits.length > 0 && (

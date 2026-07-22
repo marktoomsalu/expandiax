@@ -21,6 +21,10 @@ export type VisitedCountry = {
   cover_media_id: string | null;
   is_favourite: boolean;
   share_to_feed: boolean;
+  spotify_track_id: string | null;
+  spotify_track_name: string | null;
+  spotify_track_artist: string | null;
+  spotify_track_image: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -101,5 +105,8 @@ export type FeedEvent = {
   visit_year: number | null;
   visit_date: string | null;
   visit_date_precision: DatePrecision | null;
+  spotify_track_id: string | null;
+  spotify_track_name: string | null;
+  spotify_track_artist: string | null;
   created_at: string;
 };

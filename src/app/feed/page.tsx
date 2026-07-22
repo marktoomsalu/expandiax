@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
+import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
@@ -127,6 +128,11 @@ export default async function FeedPage() {
                     )}
                     {item.body && <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-ink">{item.body}</p>}
                   </Link>
+                  {item.kind === "country" && item.spotify_track_id && (
+                    <div className="mt-3">
+                      <SpotifyEmbed trackId={item.spotify_track_id} compact />
+                    </div>
+                  )}
                 </div>
 
                 {item.cover_url && (

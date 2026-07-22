@@ -6,6 +6,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
 import { validateFile } from "@/lib/media";
+import { AvatarCropper } from "./AvatarCropper";
 import { cn } from "@/lib/utils";
 import type { Profile, ProfileVisibility } from "@/lib/types";
 
@@ -34,11 +35,12 @@ export function ProfileForm({
   );
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  async function onAvatar(file: File | undefined) {
+  function pickAvatar(file: File | undefined) {
     if (!file) return;
     const problem = validateFile(file, "image");
     if (problem) {
@@ -46,10 +48,18 @@ export function ProfileForm({
       return;
     }
     setError(null);
+    setCropSrc(URL.createObjectURL(file));
+  }
+
+  function cancelCrop() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  }
+
+  async function onAvatarCropped(blob: Blob) {
     setAvatarBusy(true);
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const path = `${profile.id}/avatar/${crypto.randomUUID()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("media").upload(path, file);
+    const path = `${profile.id}/avatar/${crypto.randomUUID()}.jpg`;
+    const { error: upErr } = await supabase.storage.from("media").upload(path, blob, { contentType: "image/jpeg" });
     if (upErr) {
       setError("Could not upload the photo. Try again.");
       setAvatarBusy(false);
@@ -58,6 +68,8 @@ export function ProfileForm({
     const { data } = supabase.storage.from("media").getPublicUrl(path);
     setAvatarUrl(data.publicUrl);
     setAvatarBusy(false);
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -127,7 +139,16 @@ export function ProfileForm({
           <label htmlFor="avatar" className="btn-ghost cursor-pointer !py-2 text-sm">
             {avatarBusy ? "Uploading…" : avatarUrl ? "Change photo" : "Add profile photo"}
           </label>
-          <input id="avatar" type="file" accept="image/*" className="sr-only" onChange={(e) => onAvatar(e.target.files?.[0])} />
+          <input
+            id="avatar"
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(e) => {
+              pickAvatar(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
         </div>
       </div>
 
@@ -193,6 +214,14 @@ export function ProfileForm({
       <button type="submit" className="btn-accent" disabled={busy}>
         {busy ? "Saving…" : submitLabel}
       </button>
+
+      <AvatarCropper
+        open={!!cropSrc}
+        imageSrc={cropSrc}
+        busy={avatarBusy}
+        onCancel={cancelCrop}
+        onConfirm={onAvatarCropped}
+      />
     </form>
   );
 }

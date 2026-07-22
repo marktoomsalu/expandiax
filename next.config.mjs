@@ -6,6 +6,7 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co", pathname: "/storage/v1/object/public/**" },
       { protocol: "https", hostname: "picsum.photos" },
+      { protocol: "https", hostname: "i.scdn.co" },
     ],
   },
   async redirects() {
