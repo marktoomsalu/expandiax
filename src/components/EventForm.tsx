@@ -135,7 +135,10 @@ export function EventForm({ event }: { event?: Event }) {
       {meta.hasArtist && (
         <div>
           <span className="mb-1.5 block text-sm font-medium">Spotify artist</span>
-          <p className="mb-1.5 text-xs text-muted">Their photo stands in as the cover until you upload one.</p>
+          <p className="mb-1.5 text-xs text-muted">
+            Found them? Their photo becomes the cover and fills in {meta.titleLabel.toLowerCase()} below — no
+            need to type it twice. Not on Spotify? Just skip this and type it in yourself.
+          </p>
           <ArtistPicker
             value={
               f.spotify_artist_id
@@ -148,6 +151,7 @@ export function EventForm({ event }: { event?: Event }) {
                 spotify_artist_id: artist?.id ?? null,
                 spotify_artist_name: artist?.name ?? null,
                 spotify_artist_image: artist?.image ?? null,
+                title: artist ? artist.name : cur.title,
               }))
             }
           />
