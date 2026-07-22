@@ -25,12 +25,15 @@ export type VisitedCountry = {
   updated_at: string;
 };
 
+export type DatePrecision = "year" | "month" | "day";
+
 export type CountryVisit = {
   id: string;
   visited_country_id: string;
   year: number;
   visited_from: string | null;
   visited_to: string | null;
+  date_precision: DatePrecision;
   highlight: string;
 };
 export type CountryCity = { id: string; visited_country_id: string; city_name: string };
@@ -89,11 +92,14 @@ export type FeedEvent = {
   ref_id: string;
   actor_id: string;
   country_code: string;
+  country_name: string | null;
   title: string;
   subtitle: string | null;
+  body: string | null;
   cover_url: string | null;
   cover_media_type: "image" | "video" | null;
   visit_year: number | null;
   visit_date: string | null;
+  visit_date_precision: DatePrecision | null;
   created_at: string;
 };

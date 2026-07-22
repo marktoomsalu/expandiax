@@ -2,6 +2,11 @@ export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+export const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 export function formatDate(iso: string) {
   return new Date(iso + (iso.length === 10 ? "T00:00:00" : "")).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -10,8 +15,17 @@ export function formatDate(iso: string) {
   });
 }
 
-export function formatVisitRange(v: { year: number; visited_from: string | null; visited_to: string | null }) {
-  if (!v.visited_from) return String(v.year);
+type VisitLike = {
+  year: number;
+  visited_from: string | null;
+  visited_to: string | null;
+  date_precision?: "year" | "month" | "day" | null;
+};
+
+export function formatVisitRange(v: VisitLike) {
+  const precision = v.date_precision ?? (v.visited_from ? "day" : "year");
+  if (precision === "year" || !v.visited_from) return String(v.year);
+  if (precision === "month") return formatMonthYear(v.visited_from);
   if (!v.visited_to || v.visited_to === v.visited_from) return formatDate(v.visited_from);
   return `${formatDate(v.visited_from)} – ${formatDate(v.visited_to)}`;
 }
@@ -21,7 +35,7 @@ export function visitSortKey(v: { year: number; visited_from: string | null; vis
 }
 
 export function formatMonthYear(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  return new Date(iso + (iso.length === 10 ? "T00:00:00" : "")).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 }
 
 export function formatRelative(iso: string) {

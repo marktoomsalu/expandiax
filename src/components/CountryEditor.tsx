@@ -6,7 +6,7 @@ import { Heart, MapPinPlus, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { cn, formatVisitRange, visitSortKey } from "@/lib/utils";
+import { MONTH_NAMES, cn, formatVisitRange, visitSortKey } from "@/lib/utils";
 
 type Meta = { code: string; name: string; flag: string };
 
@@ -60,7 +60,9 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
   const supabase = createClient();
   const [note, setNote] = useState(data.note);
   const [noteSaved, setNoteSaved] = useState(false);
+  const [precision, setPrecision] = useState<"year" | "month" | "day">("year");
   const [year, setYear] = useState("");
+  const [month, setMonth] = useState("");
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
@@ -80,24 +82,47 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
       setError("Enter a year between 1900 and 2100.");
       return;
     }
-    if (visitedFrom && visitedTo && visitedTo < visitedFrom) {
+    if (precision === "day" && visitedFrom && visitedTo && visitedTo < visitedFrom) {
       setError("The \"to\" date can't be before the \"from\" date.");
       return;
     }
+    if (precision === "month" && !month) {
+      setError("Choose a month.");
+      return;
+    }
     setError(null);
+
+    let from: string | null = null;
+    let to: string | null = null;
+    let datePrecision: "year" | "month" | "day" = "year";
+
+    if (precision === "day" && visitedFrom) {
+      from = visitedFrom;
+      to = visitedTo || visitedFrom;
+      datePrecision = "day";
+    } else if (precision === "month" && month) {
+      const lastDay = new Date(y, Number(month), 0).getDate();
+      from = `${year}-${month}-01`;
+      to = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+      datePrecision = "month";
+    }
+
     const { error: err } = await supabase.from("country_visits").insert({
       visited_country_id: data.id,
       year: y,
-      visited_from: visitedFrom || null,
-      visited_to: visitedTo || null,
+      visited_from: from,
+      visited_to: to,
+      date_precision: datePrecision,
       highlight: highlight.trim(),
     });
     if (err) setError("Could not add that visit.");
     else {
       setYear("");
+      setMonth("");
       setVisitedFrom("");
       setVisitedTo("");
       setHighlight("");
+      setPrecision("year");
       router.refresh();
     }
   }
@@ -223,41 +248,76 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
             ))}
           </ul>
         )}
-        <form onSubmit={addVisit} className="mt-3 flex flex-wrap items-center gap-1.5">
-          <label htmlFor="year-input" className="sr-only">Year</label>
-          <input id="year-input" type="number" inputMode="numeric" min={1900} max={2100} placeholder="2024" className="field !w-20 !py-1.5 text-sm" value={year} onChange={(e) => setYear(e.target.value)} />
-          <label htmlFor="date-from-input" className="sr-only">From date (optional)</label>
-          <input
-            id="date-from-input"
-            type="date"
-            title="From date (optional)"
-            className="field !w-[8.5rem] !py-1.5 text-sm"
-            value={visitedFrom}
-            onChange={(e) => {
-              setVisitedFrom(e.target.value);
-              if (e.target.value) setYear(e.target.value.slice(0, 4));
-            }}
-          />
-          <label htmlFor="date-to-input" className="sr-only">To date (optional)</label>
-          <input
-            id="date-to-input"
-            type="date"
-            title="To date (optional)"
-            className="field !w-[8.5rem] !py-1.5 text-sm"
-            value={visitedTo}
-            onChange={(e) => setVisitedTo(e.target.value)}
-          />
-          <label htmlFor="highlight-input" className="sr-only">Highlight from this visit</label>
-          <input
-            id="highlight-input"
-            type="text"
-            placeholder="Highlight from this trip (optional)"
-            className="field !py-1.5 min-w-0 flex-1 text-sm"
-            maxLength={200}
-            value={highlight}
-            onChange={(e) => setHighlight(e.target.value)}
-          />
-          <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add visit"><Plus size={15} /></button>
+        <form onSubmit={addVisit} className="mt-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(["year", "month", "day"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPrecision(p)}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                  precision === p ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
+                )}
+              >
+                {p === "year" ? "Year only" : p === "month" ? "Month" : "Exact date"}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <label htmlFor="year-input" className="sr-only">Year</label>
+            <input id="year-input" type="number" inputMode="numeric" min={1900} max={2100} placeholder="2024" className="field !w-20 !py-1.5 text-sm" value={year} onChange={(e) => setYear(e.target.value)} />
+
+            {precision === "month" && (
+              <>
+                <label htmlFor="month-input" className="sr-only">Month</label>
+                <select id="month-input" className="field !w-32 !py-1.5 text-sm" value={month} onChange={(e) => setMonth(e.target.value)}>
+                  <option value="">Month</option>
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={name} value={String(i + 1).padStart(2, "0")}>{name}</option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            {precision === "day" && (
+              <>
+                <label htmlFor="date-from-input" className="sr-only">From date</label>
+                <input
+                  id="date-from-input"
+                  type="date"
+                  title="From date"
+                  className="field !w-[8.5rem] !py-1.5 text-sm"
+                  value={visitedFrom}
+                  onChange={(e) => {
+                    setVisitedFrom(e.target.value);
+                    if (e.target.value) setYear(e.target.value.slice(0, 4));
+                  }}
+                />
+                <label htmlFor="date-to-input" className="sr-only">To date (optional)</label>
+                <input
+                  id="date-to-input"
+                  type="date"
+                  title="To date (optional)"
+                  className="field !w-[8.5rem] !py-1.5 text-sm"
+                  value={visitedTo}
+                  onChange={(e) => setVisitedTo(e.target.value)}
+                />
+              </>
+            )}
+
+            <label htmlFor="highlight-input" className="sr-only">Highlight from this visit</label>
+            <input
+              id="highlight-input"
+              type="text"
+              placeholder="Highlight from this trip (optional)"
+              className="field !py-1.5 min-w-0 flex-1 text-sm"
+              maxLength={200}
+              value={highlight}
+              onChange={(e) => setHighlight(e.target.value)}
+            />
+            <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add visit"><Plus size={15} /></button>
+          </div>
         </form>
       </section>
 

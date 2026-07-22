@@ -39,6 +39,11 @@ create table public.country_visits (
   year int not null check (year between 1900 and 2100),
   visited_from date,
   visited_to date,
+  -- 'year': only the year is known. 'month': visited_from/visited_to span
+  -- the first/last day of a remembered month. 'day': an exact date (or
+  -- range) was entered. Lets the UI render "August 2023" instead of a
+  -- fabricated exact date when someone only remembers the month.
+  date_precision text not null default 'year' check (date_precision in ('year', 'month', 'day')),
   highlight text not null default '' check (length(highlight) <= 500),
   check (visited_to is null or visited_from is null or visited_to >= visited_from)
 );
@@ -426,12 +431,15 @@ with (security_invoker = true) as
     vc.id as ref_id,
     vc.user_id as actor_id,
     vc.country_code as country_code,
+    vc.country_name as country_name,
     vc.country_name as title,
     null::text as subtitle,
+    nullif(vc.note, '') as body,
     cm.public_url as cover_url,
     cm.media_type as cover_media_type,
     lv.year as visit_year,
     coalesce(lv.visited_to, lv.visited_from) as visit_date,
+    lv.date_precision as visit_date_precision,
     vc.created_at as created_at
   from public.visited_countries vc
   left join lateral (
@@ -442,7 +450,7 @@ with (security_invoker = true) as
     limit 1
   ) cm on true
   left join lateral (
-    select year, visited_from, visited_to
+    select year, visited_from, visited_to, date_precision
     from public.country_visits
     where visited_country_id = vc.id
     order by coalesce(visited_to, visited_from, make_date(year, 12, 31)) desc
@@ -456,12 +464,15 @@ with (security_invoker = true) as
     e.id as ref_id,
     e.user_id as actor_id,
     e.country_code as country_code,
+    e.country_name as country_name,
     e.title as title,
     nullif(e.subtitle, '') as subtitle,
+    nullif(e.review, '') as body,
     cm.public_url as cover_url,
     cm.media_type as cover_media_type,
     extract(year from e.event_date)::int as visit_year,
     e.event_date as visit_date,
+    'day'::text as visit_date_precision,
     e.created_at as created_at
   from public.events e
   left join lateral (

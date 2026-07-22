@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
-import { formatDate, formatRelative } from "@/lib/utils";
+import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { FeedEvent, Profile } from "@/lib/types";
 
 export const metadata = { title: "Feed" };
@@ -87,7 +87,7 @@ export default async function FeedPage() {
             return (
               <li key={key} className="card overflow-hidden">
                 <div className="p-4 sm:p-5">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-start gap-3">
                     <Link
                       href={`/u/${actor.username}`}
                       aria-label={actor.display_name}
@@ -100,29 +100,33 @@ export default async function FeedPage() {
                       )}
                     </Link>
                     <div className="min-w-0">
-                      <Link href={`/u/${actor.username}`} className="text-sm font-medium hover:text-accent">
-                        {actor.display_name}
-                      </Link>
-                      <span className="text-xs text-muted"> · {formatRelative(item.created_at)}</span>
+                      <div className="flex flex-wrap items-baseline gap-x-1.5">
+                        <Link href={`/u/${actor.username}`} className="text-sm font-medium hover:text-accent">
+                          {actor.display_name}
+                        </Link>
+                        <span className="text-xs text-muted">{item.kind === "country" ? "added a country" : `logged a ${typeLabel}`}</span>
+                      </div>
+                      <span className="text-xs text-muted">{formatRelative(item.created_at)}</span>
                     </div>
                   </div>
-                  <Link href={href} className="mt-3 block text-sm leading-relaxed text-ink hover:text-accent">
-                    {item.kind === "country" ? (
-                      <>
-                        Added <span className="font-serif text-base">{meta?.flag} {item.title}</span> to their map.
-                      </>
-                    ) : (
-                      <>
-                        Logged a {typeLabel} — <span className="font-serif text-base">{item.title}</span>
-                        {item.subtitle && <span className="italic text-muted"> · {item.subtitle}</span>}.
-                      </>
-                    )}
-                  </Link>
-                  {(item.visit_date || item.visit_year) && (
-                    <p className="mt-1 text-xs text-muted">
-                      {item.kind === "country" ? "Visited" : "Was there"} {item.visit_date ? formatDate(item.visit_date) : item.visit_year}
+                  <Link href={href} className="mt-3 block hover:text-accent">
+                    <p className="font-serif text-lg text-ink">
+                      {item.kind === "country" ? <>{meta?.flag} {item.title}</> : item.title}
                     </p>
-                  )}
+                    {item.subtitle && <p className="text-sm italic text-muted">{item.subtitle}</p>}
+                    {(item.visit_date || item.visit_year) && (
+                      <p className="mt-1 text-xs text-muted">
+                        {item.kind === "country" ? "Visited" : "Was there"}{" "}
+                        {item.visit_date
+                          ? item.visit_date_precision === "month"
+                            ? formatMonthYear(item.visit_date)
+                            : formatDate(item.visit_date)
+                          : item.visit_year}
+                        {item.kind === "event" && item.country_name && ` · ${item.country_name}`}
+                      </p>
+                    )}
+                    {item.body && <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-ink">{item.body}</p>}
+                  </Link>
                 </div>
 
                 {item.cover_url && (
