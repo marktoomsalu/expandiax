@@ -6,7 +6,7 @@ import { Heart, MapPinPlus, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 type Meta = { code: string; name: string; flag: string };
 
@@ -61,6 +61,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
   const [note, setNote] = useState(data.note);
   const [noteSaved, setNoteSaved] = useState(false);
   const [year, setYear] = useState("");
+  const [visitedOn, setVisitedOn] = useState("");
   const [highlight, setHighlight] = useState("");
   const [city, setCity] = useState("");
   const [removing, setRemoving] = useState(false);
@@ -69,7 +70,8 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
   const [feedBusy, setFeedBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const visits = [...data.country_visits].sort((a, b) => a.year - b.year);
+  const visitSortKey = (v: { year: number; visited_on: string | null }) => v.visited_on ?? `${v.year}-12-31`;
+  const visits = [...data.country_visits].sort((a, b) => visitSortKey(a).localeCompare(visitSortKey(b)));
 
   async function addVisit(e: React.FormEvent) {
     e.preventDefault();
@@ -81,10 +83,11 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
     setError(null);
     const { error: err } = await supabase
       .from("country_visits")
-      .insert({ visited_country_id: data.id, year: y, highlight: highlight.trim() });
+      .insert({ visited_country_id: data.id, year: y, visited_on: visitedOn || null, highlight: highlight.trim() });
     if (err) setError("Could not add that visit.");
     else {
       setYear("");
+      setVisitedOn("");
       setHighlight("");
       router.refresh();
     }
@@ -196,7 +199,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
             {visits.map((v) => (
               <li key={v.id} className="flex items-start justify-between gap-3 rounded-lg border border-line bg-surface px-3.5 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">{v.year}</p>
+                  <p className="text-sm font-medium">{v.visited_on ? formatDate(v.visited_on) : v.year}</p>
                   {v.highlight && <p className="mt-0.5 text-sm text-muted">{v.highlight}</p>}
                 </div>
                 <button
@@ -214,6 +217,18 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
         <form onSubmit={addVisit} className="mt-3 flex flex-wrap items-center gap-1.5">
           <label htmlFor="year-input" className="sr-only">Year</label>
           <input id="year-input" type="number" inputMode="numeric" min={1900} max={2100} placeholder="2024" className="field !w-20 !py-1.5 text-sm" value={year} onChange={(e) => setYear(e.target.value)} />
+          <label htmlFor="date-input" className="sr-only">Exact date (optional)</label>
+          <input
+            id="date-input"
+            type="date"
+            title="Exact date (optional)"
+            className="field !w-[8.5rem] !py-1.5 text-sm"
+            value={visitedOn}
+            onChange={(e) => {
+              setVisitedOn(e.target.value);
+              if (e.target.value) setYear(e.target.value.slice(0, 4));
+            }}
+          />
           <label htmlFor="highlight-input" className="sr-only">Highlight from this visit</label>
           <input
             id="highlight-input"

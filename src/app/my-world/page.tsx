@@ -11,7 +11,14 @@ import type { VisitedCountry, CountryMedia } from "@/lib/types";
 
 export const metadata = { title: "My World" };
 
-type Row = VisitedCountry & { country_media: CountryMedia[]; country_visits: { year: number }[] };
+type Row = VisitedCountry & { country_media: CountryMedia[]; country_visits: { year: number; visited_on: string | null }[] };
+
+// When you actually travelled, not when you happened to add it to the app —
+// falls back to the entry date only if no visit year/date was ever logged.
+function travelRecency(c: Row): string {
+  const dates = c.country_visits.map((v) => v.visited_on ?? `${v.year}-12-31`);
+  return dates.length > 0 ? dates.sort().at(-1)! : c.created_at.slice(0, 10);
+}
 
 export default async function MyWorldPage() {
   const supabase = createClient();
@@ -22,11 +29,10 @@ export default async function MyWorldPage() {
 
   const { data } = await supabase
     .from("visited_countries")
-    .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year)")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+    .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_on)")
+    .eq("user_id", user.id);
 
-  const countries = (data ?? []) as Row[];
+  const countries = [...((data ?? []) as Row[])].sort((a, b) => travelRecency(b).localeCompare(travelRecency(a)));
   const codes = countries.map((c) => c.country_code);
   const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;

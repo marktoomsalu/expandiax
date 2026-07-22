@@ -23,7 +23,13 @@ export type VisitedCountry = {
   updated_at: string;
 };
 
-export type CountryVisit = { id: string; visited_country_id: string; year: number; highlight: string };
+export type CountryVisit = {
+  id: string;
+  visited_country_id: string;
+  year: number;
+  visited_on: string | null;
+  highlight: string;
+};
 export type CountryCity = { id: string; visited_country_id: string; city_name: string };
 
 export type MediaItem = {

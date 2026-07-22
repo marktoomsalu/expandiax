@@ -37,6 +37,7 @@ create table public.country_visits (
   id uuid primary key default gen_random_uuid(),
   visited_country_id uuid not null references public.visited_countries (id) on delete cascade,
   year int not null check (year between 1900 and 2100),
+  visited_on date,
   highlight text not null default '' check (length(highlight) <= 500)
 );
 

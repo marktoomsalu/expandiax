@@ -138,7 +138,7 @@ export default async function PublicCountryPage({
             <ul className="space-y-4">
               {highlightedVisits.map((v) => (
                 <li key={v.id} className="border-l-2 border-line pl-5">
-                  <p className="eyebrow">{v.year}</p>
+                  <p className="eyebrow">{v.visited_on ? formatDate(v.visited_on) : v.year}</p>
                   <p className="mt-1 text-sm leading-relaxed">{v.highlight}</p>
                 </li>
               ))}
