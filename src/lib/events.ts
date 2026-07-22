@@ -9,6 +9,8 @@ export type EventTypeMeta = {
   titlePlaceholder: string;
   highlightLabel: string;
   notesLabel: string;
+  /** Whether this type shows the Spotify artist picker (their photo stands in as the cover). */
+  hasArtist?: boolean;
 };
 
 export const EVENT_TYPES: EventTypeMeta[] = [
@@ -20,6 +22,7 @@ export const EVENT_TYPES: EventTypeMeta[] = [
     titlePlaceholder: "Metsatöll",
     highlightLabel: "Favourite song performed",
     notesLabel: "Setlist notes",
+    hasArtist: true,
   },
   {
     value: "festival",
@@ -29,6 +32,7 @@ export const EVENT_TYPES: EventTypeMeta[] = [
     titlePlaceholder: "Positivus",
     highlightLabel: "Best moment",
     notesLabel: "Notes",
+    hasArtist: true,
   },
   {
     value: "sport",

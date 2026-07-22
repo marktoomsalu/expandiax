@@ -99,6 +99,11 @@ create table public.events (
   is_favourite boolean not null default false,
   is_public boolean not null default true,
   share_to_feed boolean not null default true,
+  -- A concert/festival's Spotify artist — their photo stands in as the
+  -- event's cover when no photo has been uploaded yet.
+  spotify_artist_id text,
+  spotify_artist_name text,
+  spotify_artist_image text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -478,8 +483,8 @@ with (security_invoker = true) as
     e.title as title,
     nullif(e.subtitle, '') as subtitle,
     nullif(e.review, '') as body,
-    cm.public_url as cover_url,
-    cm.media_type as cover_media_type,
+    coalesce(cm.public_url, e.spotify_artist_image) as cover_url,
+    coalesce(cm.media_type, case when e.spotify_artist_image is not null then 'image' end) as cover_media_type,
     extract(year from e.event_date)::int as visit_year,
     e.event_date as visit_date,
     'day'::text as visit_date_precision,

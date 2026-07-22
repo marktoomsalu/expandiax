@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES, countryByCode } from "@/lib/countries";
 import { EVENT_TYPES, eventTypeMeta } from "@/lib/events";
 import { RatingInput } from "./Rating";
+import { ArtistPicker, type SpotifyArtist } from "./ArtistPicker";
 import { cn } from "@/lib/utils";
 import type { Event, EventType } from "@/lib/types";
 
@@ -27,6 +28,9 @@ export function EventForm({ event }: { event?: Event }) {
     is_public: event?.is_public ?? true,
     is_favourite: event?.is_favourite ?? false,
     share_to_feed: event?.share_to_feed ?? true,
+    spotify_artist_id: event?.spotify_artist_id ?? null,
+    spotify_artist_name: event?.spotify_artist_name ?? null,
+    spotify_artist_image: event?.spotify_artist_image ?? null,
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +67,9 @@ export function EventForm({ event }: { event?: Event }) {
       is_public: f.is_public,
       is_favourite: f.is_favourite,
       share_to_feed: f.share_to_feed,
+      spotify_artist_id: f.spotify_artist_id,
+      spotify_artist_name: f.spotify_artist_name,
+      spotify_artist_image: f.spotify_artist_image,
     };
 
     if (event) {
@@ -124,6 +131,28 @@ export function EventForm({ event }: { event?: Event }) {
           })}
         </div>
       </div>
+
+      {meta.hasArtist && (
+        <div>
+          <span className="mb-1.5 block text-sm font-medium">Spotify artist</span>
+          <p className="mb-1.5 text-xs text-muted">Their photo stands in as the cover until you upload one.</p>
+          <ArtistPicker
+            value={
+              f.spotify_artist_id
+                ? { id: f.spotify_artist_id, name: f.spotify_artist_name ?? "", image: f.spotify_artist_image }
+                : null
+            }
+            onChange={(artist: SpotifyArtist | null) =>
+              setF((cur) => ({
+                ...cur,
+                spotify_artist_id: artist?.id ?? null,
+                spotify_artist_name: artist?.name ?? null,
+                spotify_artist_image: artist?.image ?? null,
+              }))
+            }
+          />
+        </div>
+      )}
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div>

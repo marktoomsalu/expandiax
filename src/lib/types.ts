@@ -76,6 +76,9 @@ export type Event = {
   is_favourite: boolean;
   is_public: boolean;
   share_to_feed: boolean;
+  spotify_artist_id: string | null;
+  spotify_artist_name: string | null;
+  spotify_artist_image: string | null;
   created_at: string;
   updated_at: string;
 };

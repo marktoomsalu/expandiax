@@ -90,9 +90,9 @@ export default async function PublicEventPage({
     <div>
       {/* Cinematic header */}
       <div className="relative flex min-h-[52vh] items-end overflow-hidden bg-[#14110d]">
-        {cover && (
+        {(cover || event.spotify_artist_image) && (
           <Image
-            src={cover.public_url}
+            src={cover?.public_url ?? event.spotify_artist_image!}
             alt=""
             aria-hidden
             fill
