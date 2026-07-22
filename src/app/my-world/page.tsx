@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { BarChart3, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MapNavigator } from "@/components/MapNavigator";
@@ -71,7 +71,10 @@ export default async function MyWorldPage() {
             Most recent: <Link href={`/my-world/${latest.country_code.toLowerCase()}`} className="text-accent underline-offset-4 hover:underline">{countryByCode(latest.country_code)?.flag} {latest.country_name}</Link>
           </p>
         )}
-        <Link href="#country-search" className="btn-accent"><Plus size={17} /> Add country</Link>
+        <div className="flex items-center gap-3">
+          <Link href="/stats" className="btn-ghost !py-2 text-sm"><BarChart3 size={16} /> Stats</Link>
+          <Link href="#country-search" className="btn-accent"><Plus size={17} /> Add country</Link>
+        </div>
       </div>
 
       <div className="mt-8">

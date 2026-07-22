@@ -1,14 +1,17 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Pencil } from "lucide-react";
+import { BarChart3, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { WorldMapLink } from "@/components/WorldMapLink";
 import { RatingStars } from "@/components/Rating";
 import { FollowButton } from "@/components/FollowButton";
 import { ReportButton } from "@/components/ReportButton";
+import { BadgeGrid } from "@/components/BadgeGrid";
 import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import { formatDate } from "@/lib/utils";
+import { evaluateBadges } from "@/lib/badges";
+import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@/lib/stats";
 import type { Event, EventMedia, CountryMedia, Profile, VisitedCountry } from "@/lib/types";
 
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: { year: number }[] };
@@ -101,6 +104,25 @@ export default async function PublicProfilePage({ params }: { params: { username
   const uniqueTitles = new Set(events.map((e) => e.title)).size;
   const home = countryByCode(profile.home_country_code);
 
+  const statCountries: CountryStatInput[] = countries.map((c) => ({
+    country_code: c.country_code,
+    is_favourite: c.is_favourite,
+    photo_count: c.country_media.length,
+    visits: c.country_visits.map((v) => ({ year: v.year })),
+  }));
+  const statEvents: EventStatInput[] = events.map((e) => ({
+    id: e.id,
+    title: e.title,
+    country_code: e.country_code,
+    event_type: e.event_type,
+    event_date: e.event_date,
+    rating: e.rating,
+    is_favourite: e.is_favourite,
+    photo_count: e.event_media.filter((m) => m.media_type === "image").length,
+    video_count: e.event_media.filter((m) => m.media_type === "video").length,
+  }));
+  const badges = evaluateBadges(buildAllTimeStats(statCountries, statEvents)).filter((b) => b.isUnlocked);
+
   const favourites = countries.filter((c) => c.is_favourite || c.note).slice(0, 4)
     .sort((a, b) => Number(b.is_favourite) - Number(a.is_favourite));
   const gallery = [
@@ -139,9 +161,14 @@ export default async function PublicProfilePage({ params }: { params: { username
             <h1 className="text-4xl md:text-5xl">{profile.display_name}</h1>
             {!isOwnProfile && viewer && <FollowButton targetId={profile.id} initialFollowing={isFollowing} />}
             {isOwnProfile && (
-              <Link href="/settings" className="btn-ghost !py-2 text-sm">
-                <Pencil size={14} /> Edit profile
-              </Link>
+              <>
+                <Link href="/settings" className="btn-ghost !py-2 text-sm">
+                  <Pencil size={14} /> Edit profile
+                </Link>
+                <Link href="/stats" className="btn-ghost !py-2 text-sm">
+                  <BarChart3 size={14} /> Stats
+                </Link>
+              </>
             )}
           </div>
           <p className="mt-1.5 text-sm text-muted">
@@ -169,6 +196,12 @@ export default async function PublicProfilePage({ params }: { params: { username
         {stat(`${visitedContinents.length}/6`, "Continents")}
         {stat(events.length, "Events")}
         {stat(uniqueTitles, "Distinct")}
+        {badges.length > 0 && (
+          <Link href="#badges" className="border-l border-line pl-4 hover:opacity-80">
+            <p className="stat-number !text-3xl md:!text-4xl">{badges.length}</p>
+            <p className="eyebrow mt-1.5">Badges</p>
+          </Link>
+        )}
       </div>
 
       {/* Map */}
@@ -268,6 +301,17 @@ export default async function PublicProfilePage({ params }: { params: { username
                 />
               </div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Badges */}
+      {badges.length > 0 && (
+        <section id="badges" className="mt-14" aria-labelledby="badges-h">
+          <p className="eyebrow">Trophy case</p>
+          <h2 id="badges-h" className="mt-1 text-2xl md:text-3xl">Badges</h2>
+          <div className="mt-6">
+            <BadgeGrid badges={badges} showLocked={false} />
           </div>
         </section>
       )}
