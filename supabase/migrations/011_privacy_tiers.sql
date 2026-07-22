@@ -19,6 +19,11 @@ alter table public.profiles
 
 update public.profiles set visibility = case when is_public then 'public' else 'private' end;
 
+-- Old policies reference is_public directly, so they must go before the
+-- column does.
+drop policy "profiles are viewable when public or own" on public.profiles;
+drop policy "users follow public profiles" on public.follows;
+
 drop index if exists public.profiles_public_idx;
 alter table public.profiles drop column is_public;
 
@@ -79,14 +84,12 @@ as $$
   );
 $$;
 
--- ---------- Policies that referenced is_public directly ----------
+-- ---------- Recreate the policies that were dropped above ----------
 
-drop policy "profiles are viewable when public or own" on public.profiles;
 create policy "profiles are viewable when visible or own"
   on public.profiles for select
   using (id = auth.uid() or public.is_profile_public(id));
 
-drop policy "users follow public profiles" on public.follows;
 create policy "users follow non-private profiles"
   on public.follows for insert
   with check (follower_id = auth.uid() and public.profile_allows_follow(followee_id));
