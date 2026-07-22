@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, Globe2, Music2, Rss, Settings, UserRound } from "lucide-react";
+import { Compass, Globe2, Music2, Rss, UserRound } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,6 @@ export function SiteNav({ user }: { user: NavUser }) {
     { href: "/my-world", label: "My World", icon: Globe2 },
     { href: "/concerts", label: "Concerts", icon: Music2 },
     { href: `/u/${user?.username}`, label: "Profile", icon: UserRound },
-    { href: "/settings", label: "Settings", icon: Settings },
   ];
   const guestLinks = [{ href: "/explore", label: "Explore", icon: Compass }];
 

@@ -4,7 +4,7 @@
 
 ## Features
 
-- **Accounts & profiles** — email/password auth, unique username, avatar, bio, home country, public/private toggle.
+- **Accounts & profiles** — email/password or Google auth, unique username, avatar, bio, home country, three-tier visibility (public / friends-only via mutual followers / private).
 - **My World** — interactive SVG world map of all **195 countries**, country search (the map is never the only way in), visit years, cities, a written memory, favourite flag, up to **5 photos per country** with reordering, cover selection and deletion.
 - **Concerts** — artist, tour name, date, venue, city, country, 1–10 rating, review, favourite song, setlist notes, per-concert privacy, up to **5 photos and 3 videos** with captions, covers and reordering. Search, filter (artist / year / country) and sort (newest / oldest / top rated). Dashboard statistics: totals, unique artists, countries and cities with concerts, by-year breakdown, most-seen artist, highest rated, latest, and a manually chosen favourite night.
 - **Public pages** — `/u/[username]` with stats (countries of 195, % of world, continents, concerts, unique artists), map, favourite memories, recent concerts and a photo strip; per-country and per-concert public pages with prev/next navigation and related content. Private profiles and private concerts are invisible to visitors (enforced by Row Level Security, not just UI).

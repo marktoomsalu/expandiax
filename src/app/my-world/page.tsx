@@ -29,10 +29,13 @@ export default async function MyWorldPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
 
-  const { data } = await supabase
-    .from("visited_countries")
-    .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to)")
-    .eq("user_id", user.id);
+  const [{ data }, { data: profile }] = await Promise.all([
+    supabase
+      .from("visited_countries")
+      .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to)")
+      .eq("user_id", user.id),
+    supabase.from("profiles").select("home_country_code").eq("id", user.id).single(),
+  ]);
 
   const countries = [...((data ?? []) as Row[])].sort((a, b) => travelRecency(b).localeCompare(travelRecency(a)));
   const codes = countries.map((c) => c.country_code);
@@ -68,7 +71,7 @@ export default async function MyWorldPage() {
       </div>
 
       <div className="mt-8">
-        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} />
+        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} />
       </div>
 
       {codes.length === 0 ? (

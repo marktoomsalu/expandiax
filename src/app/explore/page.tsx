@@ -17,7 +17,7 @@ export default async function ExplorePage() {
       supabase
         .from("profiles")
         .select("id, username, display_name, avatar_url, bio")
-        .eq("is_public", true)
+        .eq("visibility", "public")
         .order("created_at", { ascending: false })
         .limit(12),
       supabase

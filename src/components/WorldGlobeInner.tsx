@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
+import { Minus, Plus } from "lucide-react";
 import Globe, { type GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import { countryByNumeric } from "@/lib/countries";
 
 const GEO_URL = "/data/world-110m.json";
+const MIN_ALTITUDE = 0.5;
+const MAX_ALTITUDE = 3.5;
 
 type GeoFeature = {
   id: string;
@@ -18,12 +21,20 @@ type GeoFeature = {
 type Props = {
   visitedCodes: string[];
   visitCounts?: Record<string, number>;
+  homeCode?: string | null;
   onSelect?: (code: string) => void;
   interactive?: boolean;
   className?: string;
 };
 
-export function WorldGlobeInner({ visitedCodes, visitCounts, onSelect, interactive = true, className }: Props) {
+export function WorldGlobeInner({
+  visitedCodes,
+  visitCounts,
+  homeCode,
+  onSelect,
+  interactive = true,
+  className,
+}: Props) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
@@ -61,6 +72,18 @@ export function WorldGlobeInner({ visitedCodes, visitCounts, onSelect, interacti
     return () => ro.disconnect();
   }, []);
 
+  // Stop mouse-wheel scrolling from being hijacked as globe zoom — the page
+  // should scroll normally when the cursor happens to be over the globe.
+  // Pinch-to-zoom (touch) and the explicit +/- buttons below still work,
+  // since they don't go through the wheel event at all.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const blockWheelZoom = (e: WheelEvent) => e.stopPropagation();
+    el.addEventListener("wheel", blockWheelZoom, { capture: true });
+    return () => el.removeEventListener("wheel", blockWheelZoom, { capture: true });
+  }, []);
+
   useEffect(() => {
     const g = globeRef.current;
     if (!g) return;
@@ -73,6 +96,14 @@ export function WorldGlobeInner({ visitedCodes, visitCounts, onSelect, interacti
 
   function countryOf(f: GeoFeature) {
     return countryByNumeric(String(f.id));
+  }
+
+  function zoomBy(factor: number) {
+    const g = globeRef.current;
+    if (!g) return;
+    const pov = g.pointOfView();
+    const altitude = Math.max(MIN_ALTITUDE, Math.min(MAX_ALTITUDE, pov.altitude * factor));
+    g.pointOfView({ altitude }, 300);
   }
 
   return (
@@ -95,9 +126,11 @@ export function WorldGlobeInner({ visitedCodes, visitCounts, onSelect, interacti
           polygonsData={features}
           polygonCapColor={(f) => {
             const c = countryOf(f as GeoFeature);
+            const isHome = c && homeCode ? c.code === homeCode : false;
             const isVisited = c ? visited.has(c.code) : false;
             const isHover = (f as GeoFeature).id === hoverId;
             const count = c ? visitCounts?.[c.code] ?? 0 : 0;
+            if (isHome) return isHover ? "rgba(250,176,63,1)" : "rgba(245,158,11,0.95)";
             if (isVisited) {
               // Countries visited more than once glow a shade brighter.
               if (count >= 2) return isHover ? "rgba(255,166,133,1)" : "rgba(255,125,96,0.95)";
@@ -113,8 +146,10 @@ export function WorldGlobeInner({ visitedCodes, visitCounts, onSelect, interacti
           polygonLabel={(f) => {
             const c = countryOf(f as GeoFeature);
             if (!c) return "";
+            const isHome = homeCode && c.code === homeCode;
             const count = visitCounts?.[c.code] ?? 0;
-            return count >= 2 ? `${c.flag} ${c.name} · visited ${count}×` : `${c.flag} ${c.name}`;
+            const suffix = count >= 2 ? ` · visited ${count}×` : "";
+            return `${c.flag} ${c.name}${isHome ? " · Home" : ""}${suffix}`;
           }}
           onPolygonHover={(f) => setHoverId(f ? (f as GeoFeature).id : null)}
           onPolygonClick={(f) => {
@@ -124,6 +159,27 @@ export function WorldGlobeInner({ visitedCodes, visitCounts, onSelect, interacti
           }}
           showPointerCursor={interactive}
         />
+        {interactive && (
+          <div className="absolute bottom-3 right-3 flex flex-col overflow-hidden rounded-full border border-line bg-surface/90 shadow-sm backdrop-blur">
+            <button
+              type="button"
+              aria-label="Zoom in"
+              onClick={() => zoomBy(0.8)}
+              className="flex h-8 w-8 items-center justify-center text-muted hover:text-accent"
+            >
+              <Plus size={15} />
+            </button>
+            <div className="h-px bg-line" aria-hidden />
+            <button
+              type="button"
+              aria-label="Zoom out"
+              onClick={() => zoomBy(1.25)}
+              className="flex h-8 w-8 items-center justify-center text-muted hover:text-accent"
+            >
+              <Minus size={15} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

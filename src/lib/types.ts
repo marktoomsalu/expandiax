@@ -1,3 +1,5 @@
+export type ProfileVisibility = "public" | "friends" | "private";
+
 export type Profile = {
   id: string;
   username: string;
@@ -5,7 +7,7 @@ export type Profile = {
   avatar_url: string | null;
   bio: string;
   home_country_code: string | null;
-  is_public: boolean;
+  visibility: ProfileVisibility;
   created_at: string;
   updated_at: string;
 };
@@ -87,5 +89,7 @@ export type FeedEvent = {
   subtitle: string | null;
   cover_url: string | null;
   cover_media_type: "image" | "video" | null;
+  visit_year: number | null;
+  visit_date: string | null;
   created_at: string;
 };

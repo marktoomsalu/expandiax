@@ -14,7 +14,7 @@ create table public.profiles (
   avatar_url text,
   bio text not null default '',
   home_country_code text,
-  is_public boolean not null default false,
+  visibility text not null default 'private' check (visibility in ('public', 'friends', 'private')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -110,15 +110,41 @@ create index country_media_vc_idx on public.country_media (visited_country_id, d
 create index concerts_user_date_idx on public.concerts (user_id, concert_date desc);
 create index concerts_country_idx on public.concerts (user_id, country_code);
 create index concert_media_concert_idx on public.concert_media (concert_id, display_order);
-create index profiles_public_idx on public.profiles (is_public) where is_public;
+create index profiles_visibility_idx on public.profiles (visibility) where visibility = 'public';
 
 -- ---------- Helper functions ----------
 
+-- Mutual-follow check, used by the "friends" visibility tier.
+create or replace function public.is_mutual_follow(a uuid, b uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select
+    exists (select 1 from public.follows where follower_id = a and followee_id = b)
+    and exists (select 1 from public.follows where follower_id = b and followee_id = a);
+$$;
+
+-- Whether the target profile currently accepts a new follow at all.
+-- "friends" profiles can still be followed by anyone (that's how you
+-- become mutual); only "private" blocks new follows outright.
+create or replace function public.profile_allows_follow(profile_id uuid)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select coalesce((select visibility <> 'private' from public.profiles where id = profile_id), false);
+$$;
+
+-- "Is this profile visible to the current viewer" — accounts for public,
+-- friends (mutual followers only) and private.
 create or replace function public.is_profile_public(profile_id uuid)
 returns boolean
 language sql stable security definer set search_path = public
 as $$
-  select coalesce((select is_public from public.profiles where id = profile_id), false);
+  select case (select visibility from public.profiles where id = profile_id)
+    when 'public' then true
+    when 'friends' then public.is_mutual_follow(auth.uid(), profile_id)
+    else false
+  end;
 $$;
 
 create or replace function public.owns_visited_country(vc_id uuid)
@@ -136,10 +162,8 @@ returns boolean
 language sql stable security definer set search_path = public
 as $$
   select exists (
-    select 1
-    from public.visited_countries vc
-    join public.profiles p on p.id = vc.user_id
-    where vc.id = vc_id and p.is_public
+    select 1 from public.visited_countries vc
+    where vc.id = vc_id and public.is_profile_public(vc.user_id)
   );
 $$;
 
@@ -225,9 +249,9 @@ alter table public.concerts enable row level security;
 alter table public.concert_media enable row level security;
 
 -- profiles
-create policy "profiles are viewable when public or own"
+create policy "profiles are viewable when visible or own"
   on public.profiles for select
-  using (is_public or id = auth.uid());
+  using (id = auth.uid() or public.is_profile_public(id));
 
 create policy "users update own profile"
   on public.profiles for update
@@ -304,8 +328,7 @@ language sql stable security definer set search_path = public
 as $$
   select exists (
     select 1 from public.concerts c
-    join public.profiles p on p.id = c.user_id
-    where c.id = c_id and c.is_public and p.is_public
+    where c.id = c_id and c.is_public and public.is_profile_public(c.user_id)
   );
 $$;
 
@@ -375,9 +398,9 @@ create policy "follows readable when public or involved"
     or followee_id = auth.uid()
   );
 
-create policy "users follow public profiles"
+create policy "users follow non-private profiles"
   on public.follows for insert
-  with check (follower_id = auth.uid() and public.is_profile_public(followee_id));
+  with check (follower_id = auth.uid() and public.profile_allows_follow(followee_id));
 
 create policy "users unfollow"
   on public.follows for delete
@@ -386,7 +409,10 @@ create policy "users unfollow"
 -- security_invoker means this view enforces the RLS of visited_countries /
 -- concerts / country_media / concert_media as the querying user. Falls back
 -- to the first photo/video (by display_order) when no cover is explicitly
--- set, and carries media_type so the feed can render video too.
+-- set, and carries media_type so the feed can render video too. visit_year/
+-- visit_date carry when the thing actually happened (most recent logged
+-- visit for countries, the concert date for concerts) — not when it was
+-- added to the app.
 create view public.feed_events
 with (security_invoker = true) as
   select
@@ -398,6 +424,8 @@ with (security_invoker = true) as
     null::text as subtitle,
     cm.public_url as cover_url,
     cm.media_type as cover_media_type,
+    lv.year as visit_year,
+    coalesce(lv.visited_to, lv.visited_from) as visit_date,
     vc.created_at as created_at
   from public.visited_countries vc
   left join lateral (
@@ -407,6 +435,13 @@ with (security_invoker = true) as
     order by (id = vc.cover_media_id) desc, display_order asc
     limit 1
   ) cm on true
+  left join lateral (
+    select year, visited_from, visited_to
+    from public.country_visits
+    where visited_country_id = vc.id
+    order by coalesce(visited_to, visited_from, make_date(year, 12, 31)) desc
+    limit 1
+  ) lv on true
   where vc.share_to_feed
   union all
   select
@@ -418,6 +453,8 @@ with (security_invoker = true) as
     nullif(c.concert_name, '') as subtitle,
     cm.public_url as cover_url,
     cm.media_type as cover_media_type,
+    extract(year from c.concert_date)::int as visit_year,
+    c.concert_date as visit_date,
     c.created_at as created_at
   from public.concerts c
   left join lateral (

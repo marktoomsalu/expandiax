@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
 import { validateFile } from "@/lib/media";
 import { cn } from "@/lib/utils";
-import type { Profile } from "@/lib/types";
+import type { Profile, ProfileVisibility } from "@/lib/types";
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
@@ -29,7 +29,9 @@ export function ProfileForm({
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [bio, setBio] = useState(profile.bio);
   const [homeCountry, setHomeCountry] = useState(profile.home_country_code ?? "");
-  const [isPublic, setIsPublic] = useState<boolean | null>(requireVisibilityChoice ? null : profile.is_public);
+  const [visibility, setVisibility] = useState<ProfileVisibility | null>(
+    requireVisibilityChoice ? null : profile.visibility
+  );
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,8 +64,8 @@ export function ProfileForm({
     e.preventDefault();
     setError(null);
     setSaved(false);
-    if (isPublic === null) {
-      setError("Choose whether your account is public or private.");
+    if (visibility === null) {
+      setError("Choose who can see your account.");
       return;
     }
     const uname = username.trim().toLowerCase();
@@ -92,7 +94,7 @@ export function ProfileForm({
         display_name: displayName.trim() || "Traveller",
         bio: bio.trim(),
         home_country_code: homeCountry || null,
-        is_public: isPublic,
+        visibility,
         avatar_url: avatarUrl,
       })
       .eq("id", profile.id);
@@ -164,19 +166,23 @@ export function ProfileForm({
         </select>
       </div>
 
-      <fieldset className={cn("rounded-lg border p-4", isPublic === null ? "border-accent/50" : "border-line")}>
+      <fieldset className={cn("rounded-lg border p-4", visibility === null ? "border-accent/50" : "border-line")}>
         <legend className="px-1 text-sm font-medium">
-          Profile visibility {requireVisibilityChoice && <span className="text-accent">*</span>}
+          Who can see your profile {requireVisibilityChoice && <span className="text-accent">*</span>}
         </legend>
         {requireVisibilityChoice && (
           <p className="mb-3 text-xs text-muted">Required — choose one before continuing.</p>
         )}
         <label className="flex cursor-pointer items-start gap-3 text-sm">
-          <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={isPublic === true} onChange={() => setIsPublic(true)} />
+          <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "public"} onChange={() => setVisibility("public")} />
           <span><strong className="font-medium">Public</strong> — anyone with your link can see your map, memories and public concerts.</span>
         </label>
         <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
-          <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={isPublic === false} onChange={() => setIsPublic(false)} />
+          <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "friends"} onChange={() => setVisibility("friends")} />
+          <span><strong className="font-medium">Friends only</strong> — visible only to people who follow you back (mutual followers).</span>
+        </label>
+        <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
+          <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "private"} onChange={() => setVisibility("private")} />
           <span><strong className="font-medium">Private</strong> — only you can see your archive.</span>
         </label>
       </fieldset>

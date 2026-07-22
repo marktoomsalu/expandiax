@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { WorldMapLink } from "@/components/WorldMapLink";
@@ -137,6 +138,11 @@ export default async function PublicProfilePage({ params }: { params: { username
           <div className="flex flex-wrap items-center gap-4">
             <h1 className="text-4xl md:text-5xl">{profile.display_name}</h1>
             {!isOwnProfile && viewer && <FollowButton targetId={profile.id} initialFollowing={isFollowing} />}
+            {isOwnProfile && (
+              <Link href="/settings" className="btn-ghost !py-2 text-sm">
+                <Pencil size={14} /> Edit profile
+              </Link>
+            )}
           </div>
           <p className="mt-1.5 text-sm text-muted">
             @{profile.username}
@@ -161,13 +167,13 @@ export default async function PublicProfilePage({ params }: { params: { username
         {stat(codes.length, "Countries")}
         {stat(`${pct}%`, "Of the world")}
         {stat(`${visitedContinents.length}/6`, "Continents")}
-        {stat(concerts.length, "Concerts")}
+        {stat(concerts.length, "Music events")}
         {stat(uniqueArtists, "Artists seen")}
       </div>
 
       {/* Map */}
       <div className="mt-10 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">
-        <WorldMapLink visitedCodes={codes} visitCounts={visitCounts} username={profile.username} />
+        <WorldMapLink visitedCodes={codes} visitCounts={visitCounts} homeCode={profile.home_country_code} username={profile.username} />
       </div>
 
       {/* Favourite memories */}
@@ -209,7 +215,7 @@ export default async function PublicProfilePage({ params }: { params: { username
       {concerts.length > 0 && (
         <section className="mt-14" aria-labelledby="conc-h">
           <p className="eyebrow">Music</p>
-          <h2 id="conc-h" className="mt-1 text-2xl md:text-3xl">Recent concerts</h2>
+          <h2 id="conc-h" className="mt-1 text-2xl md:text-3xl">Recent music events</h2>
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {concerts.slice(0, 6).map((c) => {
               const cover =

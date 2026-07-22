@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
 import { countryByCode } from "@/lib/countries";
-import { formatRelative } from "@/lib/utils";
+import { formatDate, formatRelative } from "@/lib/utils";
 import type { FeedEvent, Profile } from "@/lib/types";
 
 export const metadata = { title: "Feed" };
@@ -116,6 +116,11 @@ export default async function FeedPage() {
                       </>
                     )}
                   </Link>
+                  {(event.visit_date || event.visit_year) && (
+                    <p className="mt-1 text-xs text-muted">
+                      {event.kind === "country" ? "Visited" : "Was there"} {event.visit_date ? formatDate(event.visit_date) : event.visit_year}
+                    </p>
+                  )}
                 </div>
 
                 {event.cover_url && (

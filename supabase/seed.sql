@@ -35,7 +35,7 @@ begin
     display_name = 'Liis Kask',
     bio = 'Island girl from Saaremaa collecting coastlines and encores. I travel for the light and stay for the music.',
     home_country_code = 'EE',
-    is_public = true
+    visibility = 'public'
   where id = uid;
 
   -- Countries -------------------------------------------------
