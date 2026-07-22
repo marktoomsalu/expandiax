@@ -74,7 +74,7 @@ create table public.concerts (
   city text not null default '',
   country_code text not null check (country_code ~ '^[A-Z]{2}$'),
   country_name text not null,
-  rating int check (rating between 1 and 5),
+  rating int check (rating between 1 and 10),
   review text not null default '',
   favourite_song text not null default '',
   setlist_notes text not null default '',

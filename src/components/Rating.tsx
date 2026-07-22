@@ -5,39 +5,32 @@ import { cn } from "@/lib/utils";
 export function RatingStars({ value, size = 15 }: { value: number | null; size?: number }) {
   if (!value) return null;
   return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`Rated ${value} out of 5`}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <Star
-          key={n}
-          size={size}
-          aria-hidden
-          className={n <= value ? "fill-accent text-accent" : "text-line"}
-        />
-      ))}
+    <span className="inline-flex items-center gap-1" aria-label={`Rated ${value} out of 10`}>
+      <Star size={size} aria-hidden className="fill-accent text-accent" />
+      <span className="text-xs font-semibold tabular-nums text-ink">{value}/10</span>
     </span>
   );
 }
 
 export function RatingInput({ value, onChange }: { value: number | null; onChange: (v: number) => void }) {
   return (
-    <div role="radiogroup" aria-label="Rating from 1 to 5" className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((n) => (
+    <div role="radiogroup" aria-label="Rating from 1 to 10" className="flex flex-wrap items-center gap-1.5">
+      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
         <button
           key={n}
           type="button"
           role="radio"
           aria-checked={value === n}
-          aria-label={`${n} star${n > 1 ? "s" : ""}`}
+          aria-label={`${n} out of 10`}
           onClick={() => onChange(n)}
-          className="rounded p-1"
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium transition-colors",
+            value === n
+              ? "border-accent bg-accent text-white"
+              : "border-line text-muted hover:border-accent hover:text-accent"
+          )}
         >
-          <Star
-            size={22}
-            className={cn(
-              "transition-colors",
-              value && n <= value ? "fill-accent text-accent" : "text-line hover:text-accent"
-            )}
-          />
+          {n}
         </button>
       ))}
     </div>

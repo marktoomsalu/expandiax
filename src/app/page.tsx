@@ -99,7 +99,7 @@ export default function LandingPage() {
               <div className="px-6 py-5">
                 <div className="flex items-center justify-between">
                   <p className="font-serif text-xl">Stadium night, Madrid</p>
-                  <RatingStars value={5} />
+                  <RatingStars value={10} />
                 </div>
                 <p className="mt-2 text-sm italic leading-relaxed text-muted">
                   &ldquo;60,000 phones went dark for the acoustic encore. You could hear the city breathing.&rdquo;

@@ -85,7 +85,7 @@ begin
 
   -- Concerts --------------------------------------------------
   insert into public.concerts (user_id, artist_name, concert_name, concert_date, venue, city, country_code, country_name, rating, review, favourite_song, setlist_notes, is_favourite, is_public)
-  values (uid, 'Aurora Vale', 'The Last Summer Tour', '2023-08-26', 'Estadio Metropolitano', 'Madrid', 'ES', 'Spain', 5,
+  values (uid, 'Aurora Vale', 'The Last Summer Tour', '2023-08-26', 'Estadio Metropolitano', 'Madrid', 'ES', 'Spain', 10,
     '60,000 phones went dark for the acoustic encore. You could hear the city breathing.',
     'Paper Lanterns', 'Opened with Static Hearts; three-song acoustic encore.', true, true)
   returning id into c_madrid;
@@ -97,7 +97,7 @@ begin
   update public.concerts set cover_media_id = cm1 where id = c_madrid;
 
   insert into public.concerts (user_id, artist_name, concert_name, concert_date, venue, city, country_code, country_name, rating, review, favourite_song, is_public)
-  values (uid, 'Iron Harbour', 'Northern Steel Tour', '2024-03-15', 'Saku Suurhall', 'Tallinn', 'EE', 'Estonia', 4,
+  values (uid, 'Iron Harbour', 'Northern Steel Tour', '2024-03-15', 'Saku Suurhall', 'Tallinn', 'EE', 'Estonia', 8,
     'Home crowd, wall of guitars, my ears rang until Tuesday and it was worth every decibel.',
     'Rust and Salt', true)
   returning id into c_tallinn;
@@ -107,7 +107,7 @@ begin
   update public.concerts set cover_media_id = cm2 where id = c_tallinn;
 
   insert into public.concerts (user_id, artist_name, concert_name, concert_date, venue, city, country_code, country_name, rating, review, favourite_song, is_public)
-  values (uid, 'Aurora Vale', 'Midsummer Sound Festival', '2023-06-22', 'Suvilahti', 'Helsinki', 'FI', 'Finland', 5,
+  values (uid, 'Aurora Vale', 'Midsummer Sound Festival', '2023-06-22', 'Suvilahti', 'Helsinki', 'FI', 'Finland', 10,
     'Festival midnight that never got dark. Danced in a raincoat, dried off in the sauna.',
     'Paper Lanterns', true)
   returning id into c_helsinki;
