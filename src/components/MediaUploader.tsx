@@ -6,6 +6,8 @@ import Image from "next/image";
 import { ArrowDown, ArrowUp, ImagePlus, Star, Trash2, Video } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { validateFile, storagePath } from "@/lib/media";
+import { compressVideo } from "@/lib/videoCompress";
+import { uploadResumable } from "@/lib/resumableUpload";
 import type { MediaItem } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { cn } from "@/lib/utils";
@@ -63,6 +65,8 @@ export function MediaUploader(props: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<Pending[]>([]);
   const [progress, setProgress] = useState<Record<string, number>>({});
+  const [phase, setPhase] = useState<Record<string, "compressing" | "uploading">>({});
+  const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [toDelete, setToDelete] = useState<MediaItem | null>(null);
@@ -96,10 +100,40 @@ export function MediaUploader(props: Props) {
     try {
       let order = items.length;
       for (const p of pending) {
-        const path = storagePath(userId, scope, parentId, p.file);
-        await uploadWithProgress(path, p.file, (pct) =>
-          setProgress((cur) => ({ ...cur, [p.previewUrl]: pct }))
-        );
+        let fileToUpload = p.file;
+
+        if (kind === "video" && videoQuality === "standard") {
+          setPhase((cur) => ({ ...cur, [p.previewUrl]: "compressing" }));
+          setProgress((cur) => ({ ...cur, [p.previewUrl]: 0 }));
+          try {
+            fileToUpload = await compressVideo(p.file, (pct) =>
+              setProgress((cur) => ({ ...cur, [p.previewUrl]: pct }))
+            );
+          } catch {
+            // Compression can fail on unusual codecs or low-memory devices —
+            // fall back to the original file rather than blocking the upload.
+            fileToUpload = p.file;
+          }
+        }
+
+        setPhase((cur) => ({ ...cur, [p.previewUrl]: "uploading" }));
+        setProgress((cur) => ({ ...cur, [p.previewUrl]: 0 }));
+
+        const path = storagePath(userId, scope, parentId, fileToUpload);
+
+        if (kind === "video") {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+          if (!token) throw new Error("You need to be signed in to upload.");
+          await uploadResumable(path, fileToUpload, token, (pct) =>
+            setProgress((cur) => ({ ...cur, [p.previewUrl]: pct }))
+          );
+        } else {
+          await uploadWithProgress(path, fileToUpload, (pct) =>
+            setProgress((cur) => ({ ...cur, [p.previewUrl]: pct }))
+          );
+        }
+
         const { data: pub } = supabase.storage.from("media").getPublicUrl(path);
         const { error: dbError } = await supabase.from(table).insert({
           [fkColumn]: parentId,
@@ -121,6 +155,7 @@ export function MediaUploader(props: Props) {
       }
       setPending([]);
       setProgress({});
+      setPhase({});
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong while uploading.");
@@ -131,6 +166,11 @@ export function MediaUploader(props: Props) {
 
   function removePending(url: string) {
     setPending((p) => p.filter((x) => x.previewUrl !== url));
+    setPhase((cur) => {
+      const rest = { ...cur };
+      delete rest[url];
+      return rest;
+    });
     URL.revokeObjectURL(url);
   }
 
@@ -228,9 +268,14 @@ export function MediaUploader(props: Props) {
                   <video src={p.previewUrl} className="aspect-[4/3] w-full bg-black object-contain" muted />
                 )}
                 {typeof progress[p.previewUrl] === "number" && (
-                  <div className="h-1 w-full bg-line" role="progressbar" aria-valuenow={progress[p.previewUrl]} aria-valuemin={0} aria-valuemax={100}>
-                    <div className="h-1 bg-accent transition-all" style={{ width: `${progress[p.previewUrl]}%` }} />
-                  </div>
+                  <>
+                    <p className="px-2 pt-1.5 text-[0.625rem] text-muted">
+                      {phase[p.previewUrl] === "compressing" ? "Compressing" : "Uploading"} {progress[p.previewUrl]}%
+                    </p>
+                    <div className="h-1 w-full bg-line" role="progressbar" aria-valuenow={progress[p.previewUrl]} aria-valuemin={0} aria-valuemax={100}>
+                      <div className="h-1 bg-accent transition-all" style={{ width: `${progress[p.previewUrl]}%` }} />
+                    </div>
+                  </>
                 )}
                 {captions && (
                   <input
@@ -251,8 +296,34 @@ export function MediaUploader(props: Props) {
             ))}
           </ul>
           <button type="button" className="btn-accent mt-3 !py-2 text-sm" onClick={saveAll} disabled={busy}>
-            {busy ? "Uploading…" : `Save ${pending.length} ${kind === "image" ? "photo" : "video"}${pending.length > 1 ? "s" : ""}`}
+            {busy
+              ? Object.values(phase).includes("compressing")
+                ? "Compressing…"
+                : "Uploading…"
+              : `Save ${pending.length} ${kind === "image" ? "photo" : "video"}${pending.length > 1 ? "s" : ""}`}
           </button>
+        </div>
+      )}
+
+      {kind === "video" && (
+        <div className="mt-4 flex items-center gap-2">
+          <span className="text-xs text-muted">Upload quality</span>
+          <div className="flex gap-1.5">
+            {(["standard", "hd"] as const).map((q) => (
+              <button
+                key={q}
+                type="button"
+                disabled={busy}
+                onClick={() => setVideoQuality(q)}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                  videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
+                )}
+              >
+                {q === "standard" ? "Standard — faster" : "HD — original"}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
