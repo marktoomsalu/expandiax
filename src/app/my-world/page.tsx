@@ -1,11 +1,11 @@
 import Link from "next/link";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MapNavigator } from "@/components/MapNavigator";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ContinentCard } from "@/components/ContinentCard";
+import { CountryCardMedia } from "@/components/CountryCardMedia";
 import { CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import { visitSortKey } from "@/lib/utils";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
@@ -114,28 +114,23 @@ export default async function MyWorldPage() {
                 const cover =
                   c.country_media.find((m) => m.id === c.cover_media_id) ??
                   [...c.country_media].sort((a, b) => a.display_order - b.display_order)[0];
+                const media = cover
+                  ? [cover, ...c.country_media.filter((m) => m.id !== cover.id).sort((a, b) => a.display_order - b.display_order)]
+                  : [];
                 const years = [...new Set(c.country_visits.map((v) => v.year))].sort();
+                const detail = years.length ? years.join(" · ") : "Add your visit years";
                 return (
                   <li key={c.id}>
                     <Link href={`/my-world/${c.country_code.toLowerCase()}`} className="card group block overflow-hidden transition-shadow hover:shadow-lg">
                       <div className="relative aspect-[3/4] bg-raised">
-                        {cover ? (
-                          <>
-                            <Image
-                              src={cover.public_url}
-                              alt={cover.caption || `Photo from ${c.country_name}`}
-                              fill
-                              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                              className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" aria-hidden />
-                            <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-12 text-white">
-                              <p className="font-serif text-xl drop-shadow-sm">{meta?.flag} {c.country_name}</p>
-                              <p className="mt-0.5 text-xs text-white/75">
-                                {years.length ? years.join(" · ") : "Add your visit years"}
-                              </p>
-                            </div>
-                          </>
+                        {media.length > 0 ? (
+                          <CountryCardMedia
+                            media={media}
+                            alt={`Photo from ${c.country_name}`}
+                            flag={meta?.flag}
+                            name={c.country_name}
+                            detail={detail}
+                          />
                         ) : (
                           <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
                             <span className="font-serif text-5xl opacity-60" aria-hidden>{meta?.flag}</span>
