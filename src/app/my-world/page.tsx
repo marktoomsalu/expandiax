@@ -7,7 +7,7 @@ import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ContinentCard } from "@/components/ContinentCard";
 import { CountryCardMedia } from "@/components/CountryCardMedia";
-import { CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
+import { COUNTRIES, CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import { visitSortKey } from "@/lib/utils";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
 
@@ -44,13 +44,15 @@ export default async function MyWorldPage() {
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
   const continents = continentCounts(codes);
   const visitedContinents = continents.filter((c) => c.visited > 0).length;
-  const countriesByContinent = new Map<string, { code: string; name: string; flag: string }[]>();
-  for (const code of codes) {
-    const meta = countryByCode(code);
-    if (!meta) continue;
-    const list = countriesByContinent.get(meta.continent) ?? [];
-    list.push({ code: meta.code, name: meta.name, flag: meta.flag });
-    countriesByContinent.set(meta.continent, list);
+  const visitedSet = new Set(codes);
+  const countriesByContinent = new Map<
+    string,
+    { code: string; name: string; flag: string; visited: boolean; count: number }[]
+  >();
+  for (const c of COUNTRIES) {
+    const list = countriesByContinent.get(c.continent) ?? [];
+    list.push({ code: c.code, name: c.name, flag: c.flag, visited: visitedSet.has(c.code), count: visitCounts[c.code] ?? 0 });
+    countriesByContinent.set(c.continent, list);
   }
   for (const list of countriesByContinent.values()) list.sort((a, b) => a.name.localeCompare(b.name));
   const latest = countries[0];
