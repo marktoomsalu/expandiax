@@ -10,6 +10,16 @@ export function formatDate(iso: string) {
   });
 }
 
+export function formatVisitRange(v: { year: number; visited_from: string | null; visited_to: string | null }) {
+  if (!v.visited_from) return String(v.year);
+  if (!v.visited_to || v.visited_to === v.visited_from) return formatDate(v.visited_from);
+  return `${formatDate(v.visited_from)} – ${formatDate(v.visited_to)}`;
+}
+
+export function visitSortKey(v: { year: number; visited_from: string | null; visited_to: string | null }) {
+  return v.visited_to ?? v.visited_from ?? `${v.year}-12-31`;
+}
+
 export function formatMonthYear(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 }

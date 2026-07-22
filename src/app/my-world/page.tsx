@@ -7,16 +7,18 @@ import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ContinentCard } from "@/components/ContinentCard";
 import { CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
+import { visitSortKey } from "@/lib/utils";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
 
 export const metadata = { title: "My World" };
 
-type Row = VisitedCountry & { country_media: CountryMedia[]; country_visits: { year: number; visited_on: string | null }[] };
+type VisitLite = { year: number; visited_from: string | null; visited_to: string | null };
+type Row = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
 
 // When you actually travelled, not when you happened to add it to the app —
 // falls back to the entry date only if no visit year/date was ever logged.
 function travelRecency(c: Row): string {
-  const dates = c.country_visits.map((v) => v.visited_on ?? `${v.year}-12-31`);
+  const dates = c.country_visits.map(visitSortKey);
   return dates.length > 0 ? dates.sort().at(-1)! : c.created_at.slice(0, 10);
 }
 
@@ -29,7 +31,7 @@ export default async function MyWorldPage() {
 
   const { data } = await supabase
     .from("visited_countries")
-    .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_on)")
+    .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to)")
     .eq("user_id", user.id);
 
   const countries = [...((data ?? []) as Row[])].sort((a, b) => travelRecency(b).localeCompare(travelRecency(a)));
