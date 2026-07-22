@@ -39,9 +39,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (path === "/sign-in" || path === "/sign-up")) {
+  if (user && (path === "/sign-in" || path === "/sign-up" || path === "/")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/my-world";
+    url.pathname = path === "/" ? "/feed" : "/my-world";
     url.search = "";
     return NextResponse.redirect(url);
   }
