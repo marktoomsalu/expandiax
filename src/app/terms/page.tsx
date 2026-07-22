@@ -91,8 +91,8 @@ export default function TermsPage() {
           <h2 className="font-serif text-xl text-ink">Contact</h2>
           <p className="mt-2">
             Questions about these terms? Reach out at{" "}
-            <a href="mailto:support@expandiax.com" className="text-accent underline-offset-4 hover:underline">
-              support@expandiax.com
+            <a href="mailto:mark@expandiax.com" className="text-accent underline-offset-4 hover:underline">
+              mark@expandiax.com
             </a>
             .
           </p>
