@@ -174,7 +174,7 @@ export default async function PublicProfilePage({ params }: { params: { username
           <p className="mt-1.5 text-sm text-muted">
             @{profile.username}
             {home && <> · from {home.flag} {home.name}</>}
-            {" · "}remembering since {new Date(profile.created_at).getFullYear()}
+            {" · "}collecting memories since {new Date(profile.created_at).getFullYear()}
           </p>
           <p className="mt-1.5 text-sm text-muted">
             <Link href={`/u/${profile.username}/followers`} className="hover:text-ink">

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -54,11 +55,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <SiteNav user={navUser} />
           <main>{children}</main>
           <footer className="mt-20 border-t border-line">
-            <div className="mx-auto flex max-w-shell flex-col items-start justify-between gap-3 px-5 py-8 text-sm text-muted sm:flex-row sm:items-center">
-              <p className="font-serif text-ink">
-                Expandia<span className="gradient-travel bg-clip-text text-transparent">X</span>
-              </p>
-              <p>A private archive of everywhere you&rsquo;ve been and every night that mattered.</p>
+            <div className="mx-auto max-w-shell px-5 py-8">
+              <div className="flex flex-col items-start justify-between gap-3 text-sm text-muted sm:flex-row sm:items-center">
+                <p className="font-serif text-ink">
+                  Expandia<span className="gradient-travel bg-clip-text text-transparent">X</span>
+                </p>
+                <p>A private archive for collecting the memories that matter — every place you&rsquo;ve been, every night worth remembering.</p>
+              </div>
+              <div className="mt-6 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-muted sm:flex-row sm:items-center">
+                <p>&copy; {new Date().getFullYear()} ExpandiaX. All rights reserved.</p>
+                <div className="flex items-center gap-4">
+                  <Link href="/terms" className="hover:text-ink">Terms</Link>
+                  <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+                </div>
+              </div>
             </div>
           </footer>
         </ThemeProvider>
