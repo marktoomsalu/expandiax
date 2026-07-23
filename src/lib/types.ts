@@ -79,6 +79,7 @@ export type Event = {
   spotify_artist_id: string | null;
   spotify_artist_name: string | null;
   spotify_artist_image: string | null;
+  spotify_favourite_track_id: string | null;
   created_at: string;
   updated_at: string;
 };

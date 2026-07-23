@@ -11,6 +11,8 @@ export type EventTypeMeta = {
   notesLabel: string;
   /** Whether this type shows the Spotify artist picker (their photo stands in as the cover). */
   hasArtist?: boolean;
+  /** Whether the highlight field is a Spotify track picker rather than free text. */
+  songPicker?: boolean;
 };
 
 export const EVENT_TYPES: EventTypeMeta[] = [
@@ -23,6 +25,7 @@ export const EVENT_TYPES: EventTypeMeta[] = [
     highlightLabel: "Favourite song performed",
     notesLabel: "Setlist notes",
     hasArtist: true,
+    songPicker: true,
   },
   {
     value: "festival",

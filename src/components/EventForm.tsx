@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { User } from "lucide-react";
+import { Music2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES, countryByCode } from "@/lib/countries";
 import { EVENT_TYPES, eventTypeMeta, type RecentArtist } from "@/lib/events";
 import { RatingInput } from "./Rating";
 import { ArtistPicker, type SpotifyArtist } from "./ArtistPicker";
+import { TrackPicker, type SpotifyTrackChoice } from "./TrackPicker";
 import { cn } from "@/lib/utils";
 import type { Event, EventType } from "@/lib/types";
 
@@ -33,6 +34,7 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
     spotify_artist_id: event?.spotify_artist_id ?? null,
     spotify_artist_name: event?.spotify_artist_name ?? null,
     spotify_artist_image: event?.spotify_artist_image ?? null,
+    spotify_favourite_track_id: event?.spotify_favourite_track_id ?? null,
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +83,7 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
       spotify_artist_id: f.spotify_artist_id,
       spotify_artist_name: f.spotify_artist_name,
       spotify_artist_image: f.spotify_artist_image,
+      spotify_favourite_track_id: f.spotify_favourite_track_id,
     };
 
     if (event) {
@@ -230,7 +233,33 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <label htmlFor="e-highlight" className="mb-1.5 block text-sm font-medium">{meta.highlightLabel}</label>
-          <input id="e-highlight" className="field" value={f.highlight} onChange={(e) => set("highlight", e.target.value)} />
+          <input
+            id="e-highlight"
+            className="field"
+            value={f.highlight}
+            onChange={(e) => set("highlight", e.target.value)}
+          />
+          {meta.songPicker && (
+            <div className="mt-2">
+              {f.spotify_favourite_track_id ? (
+                <p className="flex items-center gap-1.5 text-xs text-muted">
+                  <Music2 size={12} className="text-accent" aria-hidden /> Connected to Spotify — plays back on the event page.
+                  <button type="button" className="text-red-700 hover:underline" onClick={() => set("spotify_favourite_track_id", null)}>
+                    Disconnect
+                  </button>
+                </p>
+              ) : (
+                <TrackPicker
+                  value={null}
+                  onChange={(track: SpotifyTrackChoice | null) => {
+                    if (!track) return;
+                    setF((cur) => ({ ...cur, spotify_favourite_track_id: track.id, highlight: track.name }));
+                  }}
+                  placeholder="Or connect it to Spotify so it plays back…"
+                />
+              )}
+            </div>
+          )}
         </div>
         <div>
           <label htmlFor="e-notes" className="mb-1.5 block text-sm font-medium">{meta.notesLabel}</label>

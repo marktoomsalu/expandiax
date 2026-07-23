@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getSpotifyToken } from "@/lib/spotifyServer";
 
 export const dynamic = "force-dynamic";
 
@@ -17,30 +18,6 @@ type SpotifyArtistResult = {
   images: SpotifyImage[];
 };
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-async function getAccessToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.token;
-
-  const id = process.env.SPOTIFY_CLIENT_ID;
-  const secret = process.env.SPOTIFY_CLIENT_SECRET;
-  if (!id || !secret) throw new Error("not_configured");
-
-  const res = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: "grant_type=client_credentials",
-  });
-  if (!res.ok) throw new Error("auth_failed");
-
-  const data = await res.json();
-  cachedToken = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
-  return cachedToken.token;
-}
-
 export async function GET(request: NextRequest) {
   const supabase = createClient();
   const {
@@ -53,7 +30,7 @@ export async function GET(request: NextRequest) {
   if (!q) return NextResponse.json(type === "artist" ? { artists: [] } : { tracks: [] });
 
   try {
-    const token = await getAccessToken();
+    const token = await getSpotifyToken();
     const res = await fetch(`https://api.spotify.com/v1/search?type=${type}&limit=8&q=${encodeURIComponent(q)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });

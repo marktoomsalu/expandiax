@@ -104,6 +104,9 @@ create table public.events (
   spotify_artist_id text,
   spotify_artist_name text,
   spotify_artist_image text,
+  -- A concert's favourite song, connected to an actual Spotify track for
+  -- playback. `highlight` holds the display name, kept in sync at pick time.
+  spotify_favourite_track_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
