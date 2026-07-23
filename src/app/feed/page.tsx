@@ -123,7 +123,9 @@ export default async function FeedPage() {
                             ? formatMonthYear(item.visit_date)
                             : formatDate(item.visit_date)
                           : item.visit_year}
-                        {item.kind === "event" && item.country_name && ` · ${item.country_name}`}
+                        {item.kind === "event" &&
+                          [item.venue, item.city, item.country_name].filter(Boolean).length > 0 &&
+                          ` · ${[item.venue, item.city, item.country_name].filter(Boolean).join(", ")}`}
                       </p>
                     )}
                     {item.body && <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-ink">{item.body}</p>}

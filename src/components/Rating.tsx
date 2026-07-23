@@ -2,12 +2,21 @@
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function RatingStars({ value, size = 15 }: { value: number | null; size?: number }) {
+export function RatingStars({
+  value,
+  size = 15,
+  tone = "default",
+}: {
+  value: number | null;
+  size?: number;
+  /** Use "light" when the stars sit on a dark image/banner background. */
+  tone?: "default" | "light";
+}) {
   if (!value) return null;
   return (
     <span className="inline-flex items-center gap-1" aria-label={`Rated ${value} out of 10`}>
       <Star size={size} aria-hidden className="fill-accent text-accent" />
-      <span className="text-xs font-semibold tabular-nums text-ink">{value}/10</span>
+      <span className={cn("text-xs font-semibold tabular-nums", tone === "light" ? "text-white" : "text-ink")}>{value}/10</span>
     </span>
   );
 }

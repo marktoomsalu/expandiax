@@ -113,7 +113,7 @@ export default async function PublicEventPage({
             <span className="inline-flex items-center gap-1.5">
               <MapPin size={14} aria-hidden /> {[event.venue, event.city, meta?.name].filter(Boolean).join(", ")}
             </span>
-            <RatingStars value={event.rating} />
+            <RatingStars value={event.rating} tone="light" />
           </div>
         </div>
       </div>

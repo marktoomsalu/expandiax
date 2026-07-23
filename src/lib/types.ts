@@ -104,6 +104,8 @@ export type FeedEvent = {
   title: string;
   subtitle: string | null;
   body: string | null;
+  venue: string | null;
+  city: string | null;
   cover_url: string | null;
   cover_media_type: "image" | "video" | null;
   visit_year: number | null;

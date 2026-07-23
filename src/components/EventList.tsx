@@ -125,7 +125,7 @@ export function EventList({ events, hrefBase, editable }: { events: Row[]; hrefB
                       <p className="mt-1.5 text-xs text-white/75">
                         {formatDate(e.event_date)} · {[e.city, meta?.name].filter(Boolean).join(", ")}
                       </p>
-                      <div className="mt-2"><RatingStars value={e.rating} /></div>
+                      <div className="mt-2"><RatingStars value={e.rating} tone="light" /></div>
                     </div>
                   </div>
                 </Link>

@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
       const artists = ((data.artists?.items ?? []) as SpotifyArtistResult[]).map((a) => ({
         id: a.id,
         name: a.name,
-        image: a.images.at(-1)?.url ?? a.images[0]?.url ?? null,
+        // Spotify orders images largest-first; artist photos get used full-bleed
+        // as event covers/banners, so take the largest, not the smallest.
+        image: a.images[0]?.url ?? a.images.at(-1)?.url ?? null,
       }));
       return NextResponse.json({ artists });
     }
