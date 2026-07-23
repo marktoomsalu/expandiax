@@ -38,10 +38,6 @@ export function formatMonthYear(iso: string) {
   return new Date(iso + (iso.length === 10 ? "T00:00:00" : "")).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 }
 
-export function formatCompactNumber(n: number) {
-  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
-}
-
 export function formatRelative(iso: string) {
   const sec = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
   if (sec < 60) return "just now";

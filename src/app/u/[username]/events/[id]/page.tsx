@@ -2,15 +2,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, FileText, MapPin, Users2 } from "lucide-react";
+import { ArrowLeft, FileText, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
-import { getSpotifyArtistStats } from "@/lib/spotifyServer";
-import { formatCompactNumber, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import type { Event, EventFull } from "@/lib/types";
 
 export async function generateMetadata({
@@ -87,7 +86,6 @@ export default async function PublicEventPage({
   const typeMeta = eventTypeMeta(event.event_type);
   const TypeIcon = typeMeta.icon;
   const others = (sameTitle ?? []) as Event[];
-  const artistStats = event.spotify_artist_id ? await getSpotifyArtistStats(event.spotify_artist_id) : null;
 
   return (
     <div>
@@ -117,12 +115,6 @@ export default async function PublicEventPage({
             </span>
             <RatingStars value={event.rating} />
           </div>
-          {artistStats && (
-            <p className="mt-2 flex items-center gap-1.5 text-xs text-white/65">
-              <Users2 size={13} aria-hidden />
-              {formatCompactNumber(artistStats.followers)} followers on Spotify · Popularity {artistStats.popularity}/100
-            </p>
-          )}
         </div>
       </div>
 
