@@ -1,9 +1,17 @@
 import Link from "next/link";
-import { Camera, Globe2, Music2, Ticket } from "lucide-react";
+import { Camera, Check, Globe2, Music2, Sparkles, Ticket } from "lucide-react";
 import { WorldMap } from "@/components/WorldMap";
 import { FadeIn } from "@/components/FadeIn";
 import { RatingStars } from "@/components/Rating";
 import { TOTAL_COUNTRIES } from "@/lib/countries";
+
+const FREE_FEATURES = ["Up to 40 countries", "Up to 20 events", "5 photos & 3 videos per entry"];
+const PREMIUM_FEATURES = [
+  "Unlimited countries & events",
+  "15 photos & 8 videos per entry",
+  "US States tracking map",
+  "Custom accent colour & Premium badge",
+];
 
 const SAMPLE_CODES = ["EE", "FI", "SE", "PL", "ES", "IT", "PT", "GR", "JP", "TH", "MA", "MX", "PE", "GE", "NZ"];
 
@@ -146,6 +154,56 @@ export default function LandingPage() {
               </FadeIn>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="mx-auto max-w-shell px-5 py-16 md:py-24" aria-labelledby="pricing-h">
+        <FadeIn>
+          <p className="eyebrow">Free to start</p>
+          <h2 id="pricing-h" className="mt-2 max-w-2xl text-3xl md:text-5xl">
+            Grows with the life you&rsquo;re archiving.
+          </h2>
+        </FadeIn>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-2">
+          <FadeIn delay={0.05}>
+            <div className="card h-full px-7 py-8">
+              <p className="eyebrow">Free</p>
+              <p className="mt-2 font-serif text-4xl">$0</p>
+              <ul className="mt-6 space-y-3 text-sm text-muted">
+                {FREE_FEATURES.map((f) => (
+                  <li key={f} className="flex items-start gap-2.5">
+                    <Check size={16} className="mt-0.5 shrink-0 text-muted" aria-hidden />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </FadeIn>
+
+          <FadeIn delay={0.1}>
+            <div className="card relative h-full overflow-hidden px-7 py-8 ring-1 ring-accent/30">
+              <div aria-hidden className="gradient-travel pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full opacity-[0.18] blur-2xl" />
+              <p className="eyebrow flex items-center gap-1.5 text-accent">
+                <Sparkles size={13} aria-hidden /> Premium
+              </p>
+              <p className="mt-2 font-serif text-4xl">
+                $4<span className="text-lg text-muted">/mo</span>
+              </p>
+              <ul className="mt-6 space-y-3 text-sm">
+                {PREMIUM_FEATURES.map((f) => (
+                  <li key={f} className="flex items-start gap-2.5">
+                    <Check size={16} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/sign-up" className="btn-accent mt-7 w-full !py-2.5 text-center">
+                Go Premium
+              </Link>
+            </div>
+          </FadeIn>
         </div>
       </section>
 

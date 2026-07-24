@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Music2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES, countryByCode } from "@/lib/countries";
@@ -111,7 +112,11 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
         .select("id")
         .single();
       if (err || !data) {
-        setError("Could not create the event. Try again.");
+        setError(
+          err?.message.includes("capped at")
+            ? err.message
+            : "Could not create the event. Try again."
+        );
         setBusy(false);
         return;
       }
@@ -282,7 +287,20 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
         </label>
       </div>
 
-      {error && <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
+      {error && (
+        <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">
+          {error}
+          {error.includes("capped at") && (
+            <>
+              {" "}
+              <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
+                Upgrade to Premium
+              </Link>
+              .
+            </>
+          )}
+        </p>
+      )}
       {saved && <p role="status" className="rounded-lg border border-accent/40 bg-accent-soft/50 px-3 py-2 text-sm">Event saved.</p>}
 
       <button type="submit" className="btn-accent" disabled={busy}>

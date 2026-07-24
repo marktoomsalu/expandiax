@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, Globe2, Plus, Rss, Ticket, UserRound } from "lucide-react";
+import { Compass, Globe2, Plus, Rss, Sparkles, Ticket, UserRound } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 
-type NavUser = { username: string } | null;
+type NavUser = { username: string; plan: "free" | "premium" } | null;
 
 function Wordmark() {
   return (
@@ -39,6 +39,14 @@ export function SiteNav({ user }: { user: NavUser }) {
         <div className="mx-auto flex h-14 max-w-shell items-center justify-between px-5">
           <Wordmark />
           <div className="flex items-center gap-3">
+            {user?.plan === "free" && (
+              <Link
+                href="/settings/billing"
+                className="hidden items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft px-3 py-1.5 font-sans text-xs font-medium text-accent transition-colors hover:bg-accent/15 sm:flex"
+              >
+                <Sparkles size={13} aria-hidden /> Upgrade
+              </Link>
+            )}
             <ThemeToggle />
             {!user && (
               <>

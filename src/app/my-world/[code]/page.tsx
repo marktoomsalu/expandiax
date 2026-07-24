@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { CountryEditor, MarkVisitedButton } from "@/components/CountryEditor";
 import { MediaUploader } from "@/components/MediaUploader";
-import { PHOTO_CAP } from "@/lib/plan";
+import { PHOTO_CAP, COUNTRY_CAP } from "@/lib/plan";
 import type { Plan, VisitedCountryFull } from "@/lib/types";
 
 export default async function ManageCountryPage({ params }: { params: { code: string } }) {
@@ -18,7 +18,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
 
-  const [{ data: profile }, { data }] = await Promise.all([
+  const [{ data: profile }, { data }, { count: countryCount }] = await Promise.all([
     supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
     supabase
       .from("visited_countries")
@@ -26,10 +26,13 @@ export default async function ManageCountryPage({ params }: { params: { code: st
       .eq("user_id", user.id)
       .eq("country_code", meta.code)
       .maybeSingle(),
+    supabase.from("visited_countries").select("id", { count: "exact", head: true }).eq("user_id", user.id),
   ]);
 
   const visited = data as VisitedCountryFull | null;
   const plan = (profile?.plan ?? "free") as Plan;
+  const countryCap = COUNTRY_CAP[plan];
+  const atCountryCap = countryCap !== null && (countryCount ?? 0) >= countryCap;
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
@@ -59,12 +62,26 @@ export default async function ManageCountryPage({ params }: { params: { code: st
         {!visited ? (
           <div className="card px-6 py-12 text-center">
             <h2 className="font-serif text-2xl">Not on your map yet.</h2>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-              One click adds it to your map. Photos, years, cities and a memory are all optional extras for later.
-            </p>
-            <div className="mt-6 flex justify-center">
-              <MarkVisitedButton meta={meta} />
-            </div>
+            {atCountryCap ? (
+              <>
+                <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+                  You&rsquo;ve reached the free plan&rsquo;s {countryCap}-country limit.{" "}
+                  <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
+                    Upgrade to Premium
+                  </Link>{" "}
+                  to keep adding countries.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+                  One click adds it to your map. Photos, years, cities and a memory are all optional extras for later.
+                </p>
+                <div className="mt-6 flex justify-center">
+                  <MarkVisitedButton meta={meta} />
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-10">

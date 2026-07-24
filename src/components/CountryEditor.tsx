@@ -35,11 +35,13 @@ export function MarkVisitedButton({ meta }: { meta: Meta }) {
       country_name: meta.name,
     });
     if (err) {
-      setError(
-        err.code === "23505"
-          ? `${meta.name} is already on your map.`
-          : "Could not mark this country. Try again."
-      );
+      if (err.code === "23505") {
+        setError(`${meta.name} is already on your map.`);
+      } else if (err.message.includes("capped at")) {
+        setError(err.message);
+      } else {
+        setError("Could not mark this country. Try again.");
+      }
       setBusy(false);
       return;
     }
@@ -52,7 +54,20 @@ export function MarkVisitedButton({ meta }: { meta: Meta }) {
         <MapPinPlus size={17} />
         {busy ? "Adding to your map…" : `Mark ${meta.name} as visited`}
       </button>
-      {error && <p role="alert" className="mt-3 text-sm text-red-800 dark:text-red-400">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-red-800 dark:text-red-400">
+          {error}
+          {error.includes("capped at") && (
+            <>
+              {" "}
+              <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
+                Upgrade to Premium
+              </Link>
+              .
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

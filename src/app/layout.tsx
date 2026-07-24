@@ -30,7 +30,7 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  let navUser: { username: string } | null = null;
+  let navUser: { username: string; plan: "free" | "premium" } | null = null;
   try {
     const supabase = createClient();
     const {
@@ -39,10 +39,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("username")
+        .select("username, plan")
         .eq("id", user.id)
         .single();
-      if (profile) navUser = { username: profile.username };
+      if (profile) navUser = { username: profile.username, plan: profile.plan };
     }
   } catch {
     // Supabase not configured yet — render the logged-out shell.
