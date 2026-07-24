@@ -6,7 +6,7 @@ import { MapNavigator } from "@/components/MapNavigator";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ContinentCard } from "@/components/ContinentCard";
-import { CountryCardMedia } from "@/components/CountryCardMedia";
+import { CountryGrid } from "@/components/CountryGrid";
 import { COUNTRIES, CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import { visitSortKey } from "@/lib/utils";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
@@ -119,49 +119,9 @@ export default async function MyWorldPage() {
 
           <section className="mt-10" aria-labelledby="countries-h">
             <h2 id="countries-h" className="text-xl">Your countries</h2>
-            <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {countries.map((c) => {
-                const meta = countryByCode(c.country_code);
-                const cover =
-                  c.country_media.find((m) => m.id === c.cover_media_id) ??
-                  [...c.country_media].sort((a, b) => a.display_order - b.display_order)[0];
-                const media = cover
-                  ? [cover, ...c.country_media.filter((m) => m.id !== cover.id).sort((a, b) => a.display_order - b.display_order)]
-                  : [];
-                const years = [...new Set(c.country_visits.map((v) => v.year))].sort();
-                const detail = years.length ? years.join(" · ") : "Add your visit years";
-                return (
-                  <li key={c.id}>
-                    <Link href={`/my-world/${c.country_code.toLowerCase()}`} className="card group block overflow-hidden transition-shadow hover:shadow-lg">
-                      <div className="relative aspect-[3/4] bg-raised">
-                        {media.length > 0 ? (
-                          <CountryCardMedia
-                            media={media}
-                            alt={`Photo from ${c.country_name}`}
-                            flag={meta?.flag}
-                            name={c.country_name}
-                            detail={detail}
-                          />
-                        ) : (
-                          <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
-                            <span className="font-serif text-5xl opacity-60" aria-hidden>{meta?.flag}</span>
-                            <div>
-                              <p className="font-serif text-lg">{c.country_name}</p>
-                              <p className="mt-0.5 text-xs text-muted">
-                                {years.length ? years.join(" · ") : "Add your visit years"}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        {c.is_favourite && (
-                          <span className="absolute left-3 top-3 rounded-full bg-canvas/90 px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide text-accent">Favourite</span>
-                        )}
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="mt-4">
+              <CountryGrid countries={countries} />
+            </div>
           </section>
         </>
       )}

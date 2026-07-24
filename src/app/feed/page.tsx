@@ -15,12 +15,16 @@ import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 
 export const metadata = { title: "Feed" };
 
-export default async function FeedPage() {
+const PAGE_SIZE = 30;
+
+export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string } }) {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
+
+  const limit = Math.min(Math.max(Number(searchParams?.limit) || PAGE_SIZE, PAGE_SIZE), 300);
 
   const { data: followingRows } = await supabase.from("follows").select("followee_id").eq("follower_id", user.id);
   const followeeIds = (followingRows ?? []).map((r) => r.followee_id);
@@ -37,7 +41,7 @@ export default async function FeedPage() {
       .select("*")
       .in("actor_id", followeeIds)
       .order("created_at", { ascending: false })
-      .limit(30);
+      .limit(limit);
     items = (feedData ?? []) as FeedEvent[];
 
     if (items.length > 0) {
@@ -191,6 +195,14 @@ export default async function FeedPage() {
             );
           })}
         </ul>
+      )}
+
+      {items.length >= limit && (
+        <div className="mt-8 flex justify-center">
+          <Link href={`/feed?limit=${limit + PAGE_SIZE}`} className="btn-ghost">
+            Load more
+          </Link>
+        </div>
       )}
     </div>
   );

@@ -131,6 +131,24 @@ export type CommentWithAuthor = Comment & {
   profiles: Pick<Profile, "username" | "display_name" | "avatar_url"> | null;
 };
 
+export type NotificationKind = "like" | "comment" | "follow";
+
+export type Notification = {
+  id: string;
+  user_id: string;
+  actor_id: string;
+  kind: NotificationKind;
+  target_kind: "country" | "event" | null;
+  target_id: string | null;
+  comment_body: string | null;
+  read: boolean;
+  created_at: string;
+};
+
+export type NotificationWithActor = Notification & {
+  actor: Pick<Profile, "username" | "display_name" | "avatar_url"> | null;
+};
+
 export type FeedEvent = {
   kind: "country" | "event";
   event_type: EventType | null;

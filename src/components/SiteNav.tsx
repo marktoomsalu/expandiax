@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, Globe2, Plus, Rss, Sparkles, Ticket, UserRound } from "lucide-react";
+import { Bell, Compass, Globe2, Plus, Rss, Sparkles, Ticket, UserRound } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,7 @@ function Wordmark() {
   );
 }
 
-export function SiteNav({ user }: { user: NavUser }) {
+export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unreadNotifications?: number }) {
   const path = usePathname();
   const [addOpen, setAddOpen] = useState(false);
   const active = (href: string) =>
@@ -45,6 +45,16 @@ export function SiteNav({ user }: { user: NavUser }) {
                 className="hidden items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft px-3 py-1.5 font-sans text-xs font-medium text-accent transition-colors hover:bg-accent/15 sm:flex"
               >
                 <Sparkles size={13} aria-hidden /> Upgrade
+              </Link>
+            )}
+            {user && (
+              <Link href="/notifications" aria-label="Notifications" className="relative text-muted hover:text-ink">
+                <Bell size={19} />
+                {unreadNotifications > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-semibold text-white">
+                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                  </span>
+                )}
               </Link>
             )}
             <ThemeToggle />

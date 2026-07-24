@@ -32,18 +32,19 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   let navUser: { username: string; plan: "free" | "premium" } | null = null;
+  let unreadNotifications = 0;
   try {
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("username, plan")
-        .eq("id", user.id)
-        .single();
+      const [{ data: profile }, { count }] = await Promise.all([
+        supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
+        supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false),
+      ]);
       if (profile) navUser = { username: profile.username, plan: profile.plan };
+      unreadNotifications = count ?? 0;
     }
   } catch {
     // Supabase not configured yet — render the logged-out shell.
@@ -53,7 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen pb-20">
         <ThemeProvider>
-          <SiteNav user={navUser} />
+          <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
           <main>{children}</main>
           {navUser && <PremiumUpsellModal plan={navUser.plan} />}
           <footer className="mt-20 border-t border-line">
