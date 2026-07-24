@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
+import { ShareButton } from "@/components/ShareButton";
 import { CommentSection } from "@/components/CommentSection";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { PhotoGallery } from "@/components/PhotoGallery";
@@ -169,13 +170,14 @@ export default async function FeedPage() {
                   </div>
                 )}
 
-                <div className="flex items-center border-t border-line px-4 py-3 sm:px-5">
+                <div className="flex items-center gap-5 border-t border-line px-4 py-3 sm:px-5">
                   <LikeButton
                     kind={item.kind}
                     targetId={item.ref_id}
                     initialLiked={likedByMe.has(key)}
                     initialCount={likeCounts.get(key) ?? 0}
                   />
+                  <ShareButton kind={item.kind} targetId={item.ref_id} title={item.title} />
                 </div>
                 <div className="border-t border-line px-4 py-3 sm:px-5">
                   <CommentSection

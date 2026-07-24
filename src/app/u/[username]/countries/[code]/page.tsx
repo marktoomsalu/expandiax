@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
+import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { CommentSection } from "@/components/CommentSection";
@@ -232,7 +233,8 @@ export default async function PublicCountryPage({
           ) : <span />}
         </nav>
 
-        <div className="mt-6 flex justify-center">
+        <div className="mt-6 flex items-center justify-center gap-6">
+          <ShareButton kind="country" targetId={country.id} title={`${meta.flag} ${meta.name}`} />
           <ReportButton targetType="country" targetId={country.id} targetUrl={`/u/${profile.username}/countries/${meta.code.toLowerCase()}`} />
         </div>
       </div>
