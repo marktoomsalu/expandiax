@@ -103,6 +103,22 @@ alter table public.country_visits
   add constraint country_visits_cover_media_fk
   foreign key (cover_media_id) references public.country_media (id) on delete set null;
 
+-- US States tracking — a lighter, separate map alongside the world map
+-- (50 states + DC). Premium-only, enforced at the insert policy below,
+-- not just in the UI. Deliberately simple for v1: visited + an optional
+-- note, no visits/photos/soundtrack like countries have.
+create table public.visited_us_states (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  state_code text not null check (state_code ~ '^[A-Z]{2}$'),
+  state_name text not null,
+  note text not null default '' check (length(note) <= 500),
+  is_favourite boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, state_code)
+);
+
 -- Events: concerts, festivals, sport, conferences, personal occasions
 -- (weddings etc.) or anything else — event_type is just a label, every
 -- event shares the same fields.
@@ -158,6 +174,7 @@ alter table public.events
 create index billing_stripe_customer_idx on public.billing (stripe_customer_id);
 create index billing_stripe_subscription_idx on public.billing (stripe_subscription_id);
 create index visited_countries_user_idx on public.visited_countries (user_id);
+create index visited_us_states_user_idx on public.visited_us_states (user_id);
 create index country_visits_vc_idx on public.country_visits (visited_country_id);
 create index country_cities_vc_idx on public.country_cities (visited_country_id);
 create index country_media_vc_idx on public.country_media (visited_country_id, display_order);
@@ -233,6 +250,8 @@ $$;
 create trigger profiles_touch before update on public.profiles
   for each row execute function public.set_updated_at();
 create trigger visited_countries_touch before update on public.visited_countries
+  for each row execute function public.set_updated_at();
+create trigger visited_us_states_touch before update on public.visited_us_states
   for each row execute function public.set_updated_at();
 create trigger events_touch before update on public.events
   for each row execute function public.set_updated_at();
@@ -338,6 +357,7 @@ create trigger event_media_cap before insert on public.event_media
 alter table public.profiles enable row level security;
 alter table public.billing enable row level security;
 alter table public.visited_countries enable row level security;
+alter table public.visited_us_states enable row level security;
 alter table public.country_visits enable row level security;
 alter table public.country_cities enable row level security;
 alter table public.country_media enable row level security;
@@ -374,6 +394,25 @@ create policy "owner manages visited countries update"
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "owner manages visited countries delete"
   on public.visited_countries for delete using (user_id = auth.uid());
+
+-- visited_us_states — insert is Premium-gated here, not just in the UI.
+create policy "us states readable when owner or profile public"
+  on public.visited_us_states for select
+  using (user_id = auth.uid() or public.is_profile_public(user_id));
+
+create policy "premium owner inserts us states"
+  on public.visited_us_states for insert
+  with check (
+    user_id = auth.uid()
+    and exists (select 1 from public.profiles where id = auth.uid() and plan = 'premium')
+  );
+
+create policy "owner updates us states"
+  on public.visited_us_states for update
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create policy "owner deletes us states"
+  on public.visited_us_states for delete using (user_id = auth.uid());
 
 -- country child tables (visits, cities, media) share the same rules
 create policy "country visits readable" on public.country_visits for select

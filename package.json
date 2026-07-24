@@ -30,6 +30,7 @@
     "three": "^0.185.1",
     "topojson-client": "^3.1.0",
     "tus-js-client": "^4.3.1",
+    "us-atlas": "^3.0.1",
     "world-atlas": "^2.0.2",
     "world-countries": "^5.1.0"
   },

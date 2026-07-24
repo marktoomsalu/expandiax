@@ -12,7 +12,8 @@ import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries
 import { formatDate } from "@/lib/utils";
 import { evaluateBadges } from "@/lib/badges";
 import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@/lib/stats";
-import type { Event, EventMedia, CountryMedia, Profile, VisitedCountry } from "@/lib/types";
+import { TOTAL_US_STATES } from "@/lib/usStates";
+import type { Event, EventMedia, CountryMedia, Profile, VisitedCountry, VisitedUSState } from "@/lib/types";
 
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: { year: number }[] };
 type EventRow = Event & { event_media: EventMedia[] };
@@ -74,7 +75,7 @@ export default async function PublicProfilePage({ params }: { params: { username
   } = await supabase.auth.getUser();
   const isOwnProfile = viewer?.id === profile.id;
 
-  const [{ data: countriesData }, { data: eventsData }, { count: followerCount }, { count: followingCount }, { data: followingRow }] =
+  const [{ data: countriesData }, { data: eventsData }, { data: usStatesData }, { count: followerCount }, { count: followingCount }, { data: followingRow }] =
     await Promise.all([
       supabase
         .from("visited_countries")
@@ -87,6 +88,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         .eq("user_id", profile.id)
         .eq("is_public", true)
         .order("event_date", { ascending: false }),
+      supabase.from("visited_us_states").select("*").eq("user_id", profile.id).order("state_name"),
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("followee_id", profile.id),
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
       viewer && !isOwnProfile
@@ -97,6 +99,7 @@ export default async function PublicProfilePage({ params }: { params: { username
   const isFollowing = !!followingRow;
   const countries = (countriesData ?? []) as CountryRow[];
   const events = (eventsData ?? []) as EventRow[];
+  const usStates = (usStatesData ?? []) as VisitedUSState[];
   const codes = countries.map((c) => c.country_code);
   const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
@@ -196,6 +199,12 @@ export default async function PublicProfilePage({ params }: { params: { username
         {stat(`${visitedContinents.length}/6`, "Continents")}
         {stat(events.length, "Events")}
         {stat(uniqueTitles, "Distinct")}
+        {usStates.length > 0 && (
+          <Link href="#us-states" className="border-l border-line pl-4 hover:opacity-80">
+            <p className="stat-number !text-3xl md:!text-4xl">{usStates.length}</p>
+            <p className="eyebrow mt-1.5">US States</p>
+          </Link>
+        )}
         {badges.length > 0 && (
           <Link href="#badges" className="border-l border-line pl-4 hover:opacity-80">
             <p className="stat-number !text-3xl md:!text-4xl">{badges.length}</p>
@@ -208,6 +217,21 @@ export default async function PublicProfilePage({ params }: { params: { username
       <div className="mt-10 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">
         <WorldMapLink visitedCodes={codes} visitCounts={visitCounts} homeCode={profile.home_country_code} username={profile.username} />
       </div>
+
+      {/* US States */}
+      {usStates.length > 0 && (
+        <section id="us-states" className="mt-14" aria-labelledby="states-h">
+          <p className="eyebrow">Stateside</p>
+          <h2 id="states-h" className="mt-1 text-2xl md:text-3xl">{usStates.length} of {TOTAL_US_STATES} US states</h2>
+          <ul className="mt-6 flex flex-wrap gap-2">
+            {usStates.map((s) => (
+              <li key={s.id} className="rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm">
+                {s.state_name}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Favourite memories */}
       {favourites.length > 0 && (
@@ -324,7 +348,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         </section>
       )}
 
-      {countries.length === 0 && events.length === 0 && (
+      {countries.length === 0 && events.length === 0 && usStates.length === 0 && (
         <p className="mt-14 text-center text-sm text-muted">
           {profile.display_name} hasn&rsquo;t added any public memories yet.
         </p>

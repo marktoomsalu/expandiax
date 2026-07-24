@@ -23,6 +23,17 @@ export type Billing = {
   updated_at: string;
 };
 
+export type VisitedUSState = {
+  id: string;
+  user_id: string;
+  state_code: string;
+  state_name: string;
+  note: string;
+  is_favourite: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type VisitedCountry = {
   id: string;
   user_id: string;
