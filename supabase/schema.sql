@@ -19,6 +19,9 @@ create table public.profiles (
   -- read publicly (it's just the plan name, no Stripe identifiers), unlike
   -- the billing table itself which is locked to owner-only reads.
   plan text not null default 'free' check (plan in ('free', 'premium')),
+  -- Premium: a custom accent color for the public profile page. Cleared
+  -- automatically on downgrade by enforce_premium_accent_color() below.
+  accent_color text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -289,6 +292,22 @@ $$;
 
 create trigger billing_sync_plan after insert or update on public.billing
   for each row execute function public.sync_profile_plan();
+
+-- Silently clears accent_color if the row's plan isn't premium — also
+-- self-clears on downgrade, since sync_profile_plan()'s update to
+-- profiles.plan re-fires this trigger.
+create or replace function public.enforce_premium_accent_color()
+returns trigger language plpgsql as $$
+begin
+  if new.accent_color is not null and new.plan != 'premium' then
+    new.accent_color := null;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_accent_color_gate before insert or update on public.profiles
+  for each row execute function public.enforce_premium_accent_color();
 
 -- ---------- Media caps enforced in the database ----------
 

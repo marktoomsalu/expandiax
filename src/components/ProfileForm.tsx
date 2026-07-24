@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
@@ -33,6 +34,7 @@ export function ProfileForm({
   const [visibility, setVisibility] = useState<ProfileVisibility | null>(
     requireVisibilityChoice ? null : profile.visibility
   );
+  const [accentColor, setAccentColor] = useState(profile.accent_color ?? "#ff6347");
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -108,6 +110,7 @@ export function ProfileForm({
         home_country_code: homeCountry || null,
         visibility,
         avatar_url: avatarUrl,
+        accent_color: profile.plan === "premium" ? accentColor : null,
       })
       .eq("id", profile.id);
     if (upErr) {
@@ -185,6 +188,27 @@ export function ProfileForm({
             <option key={c.code} value={c.code}>{c.name}</option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <label htmlFor="pf-accent" className="mb-1.5 block text-sm font-medium">Profile accent color</label>
+        {profile.plan === "premium" ? (
+          <div className="flex items-center gap-3">
+            <input
+              id="pf-accent"
+              type="color"
+              className="h-10 w-14 cursor-pointer rounded-md border border-line bg-transparent p-1"
+              value={accentColor}
+              onChange={(e) => setAccentColor(e.target.value)}
+            />
+            <p className="text-xs text-muted">Colors your public profile page — links, buttons and highlights.</p>
+          </div>
+        ) : (
+          <p className="text-xs text-muted">
+            <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">Upgrade to Premium</Link>{" "}
+            to pick a custom color for your public profile.
+          </p>
+        )}
       </div>
 
       <fieldset className={cn("rounded-lg border p-4", visibility === null ? "border-accent/50" : "border-line")}>

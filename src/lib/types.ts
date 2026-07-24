@@ -10,6 +10,7 @@ export type Profile = {
   home_country_code: string | null;
   visibility: ProfileVisibility;
   plan: Plan;
+  accent_color: string | null;
   created_at: string;
   updated_at: string;
 };

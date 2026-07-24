@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { BarChart3, Pencil } from "lucide-react";
+import { BarChart3, Pencil, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { WorldMapLink } from "@/components/WorldMapLink";
@@ -9,7 +9,7 @@ import { FollowButton } from "@/components/FollowButton";
 import { ReportButton } from "@/components/ReportButton";
 import { BadgeGrid } from "@/components/BadgeGrid";
 import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
-import { formatDate } from "@/lib/utils";
+import { formatDate, hexToRgbTriplet } from "@/lib/utils";
 import { evaluateBadges } from "@/lib/badges";
 import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@/lib/stats";
 import { TOTAL_US_STATES } from "@/lib/usStates";
@@ -142,8 +142,14 @@ export default async function PublicProfilePage({ params }: { params: { username
     </div>
   );
 
+  // Premium: a custom accent color scoped to this page only, via the same
+  // CSS variable every bg-accent/text-accent/border-accent class already
+  // reads from — no per-component styling needed.
+  const accentTriplet = profile.plan === "premium" && profile.accent_color ? hexToRgbTriplet(profile.accent_color) : null;
+  const accentStyle = accentTriplet ? ({ "--accent": accentTriplet } as React.CSSProperties) : undefined;
+
   return (
-    <div className="mx-auto max-w-shell px-5 py-12">
+    <div className="mx-auto max-w-shell px-5 py-12" style={accentStyle}>
       {/* Header */}
       <header className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
         {profile.avatar_url ? (
@@ -162,6 +168,11 @@ export default async function PublicProfilePage({ params }: { params: { username
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-4">
             <h1 className="text-4xl md:text-5xl">{profile.display_name}</h1>
+            {profile.plan === "premium" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent" title="Premium member">
+                <Sparkles size={12} /> Premium
+              </span>
+            )}
             {!isOwnProfile && viewer && <FollowButton targetId={profile.id} initialFollowing={isFollowing} />}
             {isOwnProfile && (
               <>
