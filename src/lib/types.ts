@@ -118,6 +118,19 @@ export type EventFull = Event & { event_media: EventMedia[] };
 
 export type Follow = { follower_id: string; followee_id: string; created_at: string };
 
+export type Comment = {
+  id: string;
+  user_id: string;
+  kind: "country" | "event";
+  target_id: string;
+  body: string;
+  created_at: string;
+};
+
+export type CommentWithAuthor = Comment & {
+  profiles: Pick<Profile, "username" | "display_name" | "avatar_url"> | null;
+};
+
 export type FeedEvent = {
   kind: "country" | "event";
   event_type: EventType | null;

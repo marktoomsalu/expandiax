@@ -4,12 +4,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
+import { CommentSection } from "@/components/CommentSection";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
-import type { FeedEvent, Profile } from "@/lib/types";
+import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 
 export const metadata = { title: "Feed" };
 
@@ -27,6 +28,7 @@ export default async function FeedPage() {
   let actors = new Map<string, Pick<Profile, "id" | "username" | "display_name" | "avatar_url">>();
   const likeCounts = new Map<string, number>();
   const likedByMe = new Set<string>();
+  const commentsByKey = new Map<string, CommentWithAuthor[]>();
 
   if (followeeIds.length > 0) {
     const { data: feedData } = await supabase
@@ -40,15 +42,24 @@ export default async function FeedPage() {
     if (items.length > 0) {
       const actorIds = [...new Set(items.map((i) => i.actor_id))];
       const refIds = items.map((i) => i.ref_id);
-      const [{ data: profiles }, { data: likeRows }] = await Promise.all([
+      const [{ data: profiles }, { data: likeRows }, { data: commentRows }] = await Promise.all([
         supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", actorIds),
         supabase.from("likes").select("kind, target_id, user_id").in("target_id", refIds),
+        supabase
+          .from("comments")
+          .select("*, profiles(username, display_name, avatar_url)")
+          .in("target_id", refIds)
+          .order("created_at", { ascending: true }),
       ]);
       actors = new Map((profiles ?? []).map((p) => [p.id, p]));
       for (const row of likeRows ?? []) {
         const key = `${row.kind}:${row.target_id}`;
         likeCounts.set(key, (likeCounts.get(key) ?? 0) + 1);
         if (row.user_id === user.id) likedByMe.add(key);
+      }
+      for (const row of (commentRows ?? []) as CommentWithAuthor[]) {
+        const key = `${row.kind}:${row.target_id}`;
+        commentsByKey.set(key, [...(commentsByKey.get(key) ?? []), row]);
       }
     }
   }
@@ -164,6 +175,14 @@ export default async function FeedPage() {
                     targetId={item.ref_id}
                     initialLiked={likedByMe.has(key)}
                     initialCount={likeCounts.get(key) ?? 0}
+                  />
+                </div>
+                <div className="border-t border-line px-4 py-3 sm:px-5">
+                  <CommentSection
+                    kind={item.kind}
+                    targetId={item.ref_id}
+                    posterId={item.actor_id}
+                    initialComments={commentsByKey.get(key) ?? []}
                   />
                 </div>
               </li>

@@ -9,8 +9,9 @@ import { eventTypeMeta } from "@/lib/events";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
+import { CommentSection } from "@/components/CommentSection";
 import { formatDate } from "@/lib/utils";
-import type { Event, EventFull } from "@/lib/types";
+import type { CommentWithAuthor, Event, EventFull } from "@/lib/types";
 
 export async function generateMetadata({
   params,
@@ -69,13 +70,22 @@ export default async function PublicEventPage({
   const event = data as EventFull | null;
   if (!event) notFound();
 
-  const { data: sameTitle } = await supabase
-    .from("events")
-    .select("id, title, subtitle, event_date, city, country_name, rating")
-    .eq("user_id", profile.id)
-    .eq("title", event.title)
-    .neq("id", event.id)
-    .order("event_date", { ascending: false });
+  const [{ data: sameTitle }, { data: commentRows }] = await Promise.all([
+    supabase
+      .from("events")
+      .select("id, title, subtitle, event_date, city, country_name, rating")
+      .eq("user_id", profile.id)
+      .eq("title", event.title)
+      .neq("id", event.id)
+      .order("event_date", { ascending: false }),
+    supabase
+      .from("comments")
+      .select("*, profiles(username, display_name, avatar_url)")
+      .eq("kind", "event")
+      .eq("target_id", event.id)
+      .order("created_at", { ascending: true }),
+  ]);
+  const comments = (commentRows ?? []) as CommentWithAuthor[];
 
   const media = [...event.event_media].sort((a, b) => a.display_order - b.display_order);
   const images = media.filter((m) => m.media_type === "image");
@@ -210,7 +220,14 @@ export default async function PublicEventPage({
           </section>
         )}
 
-        <div className="mt-12 flex justify-center border-t border-line pt-6">
+        <section className="mt-12 border-t border-line pt-8" aria-labelledby="comments-h">
+          <h2 id="comments-h" className="text-xl">Comments</h2>
+          <div className="mt-4">
+            <CommentSection kind="event" targetId={event.id} posterId={profile.id} initialComments={comments} />
+          </div>
+        </section>
+
+        <div className="mt-8 flex justify-center border-t border-line pt-6">
           <ReportButton targetType="event" targetId={event.id} targetUrl={`/u/${profile.username}/events/${event.id}`} />
         </div>
       </div>
