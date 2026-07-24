@@ -6,7 +6,8 @@ import { EventForm } from "@/components/EventForm";
 import { MediaUploader } from "@/components/MediaUploader";
 import { DeleteEventButton } from "@/components/DeleteEventButton";
 import { dedupeRecentArtists } from "@/lib/events";
-import type { EventFull } from "@/lib/types";
+import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
+import type { EventFull, Plan } from "@/lib/types";
 
 export const metadata = { title: "Edit event" };
 
@@ -24,7 +25,7 @@ export default async function EditEventPage({
   if (!user) redirect("/sign-in");
 
   const [{ data: profile }, { data }, { data: artistRows }] = await Promise.all([
-    supabase.from("profiles").select("username").eq("id", user.id).single(),
+    supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
     supabase
       .from("events")
       .select("*, event_media!event_media_event_id_fkey(*)")
@@ -45,6 +46,7 @@ export default async function EditEventPage({
   if (!event) notFound();
 
   const recentArtists = dedupeRecentArtists(artistRows ?? []);
+  const plan = (profile?.plan ?? "free") as Plan;
 
   const images = event.event_media.filter((m) => m.media_type === "image");
   const videos = event.event_media.filter((m) => m.media_type === "video");
@@ -88,11 +90,12 @@ export default async function EditEventPage({
           table="event_media"
           fkColumn="event_id"
           kind="image"
-          max={5}
+          max={PHOTO_CAP[plan]}
           items={images}
           coverId={event.cover_media_id}
           coverTable="events"
           label="Photos"
+          showUpgradeHint={plan === "free"}
         />
         <MediaUploader
           userId={user.id}
@@ -101,10 +104,11 @@ export default async function EditEventPage({
           table="event_media"
           fkColumn="event_id"
           kind="video"
-          max={3}
+          max={VIDEO_CAP[plan]}
           items={videos}
           captions
           label="Videos"
+          showUpgradeHint={plan === "free"}
         />
       </div>
 

@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { CountryEditor, MarkVisitedButton } from "@/components/CountryEditor";
 import { MediaUploader } from "@/components/MediaUploader";
-import type { VisitedCountryFull } from "@/lib/types";
+import { PHOTO_CAP } from "@/lib/plan";
+import type { Plan, VisitedCountryFull } from "@/lib/types";
 
 export default async function ManageCountryPage({ params }: { params: { code: string } }) {
   const meta = countryByCode(params.code);
@@ -18,7 +19,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   if (!user) redirect("/sign-in");
 
   const [{ data: profile }, { data }] = await Promise.all([
-    supabase.from("profiles").select("username").eq("id", user.id).single(),
+    supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
     supabase
       .from("visited_countries")
       .select("*, country_visits(*), country_cities(*), country_media!country_media_visited_country_id_fkey(*)")
@@ -28,6 +29,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   ]);
 
   const visited = data as VisitedCountryFull | null;
+  const plan = (profile?.plan ?? "free") as Plan;
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
@@ -73,11 +75,12 @@ export default async function ManageCountryPage({ params }: { params: { code: st
               table="country_media"
               fkColumn="visited_country_id"
               kind="image"
-              max={5}
+              max={PHOTO_CAP[plan]}
               items={visited.country_media}
               coverId={visited.cover_media_id}
               coverTable="visited_countries"
               label="Photos"
+              showUpgradeHint={plan === "free"}
             />
             <CountryEditor data={visited} meta={meta} />
           </div>

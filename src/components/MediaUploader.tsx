@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { ArrowDown, ArrowUp, ImagePlus, Star, Trash2, Video } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -27,6 +28,8 @@ type Props = {
   label: string;
   /** Extra fixed columns to set on every inserted row — e.g. a per-visit photo also needs its parent country's id. */
   extraFields?: Record<string, string>;
+  /** Shows a link to /settings/billing once the cap is hit — pass true when the current user is on the free plan. */
+  showUpgradeHint?: boolean;
 };
 
 type Pending = { file: File; previewUrl: string; caption: string };
@@ -61,7 +64,7 @@ async function uploadWithProgress(
 }
 
 export function MediaUploader(props: Props) {
-  const { userId, scope, parentId, table, fkColumn, kind, max, items, coverId, coverTable, captions, label, extraFields } = props;
+  const { userId, scope, parentId, table, fkColumn, kind, max, items, coverId, coverTable, captions, label, extraFields, showUpgradeHint } = props;
   const router = useRouter();
   const supabase = createClient();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -353,6 +356,15 @@ export function MediaUploader(props: Props) {
         <span className="ml-3 text-xs text-muted">
           {kind === "image" ? "JPEG, PNG or WebP · up to 10 MB each" : "MP4, WebM or MOV · up to 300 MB each"}
         </span>
+        {remaining <= 0 && showUpgradeHint && (
+          <p className="mt-2 text-xs text-muted">
+            That&rsquo;s the free plan&rsquo;s limit —{" "}
+            <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
+              upgrade to Premium
+            </Link>{" "}
+            for more.
+          </p>
+        )}
       </div>
 
       {error && (

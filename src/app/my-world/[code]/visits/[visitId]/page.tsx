@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { VisitEditor } from "@/components/VisitEditor";
 import { MediaUploader } from "@/components/MediaUploader";
+import { PHOTO_CAP } from "@/lib/plan";
 import { formatVisitRange } from "@/lib/utils";
-import type { CountryMedia, CountryVisit } from "@/lib/types";
+import type { CountryMedia, CountryVisit, Plan } from "@/lib/types";
 
 type VisitRow = CountryVisit & {
   visited_countries: { id: string; user_id: string; country_code: string };
@@ -31,16 +32,20 @@ export default async function VisitPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
 
-  const { data } = await supabase
-    .from("country_visits")
-    .select("*, visited_countries!inner(id, user_id, country_code), country_media(*)")
-    .eq("id", params.visitId)
-    .eq("visited_countries.user_id", user.id)
-    .eq("visited_countries.country_code", meta.code)
-    .maybeSingle();
+  const [{ data }, { data: profile }] = await Promise.all([
+    supabase
+      .from("country_visits")
+      .select("*, visited_countries!inner(id, user_id, country_code), country_media(*)")
+      .eq("id", params.visitId)
+      .eq("visited_countries.user_id", user.id)
+      .eq("visited_countries.country_code", meta.code)
+      .maybeSingle(),
+    supabase.from("profiles").select("plan").eq("id", user.id).single(),
+  ]);
 
   if (!data) notFound();
   const visit = data as VisitRow;
+  const plan = (profile?.plan ?? "free") as Plan;
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-10">
@@ -70,11 +75,12 @@ export default async function VisitPage({
           fkColumn="country_visit_id"
           extraFields={{ visited_country_id: visit.visited_country_id }}
           kind="image"
-          max={5}
+          max={PHOTO_CAP[plan]}
           items={visit.country_media}
           coverId={visit.cover_media_id}
           coverTable="country_visits"
           label="Photos from this trip"
+          showUpgradeHint={plan === "free"}
         />
       </div>
     </div>
