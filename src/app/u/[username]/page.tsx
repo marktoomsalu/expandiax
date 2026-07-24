@@ -8,6 +8,7 @@ import { RatingStars } from "@/components/Rating";
 import { FollowButton } from "@/components/FollowButton";
 import { ReportButton } from "@/components/ReportButton";
 import { BadgeGrid } from "@/components/BadgeGrid";
+import { SignOutButton } from "@/components/SignOutButton";
 import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import { formatDate, hexToRgbTriplet } from "@/lib/utils";
 import { evaluateBadges } from "@/lib/badges";
@@ -370,6 +371,8 @@ export default async function PublicProfilePage({ params }: { params: { username
           <ReportButton targetType="profile" targetId={profile.id} targetUrl={`/u/${profile.username}`} />
         </div>
       )}
+
+      {isOwnProfile && <SignOutButton variant="floating" />}
     </div>
   );
 }
