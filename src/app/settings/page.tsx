@@ -27,11 +27,10 @@ export default async function SettingsPage() {
       <div className="mt-8">
         <ProfileForm profile={profile} />
       </div>
-      <div className="mt-10 flex items-center justify-between border-t border-line pt-6">
+      <div className="mt-10 border-t border-line pt-6">
         <Link href={`/u/${profile.username}`} className="text-sm text-accent underline-offset-4 hover:underline">
           View public profile
         </Link>
-        <SignOutButton />
       </div>
 
       <div className="mt-8 space-y-4 border-t border-line pt-6">
@@ -54,6 +53,10 @@ export default async function SettingsPage() {
           <p className="mt-1 text-xs text-muted">Permanently delete your account and everything in it.</p>
           <div className="mt-3"><DeleteAccountButton userId={user.id} /></div>
         </div>
+      </div>
+
+      <div className="mt-8 flex justify-end border-t border-line pt-6">
+        <SignOutButton />
       </div>
     </div>
   );
