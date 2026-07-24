@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { CountryEditor, MarkVisitedButton } from "@/components/CountryEditor";
 import { MediaUploader } from "@/components/MediaUploader";
+import { ShareButton } from "@/components/ShareButton";
 import { PHOTO_CAP, COUNTRY_CAP } from "@/lib/plan";
 import type { Plan, VisitedCountryFull } from "@/lib/types";
 
@@ -49,12 +50,15 @@ export default async function ManageCountryPage({ params }: { params: { code: st
           </h1>
         </div>
         {visited && profile && (
-          <Link
-            href={`/u/${profile.username}/countries/${meta.code.toLowerCase()}`}
-            className="inline-flex items-center gap-1.5 text-sm text-accent underline-offset-4 hover:underline"
-          >
-            View public page <ExternalLink size={14} />
-          </Link>
+          <div className="flex items-center gap-5">
+            <ShareButton kind="country" targetId={visited.id} title={`${meta.flag} ${meta.name}`} />
+            <Link
+              href={`/u/${profile.username}/countries/${meta.code.toLowerCase()}`}
+              className="inline-flex items-center gap-1.5 text-sm text-accent underline-offset-4 hover:underline"
+            >
+              View public page <ExternalLink size={14} />
+            </Link>
+          </div>
         )}
       </div>
 

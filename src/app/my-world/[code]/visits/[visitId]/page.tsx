@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { VisitEditor } from "@/components/VisitEditor";
 import { MediaUploader } from "@/components/MediaUploader";
+import { ShareButton } from "@/components/ShareButton";
 import { PHOTO_CAP } from "@/lib/plan";
 import { formatVisitRange } from "@/lib/utils";
 import type { CountryMedia, CountryVisit, Plan } from "@/lib/types";
@@ -35,7 +36,7 @@ export default async function VisitPage({
   const [{ data }, { data: profile }] = await Promise.all([
     supabase
       .from("country_visits")
-      .select("*, visited_countries!inner(id, user_id, country_code), country_media(*)")
+      .select("*, visited_countries!inner(id, user_id, country_code), country_media!country_media_country_visit_id_fkey(*)")
       .eq("id", params.visitId)
       .eq("visited_countries.user_id", user.id)
       .eq("visited_countries.country_code", meta.code)
@@ -82,6 +83,10 @@ export default async function VisitPage({
           label="Photos from this trip"
           showUpgradeHint={plan === "free"}
         />
+      </div>
+
+      <div className="mt-10 flex items-center justify-center border-t border-line pt-6">
+        <ShareButton kind="country" targetId={visit.visited_country_id} title={`${meta.flag} ${meta.name}`} />
       </div>
     </div>
   );
