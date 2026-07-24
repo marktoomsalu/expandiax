@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SiteNav } from "@/components/SiteNav";
+import { PremiumUpsellModal } from "@/components/PremiumUpsellModal";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -54,6 +55,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ThemeProvider>
           <SiteNav user={navUser} />
           <main>{children}</main>
+          {navUser && <PremiumUpsellModal plan={navUser.plan} />}
           <footer className="mt-20 border-t border-line">
             <div className="mx-auto max-w-shell px-5 py-8">
               <div className="flex flex-col items-start justify-between gap-3 text-sm text-muted sm:flex-row sm:items-center">
