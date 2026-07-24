@@ -9,7 +9,7 @@ import { formatVisitRange } from "@/lib/utils";
 import type { CountryMedia, CountryVisit } from "@/lib/types";
 
 type VisitRow = CountryVisit & {
-  visited_countries: { id: string; user_id: string; country_code: string; cover_media_id: string | null };
+  visited_countries: { id: string; user_id: string; country_code: string };
   country_media: CountryMedia[];
 };
 
@@ -33,7 +33,7 @@ export default async function VisitPage({
 
   const { data } = await supabase
     .from("country_visits")
-    .select("*, visited_countries!inner(id, user_id, country_code, cover_media_id), country_media(*)")
+    .select("*, visited_countries!inner(id, user_id, country_code), country_media(*)")
     .eq("id", params.visitId)
     .eq("visited_countries.user_id", user.id)
     .eq("visited_countries.country_code", meta.code)
@@ -72,8 +72,8 @@ export default async function VisitPage({
           kind="image"
           max={5}
           items={visit.country_media}
-          coverId={visit.visited_countries.cover_media_id}
-          coverTable="visited_countries"
+          coverId={visit.cover_media_id}
+          coverTable="country_visits"
           label="Photos from this trip"
         />
       </div>

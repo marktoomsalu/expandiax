@@ -36,6 +36,7 @@ create table public.visited_countries (
 create table public.country_visits (
   id uuid primary key default gen_random_uuid(),
   visited_country_id uuid not null references public.visited_countries (id) on delete cascade,
+  cover_media_id uuid, -- FK added below (circular reference, like visited_countries')
   year int not null check (year between 1900 and 2100),
   visited_from date,
   visited_to date,
@@ -79,6 +80,10 @@ create table public.country_media (
 
 alter table public.visited_countries
   add constraint visited_countries_cover_media_fk
+  foreign key (cover_media_id) references public.country_media (id) on delete set null;
+
+alter table public.country_visits
+  add constraint country_visits_cover_media_fk
   foreign key (cover_media_id) references public.country_media (id) on delete set null;
 
 -- Events: concerts, festivals, sport, conferences, personal occasions

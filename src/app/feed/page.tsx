@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
+import { PhotoGallery } from "@/components/PhotoGallery";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
@@ -147,9 +148,12 @@ export default async function FeedPage() {
                         className="absolute inset-0 h-full w-full bg-black object-contain"
                       />
                     ) : (
-                      <Link href={href} className="absolute inset-0 block">
-                        <Image src={item.cover_url} alt="" fill sizes="(min-width: 640px) 640px, 100vw" className="object-cover" />
-                      </Link>
+                      <PhotoGallery
+                        photos={[{ id: key, url: item.cover_url, alt: item.title }]}
+                        gridClassName="absolute inset-0"
+                        itemClassName="absolute inset-0 h-full w-full"
+                        sizes="(min-width: 640px) 640px, 100vw"
+                      />
                     )}
                   </div>
                 )}

@@ -8,6 +8,7 @@ import { countryByCode } from "@/lib/countries";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
+import { PhotoGallery } from "@/components/PhotoGallery";
 import { formatDate, formatVisitRange } from "@/lib/utils";
 import type { Event, VisitedCountryFull } from "@/lib/types";
 
@@ -150,19 +151,14 @@ export default async function PublicCountryPage({
                     <p className="eyebrow">{formatVisitRange(v)}</p>
                     {v.highlight && <p className="mt-1 text-sm leading-relaxed">{v.highlight}</p>}
                     {visitPhotos.length > 0 && (
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        {visitPhotos.map((m) => (
-                          <div key={m.id} className="relative aspect-square w-full overflow-hidden rounded-lg border border-line">
-                            <Image
-                              src={m.public_url}
-                              alt={m.caption || `Photo from this trip to ${meta.name}`}
-                              fill
-                              sizes="33vw"
-                              loading="lazy"
-                              className="object-cover"
-                            />
-                          </div>
-                        ))}
+                      <div className="mt-3">
+                        <PhotoGallery
+                          photos={visitPhotos.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || `Photo from this trip to ${meta.name}` }))}
+                          gridClassName="grid grid-cols-3 gap-2"
+                          itemClassName="relative aspect-square w-full overflow-hidden rounded-lg border border-line"
+                          sizes="33vw"
+                          coverId={v.cover_media_id}
+                        />
                       </div>
                     )}
                     {v.spotify_track_id && (
@@ -179,20 +175,12 @@ export default async function PublicCountryPage({
 
         {rest.length > 0 && (
           <section className="mt-10" aria-label="Photo gallery">
-            <div className="grid grid-cols-2 gap-3">
-              {rest.map((m) => (
-                <div key={m.id} className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-line">
-                  <Image
-                    src={m.public_url}
-                    alt={m.caption || `Photo from ${meta.name}`}
-                    fill
-                    sizes="50vw"
-                    loading="lazy"
-                    className="object-cover"
-                  />
-                </div>
-              ))}
-            </div>
+            <PhotoGallery
+              photos={rest.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || `Photo from ${meta.name}` }))}
+              gridClassName="grid grid-cols-2 gap-3"
+              itemClassName="relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-line"
+              sizes="50vw"
+            />
           </section>
         )}
 

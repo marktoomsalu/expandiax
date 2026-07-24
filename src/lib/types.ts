@@ -30,6 +30,7 @@ export type DatePrecision = "year" | "month" | "day";
 export type CountryVisit = {
   id: string;
   visited_country_id: string;
+  cover_media_id: string | null;
   year: number;
   visited_from: string | null;
   visited_to: string | null;

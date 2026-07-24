@@ -22,7 +22,7 @@ type Props = {
   max: number;
   items: MediaItem[];
   coverId?: string | null;
-  coverTable?: "visited_countries" | "events";
+  coverTable?: "visited_countries" | "country_visits" | "events";
   captions?: boolean;
   label: string;
   /** Extra fixed columns to set on every inserted row — e.g. a per-visit photo also needs its parent country's id. */
