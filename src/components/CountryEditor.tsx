@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MapPinPlus, Plus, Rss, X } from "lucide-react";
+import Link from "next/link";
+import { Camera, ChevronRight, Heart, MapPinPlus, Music2, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { VisitedCountryFull } from "@/lib/types";
+import type { DatePrecision, VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { SoundtrackPicker } from "./SoundtrackPicker";
-import { MONTH_NAMES, cn, formatVisitRange, visitSortKey } from "@/lib/utils";
+import { VisitDateFields } from "./VisitDateFields";
+import { cn, formatVisitRange, visitSortKey } from "@/lib/utils";
 
 type Meta = { code: string; name: string; flag: string; capital: string };
 
@@ -61,7 +62,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
   const supabase = createClient();
   const [note, setNote] = useState(data.note);
   const [noteSaved, setNoteSaved] = useState(false);
-  const [precision, setPrecision] = useState<"year" | "month" | "day">("year");
+  const [precision, setPrecision] = useState<DatePrecision>("year");
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
   const [visitedFrom, setVisitedFrom] = useState("");
@@ -95,7 +96,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
 
     let from: string | null = null;
     let to: string | null = null;
-    let datePrecision: "year" | "month" | "day" = "year";
+    let datePrecision: DatePrecision = "year";
 
     if (precision === "day" && visitedFrom) {
       from = visitedFrom;
@@ -108,24 +109,24 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
       datePrecision = "month";
     }
 
-    const { error: err } = await supabase.from("country_visits").insert({
-      visited_country_id: data.id,
-      year: y,
-      visited_from: from,
-      visited_to: to,
-      date_precision: datePrecision,
-      highlight: highlight.trim(),
-    });
-    if (err) setError("Could not add that visit.");
-    else {
-      setYear("");
-      setMonth("");
-      setVisitedFrom("");
-      setVisitedTo("");
-      setHighlight("");
-      setPrecision("year");
-      router.refresh();
+    const { data: inserted, error: err } = await supabase
+      .from("country_visits")
+      .insert({
+        visited_country_id: data.id,
+        year: y,
+        visited_from: from,
+        visited_to: to,
+        date_precision: datePrecision,
+        highlight: highlight.trim(),
+      })
+      .select("id")
+      .single();
+    if (err || !inserted) {
+      setError("Could not add that visit.");
+      return;
     }
+    router.push(`/my-world/${meta.code.toLowerCase()}/visits/${inserted.id}?created=1`);
+    router.refresh();
   }
 
   async function removeVisit(id: string) {
@@ -226,94 +227,58 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
         </div>
       </div>
 
-      {/* Visits — each can have its own highlight, and you can log the same year twice */}
+      {/* Visits — each trip gets its own page for photos, a soundtrack and a full memory */}
       <section>
         <h4 className="text-sm font-medium text-muted">Your visits</h4>
         {visits.length > 0 && (
           <ul className="mt-2 space-y-2">
-            {visits.map((v) => (
-              <li key={v.id} className="flex items-start justify-between gap-3 rounded-lg border border-line bg-surface px-3.5 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{formatVisitRange(v)}</p>
-                  {v.highlight && <p className="mt-0.5 text-sm text-muted">{v.highlight}</p>}
-                </div>
-                <button
-                  type="button"
-                  aria-label={`Remove the ${v.year} visit`}
-                  className="shrink-0 text-muted hover:text-red-700"
-                  onClick={() => removeVisit(v.id)}
-                >
-                  <X size={14} />
-                </button>
-              </li>
-            ))}
+            {visits.map((v) => {
+              const photoCount = data.country_media.filter((m) => m.country_visit_id === v.id).length;
+              return (
+                <li key={v.id} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3.5 py-2.5">
+                  <Link href={`/my-world/${meta.code.toLowerCase()}/visits/${v.id}`} className="group min-w-0 flex-1">
+                    <p className="flex items-center gap-1.5 text-sm font-medium group-hover:text-accent">
+                      {formatVisitRange(v)}
+                      {photoCount > 0 && <Camera size={12} className="text-muted" aria-label={`${photoCount} photos`} />}
+                      {v.spotify_track_id && <Music2 size={12} className="text-muted" aria-label="Has a soundtrack" />}
+                    </p>
+                    {v.highlight && <p className="mt-0.5 truncate text-sm text-muted">{v.highlight}</p>}
+                  </Link>
+                  <ChevronRight size={15} className="shrink-0 text-muted" aria-hidden />
+                  <button
+                    type="button"
+                    aria-label={`Remove the ${v.year} visit`}
+                    className="shrink-0 text-muted hover:text-red-700"
+                    onClick={() => removeVisit(v.id)}
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
         <form onSubmit={addVisit} className="mt-3 space-y-2">
+          <VisitDateFields
+            precision={precision}
+            onPrecisionChange={setPrecision}
+            year={year}
+            onYearChange={setYear}
+            month={month}
+            onMonthChange={setMonth}
+            visitedFrom={visitedFrom}
+            onVisitedFromChange={setVisitedFrom}
+            visitedTo={visitedTo}
+            onVisitedToChange={setVisitedTo}
+          />
           <div className="flex flex-wrap items-center gap-1.5">
-            {(["year", "month", "day"] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPrecision(p)}
-                className={cn(
-                  "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                  precision === p ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
-                )}
-              >
-                {p === "year" ? "Year only" : p === "month" ? "Month" : "Exact date"}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <label htmlFor="year-input" className="sr-only">Year</label>
-            <input id="year-input" type="number" inputMode="numeric" min={1900} max={2100} placeholder="2024" className="field !w-20 !py-1.5 text-sm" value={year} onChange={(e) => setYear(e.target.value)} />
-
-            {precision === "month" && (
-              <>
-                <label htmlFor="month-input" className="sr-only">Month</label>
-                <select id="month-input" className="field !w-32 !py-1.5 text-sm" value={month} onChange={(e) => setMonth(e.target.value)}>
-                  <option value="">Month</option>
-                  {MONTH_NAMES.map((name, i) => (
-                    <option key={name} value={String(i + 1).padStart(2, "0")}>{name}</option>
-                  ))}
-                </select>
-              </>
-            )}
-
-            {precision === "day" && (
-              <>
-                <label htmlFor="date-from-input" className="sr-only">From date</label>
-                <input
-                  id="date-from-input"
-                  type="date"
-                  title="From date"
-                  className="field !w-[8.5rem] !py-1.5 text-sm"
-                  value={visitedFrom}
-                  onChange={(e) => {
-                    setVisitedFrom(e.target.value);
-                    if (e.target.value) setYear(e.target.value.slice(0, 4));
-                  }}
-                />
-                <label htmlFor="date-to-input" className="sr-only">To date (optional)</label>
-                <input
-                  id="date-to-input"
-                  type="date"
-                  title="To date (optional)"
-                  className="field !w-[8.5rem] !py-1.5 text-sm"
-                  value={visitedTo}
-                  onChange={(e) => setVisitedTo(e.target.value)}
-                />
-              </>
-            )}
-
-            <label htmlFor="highlight-input" className="sr-only">Highlight from this visit</label>
+            <label htmlFor="highlight-input" className="sr-only">Memory from this trip</label>
             <input
               id="highlight-input"
               type="text"
-              placeholder="Highlight from this trip (optional)"
+              placeholder="A quick memory from this trip (optional — add more on its page after)"
               className="field !py-1.5 min-w-0 flex-1 text-sm"
-              maxLength={200}
+              maxLength={1000}
               value={highlight}
               onChange={(e) => setHighlight(e.target.value)}
             />
@@ -338,14 +303,6 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
             <input id="city-input" type="text" placeholder={meta.capital} className="field !w-32 !py-1.5 text-sm" value={city} onChange={(e) => setCity(e.target.value)} />
             <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add city"><Plus size={15} /></button>
           </form>
-        </div>
-      </section>
-
-      <section>
-        <h4 className="text-sm font-medium text-muted">Soundtrack</h4>
-        <p className="text-xs text-muted">The song this trip sounded like — shown on the country page and playable in your feed.</p>
-        <div className="mt-2">
-          <SoundtrackPicker countryId={data.id} initialTrackId={data.spotify_track_id} />
         </div>
       </section>
 

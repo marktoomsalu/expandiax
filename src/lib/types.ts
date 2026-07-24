@@ -21,10 +21,6 @@ export type VisitedCountry = {
   cover_media_id: string | null;
   is_favourite: boolean;
   share_to_feed: boolean;
-  spotify_track_id: string | null;
-  spotify_track_name: string | null;
-  spotify_track_artist: string | null;
-  spotify_track_image: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -39,6 +35,10 @@ export type CountryVisit = {
   visited_to: string | null;
   date_precision: DatePrecision;
   highlight: string;
+  spotify_track_id: string | null;
+  spotify_track_name: string | null;
+  spotify_track_artist: string | null;
+  spotify_track_image: string | null;
 };
 export type CountryCity = { id: string; visited_country_id: string; city_name: string };
 
@@ -52,7 +52,7 @@ export type MediaItem = {
   created_at: string;
 };
 
-export type CountryMedia = MediaItem & { visited_country_id: string };
+export type CountryMedia = MediaItem & { visited_country_id: string; country_visit_id: string | null };
 export type EventMedia = MediaItem & { event_id: string };
 
 export type EventType = "concert" | "festival" | "sport" | "conference" | "personal" | "other";

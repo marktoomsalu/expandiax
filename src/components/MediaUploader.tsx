@@ -17,7 +17,7 @@ type Props = {
   scope: "countries" | "events";
   parentId: string;
   table: "country_media" | "event_media";
-  fkColumn: "visited_country_id" | "event_id";
+  fkColumn: "visited_country_id" | "country_visit_id" | "event_id";
   kind: "image" | "video";
   max: number;
   items: MediaItem[];
@@ -25,6 +25,8 @@ type Props = {
   coverTable?: "visited_countries" | "events";
   captions?: boolean;
   label: string;
+  /** Extra fixed columns to set on every inserted row — e.g. a per-visit photo also needs its parent country's id. */
+  extraFields?: Record<string, string>;
 };
 
 type Pending = { file: File; previewUrl: string; caption: string };
@@ -59,7 +61,7 @@ async function uploadWithProgress(
 }
 
 export function MediaUploader(props: Props) {
-  const { userId, scope, parentId, table, fkColumn, kind, max, items, coverId, coverTable, captions, label } = props;
+  const { userId, scope, parentId, table, fkColumn, kind, max, items, coverId, coverTable, captions, label, extraFields } = props;
   const router = useRouter();
   const supabase = createClient();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -137,6 +139,7 @@ export function MediaUploader(props: Props) {
         const { data: pub } = supabase.storage.from("media").getPublicUrl(path);
         const { error: dbError } = await supabase.from(table).insert({
           [fkColumn]: parentId,
+          ...extraFields,
           storage_path: path,
           public_url: pub.publicUrl,
           media_type: kind,

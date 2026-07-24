@@ -86,12 +86,16 @@ export default async function PublicCountryPage({
   const country = data as VisitedCountryFull | null;
   if (!country) notFound();
 
-  const media = [...country.country_media].sort((a, b) => a.display_order - b.display_order);
-  const cover = media.find((m) => m.id === country.cover_media_id) ?? media[0];
-  const rest = media.filter((m) => m.id !== cover?.id);
+  // General photos (not tied to a specific trip) drive the hero cover and the
+  // main gallery; each trip's own photos show only inside its own visit card.
+  const generalMedia = country.country_media
+    .filter((m) => !m.country_visit_id)
+    .sort((a, b) => a.display_order - b.display_order);
+  const cover = generalMedia.find((m) => m.id === country.cover_media_id) ?? generalMedia[0];
+  const rest = generalMedia.filter((m) => m.id !== cover?.id);
   const years = [...new Set(country.country_visits.map((v) => v.year))].sort();
   const highlightedVisits = [...country.country_visits]
-    .filter((v) => v.highlight.trim())
+    .filter((v) => v.highlight.trim() || v.spotify_track_id || country.country_media.some((m) => m.country_visit_id === v.id))
     .sort((a, b) => a.year - b.year);
   const cities = country.country_cities.map((c) => c.city_name);
   const events = (relatedEvents ?? []) as Event[];
@@ -134,21 +138,41 @@ export default async function PublicCountryPage({
           </blockquote>
         )}
 
-        {country.spotify_track_id && (
-          <div className="mt-8">
-            <SpotifyEmbed trackId={country.spotify_track_id} compact />
-          </div>
-        )}
-
         {highlightedVisits.length > 0 && (
-          <section className="mt-10" aria-label="Visit highlights">
-            <ul className="space-y-4">
-              {highlightedVisits.map((v) => (
-                <li key={v.id} className="border-l-2 border-line pl-5">
-                  <p className="eyebrow">{formatVisitRange(v)}</p>
-                  <p className="mt-1 text-sm leading-relaxed">{v.highlight}</p>
-                </li>
-              ))}
+          <section className="mt-10" aria-label="Trips">
+            <ul className="space-y-6">
+              {highlightedVisits.map((v) => {
+                const visitPhotos = country.country_media
+                  .filter((m) => m.country_visit_id === v.id)
+                  .sort((a, b) => a.display_order - b.display_order);
+                return (
+                  <li key={v.id} className="border-l-2 border-line pl-5">
+                    <p className="eyebrow">{formatVisitRange(v)}</p>
+                    {v.highlight && <p className="mt-1 text-sm leading-relaxed">{v.highlight}</p>}
+                    {visitPhotos.length > 0 && (
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {visitPhotos.map((m) => (
+                          <div key={m.id} className="relative aspect-square w-full overflow-hidden rounded-lg border border-line">
+                            <Image
+                              src={m.public_url}
+                              alt={m.caption || `Photo from this trip to ${meta.name}`}
+                              fill
+                              sizes="33vw"
+                              loading="lazy"
+                              className="object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {v.spotify_track_id && (
+                      <div className="mt-3">
+                        <SpotifyEmbed trackId={v.spotify_track_id} compact />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </section>
         )}

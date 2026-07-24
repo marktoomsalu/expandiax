@@ -9,7 +9,13 @@ import { SpotifyEmbed } from "./SpotifyEmbed";
 
 type Track = { id: string; name: string; artist: string; image: string | null };
 
-export function SoundtrackPicker({ countryId, initialTrackId }: { countryId: string; initialTrackId: string | null }) {
+type Props = {
+  table: "visited_countries" | "country_visits";
+  recordId: string;
+  initialTrackId: string | null;
+};
+
+export function SoundtrackPicker({ table, recordId, initialTrackId }: Props) {
   const router = useRouter();
   const supabase = createClient();
   const [trackId, setTrackId] = useState(initialTrackId);
@@ -48,14 +54,14 @@ export function SoundtrackPicker({ countryId, initialTrackId }: { countryId: str
     setBusy(true);
     setError(null);
     const { error: err } = await supabase
-      .from("visited_countries")
+      .from(table)
       .update({
         spotify_track_id: t.id,
         spotify_track_name: t.name,
         spotify_track_artist: t.artist,
         spotify_track_image: t.image,
       })
-      .eq("id", countryId);
+      .eq("id", recordId);
     setBusy(false);
     if (err) {
       setError("Could not save that track. Try again.");
@@ -70,9 +76,9 @@ export function SoundtrackPicker({ countryId, initialTrackId }: { countryId: str
   async function removeTrack() {
     setBusy(true);
     await supabase
-      .from("visited_countries")
+      .from(table)
       .update({ spotify_track_id: null, spotify_track_name: null, spotify_track_artist: null, spotify_track_image: null })
-      .eq("id", countryId);
+      .eq("id", recordId);
     setBusy(false);
     setTrackId(null);
     router.refresh();

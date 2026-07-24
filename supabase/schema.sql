@@ -28,13 +28,6 @@ create table public.visited_countries (
   cover_media_id uuid, -- FK added below (circular reference)
   is_favourite boolean not null default false,
   share_to_feed boolean not null default true,
-  -- The soundtrack of that trip — a Spotify track, cached at pick time so
-  -- pages can render it without a live Spotify call. Played via Spotify's
-  -- official embed widget, never streamed directly.
-  spotify_track_id text,
-  spotify_track_name text,
-  spotify_track_artist text,
-  spotify_track_image text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, country_code)
@@ -51,7 +44,16 @@ create table public.country_visits (
   -- range) was entered. Lets the UI render "August 2023" instead of a
   -- fabricated exact date when someone only remembers the month.
   date_precision text not null default 'year' check (date_precision in ('year', 'month', 'day')),
-  highlight text not null default '' check (length(highlight) <= 500),
+  -- The memory of this specific trip — given real room (not a one-liner)
+  -- since it now sits alongside this trip's own photos and soundtrack.
+  highlight text not null default '' check (length(highlight) <= 1000),
+  -- The soundtrack of this specific trip — a Spotify track, cached at pick
+  -- time so pages can render it without a live Spotify call. Played via
+  -- Spotify's official embed widget, never streamed directly.
+  spotify_track_id text,
+  spotify_track_name text,
+  spotify_track_artist text,
+  spotify_track_image text,
   check (visited_to is null or visited_from is null or visited_to >= visited_from)
 );
 
@@ -64,6 +66,9 @@ create table public.country_cities (
 create table public.country_media (
   id uuid primary key default gen_random_uuid(),
   visited_country_id uuid not null references public.visited_countries (id) on delete cascade,
+  -- Optionally scoped to one specific trip rather than the country in
+  -- general — null means "general", not tied to any particular visit.
+  country_visit_id uuid references public.country_visits (id) on delete cascade,
   storage_path text not null,
   public_url text not null,
   media_type text not null default 'image' check (media_type = 'image'),
@@ -132,6 +137,7 @@ create index visited_countries_user_idx on public.visited_countries (user_id);
 create index country_visits_vc_idx on public.country_visits (visited_country_id);
 create index country_cities_vc_idx on public.country_cities (visited_country_id);
 create index country_media_vc_idx on public.country_media (visited_country_id, display_order);
+create index country_media_visit_idx on public.country_media (country_visit_id, display_order);
 create index events_user_date_idx on public.events (user_id, event_date desc);
 create index events_country_idx on public.events (user_id, country_code);
 create index event_media_event_idx on public.event_media (event_id, display_order);
@@ -230,12 +236,15 @@ create trigger on_auth_user_created
 
 -- ---------- Media caps enforced in the database ----------
 
+-- Each visit (or the general, untagged pool) gets its own 5-photo cap,
+-- rather than every trip to a country sharing one pool of 5 total.
 create or replace function public.enforce_country_media_cap()
 returns trigger language plpgsql as $$
 begin
   if (select count(*) from public.country_media
-      where visited_country_id = new.visited_country_id) >= 5 then
-    raise exception 'A country can have at most 5 photos.';
+      where visited_country_id = new.visited_country_id
+      and country_visit_id is not distinct from new.country_visit_id) >= 5 then
+    raise exception 'A trip can have at most 5 photos.';
   end if;
   return new;
 end;
@@ -307,6 +316,9 @@ create policy "country visits insert" on public.country_visits for insert
   with check (public.owns_visited_country(visited_country_id));
 create policy "country visits delete" on public.country_visits for delete
   using (public.owns_visited_country(visited_country_id));
+create policy "country visits update" on public.country_visits for update
+  using (public.owns_visited_country(visited_country_id))
+  with check (public.owns_visited_country(visited_country_id));
 
 create policy "country cities readable" on public.country_cities for select
   using (public.owns_visited_country(visited_country_id)
@@ -457,9 +469,9 @@ with (security_invoker = true) as
     lv.year as visit_year,
     coalesce(lv.visited_to, lv.visited_from) as visit_date,
     lv.date_precision as visit_date_precision,
-    vc.spotify_track_id as spotify_track_id,
-    vc.spotify_track_name as spotify_track_name,
-    vc.spotify_track_artist as spotify_track_artist,
+    lv.spotify_track_id as spotify_track_id,
+    lv.spotify_track_name as spotify_track_name,
+    lv.spotify_track_artist as spotify_track_artist,
     vc.created_at as created_at
   from public.visited_countries vc
   left join lateral (
@@ -470,7 +482,7 @@ with (security_invoker = true) as
     limit 1
   ) cm on true
   left join lateral (
-    select year, visited_from, visited_to, date_precision
+    select year, visited_from, visited_to, date_precision, spotify_track_id, spotify_track_name, spotify_track_artist
     from public.country_visits
     where visited_country_id = vc.id
     order by coalesce(visited_to, visited_from, make_date(year, 12, 31)) desc
