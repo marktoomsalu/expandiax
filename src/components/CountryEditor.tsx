@@ -9,7 +9,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { SoundtrackPicker } from "./SoundtrackPicker";
 import { MONTH_NAMES, cn, formatVisitRange, visitSortKey } from "@/lib/utils";
 
-type Meta = { code: string; name: string; flag: string };
+type Meta = { code: string; name: string; flag: string; capital: string };
 
 export function MarkVisitedButton({ meta }: { meta: Meta }) {
   const router = useRouter();
@@ -335,7 +335,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
           ))}
           <form onSubmit={addCity} className="flex items-center gap-1.5">
             <label htmlFor="city-input" className="sr-only">Add a city</label>
-            <input id="city-input" type="text" placeholder="Tallinn" className="field !w-32 !py-1.5 text-sm" value={city} onChange={(e) => setCity(e.target.value)} />
+            <input id="city-input" type="text" placeholder={meta.capital} className="field !w-32 !py-1.5 text-sm" value={city} onChange={(e) => setCity(e.target.value)} />
             <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add city"><Plus size={15} /></button>
           </form>
         </div>

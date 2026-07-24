@@ -6,6 +6,7 @@ export type Country = {
   name: string;
   continent: string;
   flag: string;
+  capital: string;
 };
 
 // The canonical country list used everywhere in the product:
