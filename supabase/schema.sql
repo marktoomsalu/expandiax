@@ -15,7 +15,24 @@ create table public.profiles (
   bio text not null default '',
   home_country_code text,
   visibility text not null default 'private' check (visibility in ('public', 'friends', 'private')),
+  -- Denormalized from billing.plan by sync_profile_plan() below — safe to
+  -- read publicly (it's just the plan name, no Stripe identifiers), unlike
+  -- the billing table itself which is locked to owner-only reads.
+  plan text not null default 'free' check (plan in ('free', 'premium')),
   created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Stripe customer/subscription ids — kept out of `profiles` because that
+-- table's select policy is row-level (readable by anyone who can see the
+-- profile), not column-level, so sensitive Stripe ids can't safely live
+-- there. Only the service-role key (the Stripe webhook route) writes here.
+create table public.billing (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  plan text not null default 'free' check (plan in ('free', 'premium')),
+  current_period_end timestamptz,
   updated_at timestamptz not null default now()
 );
 
@@ -138,6 +155,8 @@ alter table public.events
 
 -- ---------- Indexes ----------
 
+create index billing_stripe_customer_idx on public.billing (stripe_customer_id);
+create index billing_stripe_subscription_idx on public.billing (stripe_subscription_id);
 create index visited_countries_user_idx on public.visited_countries (user_id);
 create index country_visits_vc_idx on public.country_visits (visited_country_id);
 create index country_cities_vc_idx on public.country_cities (visited_country_id);
@@ -239,6 +258,19 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Keeps profiles.plan (public, cheap to read) in sync with billing.plan
+-- (owner-only) whenever the Stripe webhook writes a billing row.
+create or replace function public.sync_profile_plan()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  update public.profiles set plan = new.plan where id = new.user_id;
+  return new;
+end;
+$$;
+
+create trigger billing_sync_plan after insert or update on public.billing
+  for each row execute function public.sync_profile_plan();
+
 -- ---------- Media caps enforced in the database ----------
 
 -- Each visit (or the general, untagged pool) gets its own 5-photo cap,
@@ -280,6 +312,7 @@ create trigger event_media_cap before insert on public.event_media
 -- ---------- Row Level Security ----------
 
 alter table public.profiles enable row level security;
+alter table public.billing enable row level security;
 alter table public.visited_countries enable row level security;
 alter table public.country_visits enable row level security;
 alter table public.country_cities enable row level security;
@@ -299,6 +332,11 @@ create policy "users update own profile"
 create policy "users insert own profile"
   on public.profiles for insert
   with check (id = auth.uid());
+
+-- billing — deliberately no insert/update policies for regular users;
+-- only the service-role key (the Stripe webhook route) writes here.
+create policy "owner reads own billing" on public.billing for select
+  using (user_id = auth.uid());
 
 -- visited_countries
 create policy "visited countries readable when owner or profile public"

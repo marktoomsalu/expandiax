@@ -36,6 +36,15 @@ export default async function SettingsPage() {
 
       <div className="mt-8 space-y-4 border-t border-line pt-6">
         <div>
+          <p className="text-sm font-medium">Plan</p>
+          <p className="mt-1 text-xs text-muted">
+            {profile.plan === "premium" ? "You're on Premium." : "You're on the free plan."}
+          </p>
+          <Link href="/settings/billing" className="btn-ghost mt-3 !py-2 text-sm">
+            {profile.plan === "premium" ? "Manage plan" : "Upgrade to Premium"}
+          </Link>
+        </div>
+        <div>
           <p className="text-sm font-medium">Your data</p>
           <p className="mt-1 text-xs text-muted">Download everything you&rsquo;ve added, as a single file.</p>
           <div className="mt-3"><ExportDataButton userId={user.id} /></div>

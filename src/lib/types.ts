@@ -1,4 +1,5 @@
 export type ProfileVisibility = "public" | "friends" | "private";
+export type Plan = "free" | "premium";
 
 export type Profile = {
   id: string;
@@ -8,7 +9,17 @@ export type Profile = {
   bio: string;
   home_country_code: string | null;
   visibility: ProfileVisibility;
+  plan: Plan;
   created_at: string;
+  updated_at: string;
+};
+
+export type Billing = {
+  user_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  plan: Plan;
+  current_period_end: string | null;
   updated_at: string;
 };
 
