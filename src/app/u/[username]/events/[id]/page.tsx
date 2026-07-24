@@ -71,6 +71,11 @@ export default async function PublicEventPage({
   const event = data as EventFull | null;
   if (!event) notFound();
 
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
+  const isOwnProfile = viewer?.id === profile.id;
+
   const [{ data: sameTitle }, { data: commentRows }] = await Promise.all([
     supabase
       .from("events")
@@ -229,7 +234,7 @@ export default async function PublicEventPage({
         </section>
 
         <div className="mt-8 flex items-center justify-center gap-6 border-t border-line pt-6">
-          <ShareButton kind="event" targetId={event.id} title={event.title} />
+          {isOwnProfile && <ShareButton kind="event" targetId={event.id} title={event.title} />}
           <ReportButton targetType="event" targetId={event.id} targetUrl={`/u/${profile.username}/events/${event.id}`} />
         </div>
       </div>

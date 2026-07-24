@@ -65,6 +65,11 @@ export default async function PublicCountryPage({
     .maybeSingle();
   if (!profile) notFound();
 
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
+  const isOwnProfile = viewer?.id === profile.id;
+
   const [{ data }, { data: allCountries }, { data: relatedEvents }] = await Promise.all([
     supabase
       .from("visited_countries")
@@ -234,7 +239,7 @@ export default async function PublicCountryPage({
         </nav>
 
         <div className="mt-6 flex items-center justify-center gap-6">
-          <ShareButton kind="country" targetId={country.id} title={`${meta.flag} ${meta.name}`} />
+          {isOwnProfile && <ShareButton kind="country" targetId={country.id} title={`${meta.flag} ${meta.name}`} />}
           <ReportButton targetType="country" targetId={country.id} targetUrl={`/u/${profile.username}/countries/${meta.code.toLowerCase()}`} />
         </div>
       </div>
