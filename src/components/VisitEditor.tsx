@@ -1,11 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { VisitDateFields } from "./VisitDateFields";
 import { SoundtrackPicker } from "./SoundtrackPicker";
 import type { CountryVisit, DatePrecision } from "@/lib/types";
+
+function savedAgoLabel(savedAt: number, now: number): string {
+  const secs = Math.max(0, Math.round((now - savedAt) / 1000));
+  if (secs < 5) return "Saved just now";
+  if (secs < 60) return `Saved ${secs}s ago`;
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `Saved ${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  return `Saved ${hrs}h ago`;
+}
+
+/** Ticks every second while a save timestamp is set, so "Saved Xs ago" stays live. */
+function useSavedAgo(savedAt: number | null) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (savedAt === null) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [savedAt]);
+  return savedAt === null ? null : savedAgoLabel(savedAt, now);
+}
 
 export function VisitEditor({ visit }: { visit: CountryVisit }) {
   const router = useRouter();
@@ -15,10 +36,23 @@ export function VisitEditor({ visit }: { visit: CountryVisit }) {
   const [month, setMonth] = useState(visit.date_precision === "month" && visit.visited_from ? visit.visited_from.slice(5, 7) : "");
   const [visitedFrom, setVisitedFrom] = useState(visit.date_precision === "day" ? visit.visited_from ?? "" : "");
   const [visitedTo, setVisitedTo] = useState(visit.date_precision === "day" ? visit.visited_to ?? "" : "");
-  const [memory, setMemory] = useState(visit.highlight);
-  const [memorySaved, setMemorySaved] = useState(false);
+  const [datesSavedAt, setDatesSavedAt] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const datesSavedAgo = useSavedAgo(datesSavedAt);
+
+  const [memory, setMemory] = useState(visit.highlight);
+  const lastSavedMemory = useRef(visit.highlight);
+  const [memorySaving, setMemorySaving] = useState(false);
+  const [memorySavedAt, setMemorySavedAt] = useState<number | null>(null);
+  const memoryDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const memorySavedAgo = useSavedAgo(memorySavedAt);
+
+  useEffect(() => {
+    return () => {
+      if (memoryDebounce.current) clearTimeout(memoryDebounce.current);
+    };
+  }, []);
 
   async function saveDates(e: React.FormEvent) {
     e.preventDefault();
@@ -58,15 +92,32 @@ export function VisitEditor({ visit }: { visit: CountryVisit }) {
       setError("Could not save the dates. Try again.");
       return;
     }
+    setDatesSavedAt(Date.now());
     router.refresh();
   }
 
-  async function saveMemoryIfChanged() {
-    const trimmed = memory.trim();
-    if (trimmed === visit.highlight.trim()) return;
-    await supabase.from("country_visits").update({ highlight: trimmed }).eq("id", visit.id);
-    setMemorySaved(true);
-    router.refresh();
+  async function commitMemory(value: string) {
+    const trimmed = value.trim();
+    if (trimmed === lastSavedMemory.current.trim()) return;
+    setMemorySaving(true);
+    const { error: err } = await supabase.from("country_visits").update({ highlight: trimmed }).eq("id", visit.id);
+    setMemorySaving(false);
+    if (!err) {
+      lastSavedMemory.current = trimmed;
+      setMemorySavedAt(Date.now());
+      router.refresh();
+    }
+  }
+
+  function onMemoryChange(value: string) {
+    setMemory(value);
+    if (memoryDebounce.current) clearTimeout(memoryDebounce.current);
+    memoryDebounce.current = setTimeout(() => commitMemory(value), 1500);
+  }
+
+  function onMemoryBlur() {
+    if (memoryDebounce.current) clearTimeout(memoryDebounce.current);
+    commitMemory(memory);
   }
 
   return (
@@ -85,9 +136,12 @@ export function VisitEditor({ visit }: { visit: CountryVisit }) {
           visitedTo={visitedTo}
           onVisitedToChange={setVisitedTo}
         />
-        <button type="submit" className="btn-ghost !py-1.5 text-sm" disabled={busy}>
-          {busy ? "Saving…" : "Save dates"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button type="submit" className="btn-ghost !py-1.5 text-sm" disabled={busy}>
+            {busy ? "Saving…" : "Save dates"}
+          </button>
+          {!busy && datesSavedAgo && <span role="status" className="text-xs text-accent">{datesSavedAgo}</span>}
+        </div>
         {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
       </form>
 
@@ -99,13 +153,18 @@ export function VisitEditor({ visit }: { visit: CountryVisit }) {
           placeholder="What made this trip its own thing?"
           value={memory}
           maxLength={1000}
-          onChange={(e) => {
-            setMemory(e.target.value);
-            setMemorySaved(false);
-          }}
-          onBlur={saveMemoryIfChanged}
+          onChange={(e) => onMemoryChange(e.target.value)}
+          onBlur={onMemoryBlur}
         />
-        {memorySaved && <span role="status" className="mt-1.5 block text-xs text-accent">Saved.</span>}
+        <div className="mt-1.5 text-xs">
+          {memorySaving ? (
+            <span role="status" className="text-muted">Saving…</span>
+          ) : memorySavedAgo ? (
+            <span role="status" className="text-accent">{memorySavedAgo}</span>
+          ) : (
+            <span className="text-muted">Saves automatically as you type.</span>
+          )}
+        </div>
       </div>
 
       <div>

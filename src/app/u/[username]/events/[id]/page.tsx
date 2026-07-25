@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, FileText, MapPin } from "lucide-react";
+import { ArrowLeft, FileText, MapPin, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
@@ -135,9 +135,16 @@ export default async function PublicEventPage({
       </div>
 
       <div className="mx-auto max-w-3xl px-5 py-10">
-        <Link href={`/u/${profile.username}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-          <ArrowLeft size={15} /> {profile.display_name}&rsquo;s archive
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link href={`/u/${profile.username}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
+            <ArrowLeft size={15} /> {profile.display_name}&rsquo;s archive
+          </Link>
+          {isOwnProfile && (
+            <Link href={`/events/${event.id}/edit`} className="inline-flex items-center gap-1.5 text-sm text-accent underline-offset-4 hover:underline">
+              <Pencil size={14} /> Edit
+            </Link>
+          )}
+        </div>
 
         {event.review && (
           <blockquote className="mt-8 border-l-2 border-accent pl-5 font-serif text-xl italic leading-relaxed md:text-2xl">

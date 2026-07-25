@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { RatingStars } from "@/components/Rating";
@@ -149,10 +149,22 @@ export default async function PublicCountryPage({
           <ArrowLeft size={15} /> {profile.display_name}&rsquo;s world
         </Link>
 
-        <p className="eyebrow mt-8">{meta.continent}{years.length > 0 && <> · {years.join(" · ")}</>}</p>
-        <h1 className="mt-2 text-4xl md:text-5xl">
-          <span aria-hidden className="mr-2">{meta.flag}</span>{meta.name}
-        </h1>
+        <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="eyebrow">{meta.continent}{years.length > 0 && <> · {years.join(" · ")}</>}</p>
+            <h1 className="mt-2 text-4xl md:text-5xl">
+              <span aria-hidden className="mr-2">{meta.flag}</span>{meta.name}
+            </h1>
+          </div>
+          {isOwnProfile && (
+            <Link
+              href={`/my-world/${meta.code.toLowerCase()}`}
+              className="inline-flex items-center gap-1.5 text-sm text-accent underline-offset-4 hover:underline"
+            >
+              <Pencil size={14} /> Edit
+            </Link>
+          )}
+        </div>
         {cities.length > 0 && <p className="mt-3 text-sm text-muted">{cities.join(" · ")}</p>}
 
         {highlightedVisits.length > 0 && (

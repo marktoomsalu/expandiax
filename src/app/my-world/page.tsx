@@ -103,7 +103,7 @@ export default async function MyWorldPage() {
           <section className="mt-10" aria-labelledby="continents-h">
             <h2 id="continents-h" className="text-xl">By continent</h2>
             <p className="mt-1 text-xs text-muted">Tap a continent to see which countries you&rsquo;ve visited there.</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-4 grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {continents.map((c) => (
                 <ContinentCard
                   key={c.name}

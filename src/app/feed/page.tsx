@@ -101,6 +101,13 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
                 ? `/u/${actor.username}/countries/${item.country_code.toLowerCase()}`
                 : `/u/${actor.username}/events/${item.ref_id}`;
             const typeLabel = item.event_type ? eventTypeMeta(item.event_type).label.toLowerCase() : "event";
+            const dateLabel = item.visit_date
+              ? item.visit_date_precision === "month"
+                ? formatMonthYear(item.visit_date)
+                : formatDate(item.visit_date)
+              : item.visit_year
+                ? String(item.visit_year)
+                : null;
             return (
               <li key={key} className="card overflow-hidden">
                 <div className="p-4 sm:p-5">
@@ -121,7 +128,11 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
                         <Link href={`/u/${actor.username}`} className="text-sm font-medium hover:text-accent">
                           {actor.display_name}
                         </Link>
-                        <span className="text-xs text-muted">{item.kind === "country" ? "added a country" : `logged a ${typeLabel}`}</span>
+                        <span className="text-xs text-muted">
+                          {item.kind === "country"
+                            ? "added a country"
+                            : `logged a ${typeLabel}${dateLabel ? ` · ${dateLabel}` : ""}`}
+                        </span>
                       </div>
                       <span className="text-xs text-muted">{formatRelative(item.created_at)}</span>
                     </div>
@@ -131,17 +142,12 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
                       {item.kind === "country" ? <>{meta?.flag} {item.title}</> : item.title}
                     </p>
                     {item.subtitle && <p className="text-sm italic text-muted">{item.subtitle}</p>}
-                    {(item.visit_date || item.visit_year) && (
+                    {item.kind === "country" && dateLabel && (
+                      <p className="mt-1 text-xs text-muted">Visited {dateLabel}</p>
+                    )}
+                    {item.kind === "event" && [item.venue, item.city, item.country_name].filter(Boolean).length > 0 && (
                       <p className="mt-1 text-xs text-muted">
-                        {item.kind === "country" ? "Visited" : "Was there"}{" "}
-                        {item.visit_date
-                          ? item.visit_date_precision === "month"
-                            ? formatMonthYear(item.visit_date)
-                            : formatDate(item.visit_date)
-                          : item.visit_year}
-                        {item.kind === "event" &&
-                          [item.venue, item.city, item.country_name].filter(Boolean).length > 0 &&
-                          ` · ${[item.venue, item.city, item.country_name].filter(Boolean).join(", ")}`}
+                        Attended <span aria-hidden>📍</span> {[item.venue, item.city, item.country_name].filter(Boolean).join(", ")}
                       </p>
                     )}
                     {item.body && <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-ink">{item.body}</p>}
