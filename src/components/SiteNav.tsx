@@ -12,9 +12,9 @@ type NavUser = { username: string; plan: "free" | "premium" } | null;
 
 function Wordmark() {
   return (
-    <Link href="/" className="flex items-center gap-1.5 font-serif text-lg tracking-tight text-ink">
+    <Link href="/" className="flex items-center gap-0.5 font-serif text-lg tracking-tight text-ink">
       Expandia
-      <Image src="/logo.png" alt="" width={22} height={22} priority className="h-[1.1em] w-[1.1em]" />
+      <Image src="/logo-mark.png" alt="" width={25} height={22} priority className="h-[1.1em] w-auto" />
     </Link>
   );
 }
