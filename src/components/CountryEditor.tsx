@@ -244,9 +244,9 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
 
       {/* Visits — each trip gets its own page for photos, a soundtrack and a full memory */}
       <section>
-        <h4 className="text-sm font-medium text-muted">Your visits</h4>
+        <h4 className="font-serif text-lg">Your trips</h4>
         {visits.length > 0 && (
-          <ul className="mt-2 space-y-2">
+          <ul className="mt-3 space-y-2">
             {visits.map((v) => {
               const photoCount = data.country_media.filter((m) => m.country_visit_id === v.id).length;
               return (
@@ -273,7 +273,10 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
             })}
           </ul>
         )}
-        <form onSubmit={addVisit} className="mt-3 space-y-2">
+        <form onSubmit={addVisit} className="mt-3 space-y-3 rounded-lg border border-dashed border-line px-4 py-4">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <Plus size={15} className="text-accent" aria-hidden /> Add a trip
+          </p>
           <VisitDateFields
             precision={precision}
             onPrecisionChange={setPrecision}
@@ -286,19 +289,21 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
             visitedTo={visitedTo}
             onVisitedToChange={setVisitedTo}
           />
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div>
             <label htmlFor="highlight-input" className="sr-only">Memory from this trip</label>
             <input
               id="highlight-input"
               type="text"
               placeholder="A quick memory from this trip (optional — add more on its page after)"
-              className="field !py-1.5 min-w-0 flex-1 text-sm"
+              className="field !py-1.5 w-full text-sm"
               maxLength={1000}
               value={highlight}
               onChange={(e) => setHighlight(e.target.value)}
             />
-            <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add visit"><Plus size={15} /></button>
           </div>
+          <button type="submit" className="btn-accent w-full justify-center !py-2 text-sm">
+            <Plus size={15} /> Add this trip
+          </button>
         </form>
       </section>
 
