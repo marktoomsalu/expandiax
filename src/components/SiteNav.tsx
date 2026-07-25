@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Bell, Compass, Globe2, Plus, Rss, Sparkles, Ticket, UserRound } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
@@ -11,8 +12,9 @@ type NavUser = { username: string; plan: "free" | "premium" } | null;
 
 function Wordmark() {
   return (
-    <Link href="/" className="font-serif text-lg tracking-tight text-ink">
-      Expandia<span className="gradient-travel bg-clip-text text-transparent">X</span>
+    <Link href="/" className="flex items-center gap-1.5 font-serif text-lg tracking-tight text-ink">
+      Expandia
+      <Image src="/logo.png" alt="" width={22} height={22} priority className="h-[1.1em] w-[1.1em]" />
     </Link>
   );
 }

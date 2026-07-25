@@ -38,7 +38,7 @@ export default async function Image({ params }: { params: { username: string } }
           flexDirection: "column",
           justifyContent: "space-between",
           padding: "72px",
-          background: "linear-gradient(135deg, #ff6347 0%, #f59e0b 55%, #0d9488 100%)",
+          background: "linear-gradient(135deg, #E91E63 0%, #F43F5E 55%, #F97316 100%)",
           color: "white",
           fontFamily: "sans-serif",
         }}

@@ -34,7 +34,7 @@ export function ProfileForm({
   const [visibility, setVisibility] = useState<ProfileVisibility | null>(
     requireVisibilityChoice ? null : profile.visibility
   );
-  const [accentColor, setAccentColor] = useState(profile.accent_color ?? "#ff6347");
+  const [accentColor, setAccentColor] = useState(profile.accent_color ?? "#E91E63");
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);

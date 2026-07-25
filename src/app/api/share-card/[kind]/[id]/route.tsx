@@ -36,7 +36,7 @@ function Wordmark() {
       }}
     >
       <span>Expandia</span>
-      <span style={{ color: "#ffb199" }}>X</span>
+      <span style={{ color: "#ffb3d1" }}>X</span>
     </div>
   );
 }
@@ -154,7 +154,7 @@ function renderFallbackCard(data: CardData) {
           width: "100%",
           height: "100%",
           display: "flex",
-          background: "linear-gradient(135deg, #ff6347 0%, #f59e0b 55%, #0d9488 100%)",
+          background: "linear-gradient(135deg, #E91E63 0%, #F43F5E 55%, #F97316 100%)",
           fontFamily: "sans-serif",
         }}
       >
@@ -189,7 +189,7 @@ function renderFallbackCard(data: CardData) {
         >
           <div style={{ display: "flex", fontSize: 36, fontWeight: 700 }}>
             <span>Expandia</span>
-            <span style={{ color: "#ffb199" }}>X</span>
+            <span style={{ color: "#ffb3d1" }}>X</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {data.eyebrow && (

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ff6347",
+  themeColor: "#E91E63",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -60,8 +61,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <footer className="mt-20 border-t border-line">
             <div className="mx-auto max-w-shell px-5 py-8">
               <div className="flex flex-col items-start justify-between gap-3 text-sm text-muted sm:flex-row sm:items-center">
-                <p className="font-serif text-ink">
-                  Expandia<span className="gradient-travel bg-clip-text text-transparent">X</span>
+                <p className="flex items-center gap-1.5 font-serif text-ink">
+                  Expandia
+                  <Image src="/logo.png" alt="ExpandiaX" width={20} height={20} className="h-[1.1em] w-[1.1em]" />
                 </p>
                 <p>Collecting the memories that matter.</p>
               </div>
