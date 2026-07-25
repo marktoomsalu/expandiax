@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
 import { CommentSection } from "@/components/CommentSection";
+import { FeedPostBody } from "@/components/FeedPostBody";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { countryByCode } from "@/lib/countries";
@@ -137,21 +138,25 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
                       <span className="text-xs text-muted">{formatRelative(item.created_at)}</span>
                     </div>
                   </div>
-                  <Link href={href} className="mt-3 block hover:text-accent">
-                    <p className="font-serif text-lg text-ink">
-                      {item.kind === "country" ? <>{meta?.flag} {item.title}</> : item.title}
-                    </p>
-                    {item.subtitle && <p className="text-sm italic text-muted">{item.subtitle}</p>}
-                    {item.kind === "country" && dateLabel && (
-                      <p className="mt-1 text-xs text-muted">Visited {dateLabel}</p>
-                    )}
-                    {item.kind === "event" && [item.venue, item.city, item.country_name].filter(Boolean).length > 0 && (
-                      <p className="mt-1 text-xs text-muted">
-                        Attended <span aria-hidden>📍</span> {[item.venue, item.city, item.country_name].filter(Boolean).join(", ")}
-                      </p>
-                    )}
-                    {item.body && <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-ink">{item.body}</p>}
-                  </Link>
+                  <FeedPostBody
+                    href={href}
+                    flag={item.kind === "country" ? meta?.flag : undefined}
+                    title={item.title}
+                    subtitle={item.subtitle}
+                    body={item.body}
+                    metaLine={
+                      <>
+                        {item.kind === "country" && dateLabel && (
+                          <p className="mt-1 text-xs text-muted">Visited {dateLabel}</p>
+                        )}
+                        {item.kind === "event" && [item.venue, item.city, item.country_name].filter(Boolean).length > 0 && (
+                          <p className="mt-1 text-xs text-muted">
+                            Attended <span aria-hidden>📍</span> {[item.venue, item.city, item.country_name].filter(Boolean).join(", ")}
+                          </p>
+                        )}
+                      </>
+                    }
+                  />
                   {item.kind === "country" && item.spotify_track_id && (
                     <div className="mt-3">
                       <SpotifyEmbed trackId={item.spotify_track_id} compact />
