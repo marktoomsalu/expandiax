@@ -40,7 +40,6 @@ export type VisitedCountry = {
   user_id: string;
   country_code: string;
   country_name: string;
-  note: string;
   cover_media_id: string | null;
   is_favourite: boolean;
   share_to_feed: boolean;
@@ -76,7 +75,7 @@ export type MediaItem = {
   created_at: string;
 };
 
-export type CountryMedia = MediaItem & { visited_country_id: string; country_visit_id: string | null };
+export type CountryMedia = MediaItem & { visited_country_id: string; country_visit_id: string };
 export type EventMedia = MediaItem & { event_id: string };
 
 export type EventType = "concert" | "festival" | "sport" | "conference" | "personal" | "other";

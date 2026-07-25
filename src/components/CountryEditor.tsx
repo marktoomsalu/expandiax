@@ -12,15 +12,39 @@ import { cn, formatVisitRange, visitSortKey } from "@/lib/utils";
 
 type Meta = { code: string; name: string; flag: string; capital: string };
 
-export function MarkVisitedButton({ meta }: { meta: Meta }) {
+/** First trip to a new country — bundles marking it visited with its first
+ *  visit (dates + memory) in one step, so photos/soundtrack (added on the
+ *  visit's own page next) are never orphaned outside any trip. */
+export function AddCountryForm({ meta }: { meta: Meta }) {
   const router = useRouter();
   const supabase = createClient();
+  const [precision, setPrecision] = useState<DatePrecision>("year");
+  const [year, setYear] = useState("");
+  const [month, setMonth] = useState("");
+  const [visitedFrom, setVisitedFrom] = useState("");
+  const [visitedTo, setVisitedTo] = useState("");
+  const [highlight, setHighlight] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function mark() {
-    setBusy(true);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const y = parseInt(year, 10);
+    if (Number.isNaN(y) || y < 1900 || y > 2100) {
+      setError("Enter a year between 1900 and 2100.");
+      return;
+    }
+    if (precision === "day" && visitedFrom && visitedTo && visitedTo < visitedFrom) {
+      setError("The \"to\" date can't be before the \"from\" date.");
+      return;
+    }
+    if (precision === "month" && !month) {
+      setError("Choose a month.");
+      return;
+    }
     setError(null);
+    setBusy(true);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -29,33 +53,94 @@ export function MarkVisitedButton({ meta }: { meta: Meta }) {
       setBusy(false);
       return;
     }
-    const { error: err } = await supabase.from("visited_countries").insert({
-      user_id: user.id,
-      country_code: meta.code,
-      country_name: meta.name,
-    });
-    if (err) {
-      if (err.code === "23505") {
+
+    const { data: country, error: countryErr } = await supabase
+      .from("visited_countries")
+      .insert({ user_id: user.id, country_code: meta.code, country_name: meta.name })
+      .select("id")
+      .single();
+    if (countryErr || !country) {
+      if (countryErr?.code === "23505") {
         setError(`${meta.name} is already on your map.`);
-      } else if (err.message.includes("capped at")) {
-        setError(err.message);
+      } else if (countryErr?.message.includes("capped at")) {
+        setError(countryErr.message);
       } else {
-        setError("Could not mark this country. Try again.");
+        setError("Could not add this country. Try again.");
       }
       setBusy(false);
       return;
     }
+
+    let from: string | null = null;
+    let to: string | null = null;
+    let datePrecision: DatePrecision = "year";
+    if (precision === "day" && visitedFrom) {
+      from = visitedFrom;
+      to = visitedTo || visitedFrom;
+      datePrecision = "day";
+    } else if (precision === "month" && month) {
+      const lastDay = new Date(y, Number(month), 0).getDate();
+      from = `${year}-${month}-01`;
+      to = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+      datePrecision = "month";
+    }
+
+    const { data: visit, error: visitErr } = await supabase
+      .from("country_visits")
+      .insert({
+        visited_country_id: country.id,
+        year: y,
+        visited_from: from,
+        visited_to: to,
+        date_precision: datePrecision,
+        highlight: highlight.trim(),
+      })
+      .select("id")
+      .single();
+    if (visitErr || !visit) {
+      // The country itself was added fine — just send them to its page to
+      // retry the trip, rather than losing the country too.
+      router.push(`/my-world/${meta.code.toLowerCase()}`);
+      router.refresh();
+      return;
+    }
+
+    router.push(`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}?created=1`);
     router.refresh();
   }
 
   return (
-    <div>
-      <button type="button" className="btn-accent" onClick={mark} disabled={busy}>
+    <form onSubmit={submit} className="mx-auto max-w-sm space-y-3 text-left">
+      <VisitDateFields
+        precision={precision}
+        onPrecisionChange={setPrecision}
+        year={year}
+        onYearChange={setYear}
+        month={month}
+        onMonthChange={setMonth}
+        visitedFrom={visitedFrom}
+        onVisitedFromChange={setVisitedFrom}
+        visitedTo={visitedTo}
+        onVisitedToChange={setVisitedTo}
+      />
+      <div>
+        <label htmlFor="first-highlight" className="sr-only">Memory from this trip</label>
+        <input
+          id="first-highlight"
+          type="text"
+          placeholder="A quick memory from this trip (optional — add more after)"
+          className="field !py-1.5 w-full text-sm"
+          maxLength={1000}
+          value={highlight}
+          onChange={(e) => setHighlight(e.target.value)}
+        />
+      </div>
+      <button type="submit" className="btn-accent w-full justify-center" disabled={busy}>
         <MapPinPlus size={17} />
-        {busy ? "Adding to your map…" : `Mark ${meta.name} as visited`}
+        {busy ? "Adding…" : `Add ${meta.name} to your map`}
       </button>
       {error && (
-        <p role="alert" className="mt-3 text-sm text-red-800 dark:text-red-400">
+        <p role="alert" className="text-sm text-red-800 dark:text-red-400">
           {error}
           {error.includes("capped at") && (
             <>
@@ -68,15 +153,13 @@ export function MarkVisitedButton({ meta }: { meta: Meta }) {
           )}
         </p>
       )}
-    </div>
+    </form>
   );
 }
 
 export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: Meta }) {
   const router = useRouter();
   const supabase = createClient();
-  const [note, setNote] = useState(data.note);
-  const [noteSaved, setNoteSaved] = useState(false);
   const [precision, setPrecision] = useState<DatePrecision>("year");
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
@@ -163,14 +246,6 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
     router.refresh();
   }
 
-  async function saveNoteIfChanged() {
-    const trimmed = note.trim();
-    if (trimmed === data.note.trim()) return;
-    await supabase.from("visited_countries").update({ note: trimmed }).eq("id", data.id);
-    setNoteSaved(true);
-    router.refresh();
-  }
-
   async function toggleFavourite() {
     setFavouriteBusy(true);
     await supabase
@@ -242,7 +317,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
         </div>
       </div>
 
-      {/* Visits — each trip gets its own page for photos, a soundtrack and a full memory */}
+      {/* Visits — each trip carries its own photos, soundtrack and memory */}
       <section>
         <h4 className="font-serif text-lg">Your trips</h4>
         {visits.length > 0 && (
@@ -326,24 +401,6 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
         </div>
       </section>
 
-      {/* Note — autosaves on blur */}
-      <section>
-        <label htmlFor="country-note" className="text-sm font-medium text-muted">The memory</label>
-        <textarea
-          id="country-note"
-          className="field mt-2 min-h-24"
-          placeholder={`What should ${meta.name} always remind you of?`}
-          value={note}
-          maxLength={1000}
-          onChange={(e) => {
-            setNote(e.target.value);
-            setNoteSaved(false);
-          }}
-          onBlur={saveNoteIfChanged}
-        />
-        {noteSaved && <span role="status" className="mt-1.5 block text-xs text-accent">Saved.</span>}
-      </section>
-
       {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
 
       <div className="border-t border-line pt-5">
@@ -355,7 +412,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
       <ConfirmDialog
         open={confirmRemove}
         title={`Remove ${meta.name}?`}
-        body="Its years, cities, note and photos will be deleted from your archive. This cannot be undone."
+        body="Its trips, cities and photos will be deleted from your archive. This cannot be undone."
         confirmLabel="Remove country"
         busy={removing}
         onConfirm={removeCountry}

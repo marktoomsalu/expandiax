@@ -3,10 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
-import { CountryEditor, MarkVisitedButton } from "@/components/CountryEditor";
-import { MediaUploader } from "@/components/MediaUploader";
+import { CountryEditor, AddCountryForm } from "@/components/CountryEditor";
 import { ShareButton } from "@/components/ShareButton";
-import { PHOTO_CAP, COUNTRY_CAP } from "@/lib/plan";
+import { COUNTRY_CAP } from "@/lib/plan";
 import type { Plan, VisitedCountryFull } from "@/lib/types";
 
 export default async function ManageCountryPage({ params }: { params: { code: string } }) {
@@ -64,47 +63,29 @@ export default async function ManageCountryPage({ params }: { params: { code: st
 
       <div className="mt-10">
         {!visited ? (
-          <div className="card px-6 py-12 text-center">
+          <div className="card px-6 py-10 text-center">
             <h2 className="font-serif text-2xl">Not on your map yet.</h2>
             {atCountryCap ? (
-              <>
-                <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                  You&rsquo;ve reached the free plan&rsquo;s {countryCap}-country limit.{" "}
-                  <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
-                    Upgrade to Premium
-                  </Link>{" "}
-                  to keep adding countries.
-                </p>
-              </>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+                You&rsquo;ve reached the free plan&rsquo;s {countryCap}-country limit.{" "}
+                <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
+                  Upgrade to Premium
+                </Link>{" "}
+                to keep adding countries.
+              </p>
             ) : (
               <>
                 <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                  One click adds it to your map. Photos, years, cities and a memory are all optional extras for later.
+                  Add your first trip — photos and a soundtrack live with it, right after.
                 </p>
-                <div className="mt-6 flex justify-center">
-                  <MarkVisitedButton meta={meta} />
+                <div className="mt-6">
+                  <AddCountryForm meta={meta} />
                 </div>
               </>
             )}
           </div>
         ) : (
-          <div className="space-y-10">
-            <MediaUploader
-              userId={user.id}
-              scope="countries"
-              parentId={visited.id}
-              table="country_media"
-              fkColumn="visited_country_id"
-              kind="image"
-              max={PHOTO_CAP[plan]}
-              items={visited.country_media}
-              coverId={visited.cover_media_id}
-              coverTable="visited_countries"
-              label="Photos"
-              showUpgradeHint={plan === "free"}
-            />
-            <CountryEditor data={visited} meta={meta} />
-          </div>
+          <CountryEditor data={visited} meta={meta} />
         )}
       </div>
     </div>

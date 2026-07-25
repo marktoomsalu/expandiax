@@ -16,7 +16,7 @@ import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@
 import { TOTAL_US_STATES } from "@/lib/usStates";
 import type { Event, EventMedia, CountryMedia, Profile, VisitedCountry, VisitedUSState } from "@/lib/types";
 
-type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: { year: number }[] };
+type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: { year: number; highlight: string }[] };
 type EventRow = Event & { event_media: EventMedia[] };
 
 export async function generateMetadata({ params }: { params: { username: string } }): Promise<Metadata> {
@@ -80,7 +80,7 @@ export default async function PublicProfilePage({ params }: { params: { username
     await Promise.all([
       supabase
         .from("visited_countries")
-        .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year)")
+        .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, highlight)")
         .eq("user_id", profile.id)
         .order("country_name"),
       supabase
@@ -127,7 +127,9 @@ export default async function PublicProfilePage({ params }: { params: { username
   }));
   const badges = evaluateBadges(buildAllTimeStats(statCountries, statEvents)).filter((b) => b.isUnlocked);
 
-  const favourites = countries.filter((c) => c.is_favourite || c.note).slice(0, 4)
+  const favourites = countries
+    .filter((c) => c.is_favourite || c.country_visits.some((v) => v.highlight.trim()))
+    .slice(0, 4)
     .sort((a, b) => Number(b.is_favourite) - Number(a.is_favourite));
   const gallery = [
     ...countries.flatMap((c) => c.country_media.map((m) => ({ ...m, alt: `Photo from ${c.country_name}` }))),
@@ -256,6 +258,7 @@ export default async function PublicProfilePage({ params }: { params: { username
               const cover =
                 c.country_media.find((m) => m.id === c.cover_media_id) ??
                 [...c.country_media].sort((a, b) => a.display_order - b.display_order)[0];
+              const memory = c.country_visits.find((v) => v.highlight.trim())?.highlight;
               return (
                 <Link key={c.id} href={`/u/${profile.username}/countries/${c.country_code.toLowerCase()}`} className="card group overflow-hidden">
                   {cover && (
@@ -271,7 +274,7 @@ export default async function PublicProfilePage({ params }: { params: { username
                   )}
                   <div className="px-5 py-4">
                     <p className="font-serif text-xl">{meta?.flag} {c.country_name}</p>
-                    {c.note && <p className="mt-1.5 line-clamp-2 text-sm italic leading-relaxed text-muted">&ldquo;{c.note}&rdquo;</p>}
+                    {memory && <p className="mt-1.5 line-clamp-2 text-sm italic leading-relaxed text-muted">&ldquo;{memory}&rdquo;</p>}
                   </div>
                 </Link>
               );

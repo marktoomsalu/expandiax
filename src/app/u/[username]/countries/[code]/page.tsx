@@ -11,7 +11,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { CommentSection } from "@/components/CommentSection";
-import { formatDate, formatVisitRange } from "@/lib/utils";
+import { formatDate, formatVisitRange, visitSortKey } from "@/lib/utils";
 import type { CommentWithAuthor, Event, VisitedCountryFull } from "@/lib/types";
 
 export async function generateMetadata({
@@ -32,13 +32,18 @@ export async function generateMetadata({
 
   const { data: country } = await supabase
     .from("visited_countries")
-    .select("note, cover_media_id, country_media!country_media_visited_country_id_fkey(id, public_url)")
+    .select(
+      "cover_media_id, country_media!country_media_visited_country_id_fkey(id, public_url), country_visits(highlight, year, visited_from, visited_to)"
+    )
     .eq("user_id", profile.id)
     .eq("country_code", meta.code)
     .maybeSingle();
 
   const title = `${meta.flag} ${meta.name} — ${profile.display_name}`;
-  const description = country?.note || `${profile.display_name}'s memories from ${meta.name} on ExpandiaX.`;
+  const recentVisit = country?.country_visits.length
+    ? [...country.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)))[0]
+    : undefined;
+  const description = recentVisit?.highlight || `${profile.display_name}'s memories from ${meta.name} on ExpandiaX.`;
   const cover = country?.country_media.find((m) => m.id === country.cover_media_id) ?? country?.country_media[0];
 
   return {
@@ -102,13 +107,15 @@ export default async function PublicCountryPage({
     .order("created_at", { ascending: true });
   const comments = (commentRows ?? []) as CommentWithAuthor[];
 
-  // General photos (not tied to a specific trip) drive the hero cover and the
-  // main gallery; each trip's own photos show only inside its own visit card.
-  const generalMedia = country.country_media
-    .filter((m) => !m.country_visit_id)
-    .sort((a, b) => a.display_order - b.display_order);
-  const cover = generalMedia.find((m) => m.id === country.cover_media_id) ?? generalMedia[0];
-  const rest = generalMedia.filter((m) => m.id !== cover?.id);
+  const allMedia = [...country.country_media].sort((a, b) => a.display_order - b.display_order);
+  const visitsByRecency = [...country.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
+  const mostRecentVisit = visitsByRecency[0];
+  // Cover priority: an explicit pick, else the most recent trip's own
+  // photo, else any photo — every photo now belongs to some trip.
+  const cover =
+    allMedia.find((m) => m.id === country.cover_media_id) ??
+    (mostRecentVisit ? allMedia.find((m) => m.country_visit_id === mostRecentVisit.id) : undefined) ??
+    allMedia[0];
   const years = [...new Set(country.country_visits.map((v) => v.year))].sort();
   const highlightedVisits = [...country.country_visits]
     .filter((v) => v.highlight.trim() || v.spotify_track_id || country.country_media.some((m) => m.country_visit_id === v.id))
@@ -148,12 +155,6 @@ export default async function PublicCountryPage({
         </h1>
         {cities.length > 0 && <p className="mt-3 text-sm text-muted">{cities.join(" · ")}</p>}
 
-        {country.note && (
-          <blockquote className="mt-8 border-l-2 border-accent pl-5 font-serif text-xl italic leading-relaxed md:text-2xl">
-            &ldquo;{country.note}&rdquo;
-          </blockquote>
-        )}
-
         {highlightedVisits.length > 0 && (
           <section className="mt-10" aria-label="Trips">
             <ul className="space-y-6">
@@ -185,17 +186,6 @@ export default async function PublicCountryPage({
                 );
               })}
             </ul>
-          </section>
-        )}
-
-        {rest.length > 0 && (
-          <section className="mt-10" aria-label="Photo gallery">
-            <PhotoGallery
-              photos={rest.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || `Photo from ${meta.name}` }))}
-              gridClassName="grid grid-cols-2 gap-3"
-              itemClassName="relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-line"
-              sizes="50vw"
-            />
           </section>
         )}
 

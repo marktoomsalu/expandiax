@@ -44,7 +44,6 @@ create table public.visited_countries (
   user_id uuid not null references public.profiles (id) on delete cascade,
   country_code text not null check (country_code ~ '^[A-Z]{2}$'),
   country_name text not null,
-  note text not null default '',
   cover_media_id uuid, -- FK added below (circular reference)
   is_favourite boolean not null default false,
   share_to_feed boolean not null default true,
@@ -87,9 +86,10 @@ create table public.country_cities (
 create table public.country_media (
   id uuid primary key default gen_random_uuid(),
   visited_country_id uuid not null references public.visited_countries (id) on delete cascade,
-  -- Optionally scoped to one specific trip rather than the country in
-  -- general — null means "general", not tied to any particular visit.
-  country_visit_id uuid references public.country_visits (id) on delete cascade,
+  -- Every photo belongs to a specific trip — there is no general,
+  -- visit-less pool (retired in favor of always bundling with a visit,
+  -- matching how the soundtrack already worked).
+  country_visit_id uuid not null references public.country_visits (id) on delete cascade,
   storage_path text not null,
   public_url text not null,
   media_type text not null default 'image' check (media_type = 'image'),
@@ -311,9 +311,9 @@ create trigger profiles_accent_color_gate before insert or update on public.prof
 
 -- ---------- Media caps enforced in the database ----------
 
--- Each visit (or the general, untagged pool) gets its own photo cap,
--- rather than every trip to a country sharing one pool total. Premium
--- raises 5 -> 15 photos, 3 -> 8 videos, looked up via profiles.plan.
+-- Each visit gets its own photo cap, rather than every trip to a
+-- country sharing one pool total. Premium raises 5 -> 15 photos,
+-- 3 -> 8 videos, looked up via profiles.plan.
 create or replace function public.enforce_country_media_cap()
 returns trigger language plpgsql as $$
 declare
@@ -626,7 +626,7 @@ with (security_invoker = true) as
     vc.country_name as country_name,
     vc.country_name as title,
     null::text as subtitle,
-    nullif(vc.note, '') as body,
+    nullif(lv.highlight, '') as body,
     null::text as venue,
     null::text as city,
     cm.public_url as cover_url,
@@ -647,7 +647,7 @@ with (security_invoker = true) as
     limit 1
   ) cm on true
   left join lateral (
-    select year, visited_from, visited_to, date_precision, spotify_track_id, spotify_track_name, spotify_track_artist
+    select year, visited_from, visited_to, date_precision, highlight, spotify_track_id, spotify_track_name, spotify_track_artist
     from public.country_visits
     where visited_country_id = vc.id
     order by coalesce(visited_to, visited_from, make_date(year, 12, 31)) desc
