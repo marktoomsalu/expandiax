@@ -8,11 +8,12 @@ import { MediaUploader } from "@/components/MediaUploader";
 import { ShareButton } from "@/components/ShareButton";
 import { PHOTO_CAP } from "@/lib/plan";
 import { formatVisitRange } from "@/lib/utils";
-import type { CountryMedia, CountryVisit, Plan } from "@/lib/types";
+import type { CountryCity, CountryMedia, CountryVisit, Plan } from "@/lib/types";
 
 type VisitRow = CountryVisit & {
   visited_countries: { id: string; user_id: string; country_code: string };
   country_media: CountryMedia[];
+  country_cities: CountryCity[];
 };
 
 export const metadata = { title: "Edit trip" };
@@ -36,7 +37,7 @@ export default async function VisitPage({
   const [{ data }, { data: profile }] = await Promise.all([
     supabase
       .from("country_visits")
-      .select("*, visited_countries!inner(id, user_id, country_code), country_media!country_media_country_visit_id_fkey(*)")
+      .select("*, visited_countries!inner(id, user_id, country_code), country_media!country_media_country_visit_id_fkey(*), country_cities(*)")
       .eq("id", params.visitId)
       .eq("visited_countries.user_id", user.id)
       .eq("visited_countries.country_code", meta.code)
@@ -64,7 +65,7 @@ export default async function VisitPage({
       <h1 className="mt-1 text-3xl md:text-4xl">{formatVisitRange(visit)}</h1>
 
       <div className="mt-8">
-        <VisitEditor visit={visit} />
+        <VisitEditor visit={visit} cities={visit.country_cities} />
       </div>
 
       <div className="mt-10 border-t border-line pt-8">

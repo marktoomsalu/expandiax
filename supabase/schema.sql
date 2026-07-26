@@ -80,6 +80,9 @@ create table public.country_visits (
 create table public.country_cities (
   id uuid primary key default gen_random_uuid(),
   visited_country_id uuid not null references public.visited_countries (id) on delete cascade,
+  -- Every city belongs to a specific trip — no general, visit-less pool,
+  -- matching photos/notes/soundtrack.
+  country_visit_id uuid not null references public.country_visits (id) on delete cascade,
   city_name text not null check (length(city_name) between 1 and 80)
 );
 

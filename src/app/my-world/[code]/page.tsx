@@ -22,7 +22,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
     supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
     supabase
       .from("visited_countries")
-      .select("*, country_visits(*), country_cities(*), country_media!country_media_visited_country_id_fkey(*)")
+      .select("*, country_visits(*), country_media!country_media_visited_country_id_fkey(*)")
       .eq("user_id", user.id)
       .eq("country_code", meta.code)
       .maybeSingle(),
@@ -86,20 +86,22 @@ export default async function ManageCountryPage({ params }: { params: { code: st
           </div>
         ) : (
           <div className="space-y-8">
-            <CountryEditor data={visited} meta={meta} />
             {meta.code === "US" && (
-              <div className="rounded-lg border border-dashed border-line px-4 py-4">
-                <p className="flex items-center gap-1.5 text-sm font-medium">
-                  <MapPin size={15} className="text-accent" aria-hidden /> Track your US states too
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  See exactly which states you&rsquo;ve explored, on their own map alongside your world map.
-                </p>
-                <Link href="/my-world/states" className="btn-accent mt-3 !py-2 text-sm">
+              <div className="card flex flex-wrap items-center justify-between gap-4 border-accent/30 bg-accent-soft/40 px-5 py-4">
+                <div>
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    <MapPin size={15} className="text-accent" aria-hidden /> Track your US states too
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    See exactly which states you&rsquo;ve explored, on their own map alongside your world map.
+                  </p>
+                </div>
+                <Link href="/my-world/states" className="btn-accent shrink-0 !py-2 text-sm">
                   <MapPin size={15} /> Add US States
                 </Link>
               </div>
             )}
+            <CountryEditor data={visited} meta={meta} />
           </div>
         )}
       </div>

@@ -118,9 +118,14 @@ export default async function PublicCountryPage({
     allMedia[0];
   const years = [...new Set(country.country_visits.map((v) => v.year))].sort();
   const highlightedVisits = [...country.country_visits]
-    .filter((v) => v.highlight.trim() || v.spotify_track_id || country.country_media.some((m) => m.country_visit_id === v.id))
+    .filter(
+      (v) =>
+        v.highlight.trim() ||
+        v.spotify_track_id ||
+        country.country_media.some((m) => m.country_visit_id === v.id) ||
+        country.country_cities.some((c) => c.country_visit_id === v.id)
+    )
     .sort((a, b) => a.year - b.year);
-  const cities = country.country_cities.map((c) => c.city_name);
   const events = (relatedEvents ?? []) as Event[];
 
   const list = allCountries ?? [];
@@ -165,7 +170,6 @@ export default async function PublicCountryPage({
             </Link>
           )}
         </div>
-        {cities.length > 0 && <p className="mt-3 text-sm text-muted">{cities.join(" · ")}</p>}
 
         {highlightedVisits.length > 0 && (
           <section className="mt-10" aria-label="Trips">
@@ -174,9 +178,11 @@ export default async function PublicCountryPage({
                 const visitPhotos = country.country_media
                   .filter((m) => m.country_visit_id === v.id)
                   .sort((a, b) => a.display_order - b.display_order);
+                const visitCities = country.country_cities.filter((c) => c.country_visit_id === v.id).map((c) => c.city_name);
                 return (
                   <li key={v.id} className="border-l-2 border-line pl-5">
                     <p className="eyebrow">{formatVisitRange(v)}</p>
+                    {visitCities.length > 0 && <p className="mt-1 text-sm text-muted">{visitCities.join(" · ")}</p>}
                     {v.highlight && <p className="mt-1 text-sm leading-relaxed">{v.highlight}</p>}
                     {visitPhotos.length > 0 && (
                       <div className="mt-3">

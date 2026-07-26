@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { VisitDateFields } from "./VisitDateFields";
 import { SoundtrackPicker } from "./SoundtrackPicker";
-import type { CountryVisit, DatePrecision } from "@/lib/types";
+import type { CountryCity, CountryVisit, DatePrecision } from "@/lib/types";
 
 function savedAgoLabel(savedAt: number, now: number): string {
   const secs = Math.max(0, Math.round((now - savedAt) / 1000));
@@ -28,9 +29,11 @@ function useSavedAgo(savedAt: number | null) {
   return savedAt === null ? null : savedAgoLabel(savedAt, now);
 }
 
-export function VisitEditor({ visit }: { visit: CountryVisit }) {
+export function VisitEditor({ visit, cities }: { visit: CountryVisit; cities: CountryCity[] }) {
   const router = useRouter();
   const supabase = createClient();
+  const [cityList, setCityList] = useState(cities);
+  const [cityInput, setCityInput] = useState("");
   const [precision, setPrecision] = useState<DatePrecision>(visit.date_precision);
   const [year, setYear] = useState(String(visit.year));
   const [month, setMonth] = useState(visit.date_precision === "month" && visit.visited_from ? visit.visited_from.slice(5, 7) : "");
@@ -120,6 +123,28 @@ export function VisitEditor({ visit }: { visit: CountryVisit }) {
     commitMemory(memory);
   }
 
+  async function addCity(e: React.FormEvent) {
+    e.preventDefault();
+    const name = cityInput.trim();
+    if (!name) return;
+    const { data: inserted, error: err } = await supabase
+      .from("country_cities")
+      .insert({ visited_country_id: visit.visited_country_id, country_visit_id: visit.id, city_name: name })
+      .select("*")
+      .single();
+    if (!err && inserted) {
+      setCityList((c) => [...c, inserted as CountryCity]);
+      setCityInput("");
+      router.refresh();
+    }
+  }
+
+  async function removeCity(id: string) {
+    setCityList((c) => c.filter((x) => x.id !== id));
+    await supabase.from("country_cities").delete().eq("id", id);
+    router.refresh();
+  }
+
   return (
     <div className="space-y-8">
       <form onSubmit={saveDates} className="space-y-3">
@@ -171,6 +196,32 @@ export function VisitEditor({ visit }: { visit: CountryVisit }) {
         <span className="mb-1.5 block text-sm font-medium">Soundtrack</span>
         <p className="mb-1.5 text-xs text-muted">The song this trip sounded like.</p>
         <SoundtrackPicker table="country_visits" recordId={visit.id} initialTrackId={visit.spotify_track_id} />
+      </div>
+
+      <div>
+        <span className="mb-1.5 block text-sm font-medium">Cities</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {cityList.map((c) => (
+            <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-sm">
+              {c.city_name}
+              <button type="button" aria-label={`Remove ${c.city_name}`} className="text-muted hover:text-red-700" onClick={() => removeCity(c.id)}>
+                <X size={13} />
+              </button>
+            </span>
+          ))}
+          <form onSubmit={addCity} className="flex items-center gap-1.5">
+            <label htmlFor="visit-city-input" className="sr-only">Add a city</label>
+            <input
+              id="visit-city-input"
+              type="text"
+              placeholder="Add a city"
+              className="field !w-32 !py-1.5 text-sm"
+              value={cityInput}
+              onChange={(e) => setCityInput(e.target.value)}
+            />
+            <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add city"><Plus size={15} /></button>
+          </form>
+        </div>
       </div>
     </div>
   );

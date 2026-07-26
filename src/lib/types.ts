@@ -63,7 +63,7 @@ export type CountryVisit = {
   spotify_track_artist: string | null;
   spotify_track_image: string | null;
 };
-export type CountryCity = { id: string; visited_country_id: string; city_name: string };
+export type CountryCity = { id: string; visited_country_id: string; country_visit_id: string; city_name: string };
 
 export type MediaItem = {
   id: string;

@@ -166,7 +166,6 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
-  const [city, setCity] = useState("");
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [favouriteBusy, setFavouriteBusy] = useState(false);
@@ -229,20 +228,6 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
 
   async function removeVisit(id: string) {
     await supabase.from("country_visits").delete().eq("id", id);
-    router.refresh();
-  }
-
-  async function addCity(e: React.FormEvent) {
-    e.preventDefault();
-    const name = city.trim();
-    if (!name) return;
-    await supabase.from("country_cities").insert({ visited_country_id: data.id, city_name: name });
-    setCity("");
-    router.refresh();
-  }
-
-  async function removeCity(id: string) {
-    await supabase.from("country_cities").delete().eq("id", id);
     router.refresh();
   }
 
@@ -380,25 +365,6 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
             <Plus size={15} /> Add this trip
           </button>
         </form>
-      </section>
-
-      <section>
-        <h4 className="text-sm font-medium text-muted">Cities</h4>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {data.country_cities.map((c) => (
-            <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-sm">
-              {c.city_name}
-              <button type="button" aria-label={`Remove ${c.city_name}`} className="text-muted hover:text-red-700" onClick={() => removeCity(c.id)}>
-                <X size={13} />
-              </button>
-            </span>
-          ))}
-          <form onSubmit={addCity} className="flex items-center gap-1.5">
-            <label htmlFor="city-input" className="sr-only">Add a city</label>
-            <input id="city-input" type="text" placeholder={meta.capital} className="field !w-32 !py-1.5 text-sm" value={city} onChange={(e) => setCity(e.target.value)} />
-            <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add city"><Plus size={15} /></button>
-          </form>
-        </div>
       </section>
 
       {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
