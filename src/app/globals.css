@@ -105,4 +105,11 @@
   .stat-number {
     @apply font-serif text-4xl md:text-5xl leading-none text-ink;
   }
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

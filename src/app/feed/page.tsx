@@ -8,8 +8,8 @@ import { LikeButton } from "@/components/LikeButton";
 import { FollowButton } from "@/components/FollowButton";
 import { CommentSection } from "@/components/CommentSection";
 import { FeedPostBody } from "@/components/FeedPostBody";
+import { FeedMediaCarousel, type FeedMediaItem } from "@/components/FeedMediaCarousel";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
-import { PhotoGallery } from "@/components/PhotoGallery";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
@@ -18,6 +18,8 @@ import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 export const metadata = { title: "Feed" };
 
 const PAGE_SIZE = 30;
+
+type RawMedia = FeedMediaItem & { displayOrder: number };
 
 export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string } }) {
   const supabase = createClient();
@@ -53,6 +55,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const likeCounts = new Map<string, number>();
   const likedByMe = new Set<string>();
   const commentsByKey = new Map<string, CommentWithAuthor[]>();
+  const mediaByKey = new Map<string, RawMedia[]>();
 
   if (followeeIds.length > 0) {
     const { data: feedData } = await supabase
@@ -66,7 +69,9 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     if (items.length > 0) {
       const actorIds = [...new Set(items.map((i) => i.actor_id))];
       const refIds = items.map((i) => i.ref_id);
-      const [{ data: profiles }, { data: likeRows }, { data: commentRows }] = await Promise.all([
+      const countryRefIds = items.filter((i) => i.kind === "country").map((i) => i.ref_id);
+      const eventRefIds = items.filter((i) => i.kind === "event").map((i) => i.ref_id);
+      const [{ data: profiles }, { data: likeRows }, { data: commentRows }, { data: countryMediaRows }, { data: eventMediaRows }] = await Promise.all([
         supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", actorIds),
         supabase.from("likes").select("kind, target_id, user_id").in("target_id", refIds),
         supabase
@@ -74,6 +79,12 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           .select("*, profiles(username, display_name, avatar_url)")
           .in("target_id", refIds)
           .order("created_at", { ascending: true }),
+        countryRefIds.length
+          ? supabase.from("country_media").select("id, visited_country_id, public_url, media_type, display_order, caption").in("visited_country_id", countryRefIds)
+          : Promise.resolve({ data: [] as { id: string; visited_country_id: string; public_url: string; media_type: "image" | "video"; display_order: number; caption: string }[] }),
+        eventRefIds.length
+          ? supabase.from("event_media").select("id, event_id, public_url, media_type, display_order, caption").in("event_id", eventRefIds)
+          : Promise.resolve({ data: [] as { id: string; event_id: string; public_url: string; media_type: "image" | "video"; display_order: number; caption: string }[] }),
       ]);
       actors = new Map((profiles ?? []).map((p) => [p.id, p]));
       for (const row of likeRows ?? []) {
@@ -85,6 +96,19 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         const key = `${row.kind}:${row.target_id}`;
         commentsByKey.set(key, [...(commentsByKey.get(key) ?? []), row]);
       }
+      for (const row of countryMediaRows ?? []) {
+        const key = `country:${row.visited_country_id}`;
+        const list = mediaByKey.get(key) ?? [];
+        list.push({ id: row.id, url: row.public_url, type: row.media_type, alt: row.caption || "", displayOrder: row.display_order });
+        mediaByKey.set(key, list);
+      }
+      for (const row of eventMediaRows ?? []) {
+        const key = `event:${row.event_id}`;
+        const list = mediaByKey.get(key) ?? [];
+        list.push({ id: row.id, url: row.public_url, type: row.media_type, alt: row.caption || "", displayOrder: row.display_order });
+        mediaByKey.set(key, list);
+      }
+      for (const list of mediaByKey.values()) list.sort((a, b) => a.displayOrder - b.displayOrder);
     }
   }
 
@@ -168,6 +192,13 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
               : item.visit_year
                 ? String(item.visit_year)
                 : null;
+            const rawMedia = mediaByKey.get(key) ?? [];
+            const media: FeedMediaItem[] =
+              rawMedia.length > 0
+                ? [...rawMedia].sort((a, b) => (a.url === item.cover_url ? -1 : b.url === item.cover_url ? 1 : 0))
+                : item.cover_url
+                  ? [{ id: key, url: item.cover_url, type: item.cover_media_type ?? "image", alt: item.title }]
+                  : [];
             return (
               <li key={key} className="card overflow-hidden">
                 <div className="p-4 sm:p-5">
@@ -223,25 +254,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
                   )}
                 </div>
 
-                {item.cover_url && (
-                  <div className="relative aspect-[4/3] w-full bg-raised">
-                    {item.cover_media_type === "video" ? (
-                      <video
-                        src={item.cover_url}
-                        controls
-                        preload="metadata"
-                        className="absolute inset-0 h-full w-full bg-black object-contain"
-                      />
-                    ) : (
-                      <PhotoGallery
-                        photos={[{ id: key, url: item.cover_url, alt: item.title }]}
-                        gridClassName="absolute inset-0"
-                        itemClassName="absolute inset-0 h-full w-full"
-                        sizes="(min-width: 640px) 640px, 100vw"
-                      />
-                    )}
-                  </div>
-                )}
+                <FeedMediaCarousel items={media} />
 
                 <div className="flex items-center gap-5 border-t border-line px-4 py-3 sm:px-5">
                   <LikeButton
