@@ -11,6 +11,7 @@ export type Profile = {
   visibility: ProfileVisibility;
   plan: Plan;
   accent_color: string | null;
+  weekly_digest_enabled: boolean;
   created_at: string;
   updated_at: string;
 };

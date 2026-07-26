@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ProfileForm } from "@/components/ProfileForm";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ExportDataButton, DeleteAccountButton } from "@/components/AccountActions";
+import { DigestToggle } from "@/components/DigestToggle";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Settings" };
@@ -42,6 +43,13 @@ export default async function SettingsPage() {
           <Link href="/settings/billing" className="btn-ghost mt-3 !py-2 text-sm">
             {profile.plan === "premium" ? "Manage plan" : "Upgrade to Premium"}
           </Link>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Weekly digest email</p>
+            <p className="mt-1 text-xs text-muted">A summary of new followers, likes and comments, once a week.</p>
+          </div>
+          <DigestToggle userId={user.id} initialEnabled={profile.weekly_digest_enabled} />
         </div>
         <div>
           <p className="text-sm font-medium">Your data</p>

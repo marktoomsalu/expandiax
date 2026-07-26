@@ -22,6 +22,8 @@ create table public.profiles (
   -- Premium: a custom accent color for the public profile page. Cleared
   -- automatically on downgrade by enforce_premium_accent_color() below.
   accent_color text,
+  -- Opt-out for the weekly digest email (cron job) — on by default.
+  weekly_digest_enabled boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
