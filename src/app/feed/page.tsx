@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Compass } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
@@ -89,8 +90,15 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-10">
-      <p className="eyebrow">Feed</p>
-      <h1 className="mt-2 text-3xl md:text-4xl">What your world is up to.</h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">Feed</p>
+          <h1 className="mt-2 text-3xl md:text-4xl">What your world is up to.</h1>
+        </div>
+        <Link href="/explore" className="btn-ghost !py-2 text-sm">
+          <Compass size={16} /> Explore
+        </Link>
+      </div>
 
       {suggested.length > 0 && (
         <section className="mt-8" aria-labelledby="discover-h">
