@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, MapPin, Plus } from "lucide-react";
+import { BarChart3, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MapNavigator } from "@/components/MapNavigator";
@@ -72,7 +72,6 @@ export default async function MyWorldPage() {
           </p>
         )}
         <div className="flex items-center gap-3">
-          <Link href="/my-world/states" className="btn-ghost !py-2 text-sm"><MapPin size={16} /> US States</Link>
           <Link href="/stats" className="btn-ghost !py-2 text-sm"><BarChart3 size={16} /> Stats</Link>
           <Link href="#country-search" className="btn-accent"><Plus size={17} /> Add country</Link>
         </div>

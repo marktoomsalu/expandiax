@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { CountryEditor, AddCountryForm } from "@/components/CountryEditor";
@@ -85,7 +85,22 @@ export default async function ManageCountryPage({ params }: { params: { code: st
             )}
           </div>
         ) : (
-          <CountryEditor data={visited} meta={meta} />
+          <div className="space-y-8">
+            <CountryEditor data={visited} meta={meta} />
+            {meta.code === "US" && (
+              <div className="rounded-lg border border-dashed border-line px-4 py-4">
+                <p className="flex items-center gap-1.5 text-sm font-medium">
+                  <MapPin size={15} className="text-accent" aria-hidden /> Track your US states too
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  See exactly which states you&rsquo;ve explored, on their own map alongside your world map.
+                </p>
+                <Link href="/my-world/states" className="btn-accent mt-3 !py-2 text-sm">
+                  <MapPin size={15} /> Add US States
+                </Link>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
