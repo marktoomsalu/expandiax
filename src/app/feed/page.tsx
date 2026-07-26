@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
+import { FollowButton } from "@/components/FollowButton";
 import { CommentSection } from "@/components/CommentSection";
 import { FeedPostBody } from "@/components/FeedPostBody";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
@@ -28,6 +29,23 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
   const { data: followingRows } = await supabase.from("follows").select("followee_id").eq("follower_id", user.id);
   const followeeIds = (followingRows ?? []).map((r) => r.followee_id);
+  const followingSet = new Set(followeeIds);
+
+  const [{ data: publicProfiles }, { data: countRows }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url")
+      .eq("visibility", "public")
+      .neq("id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(30),
+    supabase.from("public_country_counts").select("user_id, country_count"),
+  ]);
+  const countsByUser = new Map((countRows ?? []).map((r) => [r.user_id, r.country_count]));
+  const suggested = (publicProfiles ?? [])
+    .filter((p) => !followingSet.has(p.id))
+    .sort((a, b) => (countsByUser.get(b.id) ?? 0) - (countsByUser.get(a.id) ?? 0))
+    .slice(0, 8);
 
   let items: FeedEvent[] = [];
   let actors = new Map<string, Pick<Profile, "id" | "username" | "display_name" | "avatar_url">>();
@@ -73,6 +91,39 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     <div className="mx-auto max-w-2xl px-5 py-10">
       <p className="eyebrow">Feed</p>
       <h1 className="mt-2 text-3xl md:text-4xl">What your world is up to.</h1>
+
+      {suggested.length > 0 && (
+        <section className="mt-8" aria-labelledby="discover-h">
+          <div className="flex items-center justify-between">
+            <h2 id="discover-h" className="text-sm font-medium text-muted">Discover travellers</h2>
+            <Link href="/explore" className="text-xs text-accent hover:underline">See all</Link>
+          </div>
+          <div className="mt-3 flex gap-3 overflow-x-auto pb-2">
+            {suggested.map((p) => (
+              <div key={p.id} className="flex w-36 shrink-0 flex-col items-center rounded-lg border border-line bg-surface px-3 py-4 text-center">
+                <Link
+                  href={`/u/${p.username}`}
+                  aria-label={p.display_name}
+                  className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-line bg-raised font-serif text-lg text-muted"
+                >
+                  {p.avatar_url ? (
+                    <Image src={p.avatar_url} alt="" width={56} height={56} className="h-full w-full object-cover" />
+                  ) : (
+                    p.display_name.charAt(0)
+                  )}
+                </Link>
+                <Link href={`/u/${p.username}`} className="mt-2 line-clamp-1 text-sm font-medium hover:text-accent">
+                  {p.display_name}
+                </Link>
+                <p className="text-xs text-muted">{countsByUser.get(p.id) ?? 0} countries</p>
+                <div className="mt-2">
+                  <FollowButton targetId={p.id} initialFollowing={false} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {followeeIds.length === 0 ? (
         <div className="mt-10">
