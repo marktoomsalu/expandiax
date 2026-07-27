@@ -14,10 +14,13 @@ import { formatDate, hexToRgbTriplet } from "@/lib/utils";
 import { evaluateBadges } from "@/lib/badges";
 import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@/lib/stats";
 import { TOTAL_US_STATES } from "@/lib/usStates";
-import type { Event, EventMedia, CountryMedia, Profile, VisitedCountry, VisitedUSState } from "@/lib/types";
+import { visitSortKey, formatVisitRange } from "@/lib/utils";
+import type { CountryVisit, Event, EventMedia, CountryMedia, Profile, VisitedCountry, VisitedUSState } from "@/lib/types";
 
-type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: { year: number; highlight: string }[] };
+type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight">;
+type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
 type EventRow = Event & { event_media: EventMedia[] };
+type TripCard = { visit: VisitLite; countryCode: string; countryName: string; cover?: CountryMedia };
 
 export async function generateMetadata({ params }: { params: { username: string } }): Promise<Metadata> {
   const supabase = createClient();
@@ -80,7 +83,7 @@ export default async function PublicProfilePage({ params }: { params: { username
     await Promise.all([
       supabase
         .from("visited_countries")
-        .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, highlight)")
+        .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(id, year, visited_from, visited_to, date_precision, highlight)")
         .eq("user_id", profile.id)
         .order("country_name"),
       supabase
@@ -127,10 +130,19 @@ export default async function PublicProfilePage({ params }: { params: { username
   }));
   const badges = evaluateBadges(buildAllTimeStats(statCountries, statEvents)).filter((b) => b.isUnlocked);
 
-  const favourites = countries
-    .filter((c) => c.is_favourite || c.country_visits.some((v) => v.highlight.trim()))
-    .slice(0, 4)
-    .sort((a, b) => Number(b.is_favourite) - Number(a.is_favourite));
+  const allTrips: TripCard[] = countries
+    .flatMap((c) =>
+      c.country_visits.map((v) => ({
+        visit: v,
+        countryCode: c.country_code,
+        countryName: c.country_name,
+        cover:
+          c.country_media.find((m) => m.country_visit_id === v.id && m.id === c.cover_media_id) ??
+          [...c.country_media].filter((m) => m.country_visit_id === v.id).sort((a, b) => a.display_order - b.display_order)[0],
+      }))
+    )
+    .sort((a, b) => visitSortKey(b.visit).localeCompare(visitSortKey(a.visit)));
+  const recentTrips = allTrips.slice(0, 4);
   const gallery = [
     ...countries.flatMap((c) => c.country_media.map((m) => ({ ...m, alt: `Photo from ${c.country_name}` }))),
     ...events.flatMap((e) =>
@@ -247,25 +259,30 @@ export default async function PublicProfilePage({ params }: { params: { username
         </section>
       )}
 
-      {/* Favourite memories */}
-      {favourites.length > 0 && (
+      {/* Recent trips */}
+      {recentTrips.length > 0 && (
         <section className="mt-14" aria-labelledby="mem-h">
-          <p className="eyebrow">Travel</p>
-          <h2 id="mem-h" className="mt-1 text-2xl md:text-3xl">Favourite memories</h2>
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="eyebrow">Travel</p>
+              <h2 id="mem-h" className="mt-1 text-2xl md:text-3xl">Recent trips</h2>
+            </div>
+            {allTrips.length > 4 && (
+              <Link href={`/u/${profile.username}/trips`} className="text-sm text-accent underline-offset-4 hover:underline">
+                See more
+              </Link>
+            )}
+          </div>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            {favourites.map((c) => {
-              const meta = countryByCode(c.country_code);
-              const cover =
-                c.country_media.find((m) => m.id === c.cover_media_id) ??
-                [...c.country_media].sort((a, b) => a.display_order - b.display_order)[0];
-              const memory = c.country_visits.find((v) => v.highlight.trim())?.highlight;
+            {recentTrips.map(({ visit, countryCode, countryName, cover }) => {
+              const meta = countryByCode(countryCode);
               return (
-                <Link key={c.id} href={`/u/${profile.username}/countries/${c.country_code.toLowerCase()}`} className="card group overflow-hidden">
+                <Link key={visit.id} href={`/u/${profile.username}/countries/${countryCode.toLowerCase()}`} className="card group overflow-hidden">
                   {cover && (
                     <div className="relative aspect-[16/8] w-full">
                       <Image
                         src={cover.public_url}
-                        alt={cover.caption || `Photo from ${c.country_name}`}
+                        alt={cover.caption || `Photo from ${countryName}`}
                         fill
                         sizes="(min-width: 640px) 50vw, 100vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
@@ -273,8 +290,9 @@ export default async function PublicProfilePage({ params }: { params: { username
                     </div>
                   )}
                   <div className="px-5 py-4">
-                    <p className="font-serif text-xl">{meta?.flag} {c.country_name}</p>
-                    {memory && <p className="mt-1.5 line-clamp-2 text-sm italic leading-relaxed text-muted">&ldquo;{memory}&rdquo;</p>}
+                    <p className="eyebrow">{formatVisitRange(visit)}</p>
+                    <p className="mt-1 font-serif text-xl">{meta?.flag} {countryName}</p>
+                    {visit.highlight && <p className="mt-1.5 line-clamp-2 text-sm italic leading-relaxed text-muted">&ldquo;{visit.highlight}&rdquo;</p>}
                   </div>
                 </Link>
               );
@@ -286,8 +304,17 @@ export default async function PublicProfilePage({ params }: { params: { username
       {/* Recent events */}
       {events.length > 0 && (
         <section className="mt-14" aria-labelledby="conc-h">
-          <p className="eyebrow">Music &amp; moments</p>
-          <h2 id="conc-h" className="mt-1 text-2xl md:text-3xl">Recent events</h2>
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="eyebrow">Music &amp; moments</p>
+              <h2 id="conc-h" className="mt-1 text-2xl md:text-3xl">Recent events</h2>
+            </div>
+            {events.length > 6 && (
+              <Link href={`/u/${profile.username}/events`} className="text-sm text-accent underline-offset-4 hover:underline">
+                See more
+              </Link>
+            )}
+          </div>
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {events.slice(0, 6).map((e) => {
               const cover =
