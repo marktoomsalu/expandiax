@@ -172,7 +172,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
   const [feedBusy, setFeedBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const visits = [...data.country_visits].sort((a, b) => visitSortKey(a).localeCompare(visitSortKey(b)));
+  const visits = [...data.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
 
   async function addVisit(e: React.FormEvent) {
     e.preventDefault();

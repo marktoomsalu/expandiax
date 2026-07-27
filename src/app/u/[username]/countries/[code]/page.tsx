@@ -125,7 +125,7 @@ export default async function PublicCountryPage({
         country.country_media.some((m) => m.country_visit_id === v.id) ||
         country.country_cities.some((c) => c.country_visit_id === v.id)
     )
-    .sort((a, b) => a.year - b.year);
+    .sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
   const events = (relatedEvents ?? []) as Event[];
 
   const list = allCountries ?? [];
