@@ -108,7 +108,6 @@ export default async function PublicProfilePage({ params }: { params: { username
   const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
   const visitedContinents = continentCounts(codes).filter((c) => c.visited > 0);
-  const uniqueTitles = new Set(events.map((e) => e.title)).size;
   const home = countryByCode(profile.home_country_code);
 
   const statCountries: CountryStatInput[] = countries.map((c) => ({
@@ -224,7 +223,6 @@ export default async function PublicProfilePage({ params }: { params: { username
         {stat(`${pct}%`, "Of the world")}
         {stat(`${visitedContinents.length}/6`, "Continents")}
         {stat(events.length, "Events")}
-        {stat(uniqueTitles, "Distinct")}
         {usStates.length > 0 && (
           <Link href="#us-states" className="border-l border-line pl-4 hover:opacity-80">
             <p className="stat-number !text-3xl md:!text-4xl">{usStates.length}</p>

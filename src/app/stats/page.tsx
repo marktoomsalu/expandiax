@@ -156,6 +156,11 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
                 <StatCard label="Continents" value={`${yearStats.continentsVisited}/6`} detail="touched this year" />
                 <StatCard label="Events logged" value={yearStats.events.length} detail="this year" />
                 <StatCard label="Memories added" value={yearStats.photos + yearStats.videos} detail="photos & videos" />
+                <StatCard
+                  label="Distinct events"
+                  value={new Set(yearStats.events.map((e) => e.title)).size}
+                  detail="unique titles this year"
+                />
               </>
             ) : (
               <>
@@ -163,6 +168,11 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
                 <StatCard label="Continents" value={`${allTime.continentsVisited}/6`} detail="visited" />
                 <StatCard label="Events logged" value={allTime.totalEvents} detail="across every type" />
                 <StatCard label="Memories added" value={allTime.totalPhotos + allTime.totalVideos} detail="photos & videos" />
+                <StatCard
+                  label="Distinct events"
+                  value={new Set(events.map((e) => e.title)).size}
+                  detail="unique titles overall"
+                />
               </>
             )}
           </div>
