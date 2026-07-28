@@ -10,6 +10,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/ios": "^8.4.2",
+    "@capacitor/push-notifications": "^8.1.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@fontsource/fraunces": "^5.2.9",
@@ -19,6 +26,7 @@
     "@supabase/supabase-js": "^2.110.7",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "firebase-admin": "^14.2.0",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.25.0",
     "next": "^14.2.35",
@@ -38,6 +46,8 @@
     "world-countries": "^5.1.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.4.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

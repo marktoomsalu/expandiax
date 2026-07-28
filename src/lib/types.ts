@@ -149,6 +149,15 @@ export type NotificationWithActor = Notification & {
   actor: Pick<Profile, "username" | "display_name" | "avatar_url"> | null;
 };
 
+export type DeviceToken = {
+  id: string;
+  user_id: string;
+  token: string;
+  platform: "ios" | "android";
+  created_at: string;
+  updated_at: string;
+};
+
 export type FeedEvent = {
   kind: "country" | "event";
   event_type: EventType | null;

@@ -34,6 +34,15 @@ yarn-error.log*
 # supabase CLI local state
 supabase/.temp
 
+# Capacitor native build artifacts (ios/ and android/ project files
+# themselves are committed, per Capacitor's own convention)
+ios/App/Pods/
+ios/App/build/
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -7,6 +7,9 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SiteNav } from "@/components/SiteNav";
 import { PremiumUpsellModal } from "@/components/PremiumUpsellModal";
+import { NativeStatusBar } from "@/components/NativeStatusBar";
+import { NativeBackButton } from "@/components/NativeBackButton";
+import { PushRegistration } from "@/components/PushRegistration";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -33,7 +36,7 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  let navUser: { username: string; plan: "free" | "premium" } | null = null;
+  let navUser: { id: string; username: string; plan: "free" | "premium" } | null = null;
   let unreadNotifications = 0;
   try {
     const supabase = createClient();
@@ -45,7 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false),
       ]);
-      if (profile) navUser = { username: profile.username, plan: profile.plan };
+      if (profile) navUser = { id: user.id, username: profile.username, plan: profile.plan };
       unreadNotifications = count ?? 0;
     }
   } catch {
@@ -56,6 +59,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen pb-20">
         <ThemeProvider>
+          <NativeStatusBar />
+          <NativeBackButton />
+          {navUser && <PushRegistration userId={navUser.id} />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
           <main>{children}</main>
           {navUser && <PremiumUpsellModal plan={navUser.plan} />}
