@@ -9,6 +9,7 @@ import { SiteNav } from "@/components/SiteNav";
 import { PremiumUpsellModal } from "@/components/PremiumUpsellModal";
 import { NativeStatusBar } from "@/components/NativeStatusBar";
 import { NativeBackButton } from "@/components/NativeBackButton";
+import { NativeDeepLinks } from "@/components/NativeDeepLinks";
 import { PushRegistration } from "@/components/PushRegistration";
 import { createClient } from "@/lib/supabase/server";
 
@@ -61,6 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ThemeProvider>
           <NativeStatusBar />
           <NativeBackButton />
+          <NativeDeepLinks />
           {navUser && <PushRegistration userId={navUser.id} />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
           <main>{children}</main>
