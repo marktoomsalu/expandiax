@@ -23,6 +23,10 @@ const config: CapacitorConfig = {
       // (#faf9f6) canvas background below.
       style: "light",
       backgroundColor: "#faf9f6",
+      // Reserve space for the status bar instead of drawing under it —
+      // without this the WebView renders edge-to-edge and the site's fixed
+      // header lands underneath the notch/status bar.
+      overlaysWebView: false,
     },
   },
 };
