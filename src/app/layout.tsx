@@ -70,9 +70,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <footer className="mt-20 border-t border-line">
             <div className="mx-auto max-w-shell px-5 py-8">
               <div className="flex flex-col items-start justify-between gap-3 text-sm text-muted sm:flex-row sm:items-center">
-                <p className="flex items-center font-serif text-ink">
-                  Expandia
-                  <Image src="/logo-mark.png" alt="ExpandiaX" width={23} height={20} className="-ml-1 h-[1.1em] w-auto" />
+                <p className="flex items-center">
+                  <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} className="h-5 w-auto" />
                 </p>
                 <p>Collecting the memories that matter.</p>
               </div>
