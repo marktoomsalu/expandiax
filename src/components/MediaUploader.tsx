@@ -4,7 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, ImagePlus, Star, Trash2, Video } from "lucide-react";
+import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, Images, Star, Trash2, Video } from "lucide-react";
+import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
 import { validateFile, storagePath } from "@/lib/media";
 import { compressVideo } from "@/lib/videoCompress";
@@ -12,6 +13,7 @@ import { uploadResumable } from "@/lib/resumableUpload";
 import type { MediaItem } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { cn } from "@/lib/utils";
+import { isNativePlatform } from "@/lib/capacitor";
 
 type Props = {
   userId: string;
@@ -79,11 +81,10 @@ export function MediaUploader(props: Props) {
 
   const remaining = max - items.length - pending.length;
 
-  function pickFiles(list: FileList | null) {
-    if (!list) return;
+  function addFiles(files: File[]) {
     setError(null);
     const next: Pending[] = [];
-    for (const file of Array.from(list)) {
+    for (const file of files) {
       if (items.length + pending.length + next.length >= max) {
         setError(`You can keep up to ${max} ${kind === "image" ? "photos" : "videos"} here. Remove one to add another.`);
         break;
@@ -96,7 +97,48 @@ export function MediaUploader(props: Props) {
       next.push({ file, previewUrl: URL.createObjectURL(file), caption: "" });
     }
     if (next.length) setPending((p) => [...p, ...next]);
+  }
+
+  function pickFiles(list: FileList | null) {
+    if (!list) return;
+    addFiles(Array.from(list));
     if (inputRef.current) inputRef.current.value = "";
+  }
+
+  async function mediaResultToFile(webPath: string | undefined, format: string | undefined): Promise<File | null> {
+    if (!webPath) return null;
+    const res = await fetch(webPath);
+    const blob = await res.blob();
+    const ext = format === "jpg" ? "jpeg" : format || "jpeg";
+    return new File([blob], `photo-${Date.now()}.${ext}`, { type: blob.type || `image/${ext}` });
+  }
+
+  async function takeNativePhoto() {
+    setError(null);
+    try {
+      const result = await Camera.takePhoto({ quality: 90, includeMetadata: true });
+      const file = await mediaResultToFile(result.webPath, result.metadata?.format);
+      if (file) addFiles([file]);
+    } catch {
+      // User cancelled the camera or permission was denied — nothing to show.
+    }
+  }
+
+  async function chooseNativePhotos() {
+    setError(null);
+    try {
+      const { results } = await Camera.chooseFromGallery({
+        allowMultipleSelection: true,
+        limit: Math.max(remaining, 1),
+        includeMetadata: true,
+      });
+      const files = (
+        await Promise.all(results.map((r) => mediaResultToFile(r.webPath, r.metadata?.format)))
+      ).filter((f): f is File => f !== null);
+      if (files.length) addFiles(files);
+    } catch {
+      // User cancelled the picker — nothing to show.
+    }
   }
 
   async function saveAll() {
@@ -334,25 +376,48 @@ export function MediaUploader(props: Props) {
       )}
 
       <div className="mt-4">
-        <input
-          ref={inputRef}
-          id={`${table}-${kind}-input`}
-          type="file"
-          accept={kind === "image" ? "image/*" : "video/*"}
-          multiple
-          className="sr-only"
-          onChange={(e) => pickFiles(e.target.files)}
-        />
-        <label
-          htmlFor={`${table}-${kind}-input`}
-          className={cn(
-            "btn-ghost cursor-pointer !py-2 text-sm",
-            remaining <= 0 && "pointer-events-none opacity-40"
-          )}
-        >
-          <Icon size={16} />
-          {kind === "image" ? "Add photos" : "Add videos"}
-        </label>
+        {kind === "image" && isNativePlatform() ? (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={cn("btn-ghost !py-2 text-sm", remaining <= 0 && "pointer-events-none opacity-40")}
+              onClick={takeNativePhoto}
+            >
+              <CameraIcon size={16} />
+              Take photo
+            </button>
+            <button
+              type="button"
+              className={cn("btn-ghost !py-2 text-sm", remaining <= 0 && "pointer-events-none opacity-40")}
+              onClick={chooseNativePhotos}
+            >
+              <Images size={16} />
+              Choose photos
+            </button>
+          </div>
+        ) : (
+          <>
+            <input
+              ref={inputRef}
+              id={`${table}-${kind}-input`}
+              type="file"
+              accept={kind === "image" ? "image/*" : "video/*"}
+              multiple
+              className="sr-only"
+              onChange={(e) => pickFiles(e.target.files)}
+            />
+            <label
+              htmlFor={`${table}-${kind}-input`}
+              className={cn(
+                "btn-ghost cursor-pointer !py-2 text-sm",
+                remaining <= 0 && "pointer-events-none opacity-40"
+              )}
+            >
+              <Icon size={16} />
+              {kind === "image" ? "Add photos" : "Add videos"}
+            </label>
+          </>
+        )}
         <span className="ml-3 text-xs text-muted">
           {kind === "image" ? "JPEG, PNG or WebP · up to 10 MB each" : "MP4, WebM or MOV · up to 300 MB each"}
         </span>
