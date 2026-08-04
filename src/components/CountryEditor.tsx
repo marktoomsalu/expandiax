@@ -9,6 +9,7 @@ import type { DatePrecision, VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { VisitDateFields } from "./VisitDateFields";
 import { cn, formatVisitRange, visitSortKey } from "@/lib/utils";
+import { tapSuccess } from "@/lib/haptics";
 
 type Meta = { code: string; name: string; flag: string; capital: string };
 
@@ -105,6 +106,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
       return;
     }
 
+    tapSuccess();
     router.push(`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}?created=1`);
     router.refresh();
   }
@@ -222,6 +224,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
       setError("Could not add that visit.");
       return;
     }
+    tapSuccess();
     router.push(`/my-world/${meta.code.toLowerCase()}/visits/${inserted.id}?created=1`);
     router.refresh();
   }

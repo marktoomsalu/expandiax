@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Heart } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { tapLight } from "@/lib/haptics";
 
 type Props = {
   kind: "country" | "event";
@@ -20,6 +21,7 @@ export function LikeButton({ kind, targetId, initialLiked, initialCount }: Props
 
   async function toggle() {
     if (busy) return;
+    tapLight();
     setBusy(true);
     const {
       data: { user },

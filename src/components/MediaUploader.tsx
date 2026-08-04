@@ -14,6 +14,7 @@ import type { MediaItem } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { isNativePlatform } from "@/lib/capacitor";
+import { tapSuccess } from "@/lib/haptics";
 
 type Props = {
   userId: string;
@@ -204,6 +205,7 @@ export function MediaUploader(props: Props) {
       setPending([]);
       setProgress({});
       setPhase({});
+      tapSuccess();
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong while uploading.");

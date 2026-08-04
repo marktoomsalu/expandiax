@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Bell, Compass, Globe2, Plus, Rss, Sparkles, Ticket, UserRound } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
+import { tapLight } from "@/lib/haptics";
 
 type NavUser = { username: string; plan: "free" | "premium" } | null;
 
@@ -121,7 +122,10 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
                 type="button"
                 aria-label="Add"
                 aria-expanded={addOpen}
-                onClick={() => setAddOpen((o) => !o)}
+                onClick={() => {
+                  tapLight();
+                  setAddOpen((o) => !o);
+                }}
                 className="absolute -top-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-lg shadow-accent/30 transition-transform hover:scale-105"
               >
                 <Plus size={26} strokeWidth={2.25} />
@@ -159,6 +163,9 @@ function NavLink({
     <Link
       href={href}
       aria-current={isActive ? "page" : undefined}
+      onClick={() => {
+        if (!isActive) tapLight();
+      }}
       className={cn(
         "flex flex-1 flex-col items-center gap-1 py-2.5 font-sans text-[0.6875rem] transition-colors",
         isActive ? "text-accent" : "text-muted hover:text-ink"

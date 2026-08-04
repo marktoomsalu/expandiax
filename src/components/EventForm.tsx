@@ -12,6 +12,7 @@ import { RatingInput } from "./Rating";
 import { ArtistPicker, type SpotifyArtist } from "./ArtistPicker";
 import { TrackPicker, type SpotifyTrackChoice } from "./TrackPicker";
 import { cn } from "@/lib/utils";
+import { tapSuccess } from "@/lib/haptics";
 import type { Event, EventType } from "@/lib/types";
 
 export function EventForm({ event, recentArtists = [] }: { event?: Event; recentArtists?: RecentArtist[] }) {
@@ -96,6 +97,7 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
       }
       setSaved(true);
       setBusy(false);
+      tapSuccess();
       router.refresh();
     } else {
       const {
@@ -120,6 +122,7 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
         setBusy(false);
         return;
       }
+      tapSuccess();
       router.push(`/events/${data.id}/edit?created=1`);
       router.refresh();
     }

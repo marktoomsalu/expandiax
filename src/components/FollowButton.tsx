@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserCheck, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { tapLight } from "@/lib/haptics";
 
 export function FollowButton({ targetId, initialFollowing }: { targetId: string; initialFollowing: boolean }) {
   const router = useRouter();
@@ -13,6 +14,7 @@ export function FollowButton({ targetId, initialFollowing }: { targetId: string;
   const [error, setError] = useState<string | null>(null);
 
   async function toggle() {
+    tapLight();
     setBusy(true);
     setError(null);
     const {
