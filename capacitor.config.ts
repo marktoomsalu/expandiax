@@ -6,7 +6,7 @@ import { KeyboardResize } from "@capacitor/keyboard";
 // as a local static build (no Server Actions/edge routes either, so this
 // is otherwise a clean fit).
 const config: CapacitorConfig = {
-  appId: "com.expandiax.app",
+  appId: "com.expandiax.travelapp",
   appName: "ExpandiaX",
   webDir: "public",
   server: {

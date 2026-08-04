@@ -4,7 +4,7 @@ android {
     namespace = "com.expandiax.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.expandiax.app"
+        applicationId "com.expandiax.travelapp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

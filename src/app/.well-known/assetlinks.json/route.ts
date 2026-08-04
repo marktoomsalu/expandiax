@@ -15,7 +15,7 @@ export async function GET() {
       relation: ["delegate_permission/common.handle_all_urls"],
       target: {
         namespace: "android_app",
-        package_name: "com.expandiax.app",
+        package_name: "com.expandiax.travelapp",
         sha256_cert_fingerprints: [] as string[],
       },
     },
