@@ -33,7 +33,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
 
       {searchParams.upgraded && plan !== "premium" && (
         <p role="status" className="mt-4 rounded-lg border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm">
-          Payment received — this can take a few seconds to reflect. Refresh if it still shows free.
+          Payment received - this can take a few seconds to reflect. Refresh if it still shows free.
         </p>
       )}
 

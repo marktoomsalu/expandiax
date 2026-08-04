@@ -39,7 +39,7 @@ export async function generateMetadata({
     .eq("country_code", meta.code)
     .maybeSingle();
 
-  const title = `${meta.flag} ${meta.name} — ${profile.display_name}`;
+  const title = `${meta.flag} ${meta.name} - ${profile.display_name}`;
   const recentVisit = country?.country_visits.length
     ? [...country.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)))[0]
     : undefined;

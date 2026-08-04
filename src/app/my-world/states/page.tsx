@@ -47,7 +47,7 @@ export default async function USStatesPage() {
       <div className="mt-6">
         <p className="eyebrow">US States</p>
         <h1 className="mt-1 text-3xl md:text-4xl">{codes.length} of {TOTAL_US_STATES} states.</h1>
-        <p className="mt-2 text-sm text-muted">Click a state to mark it visited — click again to remove it.</p>
+        <p className="mt-2 text-sm text-muted">Click a state to mark it visited - click again to remove it.</p>
       </div>
 
       <div className="mt-8 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">

@@ -64,7 +64,7 @@ export default async function EventsPage() {
         <div className="mt-10">
           <EmptyState
             title="Every unforgettable moment starts somewhere."
-            body="Add the first event you never want to forget — a concert, a festival, a match, a wedding, anything."
+            body="Add the first event you never want to forget - a concert, a festival, a match, a wedding, anything."
             actionLabel="Add your first event"
             actionHref="/events/new"
           />

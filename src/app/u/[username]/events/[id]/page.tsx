@@ -35,7 +35,7 @@ export async function generateMetadata({
     .maybeSingle();
   if (!event) return { title: "Event" };
 
-  const title = `${event.title} — ${profile.display_name}`;
+  const title = `${event.title} - ${profile.display_name}`;
   const description = `${profile.display_name} was at ${event.title}${event.subtitle ? ` (${event.subtitle})` : ""} in ${[event.city, event.country_name].filter(Boolean).join(", ")}.`;
   const cover =
     event.event_media.find((m) => m.id === event.cover_media_id && m.media_type === "image") ??

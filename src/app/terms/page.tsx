@@ -21,7 +21,7 @@ export default function TermsPage() {
           <h2 className="font-serif text-xl text-ink">Your account</h2>
           <p className="mt-2">
             You need to be at least 16 years old to use ExpandiaX. You&rsquo;re responsible for the security of your
-            account — use a real email address, keep your password to yourself, and let us know if you think someone
+            account - use a real email address, keep your password to yourself, and let us know if you think someone
             else has access to it. Information you give us (display name, username, bio, home country) should be
             accurate and not impersonate anyone else.
           </p>
@@ -30,7 +30,7 @@ export default function TermsPage() {
         <section>
           <h2 className="font-serif text-xl text-ink">Your content</h2>
           <p className="mt-2">
-            Everything you add — countries, events, photos, videos, notes, ratings — stays yours. By uploading it,
+            Everything you add - countries, events, photos, videos, notes, ratings - stays yours. By uploading it,
             you give us permission to store it and to show it to whoever your visibility settings allow (just you,
             your mutual followers, or anyone with the link), so the app can actually work. You&rsquo;re responsible
             for what you upload: don&rsquo;t post anything you don&rsquo;t have the rights to, anything illegal, or
@@ -42,7 +42,7 @@ export default function TermsPage() {
           <h2 className="font-serif text-xl text-ink">Other people&rsquo;s content</h2>
           <p className="mt-2">
             If you follow someone or view a public profile, treat what you see the way you&rsquo;d want your own
-            archive treated — no scraping, reposting, or using someone&rsquo;s photos or memories without asking
+            archive treated - no scraping, reposting, or using someone&rsquo;s photos or memories without asking
             them first. Every profile, country page, and event has a Report option; use it if you see something
             that shouldn&rsquo;t be there, and we&rsquo;ll take a look.
           </p>

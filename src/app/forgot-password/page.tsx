@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
 
       {sent ? (
         <p role="status" className="mt-8 rounded-lg border border-accent/40 bg-accent-soft/50 px-3 py-2.5 text-sm">
-          If an account exists for that email, a reset link is on its way — check your inbox.
+          If an account exists for that email, a reset link is on its way - check your inbox.
         </p>
       ) : (
         <form onSubmit={onSubmit} className="mt-8 space-y-4">

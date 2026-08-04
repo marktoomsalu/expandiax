@@ -201,7 +201,7 @@ export function ProfileForm({
               value={accentColor}
               onChange={(e) => setAccentColor(e.target.value)}
             />
-            <p className="text-xs text-muted">Colors your public profile page — links, buttons and highlights.</p>
+            <p className="text-xs text-muted">Colors your public profile page - links, buttons and highlights.</p>
           </div>
         ) : (
           <p className="text-xs text-muted">
@@ -216,19 +216,19 @@ export function ProfileForm({
           Who can see your profile {requireVisibilityChoice && <span className="text-accent">*</span>}
         </legend>
         {requireVisibilityChoice && (
-          <p className="mb-3 text-xs text-muted">Required — choose one before continuing.</p>
+          <p className="mb-3 text-xs text-muted">Required - choose one before continuing.</p>
         )}
         <label className="flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "public"} onChange={() => setVisibility("public")} />
-          <span><strong className="font-medium">Public</strong> — anyone with your link can see your map, memories and public events.</span>
+          <span><strong className="font-medium">Public</strong> - anyone with your link can see your map, memories and public events.</span>
         </label>
         <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "friends"} onChange={() => setVisibility("friends")} />
-          <span><strong className="font-medium">Friends only</strong> — visible only to people who follow you back (mutual followers).</span>
+          <span><strong className="font-medium">Friends only</strong> - visible only to people who follow you back (mutual followers).</span>
         </label>
         <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "private"} onChange={() => setVisibility("private")} />
-          <span><strong className="font-medium">Private</strong> — only you can see your archive.</span>
+          <span><strong className="font-medium">Private</strong> - only you can see your archive.</span>
         </label>
       </fieldset>
 

@@ -59,7 +59,7 @@ export default async function EditEventPage({
 
       {searchParams.created && (
         <p role="status" className="mt-6 rounded-lg border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm">
-          Event added. Now give it a face — upload photos and videos below.
+          Event added. Now give it a face - upload photos and videos below.
         </p>
       )}
 

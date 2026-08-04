@@ -170,7 +170,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         <div className="mt-10">
           <EmptyState
             title="Nothing yet."
-            body="The people you follow haven't added anything public yet — check back soon."
+            body="The people you follow haven't added anything public yet - check back soon."
           />
         </div>
       ) : (

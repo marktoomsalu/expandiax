@@ -128,7 +128,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
         <input
           id="first-highlight"
           type="text"
-          placeholder="A quick memory from this trip (optional — add more after)"
+          placeholder="A quick memory from this trip (optional - add more after)"
           className="field !py-1.5 w-full text-sm"
           maxLength={1000}
           value={highlight}
@@ -265,7 +265,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="font-serif text-lg">Trip details</h3>
-          <p className="text-xs text-muted">Optional — add as much or as little as you like, any time.</p>
+          <p className="text-xs text-muted">Optional - add as much or as little as you like, any time.</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
@@ -354,7 +354,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
             <input
               id="highlight-input"
               type="text"
-              placeholder="A quick memory from this trip (optional — add more on its page after)"
+              placeholder="A quick memory from this trip (optional - add more on its page after)"
               className="field !py-1.5 w-full text-sm"
               maxLength={1000}
               value={highlight}

@@ -22,7 +22,7 @@ export default function ResetPasswordPage() {
     const { error: err } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (err) {
-      setError("Could not update your password. The reset link may have expired — request a new one.");
+      setError("Could not update your password. The reset link may have expired - request a new one.");
       return;
     }
     router.push("/my-world");

@@ -62,7 +62,7 @@ export default function SignUpPage() {
       router.push("/onboarding");
       router.refresh();
     } else {
-      setNotice("Almost there — open the confirmation link we sent to your email, then sign in.");
+      setNotice("Almost there - open the confirmation link we sent to your email, then sign in.");
       setBusy(false);
     }
   }

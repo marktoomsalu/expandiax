@@ -36,7 +36,7 @@ export function ShareButton({ kind, targetId, title, className }: Props) {
     try {
       const card = await getCard();
       const file = new File([card], "expandiax.png", { type: "image/png" });
-      await navigator.share({ files: [file], title: `${title} — ExpandiaX` });
+      await navigator.share({ files: [file], title: `${title} - ExpandiaX` });
     } catch (e) {
       if ((e as Error).name !== "AbortError") setError("Could not share this. Try again.");
     }
@@ -53,7 +53,7 @@ export function ShareButton({ kind, targetId, title, className }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
-      setError("Could not copy — try downloading instead.");
+      setError("Could not copy - try downloading instead.");
     }
     setBusy(false);
   }
@@ -92,7 +92,7 @@ export function ShareButton({ kind, targetId, title, className }: Props) {
         <div className="flex items-center gap-5">
           <button type="button" onClick={copyImage} disabled={busy} className={cn(btnClass, className)}>
             {copied ? <Check size={16} /> : <Copy size={16} />}
-            {copied ? "Copied — paste into Instagram" : "Copy image"}
+            {copied ? "Copied - paste into Instagram" : "Copy image"}
           </button>
           <button type="button" onClick={downloadImage} disabled={busy} className={cn(btnClass, className)}>
             <Download size={16} />

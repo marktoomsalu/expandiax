@@ -44,7 +44,7 @@ export default function LandingPage() {
             <div className="overflow-hidden rounded-card border border-line bg-surface p-2 shadow-sm sm:p-5">
               <WorldMap visitedCodes={SAMPLE_CODES} interactive={false} />
               <p className="border-t border-line px-2 pb-1 pt-3 text-center text-xs text-muted">
-                {SAMPLE_CODES.length} of {TOTAL_COUNTRIES} countries — a world in progress.
+                {SAMPLE_CODES.length} of {TOTAL_COUNTRIES} countries - a world in progress.
               </p>
             </div>
           </FadeIn>
@@ -86,7 +86,7 @@ export default function LandingPage() {
               </div>
               <div className="border-t border-line px-6 py-5">
                 <p className="text-sm italic leading-relaxed text-muted">
-                  &ldquo;Saaremaa in June — juniper, sea wind, and the light that never quite leaves.&rdquo;
+                  &ldquo;Saaremaa in June - juniper, sea wind, and the light that never quite leaves.&rdquo;
                 </p>
                 <p className="mt-2 text-xs text-muted">🇪🇪 Estonia · favourite memory</p>
               </div>
@@ -137,7 +137,7 @@ export default function LandingPage() {
               {
                 icon: Ticket,
                 title: "Archive your events",
-                body: "Concerts, festivals, matches, conferences, weddings — venue, rating, the moment that stuck, with photos and short videos.",
+                body: "Concerts, festivals, matches, conferences, weddings - venue, rating, the moment that stuck, with photos and short videos.",
               },
               {
                 icon: Camera,

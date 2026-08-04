@@ -155,7 +155,7 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
         <div>
           <span className="mb-1.5 block text-sm font-medium">Spotify artist</span>
           <p className="mb-1.5 text-xs text-muted">
-            Found them? Their photo becomes the cover and fills in {meta.titleLabel.toLowerCase()} below — no
+            Found them? Their photo becomes the cover and fills in {meta.titleLabel.toLowerCase()} below - no
             need to type it twice. Not on Spotify? Just skip this and type it in yourself.
           </p>
 
@@ -248,7 +248,7 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
             <div className="mt-2">
               {f.spotify_favourite_track_id ? (
                 <p className="flex items-center gap-1.5 text-xs text-muted">
-                  <Music2 size={12} className="text-accent" aria-hidden /> Connected to Spotify — plays back on the event page.
+                  <Music2 size={12} className="text-accent" aria-hidden /> Connected to Spotify - plays back on the event page.
                   <button type="button" className="text-red-700 hover:underline" onClick={() => set("spotify_favourite_track_id", null)}>
                     Disconnect
                   </button>

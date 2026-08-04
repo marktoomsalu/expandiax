@@ -125,7 +125,7 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
           <section className="mt-12" aria-labelledby="ft-h">
             <h2 id="ft-h" className="text-2xl">Featured travellers</h2>
             {featured.length === 0 ? (
-              <p className="mt-4 text-sm text-muted">No public profiles yet. Be the first — create your account and make your world public.</p>
+              <p className="mt-4 text-sm text-muted">No public profiles yet. Be the first - create your account and make your world public.</p>
             ) : (
               <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {featured.map((p) => (

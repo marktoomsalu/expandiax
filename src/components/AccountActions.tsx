@@ -103,7 +103,7 @@ export function DeleteAccountButton({ userId }: { userId: string }) {
       <ConfirmDialog
         open={confirmOpen}
         title="Delete your account?"
-        body="Everything goes — your profile, countries, events, photos and videos. This cannot be undone. Consider exporting your data first."
+        body="Everything goes - your profile, countries, events, photos and videos. This cannot be undone. Consider exporting your data first."
         confirmLabel="Delete everything"
         busy={busy}
         onConfirm={deleteAccount}

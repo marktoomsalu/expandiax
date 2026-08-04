@@ -76,7 +76,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
             ) : (
               <>
                 <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                  Add your first trip — photos and a soundtrack live with it, right after.
+                  Add your first trip - photos and a soundtrack live with it, right after.
                 </p>
                 <div className="mt-6">
                   <AddCountryForm meta={meta} />

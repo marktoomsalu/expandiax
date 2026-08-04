@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: { params: { username: string 
 
   const description =
     profile.bio ||
-    `${profile.display_name}'s world on ExpandiaX — ${count ?? 0} of ${TOTAL_COUNTRIES} countries, and the events along the way.`;
+    `${profile.display_name}'s world on ExpandiaX - ${count ?? 0} of ${TOTAL_COUNTRIES} countries, and the events along the way.`;
 
   return {
     title: profile.display_name,

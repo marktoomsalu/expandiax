@@ -326,7 +326,7 @@ export function MediaUploader(props: Props) {
                   videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
                 )}
               >
-                {q === "standard" ? "Standard — faster" : "HD — original"}
+                {q === "standard" ? "Standard - faster" : "HD - original"}
               </button>
             ))}
           </div>
@@ -358,7 +358,7 @@ export function MediaUploader(props: Props) {
         </span>
         {remaining <= 0 && showUpgradeHint && (
           <p className="mt-2 text-xs text-muted">
-            That&rsquo;s the free plan&rsquo;s limit —{" "}
+            That&rsquo;s the free plan&rsquo;s limit -{" "}
             <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
               upgrade to Premium
             </Link>{" "}

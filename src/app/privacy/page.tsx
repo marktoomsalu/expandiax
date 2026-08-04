@@ -19,17 +19,17 @@ export default function PrivacyPage() {
         <section>
           <h2 className="font-serif text-xl text-ink">What we collect</h2>
           <p className="mt-2">
-            <strong className="font-medium text-ink">Account details</strong> — your email, username, display name,
+            <strong className="font-medium text-ink">Account details</strong> - your email, username, display name,
             avatar, and bio, whether you sign up with a password or with Google.
             <br />
-            <strong className="mt-2 inline-block font-medium text-ink">Content you add</strong> — the countries and
+            <strong className="mt-2 inline-block font-medium text-ink">Content you add</strong> - the countries and
             events you log, along with any photos, videos, notes, and ratings attached to them.
             <br />
-            <strong className="mt-2 inline-block font-medium text-ink">Basic usage data</strong> — anonymous,
+            <strong className="mt-2 inline-block font-medium text-ink">Basic usage data</strong> - anonymous,
             privacy-friendly analytics (page views, not individual behaviour tracking) and error reports if
             something crashes, so we can fix it.
             <br />
-            <strong className="mt-2 inline-block font-medium text-ink">Push notification token</strong> — if you use
+            <strong className="mt-2 inline-block font-medium text-ink">Push notification token</strong> - if you use
             the ExpandiaX app on iOS or Android and allow notifications, we store a device token (not tied to your
             physical device&rsquo;s identity beyond delivering pushes) so we can notify you about likes, comments,
             and new followers. You can turn this off any time in your device&rsquo;s notification settings, which
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
           <h2 className="font-serif text-xl text-ink">Where it&rsquo;s stored</h2>
           <p className="mt-2">
             Your data lives in Supabase (managed Postgres, authentication, and file storage). Sign-in with Google
-            is handled by Google&rsquo;s own OAuth flow — we only receive your email and basic profile info from
+            is handled by Google&rsquo;s own OAuth flow - we only receive your email and basic profile info from
             it, never your Google password. We use Vercel for hosting and privacy-friendly analytics, Sentry for
             error monitoring, and Firebase Cloud Messaging (Google) solely to deliver push notifications to the
             iOS and Android app.
@@ -73,7 +73,7 @@ export default function PrivacyPage() {
           <h2 className="font-serif text-xl text-ink">Cookies</h2>
           <p className="mt-2">
             We use one cookie to keep you signed in and one to remember your light/dark theme preference. That&rsquo;s
-            it — no tracking or advertising cookies.
+            it - no tracking or advertising cookies.
           </p>
         </section>
 
@@ -81,7 +81,7 @@ export default function PrivacyPage() {
           <h2 className="font-serif text-xl text-ink">Your rights</h2>
           <p className="mt-2">
             You can export a complete copy of your data or permanently delete your account, at any time, from your
-            account settings — no need to ask us. Deleting your account removes your profile, your archive, and
+            account settings - no need to ask us. Deleting your account removes your profile, your archive, and
             every photo and video you uploaded from our storage, and can&rsquo;t be undone.
           </p>
         </section>

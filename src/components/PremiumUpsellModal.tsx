@@ -74,7 +74,7 @@ export function PremiumUpsellModal({ plan }: { plan: "free" | "premium" | null }
             Your world shouldn&rsquo;t have a limit.
           </h2>
           <p className="mt-2 text-sm text-muted">
-            Free plans cap out at 40 countries and 20 events. Go Premium for unlimited entries — plus:
+            Free plans cap out at 40 countries and 20 events. Go Premium for unlimited entries - plus:
           </p>
           <ul className="mt-5 space-y-2.5 text-sm">
             {FEATURES.map((f) => (
@@ -90,7 +90,7 @@ export function PremiumUpsellModal({ plan }: { plan: "free" | "premium" | null }
               onClick={dismiss}
               className="btn-accent flex-1 justify-center !py-2.5 text-center"
             >
-              Go Premium — $4/mo
+              Go Premium - $4/mo
             </Link>
             <button type="button" onClick={dismiss} className="text-sm text-muted hover:text-ink">
               Maybe later

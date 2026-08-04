@@ -53,7 +53,7 @@ export default async function NewEventPage() {
         </div>
       ) : (
         <>
-          <p className="mt-2 text-sm text-muted">Save the event first — photos and videos come right after.</p>
+          <p className="mt-2 text-sm text-muted">Save the event first - photos and videos come right after.</p>
           <div className="mt-8">
             <EventForm recentArtists={recentArtists} />
           </div>
