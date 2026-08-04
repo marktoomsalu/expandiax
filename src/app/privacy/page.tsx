@@ -8,7 +8,7 @@ export default function PrivacyPage() {
     <div className="mx-auto max-w-2xl px-5 py-12">
       <p className="eyebrow">Legal</p>
       <h1 className="mt-2 text-3xl md:text-4xl">Privacy Policy</h1>
-      <p className="mt-3 text-sm text-muted">Last updated July 22, 2026.</p>
+      <p className="mt-3 text-sm text-muted">Last updated August 4, 2026.</p>
 
       <div className="mt-10 space-y-8 text-sm leading-relaxed text-muted">
         <p>
@@ -28,6 +28,12 @@ export default function PrivacyPage() {
             <strong className="mt-2 inline-block font-medium text-ink">Basic usage data</strong> — anonymous,
             privacy-friendly analytics (page views, not individual behaviour tracking) and error reports if
             something crashes, so we can fix it.
+            <br />
+            <strong className="mt-2 inline-block font-medium text-ink">Push notification token</strong> — if you use
+            the ExpandiaX app on iOS or Android and allow notifications, we store a device token (not tied to your
+            physical device&rsquo;s identity beyond delivering pushes) so we can notify you about likes, comments,
+            and new followers. You can turn this off any time in your device&rsquo;s notification settings, which
+            removes the token.
           </p>
         </section>
 
@@ -35,8 +41,10 @@ export default function PrivacyPage() {
           <h2 className="font-serif text-xl text-ink">How we use it</h2>
           <p className="mt-2">
             To run the app: show your archive back to you, show your public or friends-only content to the people
-            your visibility settings allow, power the feed and follow system, and keep your account secure. We
-            don&rsquo;t sell your data, and we don&rsquo;t use your content to train anything.
+            your visibility settings allow, power the feed and follow system, send you push and email notifications
+            you&rsquo;ve opted into, and keep your account secure. We don&rsquo;t sell your data, we don&rsquo;t use
+            your content to train anything, and we never use your push notification token for advertising or to
+            track you across other apps or services.
           </p>
         </section>
 
@@ -55,8 +63,9 @@ export default function PrivacyPage() {
           <p className="mt-2">
             Your data lives in Supabase (managed Postgres, authentication, and file storage). Sign-in with Google
             is handled by Google&rsquo;s own OAuth flow — we only receive your email and basic profile info from
-            it, never your Google password. We use Vercel for hosting and privacy-friendly analytics, and Sentry
-            for error monitoring.
+            it, never your Google password. We use Vercel for hosting and privacy-friendly analytics, Sentry for
+            error monitoring, and Firebase Cloud Messaging (Google) solely to deliver push notifications to the
+            iOS and Android app.
           </p>
         </section>
 
