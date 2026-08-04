@@ -11,6 +11,7 @@ import { NativeStatusBar } from "@/components/NativeStatusBar";
 import { NativeBackButton } from "@/components/NativeBackButton";
 import { NativeDeepLinks } from "@/components/NativeDeepLinks";
 import { NativeKeyboard } from "@/components/NativeKeyboard";
+import { PageTransition } from "@/components/PageTransition";
 import { PushRegistration } from "@/components/PushRegistration";
 import { createClient } from "@/lib/supabase/server";
 
@@ -67,7 +68,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <NativeKeyboard />
           {navUser && <PushRegistration userId={navUser.id} />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
-          <main>{children}</main>
+          <main>
+            <PageTransition>{children}</PageTransition>
+          </main>
           {navUser && <PremiumUpsellModal plan={navUser.plan} />}
           <footer className="mt-20 border-t border-line">
             <div className="mx-auto max-w-shell px-5 py-8">
