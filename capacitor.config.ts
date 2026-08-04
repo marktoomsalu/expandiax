@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import { KeyboardResize } from "@capacitor/keyboard";
 
 // Remote mode: the native shell's WebView loads the live deployment
 // directly, since the app is fully server-rendered and can't be bundled
@@ -27,6 +28,12 @@ const config: CapacitorConfig = {
       // without this the WebView renders edge-to-edge and the site's fixed
       // header lands underneath the notch/status bar.
       overlaysWebView: false,
+    },
+    Keyboard: {
+      // Resize the whole WebView (not just the body) when the keyboard
+      // shows, so fixed-position elements like the bottom tab bar behave
+      // correctly instead of getting hidden behind the keyboard.
+      resize: KeyboardResize.Native,
     },
   },
 };
