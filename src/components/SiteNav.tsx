@@ -37,7 +37,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex h-14 max-w-shell items-center justify-between px-5">
           <Wordmark />
           <div className="flex items-center gap-3">
