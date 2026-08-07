@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, Images, Star, Trash2, Video } from "lucide-react";
+import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, Star, Trash2, Video } from "lucide-react";
 import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
 import { validateFile, storagePath } from "@/lib/media";
@@ -122,23 +122,6 @@ export function MediaUploader(props: Props) {
       if (file) addFiles([file]);
     } catch {
       // User cancelled the camera or permission was denied — nothing to show.
-    }
-  }
-
-  async function chooseNativePhotos() {
-    setError(null);
-    try {
-      const { results } = await Camera.chooseFromGallery({
-        allowMultipleSelection: true,
-        limit: Math.max(remaining, 1),
-        includeMetadata: true,
-      });
-      const files = (
-        await Promise.all(results.map((r) => mediaResultToFile(r.webPath, r.metadata?.format)))
-      ).filter((f): f is File => f !== null);
-      if (files.length) addFiles(files);
-    } catch {
-      // User cancelled the picker — nothing to show.
     }
   }
 
@@ -378,8 +361,8 @@ export function MediaUploader(props: Props) {
       )}
 
       <div className="mt-4">
-        {kind === "image" && isNativePlatform() ? (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {kind === "image" && isNativePlatform() && (
             <button
               type="button"
               className={cn("btn-ghost !py-2 text-sm", remaining <= 0 && "pointer-events-none opacity-40")}
@@ -388,38 +371,36 @@ export function MediaUploader(props: Props) {
               <CameraIcon size={16} />
               Take photo
             </button>
-            <button
-              type="button"
-              className={cn("btn-ghost !py-2 text-sm", remaining <= 0 && "pointer-events-none opacity-40")}
-              onClick={chooseNativePhotos}
-            >
-              <Images size={16} />
-              Choose photos
-            </button>
-          </div>
-        ) : (
-          <>
-            <input
-              ref={inputRef}
-              id={`${table}-${kind}-input`}
-              type="file"
-              accept={kind === "image" ? "image/*" : "video/*"}
-              multiple
-              className="sr-only"
-              onChange={(e) => pickFiles(e.target.files)}
-            />
-            <label
-              htmlFor={`${table}-${kind}-input`}
-              className={cn(
-                "btn-ghost cursor-pointer !py-2 text-sm",
-                remaining <= 0 && "pointer-events-none opacity-40"
-              )}
-            >
-              <Icon size={16} />
-              {kind === "image" ? "Add photos" : "Add videos"}
-            </label>
-          </>
-        )}
+          )}
+          <input
+            ref={inputRef}
+            id={`${table}-${kind}-input`}
+            type="file"
+            accept={kind === "image" ? "image/*" : "video/*"}
+            multiple
+            className="sr-only"
+            onChange={(e) => pickFiles(e.target.files)}
+          />
+          {/*
+            Deliberately a plain file input on native too, not
+            @capacitor/camera's gallery picker: WKWebView/Android WebView
+            already hand file inputs off to the native picker sheet (Photos
+            + Browse/Files app + Take Photo), so this loses nothing while
+            gaining folder browsing and skipping the extra webPath fetch+blob
+            round trip the Camera plugin needs per photo — that conversion
+            was the main source of the native picker feeling slower than web.
+          */}
+          <label
+            htmlFor={`${table}-${kind}-input`}
+            className={cn(
+              "btn-ghost cursor-pointer !py-2 text-sm",
+              remaining <= 0 && "pointer-events-none opacity-40"
+            )}
+          >
+            <Icon size={16} />
+            {kind === "image" ? "Choose photos" : "Add videos"}
+          </label>
+        </div>
         <span className="ml-3 text-xs text-muted">
           {kind === "image" ? "JPEG, PNG or WebP · up to 10 MB each" : "MP4, WebM or MOV · up to 300 MB each"}
         </span>
