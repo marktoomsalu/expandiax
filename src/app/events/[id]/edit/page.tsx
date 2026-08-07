@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EventForm } from "@/components/EventForm";
 import { MediaUploader } from "@/components/MediaUploader";
 import { DeleteEventButton } from "@/components/DeleteEventButton";
@@ -19,9 +19,7 @@ export default async function EditEventPage({
   searchParams: { created?: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const [{ data: profile }, { data }, { data: artistRows }] = await Promise.all([

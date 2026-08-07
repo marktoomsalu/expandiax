@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { VisitEditor } from "@/components/VisitEditor";
 import { MediaUploader } from "@/components/MediaUploader";
@@ -29,9 +29,7 @@ export default async function VisitPage({
   if (!meta) notFound();
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const [{ data }, { data: profile }] = await Promise.all([

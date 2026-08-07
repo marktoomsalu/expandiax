@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BarChart3, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { MapNavigator } from "@/components/MapNavigator";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -25,9 +25,7 @@ function travelRecency(c: Row): string {
 
 export default async function MyWorldPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const [{ data }, { data: profile }] = await Promise.all([

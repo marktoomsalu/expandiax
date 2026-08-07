@@ -3,7 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowLeft, ArrowRight, Pencil } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
@@ -70,9 +70,7 @@ export default async function PublicCountryPage({
     .maybeSingle();
   if (!profile) notFound();
 
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getAuthUser();
   const isOwnProfile = viewer?.id === profile.id;
 
   const [{ data }, { data: allCountries }, { data: relatedEvents }] = await Promise.all([

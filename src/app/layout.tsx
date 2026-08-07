@@ -13,7 +13,7 @@ import { NativeDeepLinks } from "@/components/NativeDeepLinks";
 import { NativeKeyboard } from "@/components/NativeKeyboard";
 import { PageTransition } from "@/components/PageTransition";
 import { PushRegistration } from "@/components/PushRegistration";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://expandiax.com"),
@@ -43,9 +43,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let unreadNotifications = 0;
   try {
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getAuthUser();
     if (user) {
       const [{ data: profile }, { count }] = await Promise.all([
         supabase.from("profiles").select("username, plan").eq("id", user.id).single(),

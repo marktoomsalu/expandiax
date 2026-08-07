@@ -3,7 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowLeft, FileText, MapPin, Pencil } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
 import { RatingStars } from "@/components/Rating";
@@ -71,9 +71,7 @@ export default async function PublicEventPage({
   const event = data as EventFull | null;
   if (!event) notFound();
 
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getAuthUser();
   const isOwnProfile = viewer?.id === profile.id;
 
   const [{ data: sameTitle }, { data: commentRows }] = await Promise.all([

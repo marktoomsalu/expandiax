@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { Heart, MessageCircle, UserPlus } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { countryByCode } from "@/lib/countries";
 import { formatRelative } from "@/lib/utils";
@@ -14,9 +14,7 @@ const ICONS = { like: Heart, comment: MessageCircle, follow: UserPlus };
 
 export default async function NotificationsPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const { data: profile } = await supabase.from("profiles").select("username").eq("id", user.id).single();

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { BillingActions } from "@/components/BillingActions";
 import { formatDate } from "@/lib/utils";
 import type { Plan } from "@/lib/types";
@@ -10,9 +10,7 @@ export const metadata = { title: "Plan" };
 
 export default async function BillingPage({ searchParams }: { searchParams: { upgraded?: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const { data: billing } = await supabase

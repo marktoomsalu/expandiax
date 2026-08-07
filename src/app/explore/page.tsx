@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Search } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { RatingStars } from "@/components/Rating";
 import { formatDate } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
   const supabase = createClient();
   const q = (searchParams?.q ?? "").trim();
 
-  const [{ data: profilesData }, { data: recentEvents }, { data: countRows }, { data: { user: viewer } }] =
+  const [{ data: profilesData }, { data: recentEvents }, { data: countRows }, viewer] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -47,7 +47,7 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
         .order("created_at", { ascending: false })
         .limit(6),
       supabase.from("public_country_counts").select("user_id, country_count"),
-      supabase.auth.getUser(),
+      getAuthUser(),
     ]);
 
   const profiles = (profilesData ?? []) as ProfileLite[];

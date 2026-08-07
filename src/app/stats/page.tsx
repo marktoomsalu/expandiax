@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { StatCard } from "@/components/StatCard";
 import { BadgeGrid } from "@/components/BadgeGrid";
 import { WorldMap } from "@/components/WorldMap";
@@ -40,9 +40,7 @@ type EventRow = {
 
 export default async function StatsPage({ searchParams }: { searchParams: { year?: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const [{ data: countriesData }, { data: eventsData }] = await Promise.all([

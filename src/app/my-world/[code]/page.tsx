@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ExternalLink, MapPin } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { CountryEditor, AddCountryForm } from "@/components/CountryEditor";
 import { ShareButton } from "@/components/ShareButton";
@@ -13,9 +13,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   if (!meta) notFound();
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const [{ data: profile }, { data }, { count: countryCount }] = await Promise.all([

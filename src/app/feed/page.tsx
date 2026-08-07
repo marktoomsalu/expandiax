@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Compass } from "lucide-react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
 import { FollowButton } from "@/components/FollowButton";
@@ -23,9 +23,7 @@ type RawMedia = FeedMediaItem & { displayOrder: number };
 
 export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const limit = Math.min(Math.max(Number(searchParams?.limit) || PAGE_SIZE, PAGE_SIZE), 300);

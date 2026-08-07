@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EventList } from "@/components/EventList";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -15,9 +15,7 @@ type Row = Event & { event_media: EventMedia[] };
 
 export default async function EventsPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const { data } = await supabase

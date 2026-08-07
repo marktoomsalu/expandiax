@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EventForm } from "@/components/EventForm";
 import { dedupeRecentArtists } from "@/lib/events";
 import { EVENT_CAP } from "@/lib/plan";
@@ -11,9 +11,7 @@ export const metadata = { title: "Add event" };
 
 export default async function NewEventPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const [{ data }, { data: profile }, { count: eventCount }] = await Promise.all([

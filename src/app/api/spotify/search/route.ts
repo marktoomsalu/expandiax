@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { getSpotifyToken } from "@/lib/spotifyServer";
 
 export const dynamic = "force-dynamic";
@@ -19,10 +19,7 @@ type SpotifyArtistResult = {
 };
 
 export async function GET(request: NextRequest) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
   const q = request.nextUrl.searchParams.get("q")?.trim();

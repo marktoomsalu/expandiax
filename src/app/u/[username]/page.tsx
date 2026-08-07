@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { BarChart3, Pencil, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { WorldMapLink } from "@/components/WorldMapLink";
 import { RatingStars } from "@/components/Rating";
 import { FollowButton } from "@/components/FollowButton";
@@ -74,9 +74,7 @@ export default async function PublicProfilePage({ params }: { params: { username
     );
   }
 
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getAuthUser();
   const isOwnProfile = viewer?.id === profile.id;
 
   const [{ data: countriesData }, { data: eventsData }, { data: usStatesData }, { count: followerCount }, { count: followingCount }, { data: followingRow }] =

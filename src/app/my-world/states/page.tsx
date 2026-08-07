@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { USStatesMap } from "@/components/USStatesMap";
 import { TOTAL_US_STATES } from "@/lib/usStates";
 import type { Plan, VisitedUSState } from "@/lib/types";
@@ -10,9 +10,7 @@ export const metadata = { title: "US States" };
 
 export default async function USStatesPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
