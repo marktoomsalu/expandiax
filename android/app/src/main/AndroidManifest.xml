@@ -29,6 +29,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="expandiax.com" />
             </intent-filter>
+
+            <!-- OAuth (Google) redirect target: signInWithOAuth's redirectTo
+                 points here on native instead of an https URL, so the OS
+                 hands control straight back to the app instead of leaving
+                 the user in an external browser. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.expandiax.travelapp" />
+            </intent-filter>
         </activity>
 
         <provider

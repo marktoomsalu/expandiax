@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Browser } from "@capacitor/browser";
 import { createClient } from "@/lib/supabase/client";
+import { isNativePlatform, NATIVE_APP_SCHEME } from "@/lib/capacitor";
 
 export function GoogleSignInButton({ next = "/my-world" }: { next?: string }) {
   const supabase = createClient();
@@ -9,6 +11,28 @@ export function GoogleSignInButton({ next = "/my-world" }: { next?: string }) {
 
   async function signIn() {
     setBusy(true);
+
+    if (isNativePlatform()) {
+      // Google blocks (or at best gives an untrustworthy-looking consent
+      // screen) sign-in inside an app's own WebView, and even when it
+      // doesn't, an https redirectTo can land the final hop in an external
+      // browser instead of back in the app. Opening the OAuth URL in a
+      // proper in-app browser (SFSafariViewController/Custom Tabs) and
+      // redirecting to our own URL scheme instead sidesteps both problems —
+      // the OS hands the scheme straight back to the app (see
+      // NativeDeepLinks.tsx), no redirect-chain ambiguity involved.
+      const { data } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${NATIVE_APP_SCHEME}://auth/callback?next=${encodeURIComponent(next)}`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (data.url) await Browser.open({ url: data.url });
+      else setBusy(false);
+      return;
+    }
+
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
