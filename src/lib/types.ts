@@ -16,6 +16,8 @@ export type Profile = {
   updated_at: string;
 };
 
+export type BillingSource = "stripe" | "apple";
+
 export type Billing = {
   user_id: string;
   stripe_customer_id: string | null;
@@ -23,6 +25,9 @@ export type Billing = {
   plan: Plan;
   current_period_end: string | null;
   updated_at: string;
+  source: BillingSource;
+  revenuecat_app_user_id: string | null;
+  apple_original_transaction_id: string | null;
 };
 
 export type VisitedUSState = {

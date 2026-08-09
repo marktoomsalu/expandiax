@@ -13,6 +13,7 @@ import { NativeDeepLinks } from "@/components/NativeDeepLinks";
 import { NativeKeyboard } from "@/components/NativeKeyboard";
 import { PageTransition } from "@/components/PageTransition";
 import { PushRegistration } from "@/components/PushRegistration";
+import { NativePurchases } from "@/components/NativePurchases";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -65,6 +66,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <NativeDeepLinks />
           <NativeKeyboard />
           {navUser && <PushRegistration userId={navUser.id} />}
+          {navUser && <NativePurchases userId={navUser.id} />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
           <main>
             <PageTransition>{children}</PageTransition>

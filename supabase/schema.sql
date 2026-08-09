@@ -32,13 +32,20 @@ create table public.profiles (
 -- table's select policy is row-level (readable by anyone who can see the
 -- profile), not column-level, so sensitive Stripe ids can't safely live
 -- there. Only the service-role key (the Stripe webhook route) writes here.
+-- `source`/`revenuecat_app_user_id`/`apple_original_transaction_id`
+-- (033) support a second payment path — Apple In-App Purchase via
+-- RevenueCat, used by the native app — alongside Stripe; `source` records
+-- which one most recently wrote plan status into this row.
 create table public.billing (
   user_id uuid primary key references public.profiles (id) on delete cascade,
   stripe_customer_id text,
   stripe_subscription_id text,
   plan text not null default 'free' check (plan in ('free', 'premium')),
   current_period_end timestamptz,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  source text not null default 'stripe' check (source in ('stripe', 'apple')),
+  revenuecat_app_user_id text,
+  apple_original_transaction_id text
 );
 
 create table public.visited_countries (

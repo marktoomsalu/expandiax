@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { BillingActions } from "@/components/BillingActions";
 import { formatDate } from "@/lib/utils";
-import type { Plan } from "@/lib/types";
+import type { BillingSource, Plan } from "@/lib/types";
 
 export const metadata = { title: "Plan" };
 
@@ -15,10 +15,11 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
 
   const { data: billing } = await supabase
     .from("billing")
-    .select("plan, current_period_end")
+    .select("plan, current_period_end, source")
     .eq("user_id", user.id)
     .maybeSingle();
   const plan: Plan = billing?.plan ?? "free";
+  const source = (billing?.source ?? null) as BillingSource | null;
 
   return (
     <div className="mx-auto max-w-md px-5 py-12">
@@ -46,7 +47,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
       </ul>
 
       <div className="mt-8">
-        <BillingActions plan={plan} />
+        <BillingActions plan={plan} source={source} />
       </div>
     </div>
   );

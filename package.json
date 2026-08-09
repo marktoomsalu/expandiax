@@ -25,6 +25,7 @@
     "@ffmpeg/util": "^0.12.2",
     "@fontsource/fraunces": "^5.2.9",
     "@fontsource/inter": "^5.2.8",
+    "@revenuecat/purchases-capacitor": "^13.4.0",
     "@sentry/nextjs": "^10.67.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",

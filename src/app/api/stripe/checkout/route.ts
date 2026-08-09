@@ -16,9 +16,16 @@ export async function POST(request: NextRequest) {
     const stripe = getStripe();
     const { data: billing } = await supabase
       .from("billing")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id, plan, source")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    // Already premium via Apple IAP — refuse a second, overlapping
+    // subscription through Stripe instead of letting someone double-pay.
+    if (billing?.plan === "premium" && billing.source === "apple") {
+      return NextResponse.json({ error: "You're already Premium through the Apple App Store." }, { status: 409 });
+    }
+
     const origin = request.nextUrl.origin;
 
     const session = await stripe.checkout.sessions.create({

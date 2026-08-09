@@ -9,7 +9,10 @@ async function upsertBilling(
   admin: ReturnType<typeof createAdminClient>,
   row: { user_id: string; stripe_customer_id: string; stripe_subscription_id: string; plan: "free" | "premium"; current_period_end: string | null }
 ) {
-  await admin.from("billing").upsert(row);
+  // upsert() only sets columns present in the payload — source must be
+  // included explicitly, or a user switching from Apple IAP back to Stripe
+  // would keep a stale source: "apple" on their billing row.
+  await admin.from("billing").upsert({ ...row, source: "stripe" });
 }
 
 // Stripe moved current_period_end from the subscription itself down to each
