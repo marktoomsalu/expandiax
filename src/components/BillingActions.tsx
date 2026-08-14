@@ -27,6 +27,14 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
     }
   }
 
+  // RevenueCat SDK errors are internal/debug-oriented (URLs, config
+  // diagnostics) — never show them to a real user, just log for our own
+  // debugging and surface a generic message instead.
+  function reportPurchaseError(e: unknown, fallback: string) {
+    console.error(e);
+    setError(fallback);
+  }
+
   async function buyNative() {
     setBusy(true);
     setError(null);
@@ -38,7 +46,7 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
       router.push("/settings/billing?upgraded=1");
       router.refresh();
     } catch (e) {
-      if (!isPurchaseCancelled(e)) setError(e instanceof Error ? e.message : "Purchase failed. Try again.");
+      if (!isPurchaseCancelled(e)) reportPurchaseError(e, "Couldn't complete the purchase. Try again in a moment.");
       setBusy(false);
     }
   }
@@ -51,7 +59,7 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
       router.push(isPremium ? "/settings/billing?upgraded=1" : "/settings/billing");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't restore purchases.");
+      reportPurchaseError(e, "Couldn't restore purchases. Try again in a moment.");
     } finally {
       setBusy(false);
     }
@@ -66,7 +74,7 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
       if (native) await Browser.open({ url });
       else window.location.href = url;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't open subscription management.");
+      reportPurchaseError(e, "Couldn't open subscription management. Try again in a moment.");
     } finally {
       setBusy(false);
     }

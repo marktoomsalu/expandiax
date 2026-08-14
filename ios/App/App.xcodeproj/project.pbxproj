@@ -15,6 +15,7 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		B747E650302E57CA0029AED0 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B747E64F302E57CA0029AED0 /* StoreKit.framework */; };
 		B7FFD4063023EBE400D0B93B /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = B7FFD4053023EBE400D0B93B /* GoogleService-Info.plist */; };
 		B7FFD4093024D07700D0B93B /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = B7FFD4083024D07700D0B93B /* FirebaseCore */; };
 		B7FFD40B3024D07700D0B93B /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = B7FFD40A3024D07700D0B93B /* FirebaseMessaging */; };
@@ -32,6 +33,7 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		B747E64F302E57CA0029AED0 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		B760EE5530226CA600810CEB /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		B7FFD4053023EBE400D0B93B /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		B7FFD40C3024D0B000D0B93B /* FcmTokenPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FcmTokenPlugin.swift; sourceTree = "<group>"; };
@@ -45,6 +47,7 @@
 				B7FFD40B3024D07700D0B93B /* FirebaseMessaging in Frameworks */,
 				B7FFD4093024D07700D0B93B /* FirebaseCore in Frameworks */,
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+				B747E650302E57CA0029AED0 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -56,6 +59,7 @@
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
+				B747E64E302E57CA0029AED0 /* Frameworks */,
 				504EC3051FED79650016851F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -84,6 +88,14 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		B747E64E302E57CA0029AED0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B747E64F302E57CA0029AED0 /* StoreKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
