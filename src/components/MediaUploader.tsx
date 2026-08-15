@@ -315,7 +315,7 @@ export function MediaUploader(props: Props) {
                     type="text"
                     aria-label={`Caption for ${p.file.name}`}
                     placeholder="Caption (optional)"
-                    className="w-full border-t border-line bg-transparent px-2 py-1.5 text-xs focus:outline-none"
+                    className="w-full border-t border-line bg-transparent px-2 py-1.5 text-base sm:text-xs focus:outline-none"
                     value={p.caption}
                     onChange={(e) =>
                       setPending((cur) => cur.map((x) => (x.previewUrl === p.previewUrl ? { ...x, caption: e.target.value } : x)))

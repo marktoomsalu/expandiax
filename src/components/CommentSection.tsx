@@ -112,7 +112,7 @@ export function CommentSection({ kind, targetId, posterId, initialComments }: Pr
             onChange={(e) => setText(e.target.value)}
             placeholder="Add a comment…"
             maxLength={500}
-            className="min-w-0 flex-1 border-b border-line bg-transparent py-1 text-sm outline-none focus:border-accent"
+            className="min-w-0 flex-1 border-b border-line bg-transparent py-1 text-base sm:text-sm outline-none focus:border-accent"
           />
           <button type="submit" disabled={busy || !text.trim()} className="text-sm font-medium text-accent disabled:opacity-40">
             Post
