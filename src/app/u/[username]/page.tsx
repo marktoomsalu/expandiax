@@ -10,13 +10,13 @@ import { ReportButton } from "@/components/ReportButton";
 import { BadgeGrid } from "@/components/BadgeGrid";
 import { SignOutButton } from "@/components/SignOutButton";
 import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
+import { isTerritoryCode, TOTAL_TERRITORIES } from "@/lib/territories";
 import { formatDate, hexToRgbTriplet } from "@/lib/utils";
 import { evaluateBadges } from "@/lib/badges";
 import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@/lib/stats";
 import { TOTAL_US_STATES } from "@/lib/usStates";
-import { TOTAL_TERRITORIES } from "@/lib/territories";
 import { visitSortKey, formatVisitRange } from "@/lib/utils";
-import type { CountryVisit, Event, EventMedia, CountryMedia, Profile, VisitedCountry, VisitedUSState, VisitedTerritory } from "@/lib/types";
+import type { CountryVisit, Event, EventMedia, CountryMedia, Profile, VisitedCountry, VisitedUSState } from "@/lib/types";
 
 type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight">;
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
@@ -82,7 +82,6 @@ export default async function PublicProfilePage({ params }: { params: { username
     { data: countriesData },
     { data: eventsData },
     { data: usStatesData },
-    { data: territoriesData },
     { count: followerCount },
     { count: followingCount },
     { data: followingRow },
@@ -101,7 +100,6 @@ export default async function PublicProfilePage({ params }: { params: { username
         .eq("is_public", true)
         .order("event_date", { ascending: false }),
       supabase.from("visited_us_states").select("*").eq("user_id", profile.id).order("state_name"),
-      supabase.from("visited_territories").select("*").eq("user_id", profile.id).order("territory_name"),
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("followee_id", profile.id),
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
       viewer && !isOwnProfile
@@ -127,17 +125,24 @@ export default async function PublicProfilePage({ params }: { params: { username
     profile.visibility === "public" ||
     (profile.visibility === "friends" && isFollowing && followedBy) ||
     (profile.visibility === "private" && isFollowing);
+  // visited_countries rows now include territories too (Greenland,
+  // Gibraltar, etc.) — realCountries/territories split them back apart for
+  // anything that shouldn't blend the two (the 195-country %, continents,
+  // badges); `countries` (unfiltered) still feeds trips/gallery/the globe,
+  // so territory photos and map highlights show up there naturally.
   const countries = (countriesData ?? []) as CountryRow[];
+  const realCountries = countries.filter((c) => !isTerritoryCode(c.country_code));
+  const territories = countries.filter((c) => isTerritoryCode(c.country_code));
   const events = (eventsData ?? []) as EventRow[];
   const usStates = (usStatesData ?? []) as VisitedUSState[];
-  const territories = (territoriesData ?? []) as VisitedTerritory[];
   const codes = countries.map((c) => c.country_code);
+  const countryCodes = realCountries.map((c) => c.country_code);
   const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
-  const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
-  const visitedContinents = continentCounts(codes).filter((c) => c.visited > 0);
+  const pct = Math.round((countryCodes.length / TOTAL_COUNTRIES) * 1000) / 10;
+  const visitedContinents = continentCounts(countryCodes).filter((c) => c.visited > 0);
   const home = countryByCode(profile.home_country_code);
 
-  const statCountries: CountryStatInput[] = countries.map((c) => ({
+  const statCountries: CountryStatInput[] = realCountries.map((c) => ({
     country_code: c.country_code,
     is_favourite: c.is_favourite,
     photo_count: c.country_media.length,
@@ -255,7 +260,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         <>
       {/* Stats */}
       <div className="mt-10 grid grid-cols-2 gap-y-6 sm:flex sm:flex-wrap sm:gap-x-10">
-        {stat(codes.length, "Countries")}
+        {stat(countryCodes.length, "Countries")}
         {stat(`${pct}%`, "Of the world")}
         {stat(`${visitedContinents.length}/6`, "Continents")}
         {stat(events.length, "Events")}
@@ -286,7 +291,6 @@ export default async function PublicProfilePage({ params }: { params: { username
           visitCounts={visitCounts}
           homeCode={profile.home_country_code}
           username={profile.username}
-          visitedTerritoryCodes={territories.map((t) => t.territory_code)}
         />
       </div>
 
@@ -313,7 +317,7 @@ export default async function PublicProfilePage({ params }: { params: { username
           <ul className="mt-6 flex flex-wrap gap-2">
             {territories.map((t) => (
               <li key={t.id} className="rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm">
-                {t.territory_name}
+                {t.country_name}
               </li>
             ))}
           </ul>

@@ -134,20 +134,27 @@ create table public.visited_us_states (
   unique (user_id, state_code)
 );
 
--- Special territories (Greenland, Gibraltar, Hong Kong, etc.) — same shape
--- and gating as visited_us_states, tracked entirely separately from
--- visited_countries/TOTAL_COUNTRIES.
-create table public.visited_territories (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles (id) on delete cascade,
-  territory_code text not null check (territory_code ~ '^[A-Z]{2}$'),
-  territory_name text not null,
-  note text not null default '' check (length(note) <= 500),
-  is_favourite boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (user_id, territory_code)
+-- Special territories (Greenland, Gibraltar, Hong Kong, etc.) — a plain
+-- reference table (not per-user), used only so the visited_countries
+-- insert policy below can tell "is this code a territory" without
+-- embedding the list directly in SQL. Kept in sync by hand with
+-- src/lib/territories.ts. Territories are tracked as ordinary
+-- visited_countries rows (reusing all its photo/note/visit
+-- infrastructure), Premium-gated there, and excluded from
+-- TOTAL_COUNTRIES-based stats in app code — never at the database level.
+create table public.territories (
+  code text primary key check (code ~ '^[A-Z]{2}$'),
+  name text not null
 );
+
+insert into public.territories (code, name) values
+  ('AQ', 'Antarctica'), ('GL', 'Greenland'), ('SJ', 'Svalbard and Jan Mayen'),
+  ('FO', 'Faroe Islands'), ('GI', 'Gibraltar'), ('IM', 'Isle of Man'), ('JE', 'Jersey'), ('GG', 'Guernsey'), ('AX', 'Åland Islands'),
+  ('HK', 'Hong Kong'), ('MO', 'Macau'),
+  ('PR', 'Puerto Rico'), ('VI', 'US Virgin Islands'), ('VG', 'British Virgin Islands'), ('KY', 'Cayman Islands'), ('BM', 'Bermuda'),
+  ('AW', 'Aruba'), ('CW', 'Curaçao'), ('SX', 'Sint Maarten'), ('TC', 'Turks and Caicos Islands'), ('AI', 'Anguilla'), ('MS', 'Montserrat'), ('GP', 'Guadeloupe'), ('MQ', 'Martinique'),
+  ('GU', 'Guam'), ('AS', 'American Samoa'), ('MP', 'Northern Mariana Islands'), ('PF', 'French Polynesia'), ('NC', 'New Caledonia'), ('CK', 'Cook Islands'), ('NU', 'Niue'),
+  ('GF', 'French Guiana'), ('RE', 'Réunion'), ('YT', 'Mayotte'), ('FK', 'Falkland Islands'), ('SH', 'Saint Helena');
 
 -- Events: concerts, festivals, sport, conferences, personal occasions
 -- (weddings etc.) or anything else — event_type is just a label, every
@@ -205,7 +212,6 @@ create index billing_stripe_customer_idx on public.billing (stripe_customer_id);
 create index billing_stripe_subscription_idx on public.billing (stripe_subscription_id);
 create index visited_countries_user_idx on public.visited_countries (user_id);
 create index visited_us_states_user_idx on public.visited_us_states (user_id);
-create index visited_territories_user_idx on public.visited_territories (user_id);
 create index country_visits_vc_idx on public.country_visits (visited_country_id);
 create index country_cities_vc_idx on public.country_cities (visited_country_id);
 create index country_media_vc_idx on public.country_media (visited_country_id, display_order);
@@ -286,8 +292,6 @@ create trigger profiles_touch before update on public.profiles
 create trigger visited_countries_touch before update on public.visited_countries
   for each row execute function public.set_updated_at();
 create trigger visited_us_states_touch before update on public.visited_us_states
-  for each row execute function public.set_updated_at();
-create trigger visited_territories_touch before update on public.visited_territories
   for each row execute function public.set_updated_at();
 create trigger events_touch before update on public.events
   for each row execute function public.set_updated_at();
@@ -450,7 +454,7 @@ alter table public.profiles enable row level security;
 alter table public.billing enable row level security;
 alter table public.visited_countries enable row level security;
 alter table public.visited_us_states enable row level security;
-alter table public.visited_territories enable row level security;
+alter table public.territories enable row level security;
 alter table public.country_visits enable row level security;
 alter table public.country_cities enable row level security;
 alter table public.country_media enable row level security;
@@ -491,8 +495,19 @@ create policy "visited countries readable when owner or profile public"
   on public.visited_countries for select
   using (user_id = auth.uid() or public.is_profile_public(user_id));
 
+-- Territories (Greenland, Gibraltar, etc.) go through this same insert
+-- policy as ordinary countries — Premium is only required when the code
+-- being inserted is a territory; the `not exists` branch short-circuits
+-- true for any regular country code, leaving that path unaffected.
 create policy "owner manages visited countries insert"
-  on public.visited_countries for insert with check (user_id = auth.uid());
+  on public.visited_countries for insert
+  with check (
+    user_id = auth.uid()
+    and (
+      not exists (select 1 from public.territories where code = country_code)
+      or exists (select 1 from public.profiles where id = auth.uid() and plan = 'premium')
+    )
+  );
 create policy "owner manages visited countries update"
   on public.visited_countries for update
   using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -518,24 +533,9 @@ create policy "owner updates us states"
 create policy "owner deletes us states"
   on public.visited_us_states for delete using (user_id = auth.uid());
 
--- visited_territories — same shape/gating as visited_us_states above.
-create policy "territories readable when owner or profile public"
-  on public.visited_territories for select
-  using (user_id = auth.uid() or public.is_profile_public(user_id));
-
-create policy "premium owner inserts territories"
-  on public.visited_territories for insert
-  with check (
-    user_id = auth.uid()
-    and exists (select 1 from public.profiles where id = auth.uid() and plan = 'premium')
-  );
-
-create policy "owner updates territories"
-  on public.visited_territories for update
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
-
-create policy "owner deletes territories"
-  on public.visited_territories for delete using (user_id = auth.uid());
+-- territories — plain public reference data, read-only from the app.
+create policy "territories reference data is public"
+  on public.territories for select using (true);
 
 -- country child tables (visits, cities, media) share the same rules
 create policy "country visits readable" on public.country_visits for select

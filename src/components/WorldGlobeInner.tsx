@@ -13,6 +13,11 @@ const GEO_URL = "/data/world-110m.json";
 const MIN_ALTITUDE = 0.5;
 const MAX_ALTITUDE = 3.5;
 
+// Antarctica has no shape at this map's resolution (and would look odd as
+// a giant polygon wrapped around the globe's underside anyway), so instead
+// of a polygon it gets one clickable point, placed on the continent itself.
+const ANTARCTICA_POINTS = [{ lat: -82, lng: 20 }];
+
 type GeoFeature = {
   id: string;
   properties: { name: string };
@@ -20,18 +25,16 @@ type GeoFeature = {
 };
 
 type Props = {
+  // Territories (Greenland, New Caledonia, Puerto Rico — whichever ones
+  // happen to have their own shape at this map's resolution) share the
+  // same visited_countries table as countries now, so they arrive here
+  // mixed into visitedCodes and light up/click through identically.
   visitedCodes: string[];
   visitCounts?: Record<string, number>;
   homeCode?: string | null;
   onSelect?: (code: string) => void;
   interactive?: boolean;
   className?: string;
-  // A handful of special territories (Greenland, New Caledonia, Puerto
-  // Rico — whichever ones happen to have their own shape at this map's
-  // resolution) light up the same as a visited country when passed here.
-  // There's no /my-world/[code] page for them, so unlike countries they're
-  // shown but not clickable.
-  visitedTerritoryCodes?: string[];
 };
 
 export function WorldGlobeInner({
@@ -41,7 +44,6 @@ export function WorldGlobeInner({
   onSelect,
   interactive = true,
   className,
-  visitedTerritoryCodes,
 }: Props) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -52,7 +54,6 @@ export function WorldGlobeInner({
   const [size, setSize] = useState({ width: 320, height: 320 });
 
   const visited = useMemo(() => new Set(visitedCodes), [visitedCodes]);
-  const visitedTerritories = useMemo(() => new Set(visitedTerritoryCodes ?? []), [visitedTerritoryCodes]);
 
   useEffect(() => {
     let alive = true;
@@ -103,10 +104,6 @@ export function WorldGlobeInner({
     g.pointOfView({ lat: 18, lng: 14, altitude: 1.8 });
   }, [interactive]);
 
-  function countryOf(f: GeoFeature) {
-    return countryByNumeric(String(f.id));
-  }
-
   function placeOf(f: GeoFeature): { code: string; name: string; flag: string; isTerritory: boolean } | undefined {
     const c = countryByNumeric(String(f.id));
     if (c) return { code: c.code, name: c.name, flag: c.flag, isTerritory: false };
@@ -144,9 +141,9 @@ export function WorldGlobeInner({
           polygonCapColor={(f) => {
             const p = placeOf(f as GeoFeature);
             const isHome = p && !p.isTerritory && homeCode ? p.code === homeCode : false;
-            const isVisited = p ? (p.isTerritory ? visitedTerritories.has(p.code) : visited.has(p.code)) : false;
+            const isVisited = p ? visited.has(p.code) : false;
             const isHover = (f as GeoFeature).id === hoverId;
-            const count = p && !p.isTerritory ? visitCounts?.[p.code] ?? 0 : 0;
+            const count = p ? visitCounts?.[p.code] ?? 0 : 0;
             if (isHome) return isHover ? "rgba(250,176,63,1)" : "rgba(245,158,11,0.95)";
             if (isVisited) {
               // Countries visited more than once glow a shade brighter.
@@ -164,15 +161,25 @@ export function WorldGlobeInner({
             const p = placeOf(f as GeoFeature);
             if (!p) return "";
             const isHome = !p.isTerritory && homeCode && p.code === homeCode;
-            const count = !p.isTerritory ? visitCounts?.[p.code] ?? 0 : 0;
+            const count = visitCounts?.[p.code] ?? 0;
             const suffix = count >= 2 ? ` · visited ${count}×` : "";
-            return `${p.flag} ${p.name}${isHome ? " · Home" : ""}${p.isTerritory ? " · Territory" : suffix}`;
+            return `${p.flag} ${p.name}${isHome ? " · Home" : p.isTerritory ? " · Territory" : ""}${suffix}`;
           }}
           onPolygonHover={(f) => setHoverId(f ? (f as GeoFeature).id : null)}
           onPolygonClick={(f) => {
             if (!interactive || !onSelect) return;
-            const c = countryOf(f as GeoFeature);
-            if (c) onSelect(c.code);
+            const p = placeOf(f as GeoFeature);
+            if (p) onSelect(p.code);
+          }}
+          pointsData={ANTARCTICA_POINTS}
+          pointLat="lat"
+          pointLng="lng"
+          pointRadius={0.45}
+          pointAltitude={0.012}
+          pointColor={() => (visited.has("AQ") ? "rgba(255,125,96,0.95)" : isDark ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.45)")}
+          pointLabel={() => `🇦🇶 Antarctica${visited.has("AQ") ? " · visited" : ""}`}
+          onPointClick={() => {
+            if (interactive && onSelect) onSelect("AQ");
           }}
           showPointerCursor={interactive}
         />

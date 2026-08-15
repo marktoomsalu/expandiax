@@ -1,16 +1,20 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ExternalLink, MapPin } from "lucide-react";
+import { ArrowLeft, ExternalLink, Lock, MapPin } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
+import { territoryByCode, territoryToMeta } from "@/lib/territories";
 import { CountryEditor, AddCountryForm } from "@/components/CountryEditor";
 import { ShareButton } from "@/components/ShareButton";
 import { COUNTRY_CAP } from "@/lib/plan";
 import type { Plan, VisitedCountryFull } from "@/lib/types";
 
 export default async function ManageCountryPage({ params }: { params: { code: string } }) {
-  const meta = countryByCode(params.code);
+  const country = countryByCode(params.code);
+  const territory = country ? null : territoryByCode(params.code);
+  const meta = country ?? (territory ? territoryToMeta(territory) : null);
   if (!meta) notFound();
+  const isTerritory = !!territory;
 
   const supabase = createClient();
   const user = await getAuthUser();
@@ -31,6 +35,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   const plan = (profile?.plan ?? "free") as Plan;
   const countryCap = COUNTRY_CAP[plan];
   const atCountryCap = countryCap !== null && (countryCount ?? 0) >= countryCap;
+  const needsPremiumForTerritory = isTerritory && plan !== "premium";
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
@@ -40,7 +45,14 @@ export default async function ManageCountryPage({ params }: { params: { code: st
 
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">{meta.continent}</p>
+          <p className="eyebrow flex items-center gap-2">
+            {meta.continent}
+            {isTerritory && (
+              <span className="rounded-full border border-line px-2 py-0.5 text-[0.625rem] font-medium normal-case tracking-normal text-muted">
+                Territory
+              </span>
+            )}
+          </p>
           <h1 className="mt-1 text-4xl md:text-5xl">
             <span aria-hidden className="mr-2">{meta.flag}</span>
             {meta.name}
@@ -63,7 +75,15 @@ export default async function ManageCountryPage({ params }: { params: { code: st
         {!visited ? (
           <div className="card px-6 py-10 text-center">
             <h2 className="font-serif text-2xl">Not on your map yet.</h2>
-            {atCountryCap ? (
+            {needsPremiumForTerritory ? (
+              <>
+                <Lock size={22} className="mx-auto mt-3 text-muted" aria-hidden />
+                <p className="mx-auto mt-3 max-w-sm text-sm text-muted">
+                  {meta.name} is a special territory - tracking those is a Premium feature, separate from your 195-country limit.
+                </p>
+                <Link href="/settings/billing" className="btn-accent mt-5">Upgrade to Premium</Link>
+              </>
+            ) : atCountryCap ? (
               <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
                 You&rsquo;ve reached the free plan&rsquo;s {countryCap}-country limit.{" "}
                 <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">

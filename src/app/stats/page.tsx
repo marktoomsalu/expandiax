@@ -6,6 +6,7 @@ import { BadgeGrid } from "@/components/BadgeGrid";
 import { WorldMap } from "@/components/WorldMap";
 import { EmptyState } from "@/components/EmptyState";
 import { CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts } from "@/lib/countries";
+import { isTerritoryCode } from "@/lib/territories";
 import { EVENT_TYPES } from "@/lib/events";
 import { evaluateBadges } from "@/lib/badges";
 import {
@@ -61,7 +62,13 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
   const countryRows = (countriesData ?? []) as CountryRow[];
   const eventRows = (eventsData ?? []) as EventRow[];
 
-  const countries: CountryStatInput[] = countryRows.map((c) => ({
+  // Territories (Greenland, Gibraltar, etc.) share this table but stay out
+  // of every count-based stat/badge below — same rule as My World and the
+  // public profile. They still show up on the map, via allCodes.
+  const realCountryRows = countryRows.filter((c) => !isTerritoryCode(c.country_code));
+  const allCodes = countryRows.map((c) => c.country_code);
+
+  const countries: CountryStatInput[] = realCountryRows.map((c) => ({
     country_code: c.country_code,
     is_favourite: c.is_favourite,
     photo_count: c.country_media?.length ?? 0,
@@ -96,8 +103,10 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
   const topRatedAllTime =
     [...events].filter((e) => e.rating != null).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))[0] ?? null;
 
-  const scopeCodes = yearStats ? yearStats.countryCodes : countries.map((c) => c.country_code);
-  const scopeContinents = continentCounts(scopeCodes);
+  const scopeCodes = yearStats
+    ? countryRows.filter((c) => c.country_visits.some((v) => v.year === selectedYear)).map((c) => c.country_code)
+    : allCodes;
+  const scopeContinents = continentCounts(yearStats ? yearStats.countryCodes : countries.map((c) => c.country_code));
   const scopeEventsByType = yearStats ? yearStats.eventsByType : allTime.eventsByType;
 
   const yearBreakdown = years.map((y) => {

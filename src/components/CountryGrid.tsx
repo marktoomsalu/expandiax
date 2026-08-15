@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { CountryCardMedia } from "./CountryCardMedia";
 import { countryByCode } from "@/lib/countries";
+import { territoryByCode, territoryFlag } from "@/lib/territories";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
 
 type VisitLite = { year: number; visited_from: string | null; visited_to: string | null };
@@ -17,8 +18,12 @@ export function CountryGrid({ countries }: { countries: Row[] }) {
     const q = query.trim().toLowerCase();
     if (!q) return countries;
     return countries.filter((c) => {
-      const meta = countryByCode(c.country_code);
-      return [c.country_name, meta?.continent, meta?.capital].filter(Boolean).join(" ").toLowerCase().includes(q);
+      const meta = countryByCode(c.country_code) ?? territoryByCode(c.country_code);
+      return [c.country_name, meta?.continent, meta && "capital" in meta ? meta.capital : null]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
     });
   }, [countries, query]);
 
@@ -41,7 +46,9 @@ export function CountryGrid({ countries }: { countries: Row[] }) {
       ) : (
         <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((c) => {
-            const meta = countryByCode(c.country_code);
+            const country = countryByCode(c.country_code);
+            const territory = country ? null : territoryByCode(c.country_code);
+            const flag = country?.flag ?? (territory ? territoryFlag(territory.code) : undefined);
             const cover =
               c.country_media.find((m) => m.id === c.cover_media_id) ??
               [...c.country_media].sort((a, b) => a.display_order - b.display_order)[0];
@@ -58,13 +65,13 @@ export function CountryGrid({ countries }: { countries: Row[] }) {
                       <CountryCardMedia
                         media={media}
                         alt={`Photo from ${c.country_name}`}
-                        flag={meta?.flag}
+                        flag={flag}
                         name={c.country_name}
                         detail={detail}
                       />
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
-                        <span className="font-serif text-5xl opacity-60" aria-hidden>{meta?.flag}</span>
+                        <span className="font-serif text-5xl opacity-60" aria-hidden>{flag}</span>
                         <div>
                           <p className="font-serif text-lg">{c.country_name}</p>
                           <p className="mt-0.5 text-xs text-muted">
@@ -75,6 +82,9 @@ export function CountryGrid({ countries }: { countries: Row[] }) {
                     )}
                     {c.is_favourite && (
                       <span className="absolute left-3 top-3 rounded-full bg-canvas/90 px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide text-accent">Favourite</span>
+                    )}
+                    {territory && (
+                      <span className="absolute right-3 top-3 rounded-full bg-canvas/90 px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide text-muted">Territory</span>
                     )}
                   </div>
                 </Link>

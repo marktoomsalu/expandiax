@@ -8,12 +8,10 @@ export function MapNavigator({
   visitedCodes,
   visitCounts,
   homeCode,
-  visitedTerritoryCodes,
 }: {
   visitedCodes: string[];
   visitCounts?: Record<string, number>;
   homeCode?: string | null;
-  visitedTerritoryCodes?: string[];
 }) {
   const router = useRouter();
   const go = (code: string) => router.push(`/my-world/${code.toLowerCase()}`);
@@ -26,7 +24,6 @@ export function MapNavigator({
           visitCounts={visitCounts}
           homeCode={homeCode}
           onSelect={go}
-          visitedTerritoryCodes={visitedTerritoryCodes}
         />
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line px-2 pb-1 pt-3 text-xs text-muted">
           <span className="flex items-center gap-2">

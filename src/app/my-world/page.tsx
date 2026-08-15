@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, MapPin, Plus } from "lucide-react";
+import { BarChart3, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { MapNavigator } from "@/components/MapNavigator";
@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ContinentCard } from "@/components/ContinentCard";
 import { CountryGrid } from "@/components/CountryGrid";
 import { COUNTRIES, CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
+import { isTerritoryCode, TOTAL_TERRITORIES } from "@/lib/territories";
 import { visitSortKey } from "@/lib/utils";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
 
@@ -28,21 +29,26 @@ export default async function MyWorldPage() {
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const [{ data }, { data: profile }, { data: territoriesData }] = await Promise.all([
+  const [{ data }, { data: profile }] = await Promise.all([
     supabase
       .from("visited_countries")
       .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to)")
       .eq("user_id", user.id),
     supabase.from("profiles").select("home_country_code").eq("id", user.id).single(),
-    supabase.from("visited_territories").select("territory_code").eq("user_id", user.id),
   ]);
 
+  // Territories (Greenland, Gibraltar, etc.) live in this same table now —
+  // codes/visitCounts stay unfiltered (so they show on the map and in "Your
+  // countries" below), but the 195-count/%/continents specifically only
+  // ever look at real countries.
   const countries = [...((data ?? []) as Row[])].sort((a, b) => travelRecency(b).localeCompare(travelRecency(a)));
+  const realCountries = countries.filter((c) => !isTerritoryCode(c.country_code));
+  const territoryCount = countries.length - realCountries.length;
   const codes = countries.map((c) => c.country_code);
-  const territoryCodes = (territoriesData ?? []).map((t) => t.territory_code);
+  const countryCodes = realCountries.map((c) => c.country_code);
   const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
-  const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
-  const continents = continentCounts(codes);
+  const pct = Math.round((countryCodes.length / TOTAL_COUNTRIES) * 1000) / 10;
+  const continents = continentCounts(countryCodes);
   const visitedContinents = continents.filter((c) => c.visited > 0).length;
   const visitedSet = new Set(codes);
   const countriesByContinent = new Map<
@@ -63,7 +69,7 @@ export default async function MyWorldPage() {
         <div>
           <p className="eyebrow">My World</p>
           <h1 className="mt-2 text-3xl md:text-4xl">
-            {codes.length === 0 ? "Your map, still quiet." : `${codes.length} of ${TOTAL_COUNTRIES} countries.`}
+            {codes.length === 0 ? "Your map, still quiet." : `${countryCodes.length} of ${TOTAL_COUNTRIES} countries.`}
           </h1>
         </div>
         {latest && (
@@ -73,13 +79,12 @@ export default async function MyWorldPage() {
         )}
         <div className="flex items-center gap-3">
           <Link href="/stats" className="btn-ghost !py-2 text-sm"><BarChart3 size={16} /> Stats</Link>
-          <Link href="/my-world/territories" className="btn-ghost !py-2 text-sm"><MapPin size={16} /> Territories</Link>
           <Link href="#country-search" className="btn-accent"><Plus size={17} /> Add country</Link>
         </div>
       </div>
 
       <div className="mt-8">
-        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} visitedTerritoryCodes={territoryCodes} />
+        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} />
       </div>
 
       {codes.length === 0 ? (
@@ -94,10 +99,13 @@ export default async function MyWorldPage() {
       ) : (
         <>
           <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="Countries" value={codes.length} detail={`of ${TOTAL_COUNTRIES} recognised countries`} />
+            <StatCard label="Countries" value={countryCodes.length} detail={`of ${TOTAL_COUNTRIES} recognised countries`} />
+            {territoryCount > 0 && (
+              <StatCard label="Territories" value={territoryCount} detail={`of ${TOTAL_TERRITORIES} tracked - separate from your 195`} />
+            )}
             <StatCard label="World explored" value={`${pct}%`} detail="and counting" />
             <StatCard label="Continents" value={`${visitedContinents}/6`} detail="have your footprints" />
-            <StatCard label="Photos kept" value={countries.reduce((n, c) => n + c.country_media.length, 0)} detail="memories in your archive" />
+            <StatCard label="Photos kept" value={realCountries.reduce((n, c) => n + c.country_media.length, 0)} detail="memories in your archive" />
           </div>
 
           <section className="mt-10" aria-labelledby="continents-h">

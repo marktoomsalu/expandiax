@@ -3,7 +3,15 @@
 import { useId, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { COUNTRIES } from "@/lib/countries";
+import { TERRITORIES, territoryFlag } from "@/lib/territories";
 import { cn } from "@/lib/utils";
+
+type Result = { code: string; name: string; flag: string; isTerritory: boolean };
+
+const ALL_RESULTS: Result[] = [
+  ...COUNTRIES.map((c) => ({ code: c.code, name: c.name, flag: c.flag, isTerritory: false })),
+  ...TERRITORIES.map((t) => ({ code: t.code, name: t.name, flag: territoryFlag(t.code), isTerritory: true })),
+];
 
 type Props = {
   onSelect: (code: string) => void;
@@ -12,7 +20,7 @@ type Props = {
   className?: string;
 };
 
-export function CountrySearch({ onSelect, visitedCodes = [], placeholder = "Search all 195 countries…", className }: Props) {
+export function CountrySearch({ onSelect, visitedCodes = [], placeholder = "Search countries & territories…", className }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -23,7 +31,7 @@ export function CountrySearch({ onSelect, visitedCodes = [], placeholder = "Sear
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return COUNTRIES.filter(
+    return ALL_RESULTS.filter(
       (c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase() === q
     ).slice(0, 8);
   }, [query]);
@@ -94,9 +102,14 @@ export function CountrySearch({ onSelect, visitedCodes = [], placeholder = "Sear
               }}
               onMouseEnter={() => setActiveIndex(i)}
             >
-              <span>
-                <span aria-hidden className="mr-2">{c.flag}</span>
+              <span className="flex items-center gap-2">
+                <span aria-hidden>{c.flag}</span>
                 {c.name}
+                {c.isTerritory && (
+                  <span className="rounded-full border border-line px-1.5 py-0.5 text-[0.625rem] font-medium text-muted">
+                    Territory
+                  </span>
+                )}
               </span>
               {visited.has(c.code) && <span className="text-xs text-accent">Visited</span>}
             </li>

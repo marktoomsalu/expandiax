@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { ArrowLeft, ArrowRight, Pencil } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
+import { territoryByCode, territoryToMeta } from "@/lib/territories";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
 import { ShareButton } from "@/components/ShareButton";
@@ -19,7 +20,9 @@ export async function generateMetadata({
 }: {
   params: { username: string; code: string };
 }): Promise<Metadata> {
-  const meta = countryByCode(params.code);
+  const recognisedCountry = countryByCode(params.code);
+  const territory = recognisedCountry ? null : territoryByCode(params.code);
+  const meta = recognisedCountry ?? (territory ? territoryToMeta(territory) : null);
   if (!meta) return { title: "Country" };
 
   const supabase = createClient();
@@ -59,8 +62,11 @@ export default async function PublicCountryPage({
 }: {
   params: { username: string; code: string };
 }) {
-  const meta = countryByCode(params.code);
+  const recognisedCountry = countryByCode(params.code);
+  const territory = recognisedCountry ? null : territoryByCode(params.code);
+  const meta = recognisedCountry ?? (territory ? territoryToMeta(territory) : null);
   if (!meta) notFound();
+  const isTerritory = !!territory;
 
   const supabase = createClient();
   const { data: profile } = await supabase
@@ -154,7 +160,14 @@ export default async function PublicCountryPage({
 
         <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="eyebrow">{meta.continent}{years.length > 0 && <> · {years.join(" · ")}</>}</p>
+            <p className="eyebrow flex items-center gap-2">
+              {meta.continent}{years.length > 0 && <> · {years.join(" · ")}</>}
+              {isTerritory && (
+                <span className="rounded-full border border-line px-2 py-0.5 text-[0.625rem] font-medium normal-case tracking-normal text-muted">
+                  Territory
+                </span>
+              )}
+            </p>
             <h1 className="mt-2 text-4xl md:text-5xl">
               <span aria-hidden className="mr-2">{meta.flag}</span>{meta.name}
             </h1>
