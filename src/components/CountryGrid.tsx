@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { CountryCardMedia } from "./CountryCardMedia";
 import { countryByCode } from "@/lib/countries";
-import { territoryByCode, territoryFlag } from "@/lib/territories";
+import { territoryByCode, territoryFlagFor } from "@/lib/territories";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
 
 type VisitLite = { year: number; visited_from: string | null; visited_to: string | null };
@@ -48,7 +48,7 @@ export function CountryGrid({ countries }: { countries: Row[] }) {
           {shown.map((c) => {
             const country = countryByCode(c.country_code);
             const territory = country ? null : territoryByCode(c.country_code);
-            const flag = country?.flag ?? (territory ? territoryFlag(territory.code) : undefined);
+            const flag = country?.flag ?? (territory ? territoryFlagFor(territory) : undefined);
             const cover =
               c.country_media.find((m) => m.id === c.cover_media_id) ??
               [...c.country_media].sort((a, b) => a.display_order - b.display_order)[0];

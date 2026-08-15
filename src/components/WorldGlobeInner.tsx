@@ -7,7 +7,7 @@ import Globe, { type GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import { countryByNumeric } from "@/lib/countries";
-import { territoryByNumeric, territoryFlag } from "@/lib/territories";
+import { territoryByNumeric, territoryFlagFor } from "@/lib/territories";
 
 const GEO_URL = "/data/world-110m.json";
 const MIN_ALTITUDE = 0.5;
@@ -147,7 +147,7 @@ export function WorldGlobeInner({
     const c = countryByNumeric(String(f.id));
     if (c) return { code: c.code, name: c.name, flag: c.flag, isTerritory: false };
     const t = territoryByNumeric(String(f.id));
-    if (t) return { code: t.code, name: t.name, flag: territoryFlag(t.code), isTerritory: true };
+    if (t) return { code: t.code, name: t.name, flag: territoryFlagFor(t), isTerritory: true };
     return undefined;
   }
 

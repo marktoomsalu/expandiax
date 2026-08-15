@@ -51,7 +51,10 @@ create table public.billing (
 create table public.visited_countries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
-  country_code text not null check (country_code ~ '^[A-Z]{2}$'),
+  -- Plain ISO 3166-1 alpha-2 for the 195 countries and most territories,
+  -- or an ISO 3166-2 subdivision code ("PT-20") for the handful of
+  -- territories with no country-level ISO code of their own.
+  country_code text not null check (country_code ~ '^[A-Z]{2}(-[A-Z0-9]{1,3})?$'),
   country_name text not null,
   cover_media_id uuid, -- FK added below (circular reference)
   is_favourite boolean not null default false,
@@ -143,7 +146,9 @@ create table public.visited_us_states (
 -- infrastructure), Premium-gated there, and excluded from
 -- TOTAL_COUNTRIES-based stats in app code — never at the database level.
 create table public.territories (
-  code text primary key check (code ~ '^[A-Z]{2}$'),
+  -- Same shape as visited_countries.country_code above — plain alpha-2,
+  -- or an ISO 3166-2 subdivision code for the no-ISO-3166-1-code cases.
+  code text primary key check (code ~ '^[A-Z]{2}(-[A-Z0-9]{1,3})?$'),
   name text not null
 );
 
@@ -154,7 +159,8 @@ insert into public.territories (code, name) values
   ('PR', 'Puerto Rico'), ('VI', 'US Virgin Islands'), ('VG', 'British Virgin Islands'), ('KY', 'Cayman Islands'), ('BM', 'Bermuda'),
   ('AW', 'Aruba'), ('CW', 'Curaçao'), ('SX', 'Sint Maarten'), ('TC', 'Turks and Caicos Islands'), ('AI', 'Anguilla'), ('MS', 'Montserrat'), ('GP', 'Guadeloupe'), ('MQ', 'Martinique'),
   ('GU', 'Guam'), ('AS', 'American Samoa'), ('MP', 'Northern Mariana Islands'), ('PF', 'French Polynesia'), ('NC', 'New Caledonia'), ('CK', 'Cook Islands'), ('NU', 'Niue'),
-  ('GF', 'French Guiana'), ('RE', 'Réunion'), ('YT', 'Mayotte'), ('FK', 'Falkland Islands'), ('SH', 'Saint Helena');
+  ('GF', 'French Guiana'), ('RE', 'Réunion'), ('YT', 'Mayotte'), ('FK', 'Falkland Islands'), ('SH', 'Saint Helena'),
+  ('PT-20', 'Azores'), ('PT-30', 'Madeira'), ('ES-CN', 'Canary Islands');
 
 -- Events: concerts, festivals, sport, conferences, personal occasions
 -- (weddings etc.) or anything else — event_type is just a label, every

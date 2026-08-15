@@ -3,14 +3,14 @@
 import { useId, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { COUNTRIES } from "@/lib/countries";
-import { TERRITORIES, territoryFlag } from "@/lib/territories";
+import { TERRITORIES, territoryFlagFor } from "@/lib/territories";
 import { cn } from "@/lib/utils";
 
 type Result = { code: string; name: string; flag: string; isTerritory: boolean };
 
 const ALL_RESULTS: Result[] = [
   ...COUNTRIES.map((c) => ({ code: c.code, name: c.name, flag: c.flag, isTerritory: false })),
-  ...TERRITORIES.map((t) => ({ code: t.code, name: t.name, flag: territoryFlag(t.code), isTerritory: true })),
+  ...TERRITORIES.map((t) => ({ code: t.code, name: t.name, flag: territoryFlagFor(t), isTerritory: true })),
 ];
 
 type Props = {
