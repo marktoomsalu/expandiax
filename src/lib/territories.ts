@@ -65,3 +65,10 @@ export function territoryByNumeric(numeric: string): Territory | undefined {
 export function territoryByCode(code: string | null | undefined): Territory | undefined {
   return code ? byCode.get(code.toUpperCase()) : undefined;
 }
+
+// Territories don't carry a hardcoded flag like COUNTRIES does — computed
+// from the alpha-2 code instead (each letter maps to a Regional Indicator
+// Symbol; every territory code here has a valid one, Antarctica included).
+export function territoryFlag(code: string): string {
+  return String.fromCodePoint(...[...code.toUpperCase()].map((c) => 127397 + c.charCodeAt(0)));
+}

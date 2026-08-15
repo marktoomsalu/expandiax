@@ -281,7 +281,13 @@ export default async function PublicProfilePage({ params }: { params: { username
 
       {/* Map */}
       <div className="mt-10 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">
-        <WorldMapLink visitedCodes={codes} visitCounts={visitCounts} homeCode={profile.home_country_code} username={profile.username} />
+        <WorldMapLink
+          visitedCodes={codes}
+          visitCounts={visitCounts}
+          homeCode={profile.home_country_code}
+          username={profile.username}
+          visitedTerritoryCodes={territories.map((t) => t.territory_code)}
+        />
       </div>
 
       {/* US States */}

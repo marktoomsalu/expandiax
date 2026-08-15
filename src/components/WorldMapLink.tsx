@@ -8,11 +8,13 @@ export function WorldMapLink({
   visitCounts,
   homeCode,
   username,
+  visitedTerritoryCodes,
 }: {
   visitedCodes: string[];
   visitCounts?: Record<string, number>;
   homeCode?: string | null;
   username: string;
+  visitedTerritoryCodes?: string[];
 }) {
   const router = useRouter();
   const set = new Set(visitedCodes);
@@ -21,6 +23,7 @@ export function WorldMapLink({
       visitedCodes={visitedCodes}
       visitCounts={visitCounts}
       homeCode={homeCode}
+      visitedTerritoryCodes={visitedTerritoryCodes}
       onSelect={(code) => {
         if (set.has(code)) router.push(`/u/${username}/countries/${code.toLowerCase()}`);
       }}

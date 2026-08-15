@@ -7,6 +7,7 @@ import Globe, { type GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import { countryByNumeric } from "@/lib/countries";
+import { territoryByNumeric, territoryFlag } from "@/lib/territories";
 
 const GEO_URL = "/data/world-110m.json";
 const MIN_ALTITUDE = 0.5;
@@ -25,6 +26,12 @@ type Props = {
   onSelect?: (code: string) => void;
   interactive?: boolean;
   className?: string;
+  // A handful of special territories (Greenland, New Caledonia, Puerto
+  // Rico — whichever ones happen to have their own shape at this map's
+  // resolution) light up the same as a visited country when passed here.
+  // There's no /my-world/[code] page for them, so unlike countries they're
+  // shown but not clickable.
+  visitedTerritoryCodes?: string[];
 };
 
 export function WorldGlobeInner({
@@ -34,6 +41,7 @@ export function WorldGlobeInner({
   onSelect,
   interactive = true,
   className,
+  visitedTerritoryCodes,
 }: Props) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -44,6 +52,7 @@ export function WorldGlobeInner({
   const [size, setSize] = useState({ width: 320, height: 320 });
 
   const visited = useMemo(() => new Set(visitedCodes), [visitedCodes]);
+  const visitedTerritories = useMemo(() => new Set(visitedTerritoryCodes ?? []), [visitedTerritoryCodes]);
 
   useEffect(() => {
     let alive = true;
@@ -98,6 +107,14 @@ export function WorldGlobeInner({
     return countryByNumeric(String(f.id));
   }
 
+  function placeOf(f: GeoFeature): { code: string; name: string; flag: string; isTerritory: boolean } | undefined {
+    const c = countryByNumeric(String(f.id));
+    if (c) return { code: c.code, name: c.name, flag: c.flag, isTerritory: false };
+    const t = territoryByNumeric(String(f.id));
+    if (t) return { code: t.code, name: t.name, flag: territoryFlag(t.code), isTerritory: true };
+    return undefined;
+  }
+
   function zoomBy(factor: number) {
     const g = globeRef.current;
     if (!g) return;
@@ -125,11 +142,11 @@ export function WorldGlobeInner({
           atmosphereAltitude={0.22}
           polygonsData={features}
           polygonCapColor={(f) => {
-            const c = countryOf(f as GeoFeature);
-            const isHome = c && homeCode ? c.code === homeCode : false;
-            const isVisited = c ? visited.has(c.code) : false;
+            const p = placeOf(f as GeoFeature);
+            const isHome = p && !p.isTerritory && homeCode ? p.code === homeCode : false;
+            const isVisited = p ? (p.isTerritory ? visitedTerritories.has(p.code) : visited.has(p.code)) : false;
             const isHover = (f as GeoFeature).id === hoverId;
-            const count = c ? visitCounts?.[c.code] ?? 0 : 0;
+            const count = p && !p.isTerritory ? visitCounts?.[p.code] ?? 0 : 0;
             if (isHome) return isHover ? "rgba(250,176,63,1)" : "rgba(245,158,11,0.95)";
             if (isVisited) {
               // Countries visited more than once glow a shade brighter.
@@ -144,12 +161,12 @@ export function WorldGlobeInner({
           polygonAltitude={(f) => ((f as GeoFeature).id === hoverId ? 0.02 : 0.006)}
           polygonsTransitionDuration={200}
           polygonLabel={(f) => {
-            const c = countryOf(f as GeoFeature);
-            if (!c) return "";
-            const isHome = homeCode && c.code === homeCode;
-            const count = visitCounts?.[c.code] ?? 0;
+            const p = placeOf(f as GeoFeature);
+            if (!p) return "";
+            const isHome = !p.isTerritory && homeCode && p.code === homeCode;
+            const count = !p.isTerritory ? visitCounts?.[p.code] ?? 0 : 0;
             const suffix = count >= 2 ? ` · visited ${count}×` : "";
-            return `${c.flag} ${c.name}${isHome ? " · Home" : ""}${suffix}`;
+            return `${p.flag} ${p.name}${isHome ? " · Home" : ""}${p.isTerritory ? " · Territory" : suffix}`;
           }}
           onPolygonHover={(f) => setHoverId(f ? (f as GeoFeature).id : null)}
           onPolygonClick={(f) => {

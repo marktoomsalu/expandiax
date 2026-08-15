@@ -28,16 +28,18 @@ export default async function MyWorldPage() {
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const [{ data }, { data: profile }] = await Promise.all([
+  const [{ data }, { data: profile }, { data: territoriesData }] = await Promise.all([
     supabase
       .from("visited_countries")
       .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to)")
       .eq("user_id", user.id),
     supabase.from("profiles").select("home_country_code").eq("id", user.id).single(),
+    supabase.from("visited_territories").select("territory_code").eq("user_id", user.id),
   ]);
 
   const countries = [...((data ?? []) as Row[])].sort((a, b) => travelRecency(b).localeCompare(travelRecency(a)));
   const codes = countries.map((c) => c.country_code);
+  const territoryCodes = (territoriesData ?? []).map((t) => t.territory_code);
   const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
   const continents = continentCounts(codes);
@@ -77,7 +79,7 @@ export default async function MyWorldPage() {
       </div>
 
       <div className="mt-8">
-        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} />
+        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} visitedTerritoryCodes={territoryCodes} />
       </div>
 
       {codes.length === 0 ? (
