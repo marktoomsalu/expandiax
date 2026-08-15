@@ -24,6 +24,45 @@ type GeoFeature = {
   geometry: unknown;
 };
 
+type Ring = number[][];
+type PolygonCoords = Ring[];
+type MultiPolygonGeometry = { type: "MultiPolygon"; coordinates: PolygonCoords[] };
+
+// At this map's resolution, France's feature (id 250) is a MultiPolygon
+// whose parts are mainland France, Corsica, and — unlike every other
+// French/UK/Dutch overseas territory in our list, which simply has no
+// shape at all here — French Guiana, bundled in as if it were part of the
+// same landmass. Left alone, visiting France would paint French Guiana
+// too, with no way to select it on its own. So it gets carved out into
+// its own feature (id 254, French Guiana's ISO numeric) before render.
+function splitFrenchGuianaFromFrance(features: GeoFeature[]): GeoFeature[] {
+  const franceIdx = features.findIndex((f) => f.id === "250");
+  if (franceIdx === -1) return features;
+  const france = features[franceIdx];
+  const geometry = france.geometry as { type: string; coordinates: PolygonCoords[] };
+  if (geometry.type !== "MultiPolygon") return features;
+
+  const guiana: PolygonCoords[] = [];
+  const mainland: PolygonCoords[] = [];
+  for (const poly of geometry.coordinates) {
+    const [lon] = poly[0][0];
+    (lon < -40 ? guiana : mainland).push(poly);
+  }
+  if (guiana.length === 0) return features;
+
+  const next = [...features];
+  next[franceIdx] = { ...france, geometry: { type: "MultiPolygon", coordinates: mainland } as MultiPolygonGeometry };
+  next.push({
+    id: "254",
+    properties: { name: "French Guiana" },
+    geometry:
+      guiana.length > 1
+        ? ({ type: "MultiPolygon", coordinates: guiana } as MultiPolygonGeometry)
+        : { type: "Polygon", coordinates: guiana[0] },
+  });
+  return next;
+}
+
 type Props = {
   // Territories (Greenland, New Caledonia, Puerto Rico — whichever ones
   // happen to have their own shape at this map's resolution) share the
@@ -64,7 +103,7 @@ export function WorldGlobeInner({
           topology,
           topology.objects.countries as GeometryCollection
         ) as unknown as { features: GeoFeature[] };
-        if (alive) setFeatures(collection.features.filter((f) => f.id !== "010"));
+        if (alive) setFeatures(splitFrenchGuianaFromFrance(collection.features.filter((f) => f.id !== "010")));
       });
     return () => {
       alive = false;
