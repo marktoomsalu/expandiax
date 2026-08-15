@@ -30,9 +30,19 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
   // RevenueCat SDK errors are internal/debug-oriented (URLs, config
   // diagnostics) — never show them to a real user, just log for our own
   // debugging and surface a generic message instead.
+  //
+  // TEMPORARY: appending the raw error to the visible message too, to
+  // debug a live device without USB access to a console. Revert once
+  // resolved — see reportPurchaseError in git history for the clean version.
   function reportPurchaseError(e: unknown, fallback: string) {
     console.error(e);
-    setError(fallback);
+    let raw = "";
+    try {
+      raw = e instanceof Error ? e.message : JSON.stringify(e);
+    } catch {
+      raw = String(e);
+    }
+    setError(`${fallback}\n\n[debug] ${raw}`);
   }
 
   async function buyNative() {
@@ -87,7 +97,7 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
         <button type="button" className="btn-ghost mt-2 !py-2 text-sm" onClick={openAppleSubscriptions} disabled={busy}>
           {busy ? "Opening…" : "Manage subscription"}
         </button>
-        {error && <p role="alert" className="mt-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
+        {error && <p role="alert" className="mt-2 whitespace-pre-wrap text-sm text-red-800 dark:text-red-400">{error}</p>}
       </div>
     );
   }
@@ -98,7 +108,7 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
         <button type="button" className="btn-ghost" onClick={() => goStripe("/api/stripe/portal")} disabled={busy}>
           {busy ? "Opening…" : "Manage subscription"}
         </button>
-        {error && <p role="alert" className="mt-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
+        {error && <p role="alert" className="mt-2 whitespace-pre-wrap text-sm text-red-800 dark:text-red-400">{error}</p>}
       </div>
     );
   }
@@ -112,7 +122,7 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
         <button type="button" className="btn-ghost mt-2 block !py-2 text-sm" onClick={restoreNative} disabled={busy}>
           Restore purchases
         </button>
-        {error && <p role="alert" className="mt-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
+        {error && <p role="alert" className="mt-2 whitespace-pre-wrap text-sm text-red-800 dark:text-red-400">{error}</p>}
       </div>
     );
   }
@@ -122,7 +132,7 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
       <button type="button" className="btn-accent" onClick={() => goStripe("/api/stripe/checkout")} disabled={busy}>
         {busy ? "Redirecting…" : "Upgrade to Premium"}
       </button>
-      {error && <p role="alert" className="mt-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
+      {error && <p role="alert" className="mt-2 whitespace-pre-wrap text-sm text-red-800 dark:text-red-400">{error}</p>}
     </div>
   );
 }
