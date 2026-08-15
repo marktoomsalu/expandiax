@@ -886,6 +886,21 @@ create policy "users mark own notifications read" on public.notifications for up
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
+-- Lets a recipient see the basic profile (name/avatar) of whoever
+-- generated a notification for them, even if that actor's own profile
+-- visibility is friends-only/private — attribution for an action taken on
+-- your own content, not access to browse their trips/events (those stay
+-- gated by their own separate, unaffected policies).
+create policy "notified users can see the actor's profile"
+  on public.profiles for select
+  using (
+    exists (
+      select 1 from public.notifications
+      where notifications.actor_id = profiles.id
+        and notifications.user_id = auth.uid()
+    )
+  );
+
 create or replace function public.notify_on_like()
 returns trigger
 language plpgsql security definer set search_path = public
