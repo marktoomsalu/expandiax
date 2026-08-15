@@ -20,6 +20,7 @@ const TITLES: Record<NotificationKind, string> = {
   follow: "New follower",
   follow_request: "Follow request",
   follow_accepted: "Follow request accepted",
+  premium_upsell: "Go Premium",
 };
 
 export async function POST(request: NextRequest) {
@@ -55,6 +56,8 @@ export async function POST(request: NextRequest) {
         return `${actorName} wants to follow you`;
       case "follow_accepted":
         return `${actorName} accepted your follow request`;
+      case "premium_upsell":
+        return "Unlimited countries & events, more photos and videos, and US States tracking.";
       default:
         return `${actorName} commented: "${record.comment_body ?? ""}"`;
     }

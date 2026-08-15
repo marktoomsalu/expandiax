@@ -136,7 +136,7 @@ export type CommentWithAuthor = Comment & {
   profiles: Pick<Profile, "username" | "display_name" | "avatar_url"> | null;
 };
 
-export type NotificationKind = "like" | "comment" | "follow" | "follow_request" | "follow_accepted";
+export type NotificationKind = "like" | "comment" | "follow" | "follow_request" | "follow_accepted" | "premium_upsell";
 
 export type Notification = {
   id: string;

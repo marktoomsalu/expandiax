@@ -911,7 +911,7 @@ create table public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
   actor_id uuid not null references public.profiles (id) on delete cascade,
-  kind text not null check (kind in ('like', 'comment', 'follow', 'follow_request', 'follow_accepted')),
+  kind text not null check (kind in ('like', 'comment', 'follow', 'follow_request', 'follow_accepted', 'premium_upsell')),
   target_kind text check (target_kind in ('country', 'event')),
   target_id uuid,
   comment_body text,
