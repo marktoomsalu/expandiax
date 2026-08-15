@@ -55,7 +55,7 @@ export function VisitDateFields({
           min={1900}
           max={2100}
           placeholder="2024"
-          className="field !w-20 !py-1.5 text-sm"
+          className="field !w-20 !py-1.5"
           value={year}
           onChange={(e) => onYearChange(e.target.value)}
         />
