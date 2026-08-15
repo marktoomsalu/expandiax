@@ -77,8 +77,16 @@ export default async function PublicProfilePage({ params }: { params: { username
   const viewer = await getAuthUser();
   const isOwnProfile = viewer?.id === profile.id;
 
-  const [{ data: countriesData }, { data: eventsData }, { data: usStatesData }, { count: followerCount }, { count: followingCount }, { data: followingRow }] =
-    await Promise.all([
+  const [
+    { data: countriesData },
+    { data: eventsData },
+    { data: usStatesData },
+    { count: followerCount },
+    { count: followingCount },
+    { data: followingRow },
+    { data: followedByRow },
+    { data: pendingRequestRow },
+  ] = await Promise.all([
       supabase
         .from("visited_countries")
         .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(id, year, visited_from, visited_to, date_precision, highlight)")
@@ -96,9 +104,26 @@ export default async function PublicProfilePage({ params }: { params: { username
       viewer && !isOwnProfile
         ? supabase.from("follows").select("follower_id").eq("follower_id", viewer.id).eq("followee_id", profile.id).maybeSingle()
         : Promise.resolve({ data: null }),
+      viewer && !isOwnProfile
+        ? supabase.from("follows").select("follower_id").eq("follower_id", profile.id).eq("followee_id", viewer.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      viewer && !isOwnProfile
+        ? supabase.from("follow_requests").select("requester_id").eq("requester_id", viewer.id).eq("target_id", profile.id).maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
   const isFollowing = !!followingRow;
+  const followedBy = !!followedByRow;
+  const hasPendingRequest = !!pendingRequestRow;
+  // Mirrors is_profile_public()'s logic — friends unlocks via mutual
+  // follow, private unlocks once the target has accepted a follow request
+  // (which is the only way isFollowing can be true for a private profile,
+  // since direct follows into private profiles are blocked at the DB).
+  const hasAccess =
+    isOwnProfile ||
+    profile.visibility === "public" ||
+    (profile.visibility === "friends" && isFollowing && followedBy) ||
+    (profile.visibility === "private" && isFollowing);
   const countries = (countriesData ?? []) as CountryRow[];
   const events = (eventsData ?? []) as EventRow[];
   const usStates = (usStatesData ?? []) as VisitedUSState[];
@@ -185,7 +210,14 @@ export default async function PublicProfilePage({ params }: { params: { username
                 <Sparkles size={12} /> Premium
               </span>
             )}
-            {!isOwnProfile && viewer && <FollowButton targetId={profile.id} initialFollowing={isFollowing} />}
+            {!isOwnProfile && viewer && (
+              <FollowButton
+                targetId={profile.id}
+                visibility={profile.visibility}
+                initialFollowing={isFollowing}
+                initialRequested={hasPendingRequest}
+              />
+            )}
             {isOwnProfile && (
               <>
                 <Link href="/settings" className="btn-ghost !py-2 text-sm">
@@ -215,6 +247,8 @@ export default async function PublicProfilePage({ params }: { params: { username
         </div>
       </header>
 
+      {hasAccess ? (
+        <>
       {/* Stats */}
       <div className="mt-10 grid grid-cols-2 gap-y-6 sm:flex sm:flex-wrap sm:gap-x-10">
         {stat(codes.length, "Countries")}
@@ -390,6 +424,21 @@ export default async function PublicProfilePage({ params }: { params: { username
         <p className="mt-14 text-center text-sm text-muted">
           {profile.display_name} hasn&rsquo;t added any public memories yet.
         </p>
+      )}
+        </>
+      ) : (
+        <div className="mt-14 text-center">
+          <p className="text-lg">
+            This world is {profile.visibility === "private" ? "private" : "for friends only"}.
+          </p>
+          <p className="mt-2 text-sm text-muted">
+            {hasPendingRequest
+              ? "Your follow request is waiting for approval."
+              : profile.visibility === "private"
+                ? `Request to follow ${profile.display_name} to see their trips and events.`
+                : `Follow each other to see ${profile.display_name}'s trips and events.`}
+          </p>
+        </div>
       )}
 
       {!isOwnProfile && (

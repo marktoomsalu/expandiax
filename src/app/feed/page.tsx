@@ -147,7 +147,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
                 </Link>
                 <p className="text-xs text-muted">{countsByUser.get(p.id) ?? 0} countries</p>
                 <div className="mt-2">
-                  <FollowButton targetId={p.id} initialFollowing={false} />
+                  <FollowButton targetId={p.id} visibility="public" initialFollowing={false} />
                 </div>
               </div>
             ))}

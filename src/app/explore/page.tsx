@@ -1,14 +1,22 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Search } from "lucide-react";
+import { Lock, Search } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { RatingStars } from "@/components/Rating";
 import { formatDate } from "@/lib/utils";
+import type { ProfileVisibility } from "@/lib/types";
 
 export const metadata = { title: "Explore" };
 export const revalidate = 60;
 
-type ProfileLite = { id: string; username: string; display_name: string; avatar_url: string | null; bio: string };
+type ProfileLite = {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string;
+  visibility?: ProfileVisibility;
+};
 
 function ProfileCard({ p, detail }: { p: ProfileLite; detail: string }) {
   return (
@@ -21,7 +29,10 @@ function ProfileCard({ p, detail }: { p: ProfileLite; detail: string }) {
         </span>
       )}
       <div className="min-w-0">
-        <p className="font-serif text-lg group-hover:text-accent">{p.display_name}</p>
+        <p className="flex items-center gap-1.5 font-serif text-lg group-hover:text-accent">
+          {p.display_name}
+          {p.visibility && p.visibility !== "public" && <Lock size={13} className="shrink-0 text-muted" aria-label="Private account" />}
+        </p>
         <p className="truncate text-xs text-muted">{detail}</p>
       </div>
     </Link>
@@ -59,9 +70,14 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
   let searchResults: ProfileLite[] = [];
   if (q) {
     const like = `%${q}%`;
+    // Unlike "featured"/"suggested" below, search intentionally isn't
+    // restricted to public profiles — private/friends-only accounts should
+    // still be findable by name so they can be followed/requested, per the
+    // "authenticated users can discover any profile" RLS policy. Their
+    // trip/event content stays gated regardless of showing up here.
     const [{ data: byUsername }, { data: byName }] = await Promise.all([
-      supabase.from("profiles").select("id, username, display_name, avatar_url, bio").eq("visibility", "public").ilike("username", like).limit(20),
-      supabase.from("profiles").select("id, username, display_name, avatar_url, bio").eq("visibility", "public").ilike("display_name", like).limit(20),
+      supabase.from("profiles").select("id, username, display_name, avatar_url, bio, visibility").ilike("username", like).limit(20),
+      supabase.from("profiles").select("id, username, display_name, avatar_url, bio, visibility").ilike("display_name", like).limit(20),
     ]);
     const map = new Map<string, ProfileLite>();
     for (const p of [...(byUsername ?? []), ...(byName ?? [])] as ProfileLite[]) map.set(p.id, p);
@@ -108,7 +124,7 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
         <section className="mt-10" aria-labelledby="sr-h">
           <h2 id="sr-h" className="text-2xl">Results for &ldquo;{q}&rdquo;</h2>
           {searchResults.length === 0 ? (
-            <p className="mt-4 text-sm text-muted">No public travellers match that search.</p>
+            <p className="mt-4 text-sm text-muted">No travellers match that search.</p>
           ) : (
             <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {searchResults.map((p) => (

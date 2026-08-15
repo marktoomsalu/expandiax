@@ -1,16 +1,17 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { Heart, MessageCircle, UserPlus } from "lucide-react";
+import { Clock, Heart, MessageCircle, UserCheck, UserPlus } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
+import { FollowRequestActions } from "@/components/FollowRequestActions";
 import { countryByCode } from "@/lib/countries";
 import { formatRelative } from "@/lib/utils";
 import type { NotificationWithActor } from "@/lib/types";
 
 export const metadata = { title: "Notifications" };
 
-const ICONS = { like: Heart, comment: MessageCircle, follow: UserPlus };
+const ICONS = { like: Heart, comment: MessageCircle, follow: UserPlus, follow_request: Clock, follow_accepted: UserCheck };
 
 export default async function NotificationsPage() {
   const supabase = createClient();
@@ -46,6 +47,12 @@ export default async function NotificationsPage() {
   ]);
   const countryById = new Map((countryRows ?? []).map((r) => [r.id, r]));
   const eventById = new Map((eventRows ?? []).map((r) => [r.id, r]));
+
+  // A follow_request notification stays forever, but the request itself
+  // gets deleted the moment it's accepted or declined — only show the
+  // Accept/Decline buttons for ones that are still actually pending.
+  const { data: pendingRequests } = await supabase.from("follow_requests").select("requester_id").eq("target_id", user.id);
+  const pendingRequesterIds = new Set((pendingRequests ?? []).map((r) => r.requester_id));
 
   function target(n: NotificationWithActor): { label: string; href: string } | null {
     if (n.target_kind === "country" && n.target_id) {
@@ -86,6 +93,10 @@ export default async function NotificationsPage() {
             let text: React.ReactNode;
             if (n.kind === "follow") {
               text = <>started following you</>;
+            } else if (n.kind === "follow_request") {
+              text = <>wants to follow you</>;
+            } else if (n.kind === "follow_accepted") {
+              text = <>accepted your follow request</>;
             } else if (n.kind === "like") {
               text = t ? (
                 <>
@@ -131,6 +142,9 @@ export default async function NotificationsPage() {
                     {text}
                   </p>
                   <p className="mt-1 text-xs text-muted">{formatRelative(n.created_at)}</p>
+                  {n.kind === "follow_request" && pendingRequesterIds.has(n.actor_id) && (
+                    <FollowRequestActions requesterId={n.actor_id} />
+                  )}
                 </div>
               </li>
             );

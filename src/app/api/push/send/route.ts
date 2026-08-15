@@ -18,6 +18,8 @@ const TITLES: Record<NotificationKind, string> = {
   like: "New like",
   comment: "New comment",
   follow: "New follower",
+  follow_request: "Follow request",
+  follow_accepted: "Follow request accepted",
 };
 
 export async function POST(request: NextRequest) {
@@ -43,12 +45,20 @@ export async function POST(request: NextRequest) {
   if (!tokens || tokens.length === 0) return NextResponse.json({ ok: true, sent: 0 });
 
   const actorName = actor?.display_name ?? "Someone";
-  const body =
-    record.kind === "follow"
-      ? `${actorName} started following you`
-      : record.kind === "like"
-        ? `${actorName} liked your ${record.target_kind === "country" ? "trip" : "event"}`
-        : `${actorName} commented: "${record.comment_body ?? ""}"`;
+  const body = (() => {
+    switch (record.kind) {
+      case "follow":
+        return `${actorName} started following you`;
+      case "like":
+        return `${actorName} liked your ${record.target_kind === "country" ? "trip" : "event"}`;
+      case "follow_request":
+        return `${actorName} wants to follow you`;
+      case "follow_accepted":
+        return `${actorName} accepted your follow request`;
+      default:
+        return `${actorName} commented: "${record.comment_body ?? ""}"`;
+    }
+  })();
 
   const results = await Promise.allSettled(
     tokens.map((t) =>
