@@ -13,6 +13,7 @@ const FEATURES = [
   "Unlimited countries & events",
   "15 photos & 8 videos per entry",
   "US States tracking map",
+  "Special territories - Greenland, Gibraltar, Hong Kong & more",
   "Custom accent colour & Premium badge",
 ];
 

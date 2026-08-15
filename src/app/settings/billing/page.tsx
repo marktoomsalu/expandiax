@@ -43,6 +43,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
       <ul className="mt-6 space-y-1.5 text-sm text-muted">
         <li>· 15 photos per trip/event, 8 videos (up from 5 and 3)</li>
         <li>· US States tracking, alongside the world map</li>
+        <li>· Special territories - Greenland, Gibraltar, Hong Kong &amp; more</li>
         <li>· A custom accent color on your public profile</li>
       </ul>
 

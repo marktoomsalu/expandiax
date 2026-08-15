@@ -134,6 +134,21 @@ create table public.visited_us_states (
   unique (user_id, state_code)
 );
 
+-- Special territories (Greenland, Gibraltar, Hong Kong, etc.) — same shape
+-- and gating as visited_us_states, tracked entirely separately from
+-- visited_countries/TOTAL_COUNTRIES.
+create table public.visited_territories (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  territory_code text not null check (territory_code ~ '^[A-Z]{2}$'),
+  territory_name text not null,
+  note text not null default '' check (length(note) <= 500),
+  is_favourite boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, territory_code)
+);
+
 -- Events: concerts, festivals, sport, conferences, personal occasions
 -- (weddings etc.) or anything else — event_type is just a label, every
 -- event shares the same fields.
@@ -190,6 +205,7 @@ create index billing_stripe_customer_idx on public.billing (stripe_customer_id);
 create index billing_stripe_subscription_idx on public.billing (stripe_subscription_id);
 create index visited_countries_user_idx on public.visited_countries (user_id);
 create index visited_us_states_user_idx on public.visited_us_states (user_id);
+create index visited_territories_user_idx on public.visited_territories (user_id);
 create index country_visits_vc_idx on public.country_visits (visited_country_id);
 create index country_cities_vc_idx on public.country_cities (visited_country_id);
 create index country_media_vc_idx on public.country_media (visited_country_id, display_order);
@@ -270,6 +286,8 @@ create trigger profiles_touch before update on public.profiles
 create trigger visited_countries_touch before update on public.visited_countries
   for each row execute function public.set_updated_at();
 create trigger visited_us_states_touch before update on public.visited_us_states
+  for each row execute function public.set_updated_at();
+create trigger visited_territories_touch before update on public.visited_territories
   for each row execute function public.set_updated_at();
 create trigger events_touch before update on public.events
   for each row execute function public.set_updated_at();
@@ -432,6 +450,7 @@ alter table public.profiles enable row level security;
 alter table public.billing enable row level security;
 alter table public.visited_countries enable row level security;
 alter table public.visited_us_states enable row level security;
+alter table public.visited_territories enable row level security;
 alter table public.country_visits enable row level security;
 alter table public.country_cities enable row level security;
 alter table public.country_media enable row level security;
@@ -498,6 +517,25 @@ create policy "owner updates us states"
 
 create policy "owner deletes us states"
   on public.visited_us_states for delete using (user_id = auth.uid());
+
+-- visited_territories — same shape/gating as visited_us_states above.
+create policy "territories readable when owner or profile public"
+  on public.visited_territories for select
+  using (user_id = auth.uid() or public.is_profile_public(user_id));
+
+create policy "premium owner inserts territories"
+  on public.visited_territories for insert
+  with check (
+    user_id = auth.uid()
+    and exists (select 1 from public.profiles where id = auth.uid() and plan = 'premium')
+  );
+
+create policy "owner updates territories"
+  on public.visited_territories for update
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create policy "owner deletes territories"
+  on public.visited_territories for delete using (user_id = auth.uid());
 
 -- country child tables (visits, cities, media) share the same rules
 create policy "country visits readable" on public.country_visits for select

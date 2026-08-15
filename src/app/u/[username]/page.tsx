@@ -14,8 +14,9 @@ import { formatDate, hexToRgbTriplet } from "@/lib/utils";
 import { evaluateBadges } from "@/lib/badges";
 import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@/lib/stats";
 import { TOTAL_US_STATES } from "@/lib/usStates";
+import { TOTAL_TERRITORIES } from "@/lib/territories";
 import { visitSortKey, formatVisitRange } from "@/lib/utils";
-import type { CountryVisit, Event, EventMedia, CountryMedia, Profile, VisitedCountry, VisitedUSState } from "@/lib/types";
+import type { CountryVisit, Event, EventMedia, CountryMedia, Profile, VisitedCountry, VisitedUSState, VisitedTerritory } from "@/lib/types";
 
 type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight">;
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
@@ -81,6 +82,7 @@ export default async function PublicProfilePage({ params }: { params: { username
     { data: countriesData },
     { data: eventsData },
     { data: usStatesData },
+    { data: territoriesData },
     { count: followerCount },
     { count: followingCount },
     { data: followingRow },
@@ -99,6 +101,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         .eq("is_public", true)
         .order("event_date", { ascending: false }),
       supabase.from("visited_us_states").select("*").eq("user_id", profile.id).order("state_name"),
+      supabase.from("visited_territories").select("*").eq("user_id", profile.id).order("territory_name"),
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("followee_id", profile.id),
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
       viewer && !isOwnProfile
@@ -127,6 +130,7 @@ export default async function PublicProfilePage({ params }: { params: { username
   const countries = (countriesData ?? []) as CountryRow[];
   const events = (eventsData ?? []) as EventRow[];
   const usStates = (usStatesData ?? []) as VisitedUSState[];
+  const territories = (territoriesData ?? []) as VisitedTerritory[];
   const codes = countries.map((c) => c.country_code);
   const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
@@ -261,6 +265,12 @@ export default async function PublicProfilePage({ params }: { params: { username
             <p className="eyebrow mt-1.5">US States</p>
           </Link>
         )}
+        {territories.length > 0 && (
+          <Link href="#territories" className="border-l border-line pl-4 hover:opacity-80">
+            <p className="stat-number !text-3xl md:!text-4xl">{territories.length}</p>
+            <p className="eyebrow mt-1.5">Territories</p>
+          </Link>
+        )}
         {badges.length > 0 && (
           <Link href="#badges" className="border-l border-line pl-4 hover:opacity-80">
             <p className="stat-number !text-3xl md:!text-4xl">{badges.length}</p>
@@ -283,6 +293,21 @@ export default async function PublicProfilePage({ params }: { params: { username
             {usStates.map((s) => (
               <li key={s.id} className="rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm">
                 {s.state_name}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Territories */}
+      {territories.length > 0 && (
+        <section id="territories" className="mt-14" aria-labelledby="territories-h">
+          <p className="eyebrow">Beyond the 195</p>
+          <h2 id="territories-h" className="mt-1 text-2xl md:text-3xl">{territories.length} of {TOTAL_TERRITORIES} territories</h2>
+          <ul className="mt-6 flex flex-wrap gap-2">
+            {territories.map((t) => (
+              <li key={t.id} className="rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm">
+                {t.territory_name}
               </li>
             ))}
           </ul>
@@ -420,7 +445,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         </section>
       )}
 
-      {countries.length === 0 && events.length === 0 && usStates.length === 0 && (
+      {countries.length === 0 && events.length === 0 && usStates.length === 0 && territories.length === 0 && (
         <p className="mt-14 text-center text-sm text-muted">
           {profile.display_name} hasn&rsquo;t added any public memories yet.
         </p>
