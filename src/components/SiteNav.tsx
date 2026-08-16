@@ -74,13 +74,17 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
         </div>
       </header>
 
-      {/* App-style bottom tab bar — primary navigation at every screen size */}
+      {/* App-style bottom tab bar — primary navigation at every screen size.
+          Floating pill, inset from the screen edges with its own bottom
+          gap (rather than a full-width bar flush to the edges), so the
+          safe-area clearance lives in that gap instead of as internal
+          padding within the bar. */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-brand-purple/95 backdrop-blur"
+        className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-2xl rounded-full border border-white/10 bg-brand-purple/95 shadow-lg shadow-black/30 backdrop-blur"
       >
         {user ? (
-          <div className="relative mx-auto flex max-w-2xl items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
+          <div className="relative flex items-stretch justify-around px-2">
             {leftLinks.map((l) => (
               <NavLink key={l.href} href={l.href} label={l.label} Icon={l.icon} isActive={active(l.href)} />
             ))}
@@ -137,7 +141,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
             ))}
           </div>
         ) : (
-          <div className="mx-auto flex max-w-2xl items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
+          <div className="flex items-stretch justify-around px-2">
             {[{ href: "/", label: "Home", icon: Compass }, ...guestLinks].map((l) => (
               <NavLink key={l.href} href={l.href} label={l.label} Icon={l.icon} isActive={active(l.href)} />
             ))}
