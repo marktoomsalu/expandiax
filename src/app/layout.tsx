@@ -11,6 +11,7 @@ import { NativeStatusBar } from "@/components/NativeStatusBar";
 import { NativeBackButton } from "@/components/NativeBackButton";
 import { NativeDeepLinks } from "@/components/NativeDeepLinks";
 import { NativeKeyboard } from "@/components/NativeKeyboard";
+import { NativeFirstRunRedirect } from "@/components/NativeFirstRunRedirect";
 import { PageTransition } from "@/components/PageTransition";
 import { PushRegistration } from "@/components/PushRegistration";
 import { NativePurchases } from "@/components/NativePurchases";
@@ -70,6 +71,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <NativeBackButton />
           <NativeDeepLinks />
           <NativeKeyboard />
+          <NativeFirstRunRedirect isLoggedIn={!!navUser} />
           {navUser && <PushRegistration userId={navUser.id} />}
           {navUser && <NativePurchases userId={navUser.id} />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
