@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { AppleSignInButton } from "@/components/AppleSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
@@ -75,7 +76,8 @@ export default function SignUpPage() {
         One place for every country you&rsquo;ve set foot in and every event you never want to forget.
       </p>
 
-      <div className="mt-8">
+      <div className="mt-8 space-y-3">
+        <AppleSignInButton next="/onboarding" />
         <GoogleSignInButton next="/onboarding" />
       </div>
       <div className="my-6 flex items-center gap-3 text-xs text-muted">

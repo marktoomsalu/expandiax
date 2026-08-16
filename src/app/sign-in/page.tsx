@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { AppleSignInButton } from "@/components/AppleSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 function SignInForm() {
@@ -41,7 +42,8 @@ function SignInForm() {
       <p className="eyebrow">Sign in</p>
       <h1 className="mt-2 text-3xl md:text-4xl">Welcome back.</h1>
 
-      <div className="mt-8">
+      <div className="mt-8 space-y-3">
+        <AppleSignInButton next={params.get("next") ?? "/my-world"} />
         <GoogleSignInButton next={params.get("next") ?? "/my-world"} />
       </div>
       <div className="my-6 flex items-center gap-3 text-xs text-muted">
