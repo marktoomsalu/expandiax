@@ -44,7 +44,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
             {user?.plan === "free" && (
               <Link
                 href="/settings/billing"
-                className="hidden items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-white/20 sm:flex"
+                className="flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-white/20"
               >
                 <Sparkles size={13} aria-hidden /> Upgrade
               </Link>
