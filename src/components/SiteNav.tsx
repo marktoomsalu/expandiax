@@ -37,20 +37,20 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 pt-[env(safe-area-inset-top)] backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-brand-purple/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex h-14 max-w-shell items-center justify-between px-5">
           <Wordmark />
           <div className="flex items-center gap-3">
             {user?.plan === "free" && (
               <Link
                 href="/settings/billing"
-                className="hidden items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft px-3 py-1.5 font-sans text-xs font-medium text-accent transition-colors hover:bg-accent/15 sm:flex"
+                className="hidden items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-white/20 sm:flex"
               >
                 <Sparkles size={13} aria-hidden /> Upgrade
               </Link>
             )}
             {user && (
-              <Link href="/notifications" aria-label="Notifications" className="relative text-muted hover:text-ink">
+              <Link href="/notifications" aria-label="Notifications" className="relative text-white/70 hover:text-white">
                 <Bell size={19} />
                 {unreadNotifications > 0 && (
                   <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-semibold text-white">
@@ -59,10 +59,10 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
                 )}
               </Link>
             )}
-            <ThemeToggle />
+            <ThemeToggle variant="onPurple" />
             {!user && (
               <>
-                <Link href="/sign-up" className="hidden font-sans text-sm text-muted hover:text-ink sm:block">
+                <Link href="/sign-up" className="hidden font-sans text-sm text-white/70 hover:text-white sm:block">
                   Create account
                 </Link>
                 <Link href="/sign-in" className="btn-accent !py-2 text-sm">
@@ -77,7 +77,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
       {/* App-style bottom tab bar — primary navigation at every screen size */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-canvas/95 backdrop-blur"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-brand-purple/95 backdrop-blur"
       >
         {user ? (
           <div className="relative mx-auto flex max-w-2xl items-stretch justify-around pb-[env(safe-area-inset-bottom)]">
@@ -168,7 +168,7 @@ function NavLink({
       }}
       className={cn(
         "flex flex-1 flex-col items-center gap-1 py-2.5 font-sans text-[0.6875rem] transition-colors",
-        isActive ? "text-accent" : "text-muted hover:text-ink"
+        isActive ? "text-accent" : "text-white/55 hover:text-white/85"
       )}
     >
       <Icon size={20} strokeWidth={isActive ? 2.25 : 1.75} />

@@ -19,6 +19,7 @@ const config: Config = {
         "accent-3": "rgb(var(--accent-3) / <alpha-value>)",
         "accent-3-soft": "rgb(var(--accent-3-soft) / <alpha-value>)",
         unvisited: "rgb(var(--unvisited) / <alpha-value>)",
+        "brand-purple": "rgb(var(--brand-purple) / <alpha-value>)",
       },
       fontFamily: {
         serif: ["Fraunces", "Georgia", "serif"],
