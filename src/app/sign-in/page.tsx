@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AppleSignInButton } from "@/components/AppleSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { PasswordField } from "@/components/PasswordField";
 
 function SignInForm() {
   const router = useRouter();
@@ -60,7 +61,7 @@ function SignInForm() {
             <label htmlFor="password" className="block text-sm font-medium">Password</label>
             <Link href="/forgot-password" className="text-xs text-accent underline-offset-4 hover:underline">Forgot password?</Link>
           </div>
-          <input id="password" type="password" className="field" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+          <PasswordField id="password" value={password} onChange={setPassword} required autoComplete="current-password" />
         </div>
         {error && <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
         <button type="submit" className="btn-accent w-full" disabled={busy}>

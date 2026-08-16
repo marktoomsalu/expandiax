@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { PasswordField } from "@/components/PasswordField";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function ResetPasswordPage() {
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <div>
           <label htmlFor="password" className="mb-1.5 block text-sm font-medium">New password</label>
-          <input id="password" type="password" className="field" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" aria-describedby="password-hint" />
+          <PasswordField id="password" value={password} onChange={setPassword} required minLength={8} autoComplete="new-password" aria-describedby="password-hint" />
           <p id="password-hint" className="mt-1 text-xs text-muted">At least 8 characters.</p>
         </div>
         {error && <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">{error}</p>}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AppleSignInButton } from "@/components/AppleSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { PasswordField } from "@/components/PasswordField";
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
@@ -16,6 +17,7 @@ export default function SignUpPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,6 +32,10 @@ export default function SignUpPage() {
     }
     if (password.length < 8) {
       setError("Choose a password with at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Those passwords don't match.");
       return;
     }
     setBusy(true);
@@ -100,8 +106,19 @@ export default function SignUpPage() {
         </div>
         <div>
           <label htmlFor="password" className="mb-1.5 block text-sm font-medium">Password</label>
-          <input id="password" type="password" className="field" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" aria-describedby="password-hint" />
+          <PasswordField id="password" value={password} onChange={setPassword} required minLength={8} autoComplete="new-password" aria-describedby="password-hint" />
           <p id="password-hint" className="mt-1 text-xs text-muted">At least 8 characters.</p>
+        </div>
+        <div>
+          <label htmlFor="confirm_password" className="mb-1.5 block text-sm font-medium">Confirm password</label>
+          <PasswordField
+            id="confirm_password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
         </div>
 
         {error && <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
