@@ -37,6 +37,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#2B0B2E", // matches the header's fixed brand-purple background
+  // Required before env(safe-area-inset-*) resolves to anything but 0 on
+  // iOS — without it, the header/bottom nav's safe-area padding below was
+  // silently a no-op, and the bottom tab bar sat flush against the home
+  // indicator instead of clearing it.
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -59,7 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen pb-20">
+      <body className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]">
         <ThemeProvider>
           <NativeStatusBar />
           <NativeBackButton />
