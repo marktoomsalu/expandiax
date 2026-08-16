@@ -12,6 +12,7 @@ export type Profile = {
   plan: Plan;
   accent_color: string | null;
   weekly_digest_enabled: boolean;
+  signup_number: number;
   created_at: string;
   updated_at: string;
 };

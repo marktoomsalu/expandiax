@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BADGES, evaluateBadges } from "./badges";
+import { BADGES, EARLY_EXPLORER_THRESHOLD, evaluateBadges, isEarlyExplorer } from "./badges";
 import type { AllTimeStats } from "./stats";
 
 function stats(overrides: Partial<AllTimeStats> = {}): AllTimeStats {
@@ -63,5 +63,13 @@ describe("evaluateBadges", () => {
     const evaluated = evaluateBadges(stats());
     expect(evaluated).toHaveLength(BADGES.length);
     expect(evaluated.every((b) => !b.isUnlocked)).toBe(true);
+  });
+});
+
+describe("isEarlyExplorer", () => {
+  it("includes exactly the first 1000 signups, not the 1001st", () => {
+    expect(isEarlyExplorer(1)).toBe(true);
+    expect(isEarlyExplorer(EARLY_EXPLORER_THRESHOLD)).toBe(true);
+    expect(isEarlyExplorer(EARLY_EXPLORER_THRESHOLD + 1)).toBe(false);
   });
 });

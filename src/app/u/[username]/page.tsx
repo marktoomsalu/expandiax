@@ -8,11 +8,12 @@ import { RatingStars } from "@/components/Rating";
 import { FollowButton } from "@/components/FollowButton";
 import { ReportButton } from "@/components/ReportButton";
 import { BadgeGrid } from "@/components/BadgeGrid";
+import { EarlyExplorerBadge } from "@/components/EarlyExplorerBadge";
 import { SignOutButton } from "@/components/SignOutButton";
 import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import { isTerritoryCode, TOTAL_TERRITORIES } from "@/lib/territories";
 import { formatDate, hexToRgbTriplet } from "@/lib/utils";
-import { evaluateBadges } from "@/lib/badges";
+import { evaluateBadges, isEarlyExplorer } from "@/lib/badges";
 import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@/lib/stats";
 import { TOTAL_US_STATES } from "@/lib/usStates";
 import { visitSortKey, formatVisitRange } from "@/lib/utils";
@@ -276,9 +277,11 @@ export default async function PublicProfilePage({ params }: { params: { username
             <p className="eyebrow mt-1.5">Territories</p>
           </Link>
         )}
-        {badges.length > 0 && (
+        {(badges.length > 0 || isEarlyExplorer(profile.signup_number)) && (
           <Link href="#badges" className="border-l border-line pl-4 hover:opacity-80">
-            <p className="stat-number !text-3xl md:!text-4xl">{badges.length}</p>
+            <p className="stat-number !text-3xl md:!text-4xl">
+              {badges.length + (isEarlyExplorer(profile.signup_number) ? 1 : 0)}
+            </p>
             <p className="eyebrow mt-1.5">Badges</p>
           </Link>
         )}
@@ -445,13 +448,20 @@ export default async function PublicProfilePage({ params }: { params: { username
       )}
 
       {/* Badges */}
-      {badges.length > 0 && (
+      {(badges.length > 0 || isEarlyExplorer(profile.signup_number)) && (
         <section id="badges" className="mt-14" aria-labelledby="badges-h">
           <p className="eyebrow">Trophy case</p>
           <h2 id="badges-h" className="mt-1 text-2xl md:text-3xl">Badges</h2>
-          <div className="mt-6">
-            <BadgeGrid badges={badges} showLocked={false} />
-          </div>
+          {isEarlyExplorer(profile.signup_number) && (
+            <div className="mt-6">
+              <EarlyExplorerBadge signupNumber={profile.signup_number} />
+            </div>
+          )}
+          {badges.length > 0 && (
+            <div className="mt-6">
+              <BadgeGrid badges={badges} showLocked={false} />
+            </div>
+          )}
         </section>
       )}
 

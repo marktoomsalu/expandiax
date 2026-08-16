@@ -115,3 +115,15 @@
     display: none;
   }
 }
+
+@keyframes badge-shimmer {
+  0% {
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  60%, 100% {
+    transform: translateX(220%) skewX(-20deg);
+  }
+}
+.animate-badge-shimmer {
+  animation: badge-shimmer 3.2s ease-in-out infinite;
+}

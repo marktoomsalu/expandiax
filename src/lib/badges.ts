@@ -95,3 +95,13 @@ export function evaluateBadges(stats: AllTimeStats): EvaluatedBadge[] {
     return { ...b, current, isUnlocked: current >= b.target };
   });
 }
+
+// Not a stats-based badge like the ones above (there's nothing to unlock
+// through the app itself), so it lives outside BADGES/evaluateBadges —
+// it's a permanent fact of when someone signed up, keyed off
+// profiles.signup_number rather than AllTimeStats.
+export const EARLY_EXPLORER_THRESHOLD = 1000;
+
+export function isEarlyExplorer(signupNumber: number): boolean {
+  return signupNumber <= EARLY_EXPLORER_THRESHOLD;
+}

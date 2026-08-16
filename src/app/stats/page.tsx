@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { StatCard } from "@/components/StatCard";
 import { BadgeGrid } from "@/components/BadgeGrid";
+import { EarlyExplorerBadge } from "@/components/EarlyExplorerBadge";
 import { WorldMap } from "@/components/WorldMap";
 import { EmptyState } from "@/components/EmptyState";
 import { CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts } from "@/lib/countries";
@@ -44,7 +45,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const [{ data: countriesData }, { data: eventsData }] = await Promise.all([
+  const [{ data: countriesData }, { data: eventsData }, { data: profile }] = await Promise.all([
     supabase
       .from("visited_countries")
       .select(
@@ -57,6 +58,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
         "id, title, country_code, event_type, event_date, rating, is_favourite, event_media!event_media_event_id_fkey(id, media_type)"
       )
       .eq("user_id", user.id),
+    supabase.from("profiles").select("signup_number").eq("id", user.id).single(),
   ]);
 
   const countryRows = (countriesData ?? []) as CountryRow[];
@@ -292,6 +294,11 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
               <h2 className="text-xl">Badges</h2>
               <p className="text-sm text-muted">{unlockedCount}/{badges.length} unlocked</p>
             </div>
+            {profile && (
+              <div className="mt-6">
+                <EarlyExplorerBadge signupNumber={profile.signup_number} />
+              </div>
+            )}
             <div className="mt-6">
               <BadgeGrid badges={badges} />
             </div>

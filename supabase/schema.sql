@@ -6,6 +6,11 @@
 
 -- ---------- Tables ----------
 
+-- Backs profiles.signup_number below — a permanent, atomic signup-order
+-- number (assigning it via a sequence, rather than a live count at
+-- insert time, keeps it correct under concurrent signups).
+create sequence public.profiles_signup_seq;
+
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   username text not null unique
@@ -24,9 +29,16 @@ create table public.profiles (
   accent_color text,
   -- Opt-out for the weekly digest email (cron job) — on by default.
   weekly_digest_enabled boolean not null default true,
+  -- Powers the "Early Explorer" badge (first 1000 signups) with a cheap
+  -- <= 1000 check. Locked against tampering by lock_signup_number() below.
+  signup_number bigint not null default nextval('public.profiles_signup_seq'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter sequence public.profiles_signup_seq owned by public.profiles.signup_number;
+
+create unique index profiles_signup_number_idx on public.profiles (signup_number);
 
 -- Stripe customer/subscription ids — kept out of `profiles` because that
 -- table's select policy is row-level (readable by anyone who can see the
@@ -351,6 +363,21 @@ $$;
 
 create trigger profiles_accent_color_gate before insert or update on public.profiles
   for each row execute function public.enforce_premium_accent_color();
+
+-- profiles' update RLS policy is row-level, not column-level, so nothing
+-- stops a client from PATCHing signup_number directly without this.
+create or replace function public.lock_signup_number()
+returns trigger language plpgsql as $$
+begin
+  if tg_op = 'UPDATE' then
+    new.signup_number := old.signup_number;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_signup_number_lock before update on public.profiles
+  for each row execute function public.lock_signup_number();
 
 -- ---------- Media caps enforced in the database ----------
 
