@@ -64,7 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))]">
+      <body className="min-h-screen pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
         <ThemeProvider>
           <NativeStatusBar />
           <NativeBackButton />

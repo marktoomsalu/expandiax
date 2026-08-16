@@ -81,7 +81,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
           padding within the bar. */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-2xl rounded-full border border-white/10 bg-brand-purple/95 shadow-lg shadow-black/30 backdrop-blur"
+        className="fixed inset-x-4 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-2xl rounded-full border border-white/10 bg-brand-purple/95 shadow-lg shadow-black/30 backdrop-blur"
       >
         {user ? (
           <div className="relative flex items-stretch justify-around px-2">
