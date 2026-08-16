@@ -79,6 +79,15 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
           gap (rather than a full-width bar flush to the edges), so the
           safe-area clearance lives in that gap instead of as internal
           padding within the bar. */}
+      {/* Soft frosted strip behind the pill — otherwise whatever's
+          scrolled underneath peeks through the gap around it crisp and
+          unsoftened, which reads as a gap in the UI rather than a
+          deliberate float. pointer-events-none: purely decorative, must
+          never block taps on the real content showing through it. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[calc(6rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-canvas/80 to-transparent backdrop-blur-sm"
+      />
       <nav
         aria-label="Main"
         className="fixed inset-x-4 bottom-[calc(0.25rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-2xl rounded-full border border-white/10 bg-brand-purple/95 shadow-lg shadow-black/30 backdrop-blur"
