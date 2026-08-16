@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { Minus, Plus } from "lucide-react";
 import Globe, { type GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
-import { countryByNumeric } from "@/lib/countries";
+import { countryByCode, countryByNumeric } from "@/lib/countries";
 import { territoryByNumeric, territoryFlagFor } from "@/lib/territories";
 
 const GEO_URL = "/data/world-110m.json";
@@ -63,6 +63,33 @@ function splitFrenchGuianaFromFrance(features: GeoFeature[]): GeoFeature[] {
   return next;
 }
 
+// Rough (non-area-weighted) centroid from a feature's outer ring(s) — good
+// enough to fly the camera roughly to the right place, not for anything
+// that needs precision.
+function centroidOf(geometry: unknown): { lat: number; lng: number } | null {
+  const g = geometry as { type: string; coordinates: unknown };
+  const rings: number[][][] =
+    g.type === "Polygon"
+      ? (g.coordinates as number[][][])
+      : g.type === "MultiPolygon"
+        ? (g.coordinates as number[][][][]).flat()
+        : [];
+  const points = rings.flat();
+  if (points.length === 0) return null;
+  let sumLng = 0;
+  let sumLat = 0;
+  for (const [lng, lat] of points) {
+    sumLng += lng;
+    sumLat += lat;
+  }
+  return { lat: sumLat / points.length, lng: sumLng / points.length };
+}
+
+export type WorldGlobeHandle = {
+  /** Animates the camera to roughly the given country's location. No-op if the country's shape hasn't loaded (or doesn't exist) at this map's resolution. */
+  flyTo: (code: string) => void;
+};
+
 type Props = {
   // Territories (Greenland, New Caledonia, Puerto Rico — whichever ones
   // happen to have their own shape at this map's resolution) share the
@@ -74,16 +101,16 @@ type Props = {
   onSelect?: (code: string) => void;
   interactive?: boolean;
   className?: string;
+  // Slow ambient rotation for a marketing/cold-open moment — not used
+  // anywhere else in the app today. Off (and unforced) by default;
+  // honours prefers-reduced-motion regardless of this prop.
+  autoRotate?: boolean;
 };
 
-export function WorldGlobeInner({
-  visitedCodes,
-  visitCounts,
-  homeCode,
-  onSelect,
-  interactive = true,
-  className,
-}: Props) {
+export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function WorldGlobeInner(
+  { visitedCodes, visitCounts, homeCode, onSelect, interactive = true, className, autoRotate = false },
+  ref
+) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
@@ -93,6 +120,22 @@ export function WorldGlobeInner({
   const [size, setSize] = useState({ width: 320, height: 320 });
 
   const visited = useMemo(() => new Set(visitedCodes), [visitedCodes]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flyTo(code: string) {
+        const g = globeRef.current;
+        const country = countryByCode(code);
+        if (!g || !country) return;
+        const target = features.find((f) => f.id === country.numeric);
+        const center = target && centroidOf(target.geometry);
+        if (!center) return;
+        g.pointOfView({ lat: center.lat, lng: center.lng, altitude: 1.5 }, 1200);
+      },
+    }),
+    [features]
+  );
 
   useEffect(() => {
     let alive = true;
@@ -137,11 +180,14 @@ export function WorldGlobeInner({
     const g = globeRef.current;
     if (!g) return;
     const controls = g.controls();
-    controls.autoRotate = false;
+    const reduceMotion =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    controls.autoRotate = autoRotate && !reduceMotion;
+    controls.autoRotateSpeed = 0.6;
     controls.enableZoom = interactive;
     controls.enableRotate = true;
     g.pointOfView({ lat: 18, lng: 14, altitude: 1.8 });
-  }, [interactive]);
+  }, [interactive, autoRotate]);
 
   function placeOf(f: GeoFeature): { code: string; name: string; flag: string; isTerritory: boolean } | undefined {
     const c = countryByNumeric(String(f.id));
@@ -246,4 +292,4 @@ export function WorldGlobeInner({
       </div>
     </div>
   );
-}
+});

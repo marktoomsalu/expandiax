@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (path === "/sign-in" || path === "/sign-up" || path === "/")) {
+  if (user && (path === "/sign-in" || path === "/sign-up" || path === "/" || path === "/start")) {
     const url = request.nextUrl.clone();
     url.pathname = path === "/" ? "/feed" : "/my-world";
     url.search = "";
