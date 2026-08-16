@@ -89,7 +89,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
           showing through it. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[calc(4rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-canvas/45 to-transparent backdrop-blur-sm"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[calc(4rem+env(safe-area-inset-bottom))] backdrop-blur-sm [background:linear-gradient(to_top,rgb(var(--canvas)/0.45)_0%,rgb(var(--canvas)/0.32)_25%,rgb(var(--canvas)/0.18)_50%,rgb(var(--canvas)/0.07)_75%,transparent_100%)]"
       />
       <nav
         aria-label="Main"
