@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { ProfileForm } from "@/components/ProfileForm";
+import { FlushOnboardingDraft } from "@/components/FlushOnboardingDraft";
 
 export const metadata = { title: "Set up your profile" };
 
@@ -14,6 +15,7 @@ export default async function OnboardingPage() {
 
   return (
     <div className="mx-auto max-w-md px-5 py-16">
+      <FlushOnboardingDraft userId={user.id} />
       <p className="eyebrow">Step 2 of 2</p>
       <h1 className="mt-2 text-3xl md:text-4xl">Make it yours, {profile.display_name.split(" ")[0]}.</h1>
       <p className="mt-3 text-sm text-muted">

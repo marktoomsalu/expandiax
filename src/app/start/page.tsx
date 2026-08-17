@@ -5,19 +5,30 @@ import { ColdOpenStep } from "@/components/start/ColdOpenStep";
 import { ForkStep } from "@/components/start/ForkStep";
 import { HomeCountryStep } from "@/components/start/HomeCountryStep";
 import { CountryGridStep } from "@/components/start/CountryGridStep";
-import { loadDraft, saveDraft, stepForDraft, type OnboardingDraft, type OnboardingStep } from "@/lib/onboardingDraft";
+import { MemoryStep } from "@/components/start/MemoryStep";
+import { RevealStep } from "@/components/start/RevealStep";
+import {
+  loadDraft,
+  saveDraft,
+  savePendingPhoto,
+  stepForDraft,
+  type OnboardingDraft,
+  type OnboardingStep,
+} from "@/lib/onboardingDraft";
 
-const EMPTY_DRAFT: OnboardingDraft = { kind: null, homeCode: null, countryCodes: [] };
+const EMPTY_DRAFT: OnboardingDraft = { kind: null, homeCode: null, countryCodes: [], memory: null };
 
-// Screen 0, the fork, and Path A only — see onboarding-brief.md §8. Screen 4
-// (reveal + real account creation + Supabase writes) is deliberately not
-// built yet; finishing Path A here lands on a stub so the flow can still be
-// felt end-to-end on a device before that's built.
+// Both paths — see onboarding-brief.md §3 — are real, complete choices: a
+// place you've been (Path A) or a night you want to remember (Path B),
+// each ending on its own reveal and the same save mechanism.
 export default function StartPage() {
   const [step, setStep] = useState<OnboardingStep>("cold-open");
   const [draft, setDraft] = useState<OnboardingDraft>(EMPTY_DRAFT);
   const [hydrated, setHydrated] = useState(false);
   const [finished, setFinished] = useState(false);
+  // Path B's photo never touches sessionStorage (see savePendingPhoto) —
+  // this is just a local object URL for the reveal card's own preview.
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const loaded = loadDraft();
@@ -42,26 +53,20 @@ export default function StartPage() {
   if (!hydrated) return null;
 
   if (finished) {
-    const total = draft.countryCodes.length + (draft.homeCode ? 1 : 0);
-    return (
-      <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-6 text-center">
-        <p className="eyebrow">Day one of your archive</p>
-        <p className="mt-3 font-serif text-2xl">
-          {total} {total === 1 ? "country" : "countries"} pinned.
-        </p>
-        <p className="mt-3 text-sm text-muted">
-          The reveal card and account creation aren&rsquo;t built yet — this stub just proves the flow through here
-          feels right first.
-        </p>
-      </div>
-    );
+    if (draft.kind === "country" && draft.homeCode) {
+      return <RevealStep kind="country" homeCode={draft.homeCode} countryCodes={draft.countryCodes} />;
+    }
+    if (draft.kind === "event" && draft.memory) {
+      return <RevealStep kind="event" memory={draft.memory} photoPreviewUrl={photoPreviewUrl} />;
+    }
+    return null;
   }
 
   switch (step) {
     case "cold-open":
       return <ColdOpenStep onStart={() => setStep("fork")} />;
     case "fork":
-      return <ForkStep onChoose={(kind) => update({ kind }, kind === "country" ? "home-country" : "fork")} />;
+      return <ForkStep onChoose={(kind) => update({ kind }, kind === "country" ? "home-country" : "memory")} />;
     case "home-country":
       return <HomeCountryStep onDone={(code) => update({ homeCode: code }, "countries")} />;
     case "countries":
@@ -71,6 +76,22 @@ export default function StartPage() {
           homeCode={draft.homeCode}
           onDone={(codes) => {
             update({ countryCodes: codes }, "countries");
+            setFinished(true);
+          }}
+        />
+      );
+    case "memory":
+      return (
+        <MemoryStep
+          onDone={(memory, photo) => {
+            update({ memory }, "memory");
+            if (photo) {
+              setPhotoPreviewUrl(URL.createObjectURL(photo));
+              savePendingPhoto(photo).catch(() => {
+                // Falls back to no photo on save — the memory itself (title/
+                // date/country) still saves fine without one.
+              });
+            }
             setFinished(true);
           }}
         />

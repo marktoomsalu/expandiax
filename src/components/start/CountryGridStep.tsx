@@ -3,9 +3,17 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { COUNTRIES, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
+import { COUNTRY_CAP } from "@/lib/plan";
 import { tapLight } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { OdometerCounter } from "./OdometerCounter";
+
+// A brand-new account is always on the free plan, and the eventual save is
+// one bulk insert in a single transaction — if selection ran past the free
+// cap, the whole batch would fail at the DB trigger, losing everything
+// rather than just the excess. Capping selection here avoids that outcome
+// entirely instead of trying to recover from a partial/failed bulk insert.
+const FREE_COUNTRY_CAP = COUNTRY_CAP.free ?? 40;
 
 export function CountryGridStep({ homeCode, onDone }: { homeCode: string; onDone: (codes: string[]) => void }) {
   const [query, setQuery] = useState("");
@@ -31,12 +39,19 @@ export function CountryGridStep({ homeCode, onDone }: { homeCode: string; onDone
     return ordered.filter((c) => c.name.toLowerCase().includes(q));
   }, [ordered, query]);
 
+  const allCodes = [homeCode, ...selected];
+  const atCap = allCodes.length >= FREE_COUNTRY_CAP;
+
   function toggle(code: string) {
-    tapLight();
-    setSelected((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+    setSelected((prev) => {
+      const isSelected = prev.includes(code);
+      // Home already occupies one of the cap's slots.
+      if (!isSelected && prev.length >= FREE_COUNTRY_CAP - 1) return prev;
+      tapLight();
+      return isSelected ? prev.filter((c) => c !== code) : [...prev, code];
+    });
   }
 
-  const allCodes = [homeCode, ...selected];
   const pct = Math.round((allCodes.length / TOTAL_COUNTRIES) * 1000) / 10;
   const continents = continentCounts(allCodes).filter((c) => c.visited > 0).length;
 
@@ -52,6 +67,11 @@ export function CountryGridStep({ homeCode, onDone }: { homeCode: string; onDone
         <p className="mt-1 text-sm text-muted">
           {pct}% of the world · {continents} continent{continents === 1 ? "" : "s"}
         </p>
+        {atCap && (
+          <p className="mt-1 text-xs text-muted">
+            That&rsquo;s the free plan&rsquo;s {FREE_COUNTRY_CAP}-country limit — upgrade anytime after signing up for more.
+          </p>
+        )}
       </div>
 
       <div className="relative mt-4">

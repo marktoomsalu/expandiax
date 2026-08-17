@@ -26,16 +26,14 @@ export function ForkStep({ onChoose }: { onChoose: (kind: "country" | "event") =
         <button
           type="button"
           onClick={() => onChoose("event")}
-          disabled
-          aria-disabled
-          className="card flex w-full items-center gap-4 px-5 py-5 text-left opacity-50"
+          className="card flex w-full items-center gap-4 px-5 py-5 text-left transition-shadow hover:shadow-lg"
         >
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
             <Ticket size={22} />
           </span>
           <span>
             <span className="block font-serif text-lg">A night I want to remember</span>
-            <span className="mt-0.5 block text-sm text-muted">Coming soon.</span>
+            <span className="mt-0.5 block text-sm text-muted">One event that still means something.</span>
           </span>
         </button>
       </div>
