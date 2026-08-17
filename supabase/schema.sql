@@ -32,6 +32,10 @@ create table public.profiles (
   -- Powers the "Early Explorer" badge (first 1000 signups) with a cheap
   -- <= 1000 check. Locked against tampering by lock_signup_number() below.
   signup_number bigint not null default nextval('public.profiles_signup_seq'),
+  -- Lets /feed tell which posts are new since the viewer's last visit, for
+  -- a "You're all caught up" marker — same idea as notifications.read, one
+  -- timestamp instead of a per-row flag since the feed is one stream.
+  feed_last_seen_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

@@ -23,6 +23,7 @@ import type { EventType } from "@/lib/types";
 export const metadata = { title: "Stats" };
 
 type CountryRow = {
+  id: string;
   country_code: string;
   is_favourite: boolean;
   country_visits: { year: number; visited_from: string | null; visited_to: string | null }[];
@@ -49,7 +50,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
     supabase
       .from("visited_countries")
       .select(
-        "country_code, is_favourite, country_visits(year, visited_from, visited_to), country_media!country_media_visited_country_id_fkey(id)"
+        "id, country_code, is_favourite, country_visits(year, visited_from, visited_to), country_media!country_media_visited_country_id_fkey(id)"
       )
       .eq("user_id", user.id),
     supabase
@@ -88,6 +89,21 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
     photo_count: (e.event_media ?? []).filter((m) => m.media_type === "image").length,
     video_count: (e.event_media ?? []).filter((m) => m.media_type === "video").length,
   }));
+
+  // Likes are deliberately never shown publicly (see LikeButton.tsx) — this
+  // is the one place the owner can see their own total, across everything
+  // they've posted, regardless of the year filter below.
+  const countryIds = countryRows.map((c) => c.id);
+  const eventIds = eventRows.map((e) => e.id);
+  const [{ count: countryLikes }, { count: eventLikes }] = await Promise.all([
+    countryIds.length
+      ? supabase.from("likes").select("id", { count: "exact", head: true }).eq("kind", "country").in("target_id", countryIds)
+      : Promise.resolve({ count: 0 }),
+    eventIds.length
+      ? supabase.from("likes").select("id", { count: "exact", head: true }).eq("kind", "event").in("target_id", eventIds)
+      : Promise.resolve({ count: 0 }),
+  ]);
+  const totalLikes = (countryLikes ?? 0) + (eventLikes ?? 0);
 
   const hasAnyData = countries.length > 0 || events.length > 0;
   const allTime = buildAllTimeStats(countries, events);
@@ -184,6 +200,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
                 />
               </>
             )}
+            <StatCard label="Likes received" value={totalLikes} detail="private - never shown publicly" />
           </div>
 
           <div className="mt-8 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">

@@ -13,6 +13,7 @@ export type Profile = {
   accent_color: string | null;
   weekly_digest_enabled: boolean;
   signup_number: number;
+  feed_last_seen_at: string | null;
   created_at: string;
   updated_at: string;
 };

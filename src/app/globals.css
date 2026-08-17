@@ -17,7 +17,7 @@
   --ink: 23 23 27;
   --muted: 107 114 128;
   --line: 228 228 231;
-  --accent: 233 30 99;       /* ExpandiaX pink */
+  --accent: 250 81 162;      /* ExpandiaX pink — matches the logo's #FA51A2 exactly */
   --accent-soft: 253 242 248;
   --accent-2: 244 63 94;     /* ExpandiaX coral (gradient midpoint) */
   --accent-2-soft: 255 241 242;
@@ -37,7 +37,7 @@
   --ink: 237 240 242;
   --muted: 148 157 168;
   --line: 38 45 55;
-  --accent: 244 114 182;
+  --accent: 250 81 162;      /* same fixed brand pink as light mode — matches the logo, not theme-tuned */
   --accent-soft: 74 24 48;
   --accent-2: 251 113 133;
   --accent-2-soft: 74 24 32;
