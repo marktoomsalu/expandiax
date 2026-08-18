@@ -1,12 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { Search } from "lucide-react";
 import { COUNTRIES, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import { COUNTRY_CAP } from "@/lib/plan";
 import { tapLight } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { OdometerCounter } from "./OdometerCounter";
+
+const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), {
+  ssr: false,
+  loading: () => <div className="h-[240px] w-full sm:h-[320px]" />,
+});
 
 // A brand-new account is always on the free plan, and the eventual save is
 // one bulk insert in a single transaction — if selection ran past the free
@@ -43,6 +49,7 @@ export function CountryGridStep({ homeCode, onDone }: { homeCode: string; onDone
   const atCap = allCodes.length >= FREE_COUNTRY_CAP;
 
   function toggle(code: string) {
+    if (code === homeCode) return; // home is fixed, not part of the toggle set
     setSelected((prev) => {
       const isSelected = prev.includes(code);
       // Home already occupies one of the cap's slots.
@@ -72,6 +79,10 @@ export function CountryGridStep({ homeCode, onDone }: { homeCode: string; onDone
             That&rsquo;s the free plan&rsquo;s {FREE_COUNTRY_CAP}-country limit — upgrade anytime after signing up for more.
           </p>
         )}
+      </div>
+
+      <div className="mt-4 w-full">
+        <WorldGlobeInner visitedCodes={allCodes} homeCode={homeCode} interactive onSelect={toggle} />
       </div>
 
       <div className="relative mt-4">

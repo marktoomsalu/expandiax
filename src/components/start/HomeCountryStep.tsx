@@ -36,7 +36,7 @@ export function HomeCountryStep({ onDone }: { onDone: (code: string) => void }) 
       <h1 className="mt-2 text-center text-3xl md:text-4xl">Where does your map start?</h1>
 
       <div className="mt-8 w-full">
-        <WorldGlobeInner ref={globeRef} visitedCodes={picked ? [picked] : []} interactive={false} />
+        <WorldGlobeInner ref={globeRef} visitedCodes={picked ? [picked] : []} interactive onSelect={handleSelect} />
       </div>
 
       <div className="mt-8">
