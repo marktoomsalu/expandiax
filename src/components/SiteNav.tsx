@@ -25,6 +25,11 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
   const active = (href: string) =>
     href === "/" ? path === "/" : path === href || path.startsWith(href + "/");
 
+  // /start is a full-screen, immersive flow with no site chrome at all
+  // until there's an account to actually navigate around with — see
+  // SiteChrome.tsx, which hides the page-end footer the same way.
+  if (path === "/start") return null;
+
   const leftLinks = [
     { href: "/feed", label: "Feed", icon: Rss },
     { href: "/my-world", label: "My World", icon: Globe2 },

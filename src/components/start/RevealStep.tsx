@@ -20,7 +20,7 @@ type Props =
 // Both still converge on the same save mechanism below.
 export function RevealStep(props: Props) {
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-6 py-16 text-center">
+    <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-6 pb-16 pt-[calc(4rem+env(safe-area-inset-top))] text-center">
       <p className="eyebrow">Day one of your archive</p>
       {props.kind === "country" ? <CountryReveal {...props} /> : <MemoryReveal {...props} />}
 

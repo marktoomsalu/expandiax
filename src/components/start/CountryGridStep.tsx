@@ -56,11 +56,11 @@ export function CountryGridStep({ homeCode, onDone }: { homeCode: string; onDone
   const continents = continentCounts(allCodes).filter((c) => c.visited > 0).length;
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col px-6 py-10">
+    <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col px-6 pb-10 pt-[calc(2.5rem+env(safe-area-inset-top))]">
       <p className="eyebrow text-center">Step 3</p>
       <h1 className="mt-2 text-center text-3xl md:text-4xl">Where have you been?</h1>
 
-      <div className="sticky top-0 z-10 mt-6 bg-canvas/95 py-3 text-center backdrop-blur">
+      <div className="sticky top-[env(safe-area-inset-top)] z-10 mt-6 bg-canvas/95 py-3 text-center backdrop-blur">
         <p className="flex items-baseline justify-center gap-2 stat-number">
           <OdometerCounter value={allCodes.length} /> <span className="text-xl">countries</span>
         </p>
@@ -111,7 +111,7 @@ export function CountryGridStep({ homeCode, onDone }: { homeCode: string; onDone
         })}
       </ul>
 
-      <div className="sticky bottom-6 mt-8 flex justify-center">
+      <div className="sticky bottom-[calc(1.5rem+env(safe-area-inset-bottom))] mt-8 flex justify-center">
         <button type="button" onClick={() => onDone(selected)} className="btn-accent px-8 shadow-lg">
           Continue with {allCodes.length} pin{allCodes.length === 1 ? "" : "s"}
         </button>

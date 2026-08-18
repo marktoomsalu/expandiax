@@ -1,18 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import Link from "next/link";
-import Image from "next/image";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SiteNav } from "@/components/SiteNav";
+import { SiteChrome } from "@/components/SiteChrome";
 import { PremiumUpsellModal } from "@/components/PremiumUpsellModal";
 import { NativeStatusBar } from "@/components/NativeStatusBar";
 import { NativeBackButton } from "@/components/NativeBackButton";
 import { NativeDeepLinks } from "@/components/NativeDeepLinks";
 import { NativeKeyboard } from "@/components/NativeKeyboard";
 import { NativeFirstRunRedirect } from "@/components/NativeFirstRunRedirect";
-import { PageTransition } from "@/components/PageTransition";
 import { PushRegistration } from "@/components/PushRegistration";
 import { NativePurchases } from "@/components/NativePurchases";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -65,7 +63,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen pb-[calc(5.25rem+env(safe-area-inset-bottom))]">
+      <body className="min-h-screen">
         <ThemeProvider>
           <NativeStatusBar />
           <NativeBackButton />
@@ -75,27 +73,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {navUser && <PushRegistration userId={navUser.id} />}
           {navUser && <NativePurchases userId={navUser.id} />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
-          <main>
-            <PageTransition>{children}</PageTransition>
-          </main>
+          <SiteChrome>{children}</SiteChrome>
           {navUser && <PremiumUpsellModal plan={navUser.plan} />}
-          <footer className="mt-20 border-t border-line">
-            <div className="mx-auto max-w-shell px-5 py-8">
-              <div className="flex flex-col items-start justify-between gap-3 text-sm text-muted sm:flex-row sm:items-center">
-                <p className="flex items-center">
-                  <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} className="h-5 w-auto" />
-                </p>
-                <p>Collecting the memories that matter.</p>
-              </div>
-              <div className="mt-6 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-muted sm:flex-row sm:items-center">
-                <p>&copy; {new Date().getFullYear()} ExpandiaX. All rights reserved.</p>
-                <div className="flex items-center gap-4">
-                  <Link href="/terms" className="hover:text-ink">Terms</Link>
-                  <Link href="/privacy" className="hover:text-ink">Privacy</Link>
-                </div>
-              </div>
-            </div>
-          </footer>
         </ThemeProvider>
         <Analytics />
         <SpeedInsights />

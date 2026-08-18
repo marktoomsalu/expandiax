@@ -4,7 +4,7 @@ import { Globe2, Ticket } from "lucide-react";
 
 export function ForkStep({ onChoose }: { onChoose: (kind: "country" | "event") => void }) {
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-6 py-16">
+    <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-6 pb-16 pt-[calc(4rem+env(safe-area-inset-top))]">
       <p className="eyebrow text-center">Step 1</p>
       <h1 className="mt-2 text-center text-3xl md:text-4xl">What do you want to start with?</h1>
 
