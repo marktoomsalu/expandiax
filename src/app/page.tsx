@@ -35,9 +35,13 @@ export default function LandingPage() {
               visual archive of every event that made you feel alive.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Link href="/sign-in" className="btn-accent !px-7 !py-3">Sign in</Link>
+              <Link href="/start" className="btn-accent !px-7 !py-3">Start my world</Link>
               <Link href="/explore" className="btn-ghost !px-7 !py-3">Explore travellers</Link>
             </div>
+            <p className="mt-4 text-sm text-muted">
+              Already have an account?{" "}
+              <Link href="/sign-in" className="text-accent underline-offset-4 hover:underline">Sign in</Link>
+            </p>
           </FadeIn>
 
           <FadeIn delay={0.15} className="mt-14">
@@ -168,7 +172,7 @@ export default function LandingPage() {
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">
           <FadeIn delay={0.05}>
-            <div className="card h-full px-7 py-8">
+            <div className="card flex h-full flex-col px-7 py-8">
               <p className="eyebrow">Free</p>
               <p className="mt-2 font-serif text-4xl">$0</p>
               <ul className="mt-6 space-y-3 text-sm text-muted">
@@ -179,6 +183,9 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
+              <Link href="/start" className="btn-ghost mt-auto w-full !py-2.5 text-center">
+                Start free
+              </Link>
             </div>
           </FadeIn>
 
@@ -214,7 +221,7 @@ export default function LandingPage() {
             Some nights deserve more than a camera roll.
           </h2>
           <div className="mt-9">
-            <Link href="/sign-in" className="btn-accent !px-8 !py-3.5 !text-base">Sign in</Link>
+            <Link href="/start" className="btn-accent !px-8 !py-3.5 !text-base">Start my world</Link>
           </div>
         </FadeIn>
       </section>
