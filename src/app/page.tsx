@@ -25,16 +25,16 @@ export default function LandingPage() {
           className="gradient-travel pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[64rem] -translate-x-1/2 rounded-full opacity-[0.16] blur-3xl dark:opacity-[0.22]"
         />
         <div className="relative mx-auto max-w-shell px-5 pb-10 pt-16 md:pt-24">
-          <FadeIn>
+          <FadeIn className="text-center">
             <p className="eyebrow">ExpandiaX</p>
-            <h1 className="mt-4 max-w-3xl text-5xl leading-[1.02] md:text-7xl">
+            <h1 className="mx-auto mt-4 max-w-3xl text-5xl leading-[1.02] md:text-7xl">
               Your world, <span className="italic text-accent">remembered.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
+            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted">
               Track the countries you have explored, preserve the moments that mattered and build a
               visual archive of every event that made you feel alive.
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <Link href="/start" className="btn-accent !px-10 !py-4 !text-lg font-semibold shadow-lg shadow-accent/25">
                 Start my world
               </Link>
@@ -220,7 +220,7 @@ export default function LandingPage() {
       <section className="mx-auto max-w-shell px-5 py-20 text-center md:py-28">
         <FadeIn>
           <h2 className="mx-auto max-w-2xl text-4xl leading-tight md:text-6xl">
-            Some nights deserve more than a camera roll.
+            Your world deserves more than a camera roll.
           </h2>
           <div className="mt-9">
             <Link href="/start" className="btn-accent !px-8 !py-3.5 !text-base">Start my world</Link>
