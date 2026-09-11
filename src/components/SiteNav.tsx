@@ -67,11 +67,12 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
             <ThemeToggle variant="onPurple" />
             {!user && (
               <>
-                <Link href="/sign-up" className="hidden font-sans text-sm text-white/70 hover:text-white sm:block">
-                  Create account
-                </Link>
-                <Link href="/sign-in" className="btn-accent !py-2 text-sm">
+                <Link href="/sign-in" className="font-sans text-sm text-white/70 hover:text-white">
                   Sign in
+                </Link>
+                <Link href="/start" className="btn-accent !py-2 !px-4 text-sm font-semibold">
+                  <span className="sm:hidden">Start</span>
+                  <span className="hidden sm:inline">Start my world</span>
                 </Link>
               </>
             )}

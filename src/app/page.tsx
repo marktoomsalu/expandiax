@@ -35,7 +35,9 @@ export default function LandingPage() {
               visual archive of every event that made you feel alive.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Link href="/start" className="btn-accent !px-7 !py-3">Start my world</Link>
+              <Link href="/start" className="btn-accent !px-10 !py-4 !text-lg font-semibold shadow-lg shadow-accent/25">
+                Start my world
+              </Link>
               <Link href="/explore" className="btn-ghost !px-7 !py-3">Explore travellers</Link>
             </div>
             <p className="mt-4 text-sm text-muted">
