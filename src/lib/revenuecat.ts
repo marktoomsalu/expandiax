@@ -44,3 +44,27 @@ export async function getManagementUrl(): Promise<string | null> {
 export function isPurchaseCancelled(e: unknown): boolean {
   return typeof e === "object" && e !== null && (e as PurchasesError).code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR;
 }
+
+export type PremiumProductInfo = { title: string; priceString: string; period: string | null };
+
+// Apple requires the subscription's real title, length and price to be
+// shown in the app's own purchase flow (Guideline 3.1.2(c)) — not just on
+// the system StoreKit sheet. Pulling it live from the store, rather than a
+// hardcoded string, is also the only way the price is accurate in every
+// storefront/currency.
+export async function getPremiumProduct(): Promise<PremiumProductInfo | null> {
+  const offerings = await Purchases.getOfferings();
+  const aPackage = offerings.current?.availablePackages[0];
+  if (!aPackage) return null;
+  const { title, priceString, subscriptionPeriod } = aPackage.product;
+  return { title, priceString, period: subscriptionPeriod };
+}
+
+/** "P1M" -> "Every month", "P3M" -> "Every 3 months", null -> a safe generic label. */
+export function subscriptionPeriodLabel(iso: string | null): string {
+  const match = iso ? /^P(\d+)?([DWMY])$/.exec(iso) : null;
+  if (!match) return "Auto-renewing subscription";
+  const count = match[1] ? parseInt(match[1], 10) : 1;
+  const unit = { D: "day", W: "week", M: "month", Y: "year" }[match[2] as "D" | "W" | "M" | "Y"];
+  return count === 1 ? `Every ${unit}` : `Every ${count} ${unit}s`;
+}

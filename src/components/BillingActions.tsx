@@ -6,6 +6,7 @@ import { Browser } from "@capacitor/browser";
 import type { BillingSource, Plan } from "@/lib/types";
 import { isNativePlatform } from "@/lib/capacitor";
 import { purchasePremium, restorePurchases, getManagementUrl, isPurchaseCancelled } from "@/lib/revenuecat";
+import { SubscriptionDisclosure } from "@/components/SubscriptionDisclosure";
 
 export function BillingActions({ plan, source }: { plan: Plan; source: BillingSource | null }) {
   const router = useRouter();
@@ -116,6 +117,7 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
   if (native) {
     return (
       <div>
+        <SubscriptionDisclosure />
         <button type="button" className="btn-accent" onClick={buyNative} disabled={busy}>
           {busy ? "Purchasing…" : "Upgrade to Premium"}
         </button>
@@ -129,6 +131,7 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
 
   return (
     <div>
+      <SubscriptionDisclosure />
       <button type="button" className="btn-accent" onClick={() => goStripe("/api/stripe/checkout")} disabled={busy}>
         {busy ? "Redirecting…" : "Upgrade to Premium"}
       </button>
