@@ -97,7 +97,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
                   Add your first trip - photos and a soundtrack live with it, right after.
                 </p>
                 <div className="mt-6">
-                  <AddCountryForm meta={meta} />
+                  <AddCountryForm meta={meta} plan={plan} />
                 </div>
               </>
             )}
@@ -119,7 +119,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
                 </Link>
               </div>
             )}
-            <CountryEditor data={visited} meta={meta} />
+            <CountryEditor data={visited} meta={meta} plan={plan} />
           </div>
         )}
       </div>

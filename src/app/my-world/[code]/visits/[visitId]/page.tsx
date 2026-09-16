@@ -6,7 +6,7 @@ import { countryByCode } from "@/lib/countries";
 import { VisitEditor } from "@/components/VisitEditor";
 import { MediaUploader } from "@/components/MediaUploader";
 import { ShareButton } from "@/components/ShareButton";
-import { PHOTO_CAP } from "@/lib/plan";
+import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { formatVisitRange } from "@/lib/utils";
 import type { CountryCity, CountryMedia, CountryVisit, Plan } from "@/lib/types";
 
@@ -66,7 +66,7 @@ export default async function VisitPage({
         <VisitEditor visit={visit} cities={visit.country_cities} />
       </div>
 
-      <div className="mt-10 border-t border-line pt-8">
+      <div className="mt-10 space-y-8 border-t border-line pt-8">
         <MediaUploader
           userId={user.id}
           scope="countries"
@@ -76,10 +76,24 @@ export default async function VisitPage({
           extraFields={{ visited_country_id: visit.visited_country_id }}
           kind="image"
           max={PHOTO_CAP[plan]}
-          items={visit.country_media}
+          items={visit.country_media.filter((m) => m.media_type === "image")}
           coverId={visit.cover_media_id}
           coverTable="country_visits"
           label="Photos from this trip"
+          showUpgradeHint={plan === "free"}
+        />
+        <MediaUploader
+          userId={user.id}
+          scope="countries"
+          parentId={visit.id}
+          table="country_media"
+          fkColumn="country_visit_id"
+          extraFields={{ visited_country_id: visit.visited_country_id }}
+          kind="video"
+          max={VIDEO_CAP[plan]}
+          items={visit.country_media.filter((m) => m.media_type === "video")}
+          captions
+          label="Videos from this trip"
           showUpgradeHint={plan === "free"}
         />
       </div>

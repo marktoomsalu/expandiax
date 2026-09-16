@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Camera, ChevronRight, Heart, MapPinPlus, Music2, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { uploadSingleMedia } from "@/lib/media";
-import type { DatePrecision, VisitedCountryFull } from "@/lib/types";
+import { uploadMediaItem } from "@/lib/media";
+import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
+import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
+import type { DatePrecision, Plan, VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { VisitDateFields } from "./VisitDateFields";
 import { cn, formatVisitRange, visitSortKey } from "@/lib/utils";
@@ -14,10 +16,67 @@ import { tapSuccess } from "@/lib/haptics";
 
 type Meta = { code: string; name: string; flag: string; capital: string };
 
+// Shared by both "first trip to a country" and "add another trip" below —
+// uploads whatever's pending in sequence via uploadMediaItem, reporting a
+// simple aggregate status string for the submit button.
+async function uploadPendingMedia(
+  supabase: ReturnType<typeof createClient>,
+  opts: {
+    userId: string;
+    visitedCountryId: string;
+    visitId: string;
+    photos: PendingItem[];
+    videos: PendingItem[];
+    videoQuality: "standard" | "hd";
+    onStatus: (status: string | null) => void;
+  }
+) {
+  const { userId, visitedCountryId, visitId, photos, videos, videoQuality, onStatus } = opts;
+  const total = photos.length + videos.length;
+  let done = 0;
+  const extraFields = { visited_country_id: visitedCountryId, country_visit_id: visitId };
+
+  for (const p of photos) {
+    onStatus(`Uploading ${done + 1} of ${total}…`);
+    await uploadMediaItem(supabase, {
+      userId,
+      scope: "countries",
+      parentId: visitId,
+      file: p.file,
+      kind: "image",
+      table: "country_media",
+      extraFields,
+      displayOrder: done,
+    }).catch(() => {
+      // Best-effort — the trip itself is already saved either way.
+    });
+    done++;
+  }
+  for (const p of videos) {
+    const videoIndex = done - photos.length;
+    await uploadMediaItem(supabase, {
+      userId,
+      scope: "countries",
+      parentId: visitId,
+      file: p.file,
+      kind: "video",
+      table: "country_media",
+      extraFields,
+      displayOrder: videoIndex,
+      videoQuality,
+      onProgress: (pct, phase) =>
+        onStatus(`${phase === "compressing" ? "Compressing" : "Uploading"} video ${videoIndex + 1} of ${videos.length} (${pct}%)…`),
+    }).catch(() => {
+      // Best-effort — the trip itself is already saved either way.
+    });
+    done++;
+  }
+  onStatus(null);
+}
+
 /** First trip to a new country — bundles marking it visited with its first
- *  visit (dates + memory) in one step, so photos/soundtrack (added on the
- *  visit's own page next) are never orphaned outside any trip. */
-export function AddCountryForm({ meta }: { meta: Meta }) {
+ *  visit (dates + memory + photos/video) in one step. */
+export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   const router = useRouter();
   const supabase = createClient();
   const [precision, setPrecision] = useState<DatePrecision>("year");
@@ -26,25 +85,12 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingPhotos, setPendingPhotos] = useState<PendingItem[]>([]);
+  const [pendingVideos, setPendingVideos] = useState<PendingItem[]>([]);
+  const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
-
-  function handlePhoto(file: File) {
-    setPhoto(file);
-    setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(file);
-    });
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -124,18 +170,15 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
       return;
     }
 
-    if (photo) {
-      await uploadSingleMedia(supabase, {
-        userId: user.id,
-        scope: "countries",
-        parentId: visit.id,
-        file: photo,
-        table: "country_media",
-        extraFields: { visited_country_id: country.id, country_visit_id: visit.id },
-      }).catch(() => {
-        // Best-effort — the trip itself is already saved either way.
-      });
-    }
+    await uploadPendingMedia(supabase, {
+      userId: user.id,
+      visitedCountryId: country.id,
+      visitId: visit.id,
+      photos: pendingPhotos,
+      videos: pendingVideos,
+      videoQuality,
+      onStatus: setUploadStatus,
+    });
 
     tapSuccess();
     router.push(`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}?created=1`);
@@ -144,28 +187,28 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-sm space-y-3 text-left">
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-card border border-dashed border-line bg-surface"
-      >
-        {previewUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={previewUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <span className="text-sm text-muted">Add a photo (optional)</span>
-        )}
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="sr-only"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handlePhoto(file);
-        }}
-      />
+      <PendingMediaPicker kind="image" items={pendingPhotos} onChange={setPendingPhotos} cap={PHOTO_CAP[plan]} />
+      <PendingMediaPicker kind="video" items={pendingVideos} onChange={setPendingVideos} cap={VIDEO_CAP[plan]} />
+      {pendingVideos.length > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted">Upload quality</span>
+          <div className="flex gap-1.5">
+            {(["standard", "hd"] as const).map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => setVideoQuality(q)}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                  videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
+                )}
+              >
+                {q === "standard" ? "Standard - faster" : "HD - original"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <VisitDateFields
         precision={precision}
         onPrecisionChange={setPrecision}
@@ -192,7 +235,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
       </div>
       <button type="submit" className="btn-accent w-full justify-center" disabled={busy}>
         <MapPinPlus size={17} />
-        {busy ? "Adding…" : `Add ${meta.name} to your map`}
+        {busy ? uploadStatus ?? "Adding…" : `Add ${meta.name} to your map`}
       </button>
       {error && (
         <p role="alert" className="text-sm text-red-800 dark:text-red-400">
@@ -212,7 +255,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
   );
 }
 
-export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: Meta }) {
+export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; meta: Meta; plan: Plan }) {
   const router = useRouter();
   const supabase = createClient();
   const [precision, setPrecision] = useState<DatePrecision>("year");
@@ -221,6 +264,11 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
+  const [pendingPhotos, setPendingPhotos] = useState<PendingItem[]>([]);
+  const [pendingVideos, setPendingVideos] = useState<PendingItem[]>([]);
+  const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [addingVisit, setAddingVisit] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [favouriteBusy, setFavouriteBusy] = useState(false);
@@ -245,6 +293,7 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
       return;
     }
     setError(null);
+    setAddingVisit(true);
 
     let from: string | null = null;
     let to: string | null = null;
@@ -275,8 +324,20 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
       .single();
     if (err || !inserted) {
       setError("Could not add that visit.");
+      setAddingVisit(false);
       return;
     }
+
+    await uploadPendingMedia(supabase, {
+      userId: data.user_id,
+      visitedCountryId: data.id,
+      visitId: inserted.id,
+      photos: pendingPhotos,
+      videos: pendingVideos,
+      videoQuality,
+      onStatus: setUploadStatus,
+    });
+
     tapSuccess();
     router.push(`/my-world/${meta.code.toLowerCase()}/visits/${inserted.id}?created=1`);
     router.refresh();
@@ -393,6 +454,28 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <Plus size={15} className="text-accent" aria-hidden /> Add a trip
           </p>
+          <PendingMediaPicker kind="image" items={pendingPhotos} onChange={setPendingPhotos} cap={PHOTO_CAP[plan]} />
+          <PendingMediaPicker kind="video" items={pendingVideos} onChange={setPendingVideos} cap={VIDEO_CAP[plan]} />
+          {pendingVideos.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted">Upload quality</span>
+              <div className="flex gap-1.5">
+                {(["standard", "hd"] as const).map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => setVideoQuality(q)}
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                      videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
+                    )}
+                  >
+                    {q === "standard" ? "Standard - faster" : "HD - original"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <VisitDateFields
             precision={precision}
             onPrecisionChange={setPrecision}
@@ -417,8 +500,8 @@ export function CountryEditor({ data, meta }: { data: VisitedCountryFull; meta: 
               onChange={(e) => setHighlight(e.target.value)}
             />
           </div>
-          <button type="submit" className="btn-accent w-full justify-center !py-2 text-sm">
-            <Plus size={15} /> Add this trip
+          <button type="submit" className="btn-accent w-full justify-center !py-2 text-sm" disabled={addingVisit}>
+            <Plus size={15} /> {addingVisit ? uploadStatus ?? "Adding…" : "Add this trip"}
           </button>
         </form>
       </section>

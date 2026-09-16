@@ -1,14 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Music2, User, X } from "lucide-react";
+import { Music2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { CountrySearch } from "./CountrySearch";
 import { countryByCode } from "@/lib/countries";
-import { uploadSingleMedia, validateFile } from "@/lib/media";
+import { uploadMediaItem } from "@/lib/media";
 import { EVENT_TYPES, eventTypeMeta, type RecentArtist } from "@/lib/events";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { RatingInput } from "./Rating";
@@ -16,13 +16,12 @@ import { ArtistPicker, type SpotifyArtist } from "./ArtistPicker";
 import { TrackPicker, type SpotifyTrackChoice } from "./TrackPicker";
 import { EventSuggestions } from "./EventSuggestions";
 import { MediaUploader } from "./MediaUploader";
+import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
 import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
 import type { EventFull, EventType, Plan } from "@/lib/types";
 
 const TODAY = new Date().toISOString().slice(0, 10);
-
-type PendingPhoto = { file: File; previewUrl: string };
 
 // One page, everything — the essentials up top (photo, type, title, country,
 // date), then a clearly separate "More details" card for everything
@@ -68,9 +67,11 @@ export function EventForm({
   const [saved, setSaved] = useState(false);
 
   const photoCap = PHOTO_CAP[plan];
-  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
-  const [photoError, setPhotoError] = useState<string | null>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoCap = VIDEO_CAP[plan];
+  const [pendingPhotos, setPendingPhotos] = useState<PendingItem[]>([]);
+  const [pendingVideos, setPendingVideos] = useState<PendingItem[]>([]);
+  const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
   const set = <K extends keyof typeof f>(key: K, value: (typeof f)[K]) =>
     setF((cur) => ({ ...cur, [key]: value }));
@@ -87,42 +88,18 @@ export function EventForm({
   const meta = eventTypeMeta(f.event_type);
   const country = f.country_code ? countryByCode(f.country_code) : null;
 
-  async function addPhotos(files: File[]) {
-    setPhotoError(null);
-    const isFirstBatch = pendingPhotos.length === 0;
-    const next: PendingPhoto[] = [];
-    for (const file of files) {
-      if (pendingPhotos.length + next.length >= photoCap) {
-        setPhotoError(`You can add up to ${photoCap} photos here.`);
-        break;
+  // Best-effort date prefill from the first photo's EXIF — never blocks adding.
+  async function prefillDateFromPhoto(file: File) {
+    try {
+      const exifr = await import("exifr");
+      const tags = await exifr.parse(file);
+      const date = tags?.DateTimeOriginal;
+      if (date instanceof Date && !Number.isNaN(date.getTime())) {
+        set("event_date", date.toISOString().slice(0, 10));
       }
-      const problem = validateFile(file, "image");
-      if (problem) {
-        setPhotoError(problem);
-        continue;
-      }
-      next.push({ file, previewUrl: URL.createObjectURL(file) });
+    } catch {
+      // Not a real image, corrupt EXIF, etc. — manual date field still works.
     }
-    if (next.length) setPendingPhotos((p) => [...p, ...next]);
-
-    // Best-effort date prefill from the first photo's EXIF — never blocks adding.
-    if (isFirstBatch && next.length) {
-      try {
-        const exifr = await import("exifr");
-        const tags = await exifr.parse(next[0].file);
-        const date = tags?.DateTimeOriginal;
-        if (date instanceof Date && !Number.isNaN(date.getTime())) {
-          set("event_date", date.toISOString().slice(0, 10));
-        }
-      } catch {
-        // Not a real image, corrupt EXIF, etc. — manual date field still works.
-      }
-    }
-  }
-
-  function removePendingPhoto(url: string) {
-    setPendingPhotos((p) => p.filter((x) => x.previewUrl !== url));
-    URL.revokeObjectURL(url);
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -182,18 +159,43 @@ export function EventForm({
       return;
     }
 
+    const totalMedia = pendingPhotos.length + pendingVideos.length;
+    let done = 0;
     for (const p of pendingPhotos) {
-      await uploadSingleMedia(supabase, {
+      setUploadStatus(`Uploading ${done + 1} of ${totalMedia}…`);
+      await uploadMediaItem(supabase, {
         userId,
         scope: "events",
         parentId: data.id,
         file: p.file,
+        kind: "image",
         table: "event_media",
         extraFields: { event_id: data.id },
+        displayOrder: done,
       }).catch(() => {
         // Best-effort — the event itself is already saved either way.
       });
+      done++;
     }
+    for (const p of pendingVideos) {
+      await uploadMediaItem(supabase, {
+        userId,
+        scope: "events",
+        parentId: data.id,
+        file: p.file,
+        kind: "video",
+        table: "event_media",
+        extraFields: { event_id: data.id },
+        displayOrder: done - pendingPhotos.length,
+        videoQuality,
+        onProgress: (pct, phase) =>
+          setUploadStatus(`${phase === "compressing" ? "Compressing" : "Uploading"} video ${done - pendingPhotos.length + 1} of ${pendingVideos.length} (${pct}%)…`),
+      }).catch(() => {
+        // Best-effort — the event itself is already saved either way.
+      });
+      done++;
+    }
+    setUploadStatus(null);
 
     tapSuccess();
     router.push(`/events/${data.id}/edit?created=1`);
@@ -235,46 +237,35 @@ export function EventForm({
             />
           </div>
         ) : (
-          <div>
-            {pendingPhotos.length > 0 && (
-              <ul className="mb-3 grid grid-cols-3 gap-2.5 sm:grid-cols-4">
-                {pendingPhotos.map((p) => (
-                  <li key={p.previewUrl} className="relative aspect-square overflow-hidden rounded-lg border border-line bg-raised">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.previewUrl} alt="" className="h-full w-full object-cover" />
-                    <button
-                      type="button"
-                      aria-label="Remove photo"
-                      onClick={() => removePendingPhoto(p.previewUrl)}
-                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white"
-                    >
-                      <X size={13} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <button
-              type="button"
-              onClick={() => photoInputRef.current?.click()}
-              disabled={pendingPhotos.length >= photoCap}
-              className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-card border border-dashed border-line bg-surface disabled:opacity-50"
-            >
-              <span className="text-sm text-muted">{pendingPhotos.length > 0 ? "Add more photos" : "Add photos (optional)"}</span>
-            </button>
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="sr-only"
-              onChange={(e) => {
-                if (e.target.files) addPhotos(Array.from(e.target.files));
-                if (photoInputRef.current) photoInputRef.current.value = "";
-              }}
-            />
-            {photoError && <p role="alert" className="mt-2 text-xs text-red-800 dark:text-red-400">{photoError}</p>}
-            <p className="mt-1.5 text-xs text-muted">Videos can be added once the event is saved.</p>
+          <div className="space-y-5">
+            <div>
+              <p className="mb-2 text-xs text-muted">Photos</p>
+              <PendingMediaPicker kind="image" items={pendingPhotos} onChange={setPendingPhotos} cap={photoCap} onFirstAdd={prefillDateFromPhoto} />
+            </div>
+            <div>
+              <p className="mb-2 text-xs text-muted">Videos</p>
+              <PendingMediaPicker kind="video" items={pendingVideos} onChange={setPendingVideos} cap={videoCap} />
+              {pendingVideos.length > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-muted">Upload quality</span>
+                  <div className="flex gap-1.5">
+                    {(["standard", "hd"] as const).map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setVideoQuality(q)}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                          videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
+                        )}
+                      >
+                        {q === "standard" ? "Standard - faster" : "HD - original"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </section>
@@ -472,7 +463,7 @@ export function EventForm({
       {saved && <p role="status" className="rounded-lg border border-accent/40 bg-accent-soft/50 px-3 py-2 text-sm">Event saved.</p>}
 
       <button type="submit" className="btn-accent w-full" disabled={busy}>
-        {busy ? "Saving…" : event ? "Save changes" : "Save event"}
+        {busy ? uploadStatus ?? "Saving…" : event ? "Save changes" : "Save event"}
       </button>
     </form>
   );

@@ -123,7 +123,7 @@ create table public.country_media (
   country_visit_id uuid not null references public.country_visits (id) on delete cascade,
   storage_path text not null,
   public_url text not null,
-  media_type text not null default 'image' check (media_type = 'image'),
+  media_type text not null default 'image' check (media_type in ('image', 'video')),
   caption text not null default '',
   display_order int not null default 0,
   created_at timestamptz not null default now()
@@ -392,19 +392,27 @@ create or replace function public.enforce_country_media_cap()
 returns trigger language plpgsql as $$
 declare
   user_plan text;
-  cap int;
+  photo_cap int;
+  video_cap int;
+  n int;
 begin
   select p.plan into user_plan
   from public.visited_countries vc
   join public.profiles p on p.id = vc.user_id
   where vc.id = new.visited_country_id;
 
-  cap := case when user_plan = 'premium' then 15 else 5 end;
+  photo_cap := case when user_plan = 'premium' then 15 else 5 end;
+  video_cap := case when user_plan = 'premium' then 8 else 3 end;
 
-  if (select count(*) from public.country_media
-      where visited_country_id = new.visited_country_id
-      and country_visit_id is not distinct from new.country_visit_id) >= cap then
-    raise exception 'A trip can have at most % photos.', cap;
+  select count(*) into n from public.country_media
+  where visited_country_id = new.visited_country_id
+    and country_visit_id is not distinct from new.country_visit_id
+    and media_type = new.media_type;
+
+  if new.media_type = 'image' and n >= photo_cap then
+    raise exception 'A trip can have at most % photos.', photo_cap;
+  elsif new.media_type = 'video' and n >= video_cap then
+    raise exception 'A trip can have at most % videos.', video_cap;
   end if;
   return new;
 end;
