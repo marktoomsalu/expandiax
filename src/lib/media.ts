@@ -5,6 +5,12 @@ export const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
 export const MAX_VIDEO_BYTES = 300 * 1024 * 1024; // 300 MB
 
+export function classifyFile(file: File): "image" | "video" | null {
+  if (IMAGE_TYPES.includes(file.type)) return "image";
+  if (VIDEO_TYPES.includes(file.type)) return "video";
+  return null;
+}
+
 export function validateFile(file: File, kind: "image" | "video"): string | null {
   if (kind === "image") {
     if (!IMAGE_TYPES.includes(file.type))

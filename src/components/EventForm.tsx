@@ -68,8 +68,7 @@ export function EventForm({
 
   const photoCap = PHOTO_CAP[plan];
   const videoCap = VIDEO_CAP[plan];
-  const [pendingPhotos, setPendingPhotos] = useState<PendingItem[]>([]);
-  const [pendingVideos, setPendingVideos] = useState<PendingItem[]>([]);
+  const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
@@ -159,37 +158,23 @@ export function EventForm({
       return;
     }
 
-    const totalMedia = pendingPhotos.length + pendingVideos.length;
     let done = 0;
-    for (const p of pendingPhotos) {
-      setUploadStatus(`Uploading ${done + 1} of ${totalMedia}…`);
+    for (const p of pendingMedia) {
+      setUploadStatus(`Uploading ${done + 1} of ${pendingMedia.length}…`);
       await uploadMediaItem(supabase, {
         userId,
         scope: "events",
         parentId: data.id,
         file: p.file,
-        kind: "image",
+        kind: p.kind,
         table: "event_media",
         extraFields: { event_id: data.id },
         displayOrder: done,
-      }).catch(() => {
-        // Best-effort — the event itself is already saved either way.
-      });
-      done++;
-    }
-    for (const p of pendingVideos) {
-      await uploadMediaItem(supabase, {
-        userId,
-        scope: "events",
-        parentId: data.id,
-        file: p.file,
-        kind: "video",
-        table: "event_media",
-        extraFields: { event_id: data.id },
-        displayOrder: done - pendingPhotos.length,
         videoQuality,
-        onProgress: (pct, phase) =>
-          setUploadStatus(`${phase === "compressing" ? "Compressing" : "Uploading"} video ${done - pendingPhotos.length + 1} of ${pendingVideos.length} (${pct}%)…`),
+        onProgress:
+          p.kind === "video"
+            ? (pct, phase) => setUploadStatus(`${phase === "compressing" ? "Compressing" : "Uploading"} video ${done + 1} of ${pendingMedia.length} (${pct}%)…`)
+            : undefined,
       }).catch(() => {
         // Best-effort — the event itself is already saved either way.
       });
@@ -205,67 +190,46 @@ export function EventForm({
   return (
     <form onSubmit={onSubmit} className="space-y-8">
       <section>
-        <p className="eyebrow mb-3">{event ? "Photos & videos" : "Photos"}</p>
+        <p className="eyebrow mb-3">Photos & videos</p>
         {event ? (
-          <div className="space-y-8">
-            <MediaUploader
-              userId={userId}
-              scope="events"
-              parentId={event.id}
-              table="event_media"
-              fkColumn="event_id"
-              kind="image"
-              max={photoCap}
-              items={event.event_media.filter((m) => m.media_type === "image")}
-              coverId={event.cover_media_id}
-              coverTable="events"
-              label="Photos"
-              showUpgradeHint={plan === "free"}
-            />
-            <MediaUploader
-              userId={userId}
-              scope="events"
-              parentId={event.id}
-              table="event_media"
-              fkColumn="event_id"
-              kind="video"
-              max={VIDEO_CAP[plan]}
-              items={event.event_media.filter((m) => m.media_type === "video")}
-              captions
-              label="Videos"
-              showUpgradeHint={plan === "free"}
-            />
-          </div>
+          <MediaUploader
+            userId={userId}
+            scope="events"
+            parentId={event.id}
+            table="event_media"
+            fkColumn="event_id"
+            photoCap={photoCap}
+            videoCap={VIDEO_CAP[plan]}
+            items={event.event_media}
+            coverId={event.cover_media_id}
+            coverTable="events"
+            captions
+            label="Photos & videos"
+            showUpgradeHint={plan === "free"}
+          />
         ) : (
-          <div className="space-y-5">
-            <div>
-              <p className="mb-2 text-xs text-muted">Photos</p>
-              <PendingMediaPicker kind="image" items={pendingPhotos} onChange={setPendingPhotos} cap={photoCap} onFirstAdd={prefillDateFromPhoto} />
-            </div>
-            <div>
-              <p className="mb-2 text-xs text-muted">Videos</p>
-              <PendingMediaPicker kind="video" items={pendingVideos} onChange={setPendingVideos} cap={videoCap} />
-              {pendingVideos.length > 0 && (
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-xs text-muted">Upload quality</span>
-                  <div className="flex gap-1.5">
-                    {(["standard", "hd"] as const).map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => setVideoQuality(q)}
-                        className={cn(
-                          "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                          videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
-                        )}
-                      >
-                        {q === "standard" ? "Standard - faster" : "HD - original"}
-                      </button>
-                    ))}
-                  </div>
+          <div>
+            <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={photoCap} videoCap={videoCap} onFirstAdd={prefillDateFromPhoto} />
+            {pendingMedia.some((p) => p.kind === "video") && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-muted">Video upload quality</span>
+                <div className="flex gap-1.5">
+                  {(["standard", "hd"] as const).map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setVideoQuality(q)}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                        videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
+                      )}
+                    >
+                      {q === "standard" ? "Standard - faster" : "HD - original"}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </section>

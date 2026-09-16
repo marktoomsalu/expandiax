@@ -25,47 +25,31 @@ async function uploadPendingMedia(
     userId: string;
     visitedCountryId: string;
     visitId: string;
-    photos: PendingItem[];
-    videos: PendingItem[];
+    media: PendingItem[];
     videoQuality: "standard" | "hd";
     onStatus: (status: string | null) => void;
   }
 ) {
-  const { userId, visitedCountryId, visitId, photos, videos, videoQuality, onStatus } = opts;
-  const total = photos.length + videos.length;
-  let done = 0;
+  const { userId, visitedCountryId, visitId, media, videoQuality, onStatus } = opts;
   const extraFields = { visited_country_id: visitedCountryId, country_visit_id: visitId };
 
-  for (const p of photos) {
-    onStatus(`Uploading ${done + 1} of ${total}…`);
+  let done = 0;
+  for (const p of media) {
+    onStatus(`Uploading ${done + 1} of ${media.length}…`);
     await uploadMediaItem(supabase, {
       userId,
       scope: "countries",
       parentId: visitId,
       file: p.file,
-      kind: "image",
+      kind: p.kind,
       table: "country_media",
       extraFields,
       displayOrder: done,
-    }).catch(() => {
-      // Best-effort — the trip itself is already saved either way.
-    });
-    done++;
-  }
-  for (const p of videos) {
-    const videoIndex = done - photos.length;
-    await uploadMediaItem(supabase, {
-      userId,
-      scope: "countries",
-      parentId: visitId,
-      file: p.file,
-      kind: "video",
-      table: "country_media",
-      extraFields,
-      displayOrder: videoIndex,
       videoQuality,
-      onProgress: (pct, phase) =>
-        onStatus(`${phase === "compressing" ? "Compressing" : "Uploading"} video ${videoIndex + 1} of ${videos.length} (${pct}%)…`),
+      onProgress:
+        p.kind === "video"
+          ? (pct, phase) => onStatus(`${phase === "compressing" ? "Compressing" : "Uploading"} video ${done + 1} of ${media.length} (${pct}%)…`)
+          : undefined,
     }).catch(() => {
       // Best-effort — the trip itself is already saved either way.
     });
@@ -85,8 +69,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
-  const [pendingPhotos, setPendingPhotos] = useState<PendingItem[]>([]);
-  const [pendingVideos, setPendingVideos] = useState<PendingItem[]>([]);
+  const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -174,8 +157,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
       userId: user.id,
       visitedCountryId: country.id,
       visitId: visit.id,
-      photos: pendingPhotos,
-      videos: pendingVideos,
+      media: pendingMedia,
       videoQuality,
       onStatus: setUploadStatus,
     });
@@ -187,11 +169,10 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-sm space-y-3 text-left">
-      <PendingMediaPicker kind="image" items={pendingPhotos} onChange={setPendingPhotos} cap={PHOTO_CAP[plan]} />
-      <PendingMediaPicker kind="video" items={pendingVideos} onChange={setPendingVideos} cap={VIDEO_CAP[plan]} />
-      {pendingVideos.length > 0 && (
+      <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
+      {pendingMedia.some((p) => p.kind === "video") && (
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted">Upload quality</span>
+          <span className="text-xs text-muted">Video upload quality</span>
           <div className="flex gap-1.5">
             {(["standard", "hd"] as const).map((q) => (
               <button
@@ -264,8 +245,7 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
-  const [pendingPhotos, setPendingPhotos] = useState<PendingItem[]>([]);
-  const [pendingVideos, setPendingVideos] = useState<PendingItem[]>([]);
+  const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [addingVisit, setAddingVisit] = useState(false);
@@ -332,8 +312,7 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
       userId: data.user_id,
       visitedCountryId: data.id,
       visitId: inserted.id,
-      photos: pendingPhotos,
-      videos: pendingVideos,
+      media: pendingMedia,
       videoQuality,
       onStatus: setUploadStatus,
     });
@@ -454,11 +433,10 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <Plus size={15} className="text-accent" aria-hidden /> Add a trip
           </p>
-          <PendingMediaPicker kind="image" items={pendingPhotos} onChange={setPendingPhotos} cap={PHOTO_CAP[plan]} />
-          <PendingMediaPicker kind="video" items={pendingVideos} onChange={setPendingVideos} cap={VIDEO_CAP[plan]} />
-          {pendingVideos.length > 0 && (
+          <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
+          {pendingMedia.some((p) => p.kind === "video") && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted">Upload quality</span>
+              <span className="text-xs text-muted">Video upload quality</span>
               <div className="flex gap-1.5">
                 {(["standard", "hd"] as const).map((q) => (
                   <button

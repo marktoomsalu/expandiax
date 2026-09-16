@@ -66,7 +66,7 @@ export default async function VisitPage({
         <VisitEditor visit={visit} cities={visit.country_cities} />
       </div>
 
-      <div className="mt-10 space-y-8 border-t border-line pt-8">
+      <div className="mt-10 border-t border-line pt-8">
         <MediaUploader
           userId={user.id}
           scope="countries"
@@ -74,26 +74,13 @@ export default async function VisitPage({
           table="country_media"
           fkColumn="country_visit_id"
           extraFields={{ visited_country_id: visit.visited_country_id }}
-          kind="image"
-          max={PHOTO_CAP[plan]}
-          items={visit.country_media.filter((m) => m.media_type === "image")}
+          photoCap={PHOTO_CAP[plan]}
+          videoCap={VIDEO_CAP[plan]}
+          items={visit.country_media}
           coverId={visit.cover_media_id}
           coverTable="country_visits"
-          label="Photos from this trip"
-          showUpgradeHint={plan === "free"}
-        />
-        <MediaUploader
-          userId={user.id}
-          scope="countries"
-          parentId={visit.id}
-          table="country_media"
-          fkColumn="country_visit_id"
-          extraFields={{ visited_country_id: visit.visited_country_id }}
-          kind="video"
-          max={VIDEO_CAP[plan]}
-          items={visit.country_media.filter((m) => m.media_type === "video")}
           captions
-          label="Videos from this trip"
+          label="Photos & videos from this trip"
           showUpgradeHint={plan === "free"}
         />
       </div>

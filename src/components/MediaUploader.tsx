@@ -4,10 +4,10 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, Star, Trash2, Video } from "lucide-react";
+import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, Star, Trash2 } from "lucide-react";
 import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
-import { validateFile, storagePath } from "@/lib/media";
+import { classifyFile, validateFile, storagePath } from "@/lib/media";
 import { compressVideo } from "@/lib/videoCompress";
 import { uploadResumable } from "@/lib/resumableUpload";
 import type { MediaItem } from "@/lib/types";
@@ -22,8 +22,8 @@ type Props = {
   parentId: string;
   table: "country_media" | "event_media";
   fkColumn: "visited_country_id" | "country_visit_id" | "event_id";
-  kind: "image" | "video";
-  max: number;
+  photoCap: number;
+  videoCap: number;
   items: MediaItem[];
   coverId?: string | null;
   coverTable?: "visited_countries" | "country_visits" | "events";
@@ -31,11 +31,11 @@ type Props = {
   label: string;
   /** Extra fixed columns to set on every inserted row — e.g. a per-visit photo also needs its parent country's id. */
   extraFields?: Record<string, string>;
-  /** Shows a link to /settings/billing once the cap is hit — pass true when the current user is on the free plan. */
+  /** Shows a link to /settings/billing once either cap is hit — pass true when the current user is on the free plan. */
   showUpgradeHint?: boolean;
 };
 
-type Pending = { file: File; previewUrl: string; caption: string };
+type Pending = { file: File; previewUrl: string; caption: string; kind: "image" | "video" };
 
 /** Upload with real progress via the Storage REST endpoint. */
 async function uploadWithProgress(
@@ -67,7 +67,7 @@ async function uploadWithProgress(
 }
 
 export function MediaUploader(props: Props) {
-  const { userId, scope, parentId, table, fkColumn, kind, max, items, coverId, coverTable, captions, label, extraFields, showUpgradeHint } = props;
+  const { userId, scope, parentId, table, fkColumn, photoCap, videoCap, items, coverId, coverTable, captions, label, extraFields, showUpgradeHint } = props;
   const router = useRouter();
   const supabase = createClient();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,22 +80,37 @@ export function MediaUploader(props: Props) {
   const [toDelete, setToDelete] = useState<MediaItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const remaining = max - items.length - pending.length;
+  const photoCount = items.filter((m) => m.media_type === "image").length + pending.filter((p) => p.kind === "image").length;
+  const videoCount = items.filter((m) => m.media_type === "video").length + pending.filter((p) => p.kind === "video").length;
+  const photoRemaining = photoCap - photoCount;
+  const videoRemaining = videoCap - videoCount;
+  const hasPendingVideo = pending.some((p) => p.kind === "video");
 
   function addFiles(files: File[]) {
     setError(null);
     const next: Pending[] = [];
+    let addedPhotos = 0;
+    let addedVideos = 0;
     for (const file of files) {
-      if (items.length + pending.length + next.length >= max) {
-        setError(`You can keep up to ${max} ${kind === "image" ? "photos" : "videos"} here. Remove one to add another.`);
-        break;
+      const kind = classifyFile(file);
+      if (!kind) {
+        setError(`“${file.name}” isn't a supported photo or video.`);
+        continue;
+      }
+      const cap = kind === "image" ? photoCap : videoCap;
+      const current = (kind === "image" ? photoCount + addedPhotos : videoCount + addedVideos);
+      if (current >= cap) {
+        setError(`You can keep up to ${cap} ${kind === "image" ? "photos" : "videos"} here. Remove one to add another.`);
+        continue;
       }
       const problem = validateFile(file, kind);
       if (problem) {
         setError(problem);
         continue;
       }
-      next.push({ file, previewUrl: URL.createObjectURL(file), caption: "" });
+      next.push({ file, previewUrl: URL.createObjectURL(file), caption: "", kind });
+      if (kind === "image") addedPhotos++;
+      else addedVideos++;
     }
     if (next.length) setPending((p) => [...p, ...next]);
   }
@@ -133,7 +148,7 @@ export function MediaUploader(props: Props) {
       for (const p of pending) {
         let fileToUpload = p.file;
 
-        if (kind === "video" && videoQuality === "standard") {
+        if (p.kind === "video" && videoQuality === "standard") {
           setPhase((cur) => ({ ...cur, [p.previewUrl]: "compressing" }));
           setProgress((cur) => ({ ...cur, [p.previewUrl]: 0 }));
           try {
@@ -152,7 +167,7 @@ export function MediaUploader(props: Props) {
 
         const path = storagePath(userId, scope, parentId, fileToUpload);
 
-        if (kind === "video") {
+        if (p.kind === "video") {
           const { data: sessionData } = await supabase.auth.getSession();
           const token = sessionData.session?.access_token;
           if (!token) throw new Error("You need to be signed in to upload.");
@@ -171,7 +186,7 @@ export function MediaUploader(props: Props) {
           ...extraFields,
           storage_path: path,
           public_url: pub.publicUrl,
-          media_type: kind,
+          media_type: p.kind,
           caption: p.caption,
           display_order: order++,
         });
@@ -237,14 +252,16 @@ export function MediaUploader(props: Props) {
   }
 
   const sorted = [...items].sort((a, b) => a.display_order - b.display_order);
-  const Icon = kind === "image" ? ImagePlus : Video;
+  const pendingSummary = pending.length === 1
+    ? `Save 1 ${pending[0].kind === "image" ? "photo" : "video"}`
+    : `Save ${pending.length} items`;
 
   return (
     <section>
       <div className="flex items-baseline justify-between">
         <h3 className="font-serif text-lg">{label}</h3>
         <p className="text-xs text-muted">
-          {items.length}/{max} saved
+          {photoCount}/{photoCap} photos · {videoCount}/{videoCap} videos
         </p>
       </div>
 
@@ -279,7 +296,7 @@ export function MediaUploader(props: Props) {
                     </button>
                   )}
                 </div>
-                <button type="button" aria-label={`Delete ${kind}`} className="p-1.5 text-muted hover:text-red-700" onClick={() => setToDelete(m)}>
+                <button type="button" aria-label={`Delete ${m.media_type}`} className="p-1.5 text-muted hover:text-red-700" onClick={() => setToDelete(m)}>
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -294,7 +311,7 @@ export function MediaUploader(props: Props) {
           <ul className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {pending.map((p) => (
               <li key={p.previewUrl} className="overflow-hidden rounded-lg border border-line bg-surface">
-                {kind === "image" ? (
+                {p.kind === "image" ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.previewUrl} alt={`Preview of ${p.file.name}`} className="aspect-[4/3] w-full object-cover" />
                 ) : (
@@ -333,14 +350,14 @@ export function MediaUploader(props: Props) {
               ? Object.values(phase).includes("compressing")
                 ? "Compressing…"
                 : "Uploading…"
-              : `Save ${pending.length} ${kind === "image" ? "photo" : "video"}${pending.length > 1 ? "s" : ""}`}
+              : pendingSummary}
           </button>
         </div>
       )}
 
-      {kind === "video" && (
+      {hasPendingVideo && (
         <div className="mt-4 flex items-center gap-2">
-          <span className="text-xs text-muted">Upload quality</span>
+          <span className="text-xs text-muted">Video upload quality</span>
           <div className="flex gap-1.5">
             {(["standard", "hd"] as const).map((q) => (
               <button
@@ -362,10 +379,10 @@ export function MediaUploader(props: Props) {
 
       <div className="mt-4">
         <div className="flex flex-wrap items-center gap-2">
-          {kind === "image" && isNativePlatform() && (
+          {isNativePlatform() && (
             <button
               type="button"
-              className={cn("btn-ghost !py-2 text-sm", remaining <= 0 && "pointer-events-none opacity-40")}
+              className={cn("btn-ghost !py-2 text-sm", photoRemaining <= 0 && "pointer-events-none opacity-40")}
               onClick={takeNativePhoto}
             >
               <CameraIcon size={16} />
@@ -374,9 +391,9 @@ export function MediaUploader(props: Props) {
           )}
           <input
             ref={inputRef}
-            id={`${table}-${kind}-input`}
+            id={`${table}-media-input`}
             type="file"
-            accept={kind === "image" ? "image/*" : "video/*"}
+            accept="image/*,video/*"
             multiple
             className="sr-only"
             onChange={(e) => pickFiles(e.target.files)}
@@ -391,20 +408,18 @@ export function MediaUploader(props: Props) {
             was the main source of the native picker feeling slower than web.
           */}
           <label
-            htmlFor={`${table}-${kind}-input`}
+            htmlFor={`${table}-media-input`}
             className={cn(
               "btn-ghost cursor-pointer !py-2 text-sm",
-              remaining <= 0 && "pointer-events-none opacity-40"
+              photoRemaining <= 0 && videoRemaining <= 0 && "pointer-events-none opacity-40"
             )}
           >
-            <Icon size={16} />
-            {kind === "image" ? "Choose photos" : "Add videos"}
+            <ImagePlus size={16} />
+            Add photos or videos
           </label>
         </div>
-        <span className="ml-3 text-xs text-muted">
-          {kind === "image" ? "JPEG, PNG or WebP · up to 10 MB each" : "MP4, WebM or MOV · up to 300 MB each"}
-        </span>
-        {remaining <= 0 && showUpgradeHint && (
+        <span className="ml-3 text-xs text-muted">JPEG/PNG/WebP up to 10 MB, or MP4/WebM/MOV up to 300 MB</span>
+        {(photoRemaining <= 0 || videoRemaining <= 0) && showUpgradeHint && (
           <p className="mt-2 text-xs text-muted">
             That&rsquo;s the free plan&rsquo;s limit -{" "}
             <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
@@ -423,7 +438,7 @@ export function MediaUploader(props: Props) {
 
       <ConfirmDialog
         open={!!toDelete}
-        title={`Delete this ${kind}?`}
+        title={`Delete this ${toDelete?.media_type ?? "item"}?`}
         body="It will be removed from your archive and from storage. This cannot be undone."
         confirmLabel="Delete"
         busy={deleting}
