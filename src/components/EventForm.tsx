@@ -1,28 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { Music2, User } from "lucide-react";
+import { Music2, User, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { COUNTRIES, countryByCode } from "@/lib/countries";
+import { CountrySearch } from "./CountrySearch";
+import { countryByCode } from "@/lib/countries";
+import { uploadSingleMedia, validateFile } from "@/lib/media";
 import { EVENT_TYPES, eventTypeMeta, type RecentArtist } from "@/lib/events";
+import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { RatingInput } from "./Rating";
 import { ArtistPicker, type SpotifyArtist } from "./ArtistPicker";
 import { TrackPicker, type SpotifyTrackChoice } from "./TrackPicker";
+import { EventSuggestions } from "./EventSuggestions";
+import { MediaUploader } from "./MediaUploader";
 import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
-import type { Event, EventType } from "@/lib/types";
+import type { EventFull, EventType, Plan } from "@/lib/types";
 
-export function EventForm({ event, recentArtists = [] }: { event?: Event; recentArtists?: RecentArtist[] }) {
+const TODAY = new Date().toISOString().slice(0, 10);
+
+type PendingPhoto = { file: File; previewUrl: string };
+
+// One page, everything — the essentials up top (photo, type, title, country,
+// date), then a clearly separate "More details" card for everything
+// optional. Create and edit render the exact same layout; the only real
+// difference is the photo section (pending-in-memory before the row exists,
+// vs. the real MediaUploader once it does) and what submit does with the
+// payload (insert vs update).
+export function EventForm({
+  event,
+  recentArtists = [],
+  userId,
+  plan,
+}: {
+  event?: EventFull;
+  recentArtists?: RecentArtist[];
+  userId: string;
+  plan: Plan;
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [f, setF] = useState({
     event_type: event?.event_type ?? ("concert" as EventType),
     title: event?.title ?? "",
     subtitle: event?.subtitle ?? "",
-    event_date: event?.event_date ?? "",
+    event_date: event?.event_date ?? TODAY,
     venue: event?.venue ?? "",
     city: event?.city ?? "",
     country_code: event?.country_code ?? "",
@@ -42,6 +67,11 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  const photoCap = PHOTO_CAP[plan];
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
   const set = <K extends keyof typeof f>(key: K, value: (typeof f)[K]) =>
     setF((cur) => ({ ...cur, [key]: value }));
 
@@ -55,6 +85,45 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
     }));
 
   const meta = eventTypeMeta(f.event_type);
+  const country = f.country_code ? countryByCode(f.country_code) : null;
+
+  async function addPhotos(files: File[]) {
+    setPhotoError(null);
+    const isFirstBatch = pendingPhotos.length === 0;
+    const next: PendingPhoto[] = [];
+    for (const file of files) {
+      if (pendingPhotos.length + next.length >= photoCap) {
+        setPhotoError(`You can add up to ${photoCap} photos here.`);
+        break;
+      }
+      const problem = validateFile(file, "image");
+      if (problem) {
+        setPhotoError(problem);
+        continue;
+      }
+      next.push({ file, previewUrl: URL.createObjectURL(file) });
+    }
+    if (next.length) setPendingPhotos((p) => [...p, ...next]);
+
+    // Best-effort date prefill from the first photo's EXIF — never blocks adding.
+    if (isFirstBatch && next.length) {
+      try {
+        const exifr = await import("exifr");
+        const tags = await exifr.parse(next[0].file);
+        const date = tags?.DateTimeOriginal;
+        if (date instanceof Date && !Number.isNaN(date.getTime())) {
+          set("event_date", date.toISOString().slice(0, 10));
+        }
+      } catch {
+        // Not a real image, corrupt EXIF, etc. — manual date field still works.
+      }
+    }
+  }
+
+  function removePendingPhoto(url: string) {
+    setPendingPhotos((p) => p.filter((x) => x.previewUrl !== url));
+    URL.revokeObjectURL(url);
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,196 +168,292 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
       setBusy(false);
       tapSuccess();
       router.refresh();
-    } else {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setError("Your session expired. Please sign in again.");
-        setBusy(false);
-        return;
-      }
-      const { data, error: err } = await supabase
-        .from("events")
-        .insert({ ...payload, user_id: user.id })
-        .select("id")
-        .single();
-      if (err || !data) {
-        setError(
-          err?.message.includes("capped at")
-            ? err.message
-            : "Could not create the event. Try again."
-        );
-        setBusy(false);
-        return;
-      }
-      tapSuccess();
-      router.push(`/events/${data.id}/edit?created=1`);
-      router.refresh();
+      return;
     }
+
+    const { data, error: err } = await supabase
+      .from("events")
+      .insert({ ...payload, user_id: userId })
+      .select("id")
+      .single();
+    if (err || !data) {
+      setError(err?.message.includes("capped at") ? err.message : "Could not create the event. Try again.");
+      setBusy(false);
+      return;
+    }
+
+    for (const p of pendingPhotos) {
+      await uploadSingleMedia(supabase, {
+        userId,
+        scope: "events",
+        parentId: data.id,
+        file: p.file,
+        table: "event_media",
+        extraFields: { event_id: data.id },
+      }).catch(() => {
+        // Best-effort — the event itself is already saved either way.
+      });
+    }
+
+    tapSuccess();
+    router.push(`/events/${data.id}/edit?created=1`);
+    router.refresh();
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      <div>
-        <span className="mb-1.5 block text-sm font-medium">Type of event</span>
-        <div className="flex flex-wrap gap-2">
-          {EVENT_TYPES.map((t) => {
-            const Icon = t.icon;
-            const active = f.event_type === t.value;
-            return (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => set("event_type", t.value)}
-                aria-pressed={active}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                  active ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:border-accent hover:text-accent"
-                )}
-              >
-                <Icon size={14} /> {t.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {meta.hasArtist && (
-        <div>
-          <span className="mb-1.5 block text-sm font-medium">Spotify artist</span>
-          <p className="mb-1.5 text-xs text-muted">
-            Found them? Their photo becomes the cover and fills in {meta.titleLabel.toLowerCase()} below - no
-            need to type it twice. Not on Spotify? Just skip this and type it in yourself.
-          </p>
-
-          {!f.spotify_artist_id && recentArtists.length > 0 && (
-            <div className="mb-2">
-              <p className="mb-1.5 text-xs text-muted">Seen before</p>
-              <div className="flex flex-wrap gap-1.5">
-                {recentArtists.map((a) => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => applyArtist(a)}
-                    className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
-                  >
-                    {a.image ? (
-                      <Image src={a.image} alt="" width={18} height={18} className="h-[18px] w-[18px] rounded-full object-cover" />
-                    ) : (
-                      <User size={12} />
-                    )}
-                    {a.name}
-                  </button>
+    <form onSubmit={onSubmit} className="space-y-8">
+      <section>
+        <p className="eyebrow mb-3">{event ? "Photos & videos" : "Photos"}</p>
+        {event ? (
+          <div className="space-y-8">
+            <MediaUploader
+              userId={userId}
+              scope="events"
+              parentId={event.id}
+              table="event_media"
+              fkColumn="event_id"
+              kind="image"
+              max={photoCap}
+              items={event.event_media.filter((m) => m.media_type === "image")}
+              coverId={event.cover_media_id}
+              coverTable="events"
+              label="Photos"
+              showUpgradeHint={plan === "free"}
+            />
+            <MediaUploader
+              userId={userId}
+              scope="events"
+              parentId={event.id}
+              table="event_media"
+              fkColumn="event_id"
+              kind="video"
+              max={VIDEO_CAP[plan]}
+              items={event.event_media.filter((m) => m.media_type === "video")}
+              captions
+              label="Videos"
+              showUpgradeHint={plan === "free"}
+            />
+          </div>
+        ) : (
+          <div>
+            {pendingPhotos.length > 0 && (
+              <ul className="mb-3 grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+                {pendingPhotos.map((p) => (
+                  <li key={p.previewUrl} className="relative aspect-square overflow-hidden rounded-lg border border-line bg-raised">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.previewUrl} alt="" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      aria-label="Remove photo"
+                      onClick={() => removePendingPhoto(p.previewUrl)}
+                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white"
+                    >
+                      <X size={13} />
+                    </button>
+                  </li>
                 ))}
-              </div>
-            </div>
-          )}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={pendingPhotos.length >= photoCap}
+              className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-card border border-dashed border-line bg-surface disabled:opacity-50"
+            >
+              <span className="text-sm text-muted">{pendingPhotos.length > 0 ? "Add more photos" : "Add photos (optional)"}</span>
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={(e) => {
+                if (e.target.files) addPhotos(Array.from(e.target.files));
+                if (photoInputRef.current) photoInputRef.current.value = "";
+              }}
+            />
+            {photoError && <p role="alert" className="mt-2 text-xs text-red-800 dark:text-red-400">{photoError}</p>}
+            <p className="mt-1.5 text-xs text-muted">Videos can be added once the event is saved.</p>
+          </div>
+        )}
+      </section>
 
-          <ArtistPicker
-            value={
-              f.spotify_artist_id
-                ? { id: f.spotify_artist_id, name: f.spotify_artist_name ?? "", image: f.spotify_artist_image }
-                : null
-            }
-            onChange={applyArtist}
-          />
+      <section className="space-y-5">
+        <div>
+          <span className="mb-1.5 block text-sm font-medium">Type of event</span>
+          <div className="flex flex-wrap gap-2">
+            {EVENT_TYPES.map((t) => {
+              const Icon = t.icon;
+              const active = f.event_type === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => set("event_type", t.value)}
+                  aria-pressed={active}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                    active ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:border-accent hover:text-accent"
+                  )}
+                >
+                  <Icon size={14} /> {t.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      )}
 
-      <div className="grid gap-5 sm:grid-cols-2">
+        {meta.hasArtist && (
+          <div>
+            <span className="mb-1.5 block text-sm font-medium">Spotify artist</span>
+            <p className="mb-1.5 text-xs text-muted">
+              Found them? Their photo becomes the cover and fills in {meta.titleLabel.toLowerCase()} below - no
+              need to type it twice. Not on Spotify? Just skip this and type it in yourself.
+            </p>
+            {!f.spotify_artist_id && recentArtists.length > 0 && (
+              <div className="mb-2">
+                <p className="mb-1.5 text-xs text-muted">Seen before</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {recentArtists.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => applyArtist(a)}
+                      className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
+                    >
+                      {a.image ? (
+                        <Image src={a.image} alt="" width={18} height={18} className="h-[18px] w-[18px] rounded-full object-cover" />
+                      ) : (
+                        <User size={12} />
+                      )}
+                      {a.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <ArtistPicker
+              value={
+                f.spotify_artist_id
+                  ? { id: f.spotify_artist_id, name: f.spotify_artist_name ?? "", image: f.spotify_artist_image }
+                  : null
+              }
+              onChange={applyArtist}
+            />
+          </div>
+        )}
+
         <div>
           <label htmlFor="e-title" className="mb-1.5 block text-sm font-medium">{meta.titleLabel} *</label>
           <input id="e-title" className="field" value={f.title} onChange={(e) => set("title", e.target.value)} required placeholder={meta.titlePlaceholder} />
         </div>
+
         <div>
-          <label htmlFor="e-subtitle" className="mb-1.5 block text-sm font-medium">Subtitle</label>
-          <input id="e-subtitle" className="field" value={f.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="Tour, edition or extra detail" />
+          <p className="mb-1.5 block text-sm font-medium">Country *</p>
+          {country ? (
+            <button type="button" onClick={() => set("country_code", "")} className="field flex w-full items-center justify-between text-left">
+              <span>{country.flag} {country.name}</span>
+              <span className="text-xs text-accent">Change</span>
+            </button>
+          ) : (
+            <CountrySearch onSelect={(code) => set("country_code", code)} placeholder="Search for the country…" />
+          )}
         </div>
+
         <div>
           <label htmlFor="e-date" className="mb-1.5 block text-sm font-medium">Date *</label>
           <input id="e-date" type="date" className="field" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} required />
         </div>
-        <div>
-          <label htmlFor="e-venue" className="mb-1.5 block text-sm font-medium">Venue</label>
-          <input id="e-venue" className="field" value={f.venue} onChange={(e) => set("venue", e.target.value)} placeholder="Saku Suurhall" />
-        </div>
-        <div>
-          <label htmlFor="e-city" className="mb-1.5 block text-sm font-medium">City</label>
-          <input id="e-city" className="field" value={f.city} onChange={(e) => set("city", e.target.value)} placeholder="Tallinn" />
-        </div>
-        <div>
-          <label htmlFor="e-country" className="mb-1.5 block text-sm font-medium">Country *</label>
-          <select id="e-country" className="field" value={f.country_code} onChange={(e) => set("country_code", e.target.value)} required>
-            <option value="">Choose a country</option>
-            {COUNTRIES.map((c) => (
-              <option key={c.code} value={c.code}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-      </div>
 
-      <div>
-        <span className="mb-1.5 block text-sm font-medium">Your rating</span>
-        <RatingInput value={f.rating} onChange={(v) => set("rating", v)} />
-      </div>
-
-      <div>
-        <label htmlFor="e-review" className="mb-1.5 block text-sm font-medium">The memory</label>
-        <textarea id="e-review" className="field min-h-28" value={f.review} onChange={(e) => set("review", e.target.value)} maxLength={2000} placeholder="What made it worth remembering…" />
-      </div>
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div>
-          <label htmlFor="e-highlight" className="mb-1.5 block text-sm font-medium">{meta.highlightLabel}</label>
-          <input
-            id="e-highlight"
-            className="field"
-            value={f.highlight}
-            onChange={(e) => set("highlight", e.target.value)}
+        {!event && (
+          <EventSuggestions
+            title={f.title}
+            onApplyVenue={(v) => set("venue", v)}
+            onApplyCity={(c) => set("city", c)}
+            onApplyCountry={(code) => set("country_code", code)}
           />
-          {meta.songPicker && (
-            <div className="mt-2">
-              {f.spotify_favourite_track_id ? (
-                <p className="flex items-center gap-1.5 text-xs text-muted">
-                  <Music2 size={12} className="text-accent" aria-hidden /> Connected to Spotify - plays back on the event page.
-                  <button type="button" className="text-red-700 hover:underline" onClick={() => set("spotify_favourite_track_id", null)}>
-                    Disconnect
-                  </button>
-                </p>
-              ) : (
-                <TrackPicker
-                  value={null}
-                  onChange={(track: SpotifyTrackChoice | null) => {
-                    if (!track) return;
-                    setF((cur) => ({ ...cur, spotify_favourite_track_id: track.id, highlight: track.name }));
-                  }}
-                  placeholder="Or connect it to Spotify so it plays back…"
-                />
-              )}
-            </div>
-          )}
-        </div>
-        <div>
-          <label htmlFor="e-notes" className="mb-1.5 block text-sm font-medium">{meta.notesLabel}</label>
-          <input id="e-notes" className="field" value={f.notes} onChange={(e) => set("notes", e.target.value)} />
-        </div>
-      </div>
+        )}
+      </section>
 
-      <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-line bg-surface px-4 py-3">
-        <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-          <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.is_public} onChange={(e) => set("is_public", e.target.checked)} />
-          Visible on my public profile
-        </label>
-        <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-          <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.is_favourite} onChange={(e) => set("is_favourite", e.target.checked)} />
-          My favourite event
-        </label>
-        <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-          <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.share_to_feed} onChange={(e) => set("share_to_feed", e.target.checked)} />
-          Show in followers&rsquo; feeds
-        </label>
-      </div>
+      <section className="card space-y-5 px-5 py-6">
+        <div>
+          <h3 className="font-serif text-lg">More details</h3>
+          <p className="text-xs text-muted">Add as much or as little as you like.</p>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="e-subtitle" className="mb-1.5 block text-sm font-medium">Subtitle</label>
+            <input id="e-subtitle" className="field" value={f.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="Tour, edition or extra detail" />
+          </div>
+          <div>
+            <label htmlFor="e-venue" className="mb-1.5 block text-sm font-medium">Venue</label>
+            <input id="e-venue" className="field" value={f.venue} onChange={(e) => set("venue", e.target.value)} placeholder="Saku Suurhall" />
+          </div>
+          <div>
+            <label htmlFor="e-city" className="mb-1.5 block text-sm font-medium">City</label>
+            <input id="e-city" className="field" value={f.city} onChange={(e) => set("city", e.target.value)} placeholder="Tallinn" />
+          </div>
+        </div>
+
+        <div>
+          <span className="mb-1.5 block text-sm font-medium">Your rating</span>
+          <RatingInput value={f.rating} onChange={(v) => set("rating", v)} />
+        </div>
+
+        <div>
+          <label htmlFor="e-review" className="mb-1.5 block text-sm font-medium">The memory</label>
+          <textarea id="e-review" className="field min-h-28" value={f.review} onChange={(e) => set("review", e.target.value)} maxLength={2000} placeholder="What made it worth remembering…" />
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="e-highlight" className="mb-1.5 block text-sm font-medium">{meta.highlightLabel}</label>
+            <input id="e-highlight" className="field" value={f.highlight} onChange={(e) => set("highlight", e.target.value)} />
+            {meta.songPicker && (
+              <div className="mt-2">
+                {f.spotify_favourite_track_id ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted">
+                    <Music2 size={12} className="text-accent" aria-hidden /> Connected to Spotify - plays back on the event page.
+                    <button type="button" className="text-red-700 hover:underline" onClick={() => set("spotify_favourite_track_id", null)}>
+                      Disconnect
+                    </button>
+                  </p>
+                ) : (
+                  <TrackPicker
+                    value={null}
+                    onChange={(track: SpotifyTrackChoice | null) => {
+                      if (!track) return;
+                      setF((cur) => ({ ...cur, spotify_favourite_track_id: track.id, highlight: track.name }));
+                    }}
+                    placeholder="Or connect it to Spotify so it plays back…"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+          <div>
+            <label htmlFor="e-notes" className="mb-1.5 block text-sm font-medium">{meta.notesLabel}</label>
+            <input id="e-notes" className="field" value={f.notes} onChange={(e) => set("notes", e.target.value)} />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-line bg-raised px-4 py-3">
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+            <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.is_public} onChange={(e) => set("is_public", e.target.checked)} />
+            Visible on my public profile
+          </label>
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+            <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.is_favourite} onChange={(e) => set("is_favourite", e.target.checked)} />
+            My favourite event
+          </label>
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+            <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.share_to_feed} onChange={(e) => set("share_to_feed", e.target.checked)} />
+            Show in followers&rsquo; feeds
+          </label>
+        </div>
+      </section>
 
       {error && (
         <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">
@@ -306,8 +471,8 @@ export function EventForm({ event, recentArtists = [] }: { event?: Event; recent
       )}
       {saved && <p role="status" className="rounded-lg border border-accent/40 bg-accent-soft/50 px-3 py-2 text-sm">Event saved.</p>}
 
-      <button type="submit" className="btn-accent" disabled={busy}>
-        {busy ? "Saving…" : event ? "Save changes" : "Add event"}
+      <button type="submit" className="btn-accent w-full" disabled={busy}>
+        {busy ? "Saving…" : event ? "Save changes" : "Save event"}
       </button>
     </form>
   );

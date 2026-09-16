@@ -3,10 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EventForm } from "@/components/EventForm";
-import { MediaUploader } from "@/components/MediaUploader";
 import { DeleteEventButton } from "@/components/DeleteEventButton";
 import { dedupeRecentArtists } from "@/lib/events";
-import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import type { EventFull, Plan } from "@/lib/types";
 
 export const metadata = { title: "Edit event" };
@@ -46,9 +44,6 @@ export default async function EditEventPage({
   const recentArtists = dedupeRecentArtists(artistRows ?? []);
   const plan = (profile?.plan ?? "free") as Plan;
 
-  const images = event.event_media.filter((m) => m.media_type === "image");
-  const videos = event.event_media.filter((m) => m.media_type === "video");
-
   return (
     <div className="mx-auto max-w-2xl px-5 py-10">
       <Link href="/events" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
@@ -57,7 +52,7 @@ export default async function EditEventPage({
 
       {searchParams.created && (
         <p role="status" className="mt-6 rounded-lg border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm">
-          Event added. Now give it a face - upload photos and videos below.
+          Event saved. Add more photos or a video anytime.
         </p>
       )}
 
@@ -77,37 +72,7 @@ export default async function EditEventPage({
       </div>
 
       <div className="mt-8">
-        <EventForm event={event} recentArtists={recentArtists} />
-      </div>
-
-      <div className="mt-12 space-y-10 border-t border-line pt-8">
-        <MediaUploader
-          userId={user.id}
-          scope="events"
-          parentId={event.id}
-          table="event_media"
-          fkColumn="event_id"
-          kind="image"
-          max={PHOTO_CAP[plan]}
-          items={images}
-          coverId={event.cover_media_id}
-          coverTable="events"
-          label="Photos"
-          showUpgradeHint={plan === "free"}
-        />
-        <MediaUploader
-          userId={user.id}
-          scope="events"
-          parentId={event.id}
-          table="event_media"
-          fkColumn="event_id"
-          kind="video"
-          max={VIDEO_CAP[plan]}
-          items={videos}
-          captions
-          label="Videos"
-          showUpgradeHint={plan === "free"}
-        />
+        <EventForm event={event} recentArtists={recentArtists} userId={user.id} plan={plan} />
       </div>
 
       <div className="mt-12 border-t border-line pt-6">

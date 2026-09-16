@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { QuickAddEventForm } from "@/components/QuickAddEventForm";
+import { EventForm } from "@/components/EventForm";
 import { dedupeRecentArtists } from "@/lib/events";
 import { EVENT_CAP } from "@/lib/plan";
 import type { Plan } from "@/lib/types";
@@ -51,9 +51,9 @@ export default async function NewEventPage() {
         </div>
       ) : (
         <>
-          <p className="mt-2 text-sm text-muted">A photo, a title, where and when - the rest can wait.</p>
+          <p className="mt-2 text-sm text-muted">Photos, details, all in one place - fill in as much as you like.</p>
           <div className="mt-8">
-            <QuickAddEventForm recentArtists={recentArtists} />
+            <EventForm recentArtists={recentArtists} userId={user.id} plan={plan} />
           </div>
         </>
       )}
