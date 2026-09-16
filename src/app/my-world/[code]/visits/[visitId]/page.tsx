@@ -55,7 +55,7 @@ export default async function VisitPage({
 
       {searchParams.created && (
         <p role="status" className="mt-6 rounded-lg border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm">
-          Trip added. Now give it a face - add photos, a soundtrack, and the full memory below.
+          Added to your map. Add more whenever you like - a soundtrack, more photos, the story behind it.
         </p>
       )}
 

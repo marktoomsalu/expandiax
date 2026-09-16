@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Camera, ChevronRight, Heart, MapPinPlus, Music2, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { uploadSingleMedia } from "@/lib/media";
 import type { DatePrecision, VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { VisitDateFields } from "./VisitDateFields";
@@ -25,8 +26,25 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  function handlePhoto(file: File) {
+    setPhoto(file);
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -106,6 +124,19 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
       return;
     }
 
+    if (photo) {
+      await uploadSingleMedia(supabase, {
+        userId: user.id,
+        scope: "countries",
+        parentId: visit.id,
+        file: photo,
+        table: "country_media",
+        extraFields: { visited_country_id: country.id, country_visit_id: visit.id },
+      }).catch(() => {
+        // Best-effort — the trip itself is already saved either way.
+      });
+    }
+
     tapSuccess();
     router.push(`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}?created=1`);
     router.refresh();
@@ -113,6 +144,28 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-sm space-y-3 text-left">
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-card border border-dashed border-line bg-surface"
+      >
+        {previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-sm text-muted">Add a photo (optional)</span>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handlePhoto(file);
+        }}
+      />
       <VisitDateFields
         precision={precision}
         onPrecisionChange={setPrecision}
