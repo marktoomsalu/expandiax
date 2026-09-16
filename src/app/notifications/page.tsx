@@ -128,11 +128,11 @@ export default async function NotificationsPage() {
             } else if (n.kind === "like") {
               text = t ? (
                 <>
-                  liked your {n.target_kind === "country" ? "trip to" : "event"}{" "}
+                  remembered your {n.target_kind === "country" ? "trip to" : "event"}{" "}
                   <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link>
                 </>
               ) : (
-                <>liked something you posted</>
+                <>remembered something you posted</>
               );
             } else {
               text = t ? (

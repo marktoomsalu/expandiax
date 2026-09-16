@@ -11,6 +11,7 @@ import { ReportButton } from "@/components/ReportButton";
 import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { CommentSection } from "@/components/CommentSection";
+import { IWasThereButton } from "@/components/IWasThereButton";
 import { formatDate } from "@/lib/utils";
 import type { CommentWithAuthor, Event, EventFull } from "@/lib/types";
 
@@ -137,10 +138,27 @@ export default async function PublicEventPage({
           <Link href={`/u/${profile.username}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
             <ArrowLeft size={15} /> {profile.display_name}&rsquo;s archive
           </Link>
-          {isOwnProfile && (
+          {isOwnProfile ? (
             <Link href={`/events/${event.id}/edit`} className="inline-flex items-center gap-1.5 text-sm text-accent underline-offset-4 hover:underline">
               <Pencil size={14} /> Edit
             </Link>
+          ) : (
+            viewer && (
+              <IWasThereButton
+                prefill={{
+                  title: event.title,
+                  event_type: event.event_type,
+                  event_date: event.event_date,
+                  venue: event.venue,
+                  city: event.city,
+                  country_code: event.country_code,
+                  country_name: event.country_name,
+                  spotify_artist_id: event.spotify_artist_id,
+                  spotify_artist_name: event.spotify_artist_name,
+                  spotify_artist_image: event.spotify_artist_image,
+                }}
+              />
+            )
           )}
         </div>
 

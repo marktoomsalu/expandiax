@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { CountrySearch } from "./CountrySearch";
 import { countryByCode } from "@/lib/countries";
 import { uploadMediaItem } from "@/lib/media";
+import { loadAndClearPrefill } from "@/lib/eventPrefill";
 import { EVENT_TYPES, eventTypeMeta, type RecentArtist } from "@/lib/events";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { RatingInput } from "./Rating";
@@ -71,6 +72,28 @@ export function EventForm({
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
+  // "I was there" hands off shared facts from someone else's event via
+  // sessionStorage (src/lib/eventPrefill.ts) — only relevant the moment a
+  // fresh create form mounts, never for editing an existing event.
+  useEffect(() => {
+    if (event) return;
+    const prefill = loadAndClearPrefill();
+    if (!prefill) return;
+    setF((cur) => ({
+      ...cur,
+      event_type: prefill.event_type,
+      title: prefill.title,
+      event_date: prefill.event_date,
+      venue: prefill.venue,
+      city: prefill.city,
+      country_code: prefill.country_code,
+      spotify_artist_id: prefill.spotify_artist_id,
+      spotify_artist_name: prefill.spotify_artist_name,
+      spotify_artist_image: prefill.spotify_artist_image,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const set = <K extends keyof typeof f>(key: K, value: (typeof f)[K]) =>
     setF((cur) => ({ ...cur, [key]: value }));
