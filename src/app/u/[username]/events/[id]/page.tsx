@@ -13,6 +13,7 @@ import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { CommentSection } from "@/components/CommentSection";
 import { IWasThereButton } from "@/components/IWasThereButton";
 import { formatDate } from "@/lib/utils";
+import { focalPosition } from "@/lib/media";
 import type { CommentWithAuthor, Event, EventFull } from "@/lib/types";
 
 export async function generateMetadata({
@@ -115,6 +116,7 @@ export default async function PublicEventPage({
             priority
             sizes="100vw"
             className="object-cover opacity-80"
+            style={{ objectPosition: cover ? focalPosition(cover) : "50% 0%" }}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/10" aria-hidden />

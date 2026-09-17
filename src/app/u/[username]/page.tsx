@@ -13,6 +13,7 @@ import { SignOutButton } from "@/components/SignOutButton";
 import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import { isTerritoryCode, TOTAL_TERRITORIES } from "@/lib/territories";
 import { formatDate, hexToRgbTriplet } from "@/lib/utils";
+import { focalPosition } from "@/lib/media";
 import { evaluateBadges, isEarlyExplorer } from "@/lib/badges";
 import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@/lib/stats";
 import { TOTAL_US_STATES } from "@/lib/usStates";
@@ -354,6 +355,7 @@ export default async function PublicProfilePage({ params }: { params: { username
                         fill
                         sizes="(min-width: 640px) 50vw, 100vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                        style={{ objectPosition: focalPosition(cover) }}
                       />
                     </div>
                   )}

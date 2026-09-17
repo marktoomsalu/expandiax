@@ -4,14 +4,15 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, Star, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, Move, Star, Trash2 } from "lucide-react";
 import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
-import { classifyFile, validateFile, storagePath } from "@/lib/media";
+import { classifyFile, focalPosition, validateFile, storagePath } from "@/lib/media";
 import { compressVideo } from "@/lib/videoCompress";
 import { uploadResumable } from "@/lib/resumableUpload";
 import type { MediaItem } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { RepositionPhotoDialog } from "./RepositionPhotoDialog";
 import { cn } from "@/lib/utils";
 import { isNativePlatform } from "@/lib/capacitor";
 import { tapSuccess } from "@/lib/haptics";
@@ -79,6 +80,7 @@ export function MediaUploader(props: Props) {
   const [busy, setBusy] = useState(false);
   const [toDelete, setToDelete] = useState<MediaItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [toReposition, setToReposition] = useState<MediaItem | null>(null);
 
   const photoCount = items.filter((m) => m.media_type === "image").length + pending.filter((p) => p.kind === "image").length;
   const videoCount = items.filter((m) => m.media_type === "video").length + pending.filter((p) => p.kind === "video").length;
@@ -271,7 +273,14 @@ export function MediaUploader(props: Props) {
             <li key={m.id} className="group relative overflow-hidden rounded-lg border border-line bg-raised">
               {m.media_type === "image" ? (
                 <div className="relative aspect-[4/3] w-full">
-                  <Image src={m.public_url} alt={m.caption || "Uploaded photo"} fill sizes="(min-width: 640px) 33vw, 50vw" className="object-cover" />
+                  <Image
+                    src={m.public_url}
+                    alt={m.caption || "Uploaded photo"}
+                    fill
+                    sizes="(min-width: 640px) 33vw, 50vw"
+                    className="object-cover"
+                    style={{ objectPosition: focalPosition(m) }}
+                  />
                 </div>
               ) : (
                 <video src={m.public_url} controls preload="metadata" className="aspect-[4/3] w-full bg-black object-contain" />
@@ -293,6 +302,11 @@ export function MediaUploader(props: Props) {
                   {coverTable && m.media_type === "image" && coverId !== m.id && (
                     <button type="button" aria-label="Use as cover photo" title="Use as cover photo" className="p-1.5 text-muted hover:text-accent" onClick={() => setCover(m)}>
                       <Star size={14} />
+                    </button>
+                  )}
+                  {m.media_type === "image" && (
+                    <button type="button" aria-label="Reposition photo" title="Reposition photo" className="p-1.5 text-muted hover:text-accent" onClick={() => setToReposition(m)}>
+                      <Move size={14} />
                     </button>
                   )}
                 </div>
@@ -445,6 +459,18 @@ export function MediaUploader(props: Props) {
         onConfirm={confirmDelete}
         onCancel={() => setToDelete(null)}
       />
+
+      {toReposition && (
+        <RepositionPhotoDialog
+          open={!!toReposition}
+          onClose={() => setToReposition(null)}
+          imageUrl={toReposition.public_url}
+          table={table}
+          mediaId={toReposition.id}
+          initialFocalX={toReposition.focal_x}
+          initialFocalY={toReposition.focal_y}
+        />
+      )}
     </section>
   );
 }

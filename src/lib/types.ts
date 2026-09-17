@@ -81,6 +81,8 @@ export type MediaItem = {
   media_type: "image" | "video";
   caption: string;
   display_order: number;
+  focal_x: number | null;
+  focal_y: number | null;
   created_at: string;
 };
 

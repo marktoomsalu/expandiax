@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { formatVisitRange, visitSortKey } from "@/lib/utils";
+import { focalPosition } from "@/lib/media";
 import type { CountryMedia, CountryVisit, VisitedCountry } from "@/lib/types";
 
 export const metadata = { title: "Trips" };
@@ -85,6 +86,7 @@ export default async function AllTripsPage({
                         fill
                         sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                        style={{ objectPosition: focalPosition(cover) }}
                       />
                     </div>
                   )}

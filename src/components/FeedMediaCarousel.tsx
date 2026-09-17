@@ -4,8 +4,9 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { focalPosition } from "@/lib/media";
 
-export type FeedMediaItem = { id: string; url: string; type: "image" | "video"; alt: string };
+export type FeedMediaItem = { id: string; url: string; type: "image" | "video"; alt: string; focalX?: number | null; focalY?: number | null };
 
 export function FeedMediaCarousel({ items }: { items: FeedMediaItem[] }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -37,7 +38,14 @@ export function FeedMediaCarousel({ items }: { items: FeedMediaItem[] }) {
             {m.type === "video" ? (
               <video src={m.url} controls preload="metadata" className="h-full w-full bg-black object-contain" />
             ) : (
-              <Image src={m.url} alt={m.alt} fill sizes="(min-width: 640px) 640px, 100vw" className="object-cover" />
+              <Image
+                src={m.url}
+                alt={m.alt}
+                fill
+                sizes="(min-width: 640px) 640px, 100vw"
+                className="object-cover"
+                style={{ objectPosition: focalPosition({ focal_x: m.focalX ?? null, focal_y: m.focalY ?? null }) }}
+              />
             )}
           </div>
         ))}

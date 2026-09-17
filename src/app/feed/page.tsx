@@ -118,11 +118,11 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           .in("target_id", refIds)
           .order("created_at", { ascending: true }),
         countryRefIds.length
-          ? supabase.from("country_media").select("id, visited_country_id, public_url, media_type, display_order, caption").in("visited_country_id", countryRefIds)
-          : Promise.resolve({ data: [] as { id: string; visited_country_id: string; public_url: string; media_type: "image" | "video"; display_order: number; caption: string }[] }),
+          ? supabase.from("country_media").select("id, visited_country_id, public_url, media_type, display_order, caption, focal_x, focal_y").in("visited_country_id", countryRefIds)
+          : Promise.resolve({ data: [] as { id: string; visited_country_id: string; public_url: string; media_type: "image" | "video"; display_order: number; caption: string; focal_x: number | null; focal_y: number | null }[] }),
         eventRefIds.length
-          ? supabase.from("event_media").select("id, event_id, public_url, media_type, display_order, caption").in("event_id", eventRefIds)
-          : Promise.resolve({ data: [] as { id: string; event_id: string; public_url: string; media_type: "image" | "video"; display_order: number; caption: string }[] }),
+          ? supabase.from("event_media").select("id, event_id, public_url, media_type, display_order, caption, focal_x, focal_y").in("event_id", eventRefIds)
+          : Promise.resolve({ data: [] as { id: string; event_id: string; public_url: string; media_type: "image" | "video"; display_order: number; caption: string; focal_x: number | null; focal_y: number | null }[] }),
       ]);
       actors = new Map((profiles ?? []).map((p) => [p.id, p]));
       for (const row of likeRows ?? []) likedByMe.add(`${row.kind}:${row.target_id}`);
@@ -133,13 +133,13 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       for (const row of countryMediaRows ?? []) {
         const key = `country:${row.visited_country_id}`;
         const list = mediaByKey.get(key) ?? [];
-        list.push({ id: row.id, url: row.public_url, type: row.media_type, alt: row.caption || "", displayOrder: row.display_order });
+        list.push({ id: row.id, url: row.public_url, type: row.media_type, alt: row.caption || "", displayOrder: row.display_order, focalX: row.focal_x, focalY: row.focal_y });
         mediaByKey.set(key, list);
       }
       for (const row of eventMediaRows ?? []) {
         const key = `event:${row.event_id}`;
         const list = mediaByKey.get(key) ?? [];
-        list.push({ id: row.id, url: row.public_url, type: row.media_type, alt: row.caption || "", displayOrder: row.display_order });
+        list.push({ id: row.id, url: row.public_url, type: row.media_type, alt: row.caption || "", displayOrder: row.display_order, focalX: row.focal_x, focalY: row.focal_y });
         mediaByKey.set(key, list);
       }
       for (const list of mediaByKey.values()) list.sort((a, b) => a.displayOrder - b.displayOrder);

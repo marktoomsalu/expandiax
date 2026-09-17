@@ -126,6 +126,10 @@ create table public.country_media (
   media_type text not null default 'image' check (media_type in ('image', 'video')),
   caption text not null default '',
   display_order int not null default 0,
+  -- Where to center an object-cover crop when this photo is used as a
+  -- cover/hero — a focal point, not a full crop box. Null = default bias.
+  focal_x smallint check (focal_x between 0 and 100),
+  focal_y smallint check (focal_y between 0 and 100),
   created_at timestamptz not null default now()
 );
 
@@ -221,6 +225,8 @@ create table public.event_media (
   media_type text not null check (media_type in ('image', 'video')),
   caption text not null default '',
   display_order int not null default 0,
+  focal_x smallint check (focal_x between 0 and 100),
+  focal_y smallint check (focal_y between 0 and 100),
   created_at timestamptz not null default now()
 );
 

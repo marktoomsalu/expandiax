@@ -11,6 +11,15 @@ export function classifyFile(file: File): "image" | "video" | null {
   return null;
 }
 
+// CSS object-position for a cover-photo crop — a single focal point, not a
+// full crop box. "50% 0%" (top-biased) is the same default already used
+// before per-photo repositioning existed, so an un-repositioned photo's
+// crop looks identical to today.
+export function focalPosition(item: { focal_x: number | null; focal_y: number | null }): string {
+  if (item.focal_x == null || item.focal_y == null) return "50% 0%";
+  return `${item.focal_x}% ${item.focal_y}%`;
+}
+
 export function validateFile(file: File, kind: "image" | "video"): string | null {
   if (kind === "image") {
     if (!IMAGE_TYPES.includes(file.type))
