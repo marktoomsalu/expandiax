@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { Calendar, MapPin, MessageSquareText, Music2, Plus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { VisitDateFields } from "./VisitDateFields";
 import { SoundtrackPicker } from "./SoundtrackPicker";
@@ -153,7 +153,7 @@ export function VisitEditor({ visit, cities }: { visit: CountryVisit; cities: Co
       </div>
 
       <form onSubmit={saveDates} className="space-y-3">
-        <span className="mb-1.5 block text-sm font-medium">When</span>
+        <span className="flex items-center gap-1.5 text-sm font-medium"><Calendar size={14} className="text-accent" aria-hidden /> When</span>
         <VisitDateFields
           precision={precision}
           onPrecisionChange={setPrecision}
@@ -175,8 +175,10 @@ export function VisitEditor({ visit, cities }: { visit: CountryVisit; cities: Co
         {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
       </form>
 
-      <div>
-        <label htmlFor="visit-memory" className="mb-1.5 block text-sm font-medium">Memory</label>
+      <div className="border-t border-line pt-5">
+        <label htmlFor="visit-memory" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+          <MessageSquareText size={14} className="text-accent" aria-hidden /> Memory
+        </label>
         <textarea
           id="visit-memory"
           className="field min-h-28"
@@ -197,35 +199,37 @@ export function VisitEditor({ visit, cities }: { visit: CountryVisit; cities: Co
         </div>
       </div>
 
-      <div>
-        <span className="mb-1.5 block text-sm font-medium">Soundtrack</span>
-        <p className="mb-1.5 text-xs text-muted">The song this trip sounded like.</p>
-        <SoundtrackPicker table="country_visits" recordId={visit.id} initialTrackId={visit.spotify_track_id} />
-      </div>
+      <div className="grid gap-5 border-t border-line pt-5 sm:grid-cols-2">
+        <div>
+          <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><Music2 size={14} className="text-accent" aria-hidden /> Soundtrack</span>
+          <p className="mb-1.5 text-xs text-muted">The song this trip sounded like.</p>
+          <SoundtrackPicker table="country_visits" recordId={visit.id} initialTrackId={visit.spotify_track_id} />
+        </div>
 
-      <div>
-        <span className="mb-1.5 block text-sm font-medium">Cities</span>
-        <div className="flex flex-wrap items-center gap-2">
-          {cityList.map((c) => (
-            <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-sm">
-              {c.city_name}
-              <button type="button" aria-label={`Remove ${c.city_name}`} className="text-muted hover:text-red-700" onClick={() => removeCity(c.id)}>
-                <X size={13} />
-              </button>
-            </span>
-          ))}
-          <form onSubmit={addCity} className="flex items-center gap-1.5">
-            <label htmlFor="visit-city-input" className="sr-only">Add a city</label>
-            <input
-              id="visit-city-input"
-              type="text"
-              placeholder="Add a city"
-              className="field !w-32 !py-1.5 text-sm"
-              value={cityInput}
-              onChange={(e) => setCityInput(e.target.value)}
-            />
-            <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add city"><Plus size={15} /></button>
-          </form>
+        <div>
+          <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><MapPin size={14} className="text-accent" aria-hidden /> Cities</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {cityList.map((c) => (
+              <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-sm">
+                {c.city_name}
+                <button type="button" aria-label={`Remove ${c.city_name}`} className="text-muted hover:text-red-700" onClick={() => removeCity(c.id)}>
+                  <X size={13} />
+                </button>
+              </span>
+            ))}
+            <form onSubmit={addCity} className="flex items-center gap-1.5">
+              <label htmlFor="visit-city-input" className="sr-only">Add a city</label>
+              <input
+                id="visit-city-input"
+                type="text"
+                placeholder="Add a city"
+                className="field !w-32 !py-1.5 text-sm"
+                value={cityInput}
+                onChange={(e) => setCityInput(e.target.value)}
+              />
+              <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add city"><Plus size={15} /></button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

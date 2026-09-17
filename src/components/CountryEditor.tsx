@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Camera, ChevronRight, Heart, MapPinPlus, Music2, Plus, Rss, X } from "lucide-react";
+import { Calendar, Camera, ChevronRight, Heart, MapPinPlus, MessageSquareText, Music2, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadMediaItem } from "@/lib/media";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
@@ -168,9 +168,9 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-sm space-y-5 text-left">
+    <form onSubmit={submit} className="mx-auto max-w-sm space-y-6 text-left">
       <div>
-        <span className="mb-1.5 block text-sm font-medium">Photos & videos</span>
+        <p className="eyebrow mb-3">Photos & videos</p>
         <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
         {pendingMedia.some((p) => p.kind === "video") && (
           <div className="mt-2 flex items-center gap-2">
@@ -193,8 +193,8 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
           </div>
         )}
       </div>
-      <div>
-        <span className="mb-1.5 block text-sm font-medium">When</span>
+      <div className="border-t border-line pt-5">
+        <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><Calendar size={14} className="text-accent" aria-hidden /> When</span>
         <VisitDateFields
           precision={precision}
           onPrecisionChange={setPrecision}
@@ -208,8 +208,10 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
           onVisitedToChange={setVisitedTo}
         />
       </div>
-      <div>
-        <label htmlFor="first-highlight" className="mb-1.5 block text-sm font-medium">A quick memory</label>
+      <div className="border-t border-line pt-5">
+        <label htmlFor="first-highlight" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+          <MessageSquareText size={14} className="text-accent" aria-hidden /> A quick memory
+        </label>
         <input
           id="first-highlight"
           type="text"
@@ -435,12 +437,12 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
             })}
           </ul>
         )}
-        <form onSubmit={addVisit} className="mt-3 space-y-5 rounded-lg border border-dashed border-line px-4 py-4">
+        <form onSubmit={addVisit} className="mt-3 space-y-6 rounded-lg border border-dashed border-line px-4 py-5">
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <Plus size={15} className="text-accent" aria-hidden /> Add a trip
           </p>
           <div>
-            <span className="mb-1.5 block text-sm font-medium">Photos & videos</span>
+            <p className="eyebrow mb-3">Photos & videos</p>
             <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
             {pendingMedia.some((p) => p.kind === "video") && (
               <div className="mt-2 flex items-center gap-2">
@@ -463,8 +465,8 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
               </div>
             )}
           </div>
-          <div>
-            <span className="mb-1.5 block text-sm font-medium">When</span>
+          <div className="border-t border-line pt-5">
+            <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><Calendar size={14} className="text-accent" aria-hidden /> When</span>
             <VisitDateFields
               precision={precision}
               onPrecisionChange={setPrecision}
@@ -478,8 +480,10 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
               onVisitedToChange={setVisitedTo}
             />
           </div>
-          <div>
-            <label htmlFor="highlight-input" className="mb-1.5 block text-sm font-medium">A quick memory</label>
+          <div className="border-t border-line pt-5">
+            <label htmlFor="highlight-input" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+              <MessageSquareText size={14} className="text-accent" aria-hidden /> A quick memory
+            </label>
             <input
               id="highlight-input"
               type="text"
