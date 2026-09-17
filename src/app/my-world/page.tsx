@@ -41,7 +41,12 @@ export default async function MyWorldPage() {
   // codes/visitCounts stay unfiltered (so they show on the map and in "Your
   // countries" below), but the 195-count/%/continents specifically only
   // ever look at real countries.
-  const countries = [...((data ?? []) as Row[])].sort((a, b) => travelRecency(b).localeCompare(travelRecency(a)));
+  const byRecency = [...((data ?? []) as Row[])].sort((a, b) => travelRecency(b).localeCompare(travelRecency(a)));
+  // Countries added (e.g. via onboarding) with no photos and no logged
+  // visit yet sink to the bottom of the grid — they're a to-do, not
+  // something worth the same prime real estate as a filled-in trip.
+  const hasContent = (c: Row) => c.country_media.length > 0 || c.country_visits.length > 0;
+  const countries = [...byRecency.filter(hasContent), ...byRecency.filter((c) => !hasContent(c))];
   const realCountries = countries.filter((c) => !isTerritoryCode(c.country_code));
   const territoryCount = countries.length - realCountries.length;
   const codes = countries.map((c) => c.country_code);
@@ -61,7 +66,7 @@ export default async function MyWorldPage() {
     countriesByContinent.set(c.continent, list);
   }
   for (const list of countriesByContinent.values()) list.sort((a, b) => a.name.localeCompare(b.name));
-  const latest = countries[0];
+  const latest = byRecency[0];
 
   return (
     <div className="mx-auto max-w-shell px-5 py-10">
