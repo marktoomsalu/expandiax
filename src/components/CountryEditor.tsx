@@ -168,46 +168,52 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-sm space-y-3 text-left">
-      <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
-      {pendingMedia.some((p) => p.kind === "video") && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted">Video upload quality</span>
-          <div className="flex gap-1.5">
-            {(["standard", "hd"] as const).map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => setVideoQuality(q)}
-                className={cn(
-                  "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                  videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
-                )}
-              >
-                {q === "standard" ? "Standard - faster" : "HD - original"}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <VisitDateFields
-        precision={precision}
-        onPrecisionChange={setPrecision}
-        year={year}
-        onYearChange={setYear}
-        month={month}
-        onMonthChange={setMonth}
-        visitedFrom={visitedFrom}
-        onVisitedFromChange={setVisitedFrom}
-        visitedTo={visitedTo}
-        onVisitedToChange={setVisitedTo}
-      />
+    <form onSubmit={submit} className="mx-auto max-w-sm space-y-5 text-left">
       <div>
-        <label htmlFor="first-highlight" className="sr-only">Memory from this trip</label>
+        <span className="mb-1.5 block text-sm font-medium">Photos & videos</span>
+        <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
+        {pendingMedia.some((p) => p.kind === "video") && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-xs text-muted">Video upload quality</span>
+            <div className="flex gap-1.5">
+              {(["standard", "hd"] as const).map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => setVideoQuality(q)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                    videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
+                  )}
+                >
+                  {q === "standard" ? "Standard - faster" : "HD - original"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      <div>
+        <span className="mb-1.5 block text-sm font-medium">When</span>
+        <VisitDateFields
+          precision={precision}
+          onPrecisionChange={setPrecision}
+          year={year}
+          onYearChange={setYear}
+          month={month}
+          onMonthChange={setMonth}
+          visitedFrom={visitedFrom}
+          onVisitedFromChange={setVisitedFrom}
+          visitedTo={visitedTo}
+          onVisitedToChange={setVisitedTo}
+        />
+      </div>
+      <div>
+        <label htmlFor="first-highlight" className="mb-1.5 block text-sm font-medium">A quick memory</label>
         <input
           id="first-highlight"
           type="text"
-          placeholder="A quick memory from this trip (optional - add more after)"
+          placeholder="Optional - add more after"
           className="field !py-1.5 w-full text-sm"
           maxLength={1000}
           value={highlight}
@@ -429,49 +435,55 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
             })}
           </ul>
         )}
-        <form onSubmit={addVisit} className="mt-3 space-y-3 rounded-lg border border-dashed border-line px-4 py-4">
+        <form onSubmit={addVisit} className="mt-3 space-y-5 rounded-lg border border-dashed border-line px-4 py-4">
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <Plus size={15} className="text-accent" aria-hidden /> Add a trip
           </p>
-          <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
-          {pendingMedia.some((p) => p.kind === "video") && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted">Video upload quality</span>
-              <div className="flex gap-1.5">
-                {(["standard", "hd"] as const).map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => setVideoQuality(q)}
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                      videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
-                    )}
-                  >
-                    {q === "standard" ? "Standard - faster" : "HD - original"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <VisitDateFields
-            precision={precision}
-            onPrecisionChange={setPrecision}
-            year={year}
-            onYearChange={setYear}
-            month={month}
-            onMonthChange={setMonth}
-            visitedFrom={visitedFrom}
-            onVisitedFromChange={setVisitedFrom}
-            visitedTo={visitedTo}
-            onVisitedToChange={setVisitedTo}
-          />
           <div>
-            <label htmlFor="highlight-input" className="sr-only">Memory from this trip</label>
+            <span className="mb-1.5 block text-sm font-medium">Photos & videos</span>
+            <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
+            {pendingMedia.some((p) => p.kind === "video") && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-muted">Video upload quality</span>
+                <div className="flex gap-1.5">
+                  {(["standard", "hd"] as const).map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setVideoQuality(q)}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                        videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
+                      )}
+                    >
+                      {q === "standard" ? "Standard - faster" : "HD - original"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div>
+            <span className="mb-1.5 block text-sm font-medium">When</span>
+            <VisitDateFields
+              precision={precision}
+              onPrecisionChange={setPrecision}
+              year={year}
+              onYearChange={setYear}
+              month={month}
+              onMonthChange={setMonth}
+              visitedFrom={visitedFrom}
+              onVisitedFromChange={setVisitedFrom}
+              visitedTo={visitedTo}
+              onVisitedToChange={setVisitedTo}
+            />
+          </div>
+          <div>
+            <label htmlFor="highlight-input" className="mb-1.5 block text-sm font-medium">A quick memory</label>
             <input
               id="highlight-input"
               type="text"
-              placeholder="A quick memory from this trip (optional - add more on its page after)"
+              placeholder="Optional - add more on its page after"
               className="field !py-1.5 w-full text-sm"
               maxLength={1000}
               value={highlight}

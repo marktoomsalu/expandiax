@@ -146,7 +146,12 @@ export function VisitEditor({ visit, cities }: { visit: CountryVisit; cities: Co
   }
 
   return (
-    <div className="space-y-8">
+    <div className="card space-y-6 px-5 py-6">
+      <div>
+        <h3 className="font-serif text-lg">Details</h3>
+        <p className="text-xs text-muted">Add as much or as little as you like.</p>
+      </div>
+
       <form onSubmit={saveDates} className="space-y-3">
         <span className="mb-1.5 block text-sm font-medium">When</span>
         <VisitDateFields

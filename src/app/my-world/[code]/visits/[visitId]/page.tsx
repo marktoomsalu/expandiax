@@ -63,10 +63,6 @@ export default async function VisitPage({
       <h1 className="mt-1 text-3xl md:text-4xl">{formatVisitRange(visit)}</h1>
 
       <div className="mt-8">
-        <VisitEditor visit={visit} cities={visit.country_cities} />
-      </div>
-
-      <div className="mt-10 border-t border-line pt-8">
         <MediaUploader
           userId={user.id}
           scope="countries"
@@ -83,6 +79,10 @@ export default async function VisitPage({
           label="Photos & videos from this trip"
           showUpgradeHint={plan === "free"}
         />
+      </div>
+
+      <div className="mt-8">
+        <VisitEditor visit={visit} cities={visit.country_cities} />
       </div>
 
       <div className="mt-10 flex items-center justify-center border-t border-line pt-6">
