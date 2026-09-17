@@ -116,7 +116,7 @@ export default async function PublicEventPage({
             priority
             sizes="100vw"
             className="object-cover opacity-80"
-            style={{ objectPosition: cover ? focalPosition(cover) : "50% 0%" }}
+            style={{ objectPosition: cover ? focalPosition(cover) : "50% 50%" }}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/10" aria-hidden />

@@ -12,11 +12,14 @@ export function classifyFile(file: File): "image" | "video" | null {
 }
 
 // CSS object-position for a cover-photo crop — a single focal point, not a
-// full crop box. "50% 0%" (top-biased) is the same default already used
-// before per-photo repositioning existed, so an un-repositioned photo's
-// crop looks identical to today.
+// full crop box. Plain center is the safe default: a top-bias guess was
+// tried and made things worse — it systematically cut people out of the
+// gentler 4:3 feed crop (anyone whose head isn't right at the top of the
+// photo loses their body). Reposition exists precisely so a specific bad
+// crop can be fixed by hand; the default itself shouldn't gamble on a
+// direction that only helps one particular aspect ratio.
 export function focalPosition(item: { focal_x: number | null; focal_y: number | null }): string {
-  if (item.focal_x == null || item.focal_y == null) return "50% 0%";
+  if (item.focal_x == null || item.focal_y == null) return "50% 50%";
   return `${item.focal_x}% ${item.focal_y}%`;
 }
 
