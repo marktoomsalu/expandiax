@@ -13,14 +13,15 @@ export function eventMatchKey(title: string, eventDate: string): string {
 
 // ---------- THEN: a resurfaced memory from the viewer's own archive ----------
 
-export type OwnEventLite = { id: string; title: string; event_date: string; cover_media_id: string | null; is_favourite: boolean };
+export type OwnEventLite = { id: string; title: string; event_date: string; cover_media_id: string | null; is_favourite: boolean; media_count: number };
 export type OwnCountryLite = {
   id: string;
   country_code: string;
   country_name: string;
   cover_media_id: string | null;
   is_favourite: boolean;
-  country_visits: { visited_from: string | null; visited_to: string | null; date_precision: string }[];
+  media_count: number;
+  country_visits: { year: number; visited_from: string | null; visited_to: string | null; date_precision: string }[];
 };
 
 export type ResurfacedMemory = {
@@ -29,21 +30,36 @@ export type ResurfacedMemory = {
   title: string;
   subtitle: string;
   href: string;
-  coverMediaId: string | null;
+  isAnniversary: boolean;
 };
 
+const MIN_AGE_DAYS = 60;
+
+// When it happened, for the "not something from last week" check. Countries
+// with only a year logged count as mid-year.
+function memoryDate(m: { kind: "event"; e: OwnEventLite } | { kind: "country"; c: OwnCountryLite }): Date | null {
+  if (m.kind === "event") return new Date(`${m.e.event_date}T00:00:00`);
+  const dates = m.c.country_visits.map((v) => v.visited_to ?? v.visited_from ?? `${v.year}-07-01`).sort();
+  return dates.length ? new Date(`${dates.at(-1)}T00:00:00`) : null;
+}
+
 /**
- * Anniversary first (same month+day, a past year), else a deterministic
- * per-day pick from favourites (same pick all day, no new "last resurfaced"
- * tracking column needed) — never literally random, never a placeholder
- * when the viewer has nothing yet (returns null, section just doesn't render).
+ * Anniversary first (same month+day, a past year). Otherwise a
+ * deterministic per-day pick (same all day, no "last resurfaced" column
+ * needed) among memories at least 2 months old, from the best pool that
+ * isn't empty: favourites with photos, then anything with photos, then any
+ * favourite — a memory is worth resurfacing mostly for its pictures.
+ * Returns null when there's nothing — the section just doesn't render.
  */
 export function pickResurfacedMemory(
   events: OwnEventLite[],
   countries: OwnCountryLite[],
   userId: string,
-  now: Date
+  now: Date,
+  username: string
 ): ResurfacedMemory | null {
+  const eventHref = (id: string) => `/u/${username}/events/${id}`;
+  const countryHref = (code: string) => `/u/${username}/countries/${code.toLowerCase()}`;
   const month = now.getMonth() + 1;
   const day = now.getDate();
   const year = now.getFullYear();
@@ -57,8 +73,8 @@ export function pickResurfacedMemory(
         id: e.id,
         title: e.title,
         subtitle: `${yearsAgo} year${yearsAgo === 1 ? "" : "s"} ago today`,
-        href: `/events/${e.id}/edit`,
-        coverMediaId: e.cover_media_id,
+        href: eventHref(e.id),
+        isAnniversary: true,
       };
     }
   }
@@ -75,33 +91,44 @@ export function pickResurfacedMemory(
           id: c.id,
           title: c.country_name,
           subtitle: `${yearsAgo} year${yearsAgo === 1 ? "" : "s"} ago today`,
-          href: `/my-world/${c.country_code.toLowerCase()}`,
-          coverMediaId: c.cover_media_id,
+          href: countryHref(c.country_code),
+          isAnniversary: true,
         };
       }
     }
   }
 
-  const favourites: ResurfacedMemory[] = [
-    ...events
-      .filter((e) => e.is_favourite)
-      .map((e) => ({ kind: "event" as const, id: e.id, title: e.title, subtitle: "One to remember", href: `/events/${e.id}/edit`, coverMediaId: e.cover_media_id })),
-    ...countries
-      .filter((c) => c.is_favourite)
-      .map((c) => ({
+  const cutoff = new Date(now.getTime() - MIN_AGE_DAYS * 86_400_000);
+  const all = [
+    ...events.map((e) => ({
+      favourite: e.is_favourite,
+      hasPhotos: e.media_count > 0,
+      date: memoryDate({ kind: "event", e }),
+      memory: { kind: "event" as const, id: e.id, title: e.title, subtitle: "One to remember", href: eventHref(e.id), isAnniversary: false },
+    })),
+    ...countries.map((c) => ({
+      favourite: c.is_favourite,
+      hasPhotos: c.media_count > 0,
+      date: memoryDate({ kind: "country", c }),
+      memory: {
         kind: "country" as const,
         id: c.id,
         title: c.country_name,
         subtitle: "One to remember",
-        href: `/my-world/${c.country_code.toLowerCase()}`,
-        coverMediaId: c.cover_media_id,
-      })),
+        href: countryHref(c.country_code),
+        isAnniversary: false,
+      },
+    })),
   ];
-  if (favourites.length === 0) return null;
+  // "Then" is the past — last week's trip isn't a memory to resurface yet.
+  const old = all.filter((m) => m.date === null || m.date <= cutoff);
+  const pools = [old.filter((m) => m.favourite && m.hasPhotos), old.filter((m) => m.hasPhotos), old.filter((m) => m.favourite)];
+  const pool = pools.find((p) => p.length > 0);
+  if (!pool) return null;
   const seed = `${userId}:${now.toDateString()}`;
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return favourites[hash % favourites.length];
+  return pool[hash % pool.length].memory;
 }
 
 // ---------- TOGETHER: shared experiences with people you follow ----------

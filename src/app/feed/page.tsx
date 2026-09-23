@@ -21,6 +21,8 @@ import {
   type OwnCountryLite,
   type OwnEventLite,
 } from "@/lib/feedSections";
+import { loadThenMemory } from "@/lib/thenMemory";
+import { ThenCard } from "@/components/ThenCard";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 
@@ -52,10 +54,15 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         .limit(30),
       supabase.from("public_country_counts").select("user_id, country_count"),
       supabase.from("profiles").select("feed_last_seen_at, username, display_name, avatar_url").eq("id", user.id).single(),
-      supabase.from("events").select("id, title, event_date, cover_media_id, is_favourite").eq("user_id", user.id),
+      supabase
+        .from("events")
+        .select("id, title, event_date, cover_media_id, is_favourite, event_media!event_media_event_id_fkey(count)")
+        .eq("user_id", user.id),
       supabase
         .from("visited_countries")
-        .select("id, country_code, country_name, cover_media_id, is_favourite, country_visits(visited_from, visited_to, date_precision)")
+        .select(
+          "id, country_code, country_name, cover_media_id, is_favourite, country_media!country_media_visited_country_id_fkey(count), country_visits(year, visited_from, visited_to, date_precision)"
+        )
         .eq("user_id", user.id),
       followeeIds.length
         ? supabase.from("visited_countries").select("country_code").in("user_id", followeeIds)
@@ -71,18 +78,20 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     .sort((a, b) => (countsByUser.get(b.id) ?? 0) - (countsByUser.get(a.id) ?? 0))
     .slice(0, 8);
 
-  const ownEvents = (ownEventsRaw ?? []) as OwnEventLite[];
-  const ownCountries = (ownCountriesRaw ?? []) as unknown as OwnCountryLite[];
+  const ownEvents: OwnEventLite[] = (ownEventsRaw ?? []).map(({ event_media, ...e }) => ({
+    ...e,
+    media_count: (event_media as unknown as { count: number }[])[0]?.count ?? 0,
+  }));
+  const ownCountries: OwnCountryLite[] = (ownCountriesRaw ?? []).map(({ country_media, ...c }) => ({
+    ...(c as unknown as Omit<OwnCountryLite, "media_count">),
+    media_count: (country_media as unknown as { count: number }[])[0]?.count ?? 0,
+  }));
   const ownEventsByKey = new Map(ownEvents.map((e) => [eventMatchKey(e.title, e.event_date), e.id]));
   const ownCountryCodes = new Set(ownCountries.map((c) => c.country_code));
 
-  const resurfaced = pickResurfacedMemory(ownEvents, ownCountries, user.id, new Date());
-  let resurfacedCoverUrl: string | null = null;
-  if (resurfaced?.coverMediaId) {
-    const table = resurfaced.kind === "event" ? "event_media" : "country_media";
-    const { data: coverRow } = await supabase.from(table).select("public_url").eq("id", resurfaced.coverMediaId).single();
-    resurfacedCoverUrl = coverRow?.public_url ?? null;
-  }
+  const now = new Date();
+  const picked = viewerProfile?.username ? pickResurfacedMemory(ownEvents, ownCountries, user.id, now, viewerProfile.username) : null;
+  const then = picked ? await loadThenMemory(supabase, picked, now) : null;
 
   const next = buildNextSuggestions(
     (followeeCountryRows ?? []).map((r) => r.country_code),
@@ -306,26 +315,12 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       </section>
 
       {/* THEN — a memory resurfaced from your own past */}
-      {resurfaced && (
+      {then && (
         <section className="mt-10" aria-labelledby="then-h">
           <h2 id="then-h" className="flex items-center gap-1.5 text-sm font-medium text-muted">
             <Clock size={14} aria-hidden /> Then
           </h2>
-          <Link href={resurfaced.href} className="card mt-4 flex items-center gap-4 overflow-hidden p-3 transition-shadow hover:shadow-sm">
-            {resurfacedCoverUrl ? (
-              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg">
-                <Image src={resurfacedCoverUrl} alt="" fill sizes="64px" className="object-cover" />
-              </div>
-            ) : (
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
-                <Clock size={20} aria-hidden />
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="eyebrow">{resurfaced.subtitle}</p>
-              <p className="mt-0.5 truncate font-serif text-lg">{resurfaced.title}</p>
-            </div>
-          </Link>
+          <ThenCard m={then} />
         </section>
       )}
 
