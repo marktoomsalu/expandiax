@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, Lock } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
+import { canSellPremium } from "@/lib/nativeAppServer";
 import { USStatesMap } from "@/components/USStatesMap";
 import { TOTAL_US_STATES } from "@/lib/usStates";
 import type { Plan, VisitedUSState } from "@/lib/types";
@@ -17,6 +18,7 @@ export default async function USStatesPage() {
   const plan = (profile?.plan ?? "free") as Plan;
 
   if (plan !== "premium") {
+    if (!canSellPremium()) redirect("/my-world");
     return (
       <div className="mx-auto max-w-md px-5 py-16 text-center">
         <Lock size={28} className="mx-auto text-muted" aria-hidden />

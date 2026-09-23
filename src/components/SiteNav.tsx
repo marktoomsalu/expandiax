@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Bell, Compass, Globe2, Plus, Rss, Sparkles, Ticket, UserRound } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
+import { useCanSellPremium } from "./PurchaseAvailability";
 import { cn } from "@/lib/utils";
 import { tapLight } from "@/lib/haptics";
 
@@ -21,6 +22,7 @@ function Wordmark() {
 
 export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unreadNotifications?: number }) {
   const path = usePathname();
+  const canSell = useCanSellPremium();
   const [addOpen, setAddOpen] = useState(false);
   const active = (href: string) =>
     href === "/" ? path === "/" : path === href || path.startsWith(href + "/");
@@ -46,7 +48,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
         <div className="mx-auto flex h-14 max-w-shell items-center justify-between px-5">
           <Wordmark />
           <div className="flex items-center gap-3">
-            {user?.plan === "free" && (
+            {user?.plan === "free" && canSell && (
               <Link
                 href="/settings/billing"
                 className="flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-white/20"

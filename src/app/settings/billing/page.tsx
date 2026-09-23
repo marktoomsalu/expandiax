@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
+import { canSellPremium } from "@/lib/nativeAppServer";
 import { BillingActions } from "@/components/BillingActions";
 import { formatDate } from "@/lib/utils";
 import type { BillingSource, Plan } from "@/lib/types";
@@ -12,6 +13,8 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
   const supabase = createClient();
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
+  // Checkout and plan management live on the web only until the app's in-app subscription ships.
+  if (!canSellPremium()) redirect("/settings");
 
   const { data: billing } = await supabase
     .from("billing")

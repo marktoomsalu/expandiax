@@ -9,6 +9,11 @@ const config: CapacitorConfig = {
   appId: "com.expandiax.travelapp",
   appName: "ExpandiaX",
   webDir: "public",
+  // Lets the server tell the app's WebView apart from a normal browser
+  // (e.g. to hide web checkout links inside the app) — must match
+  // NATIVE_APP_UA_MARKER in src/lib/nativeApp.ts. Baked into the native
+  // build, so it takes effect from the next app build.
+  appendUserAgent: "ExpandiaXApp",
   server: {
     url: "https://expandiax.com",
     cleartext: false,

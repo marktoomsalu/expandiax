@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
 import { validateFile } from "@/lib/media";
 import { AvatarCropper } from "./AvatarCropper";
+import { useCanSellPremium } from "./PurchaseAvailability";
 import { cn } from "@/lib/utils";
 import type { Profile, ProfileVisibility } from "@/lib/types";
 
@@ -27,6 +28,7 @@ export function ProfileForm({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const canSell = useCanSellPremium();
   const [username, setUsername] = useState(profile.username);
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [bio, setBio] = useState(profile.bio);
@@ -190,6 +192,7 @@ export function ProfileForm({
         </select>
       </div>
 
+      {(profile.plan === "premium" || canSell) && (
       <div>
         <label htmlFor="pf-accent" className="mb-1.5 block text-sm font-medium">Profile accent color</label>
         {profile.plan === "premium" ? (
@@ -210,6 +213,7 @@ export function ProfileForm({
           </p>
         )}
       </div>
+      )}
 
       <fieldset className={cn("rounded-lg border p-4", visibility === null ? "border-accent/50" : "border-line")}>
         <legend className="px-1 text-sm font-medium">

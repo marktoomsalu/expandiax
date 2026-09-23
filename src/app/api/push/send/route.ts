@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFirebaseMessaging } from "@/lib/firebase";
+import { NATIVE_IAP_LIVE } from "@/lib/nativeApp";
 import type { NotificationKind } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { record } = (await request.json()) as { record: NotificationRow };
+
+  // Push only ever reaches the native app, where Premium can't be bought
+  // until its in-app subscription ships — an upsell there would point at the
+  // web checkout (App Review 3.1.1). The in-app notification row still
+  // exists for the website.
+  if (record.kind === "premium_upsell" && !NATIVE_IAP_LIVE) return NextResponse.json({ ok: true, sent: 0, reason: "iap_not_live" });
 
   let messaging: ReturnType<typeof getFirebaseMessaging>;
   try {

@@ -31,19 +31,9 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
   // RevenueCat SDK errors are internal/debug-oriented (URLs, config
   // diagnostics) — never show them to a real user, just log for our own
   // debugging and surface a generic message instead.
-  //
-  // TEMPORARY: appending the raw error to the visible message too, to
-  // debug a live device without USB access to a console. Revert once
-  // resolved — see reportPurchaseError in git history for the clean version.
   function reportPurchaseError(e: unknown, fallback: string) {
     console.error(e);
-    let raw = "";
-    try {
-      raw = e instanceof Error ? e.message : JSON.stringify(e);
-    } catch {
-      raw = String(e);
-    }
-    setError(`${fallback}\n\n[debug] ${raw}`);
+    setError(fallback);
   }
 
   async function buyNative() {

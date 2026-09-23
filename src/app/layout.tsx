@@ -13,7 +13,9 @@ import { NativeKeyboard } from "@/components/NativeKeyboard";
 import { NativeFirstRunRedirect } from "@/components/NativeFirstRunRedirect";
 import { PushRegistration } from "@/components/PushRegistration";
 import { NativePurchases } from "@/components/NativePurchases";
+import { PurchaseAvailabilityProvider } from "@/components/PurchaseAvailability";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
+import { canSellPremium } from "@/lib/nativeAppServer";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://expandiax.com"),
@@ -46,13 +48,17 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   let navUser: { id: string; username: string; plan: "free" | "premium" } | null = null;
   let unreadNotifications = 0;
+  const canSell = canSellPremium();
   try {
     const supabase = createClient();
     const user = await getAuthUser();
     if (user) {
+      let unread = supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false);
+      // Upsell notifications are hidden in the app, so they mustn't light up the bell either.
+      if (!canSell) unread = unread.neq("kind", "premium_upsell");
       const [{ data: profile }, { count }] = await Promise.all([
         supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
-        supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false),
+        unread,
       ]);
       if (profile) navUser = { id: user.id, username: profile.username, plan: profile.plan };
       unreadNotifications = count ?? 0;
@@ -65,16 +71,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen">
         <ThemeProvider>
-          <NativeStatusBar />
-          <NativeBackButton />
-          <NativeDeepLinks />
-          <NativeKeyboard />
-          <NativeFirstRunRedirect isLoggedIn={!!navUser} />
-          {navUser && <PushRegistration userId={navUser.id} />}
-          {navUser && <NativePurchases userId={navUser.id} />}
-          <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
-          <SiteChrome>{children}</SiteChrome>
-          {navUser && <PremiumUpsellModal plan={navUser.plan} />}
+          <PurchaseAvailabilityProvider canSell={canSell}>
+            <NativeStatusBar />
+            <NativeBackButton />
+            <NativeDeepLinks />
+            <NativeKeyboard />
+            <NativeFirstRunRedirect isLoggedIn={!!navUser} />
+            {navUser && <PushRegistration userId={navUser.id} />}
+            {navUser && <NativePurchases userId={navUser.id} />}
+            <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
+            <SiteChrome>{children}</SiteChrome>
+            {navUser && canSell && <PremiumUpsellModal plan={navUser.plan} />}
+          </PurchaseAvailabilityProvider>
         </ThemeProvider>
         <Analytics />
         <SpeedInsights />

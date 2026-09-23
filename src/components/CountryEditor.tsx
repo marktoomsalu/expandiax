@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import { uploadMediaItem } from "@/lib/media";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
+import { useCanSellPremium } from "./PurchaseAvailability";
+import { withoutUpgradePrompt } from "@/lib/nativeApp";
 import type { DatePrecision, Plan, VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { VisitDateFields } from "./VisitDateFields";
@@ -63,6 +65,7 @@ async function uploadPendingMedia(
 export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   const router = useRouter();
   const supabase = createClient();
+  const canSell = useCanSellPremium();
   const [precision, setPrecision] = useState<DatePrecision>("year");
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
@@ -228,8 +231,8 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
       </button>
       {error && (
         <p role="alert" className="text-sm text-red-800 dark:text-red-400">
-          {error}
-          {error.includes("capped at") && (
+          {canSell || !error.includes("capped at") ? error : withoutUpgradePrompt(error)}
+          {canSell && error.includes("capped at") && (
             <>
               {" "}
               <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">

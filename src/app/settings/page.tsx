@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
+import { canSellPremium } from "@/lib/nativeAppServer";
 import { ProfileForm } from "@/components/ProfileForm";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ExportDataButton, DeleteAccountButton } from "@/components/AccountActions";
@@ -38,9 +39,11 @@ export default async function SettingsPage() {
           <p className="mt-1 text-xs text-muted">
             {profile.plan === "premium" ? "You're on Premium." : "You're on the free plan."}
           </p>
-          <Link href="/settings/billing" className="btn-ghost mt-3 !py-2 text-sm">
-            {profile.plan === "premium" ? "Manage plan" : "Upgrade to Premium"}
-          </Link>
+          {canSellPremium() && (
+            <Link href="/settings/billing" className="btn-ghost mt-3 !py-2 text-sm">
+              {profile.plan === "premium" ? "Manage plan" : "Upgrade to Premium"}
+            </Link>
+          )}
         </div>
         <div className="flex items-center justify-between gap-4">
           <div>

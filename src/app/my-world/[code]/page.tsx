@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ExternalLink, Lock, MapPin } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
+import { canSellPremium } from "@/lib/nativeAppServer";
 import { countryByCode } from "@/lib/countries";
 import { territoryByCode, territoryToMeta } from "@/lib/territories";
 import { CountryEditor, AddCountryForm } from "@/components/CountryEditor";
@@ -36,6 +37,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   const countryCap = COUNTRY_CAP[plan];
   const atCountryCap = countryCap !== null && (countryCount ?? 0) >= countryCap;
   const needsPremiumForTerritory = isTerritory && plan !== "premium";
+  const canSell = canSellPremium();
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
@@ -78,18 +80,32 @@ export default async function ManageCountryPage({ params }: { params: { code: st
             {needsPremiumForTerritory ? (
               <>
                 <Lock size={22} className="mx-auto mt-3 text-muted" aria-hidden />
-                <p className="mx-auto mt-3 max-w-sm text-sm text-muted">
-                  {meta.name} is a special territory - tracking those is a Premium feature, separate from your 195-country limit.
-                </p>
-                <Link href="/settings/billing" className="btn-accent mt-5">Upgrade to Premium</Link>
+                {canSell ? (
+                  <>
+                    <p className="mx-auto mt-3 max-w-sm text-sm text-muted">
+                      {meta.name} is a special territory - tracking those is a Premium feature, separate from your 195-country limit.
+                    </p>
+                    <Link href="/settings/billing" className="btn-accent mt-5">Upgrade to Premium</Link>
+                  </>
+                ) : (
+                  <p className="mx-auto mt-3 max-w-sm text-sm text-muted">
+                    {meta.name} is a special territory - tracking those isn&rsquo;t available on your account.
+                  </p>
+                )}
               </>
             ) : atCountryCap ? (
               <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                You&rsquo;ve reached the free plan&rsquo;s {countryCap}-country limit.{" "}
-                <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
-                  Upgrade to Premium
-                </Link>{" "}
-                to keep adding countries.
+                {canSell ? (
+                  <>
+                    You&rsquo;ve reached the free plan&rsquo;s {countryCap}-country limit.{" "}
+                    <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
+                      Upgrade to Premium
+                    </Link>{" "}
+                    to keep adding countries.
+                  </>
+                ) : (
+                  <>You&rsquo;ve reached your {countryCap}-country limit.</>
+                )}
               </p>
             ) : (
               <>
@@ -104,7 +120,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
           </div>
         ) : (
           <div className="space-y-8">
-            {meta.code === "US" && (
+            {meta.code === "US" && (plan === "premium" || canSell) && (
               <div className="card flex flex-wrap items-center justify-between gap-4 border-accent/30 bg-accent-soft/40 px-5 py-4">
                 <div>
                   <p className="flex items-center gap-1.5 text-sm font-medium">

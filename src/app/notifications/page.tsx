@@ -3,6 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { Clock, Heart, MessageCircle, Sparkles, UserCheck, UserPlus } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
+import { canSellPremium } from "@/lib/nativeAppServer";
 import { EmptyState } from "@/components/EmptyState";
 import { FollowRequestActions } from "@/components/FollowRequestActions";
 import { countryByCode } from "@/lib/countries";
@@ -29,12 +30,12 @@ export default async function NotificationsPage() {
   if (!profile) redirect("/sign-in");
   const username = profile.username;
 
-  const { data: rows } = await supabase
+  let query = supabase
     .from("notifications")
     .select("*, actor:profiles!notifications_actor_id_fkey(username, display_name, avatar_url)")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(50);
+    .eq("user_id", user.id);
+  if (!canSellPremium()) query = query.neq("kind", "premium_upsell");
+  const { data: rows } = await query.order("created_at", { ascending: false }).limit(50);
   const notifications = (rows ?? []) as NotificationWithActor[];
 
   const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);

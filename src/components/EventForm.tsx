@@ -18,6 +18,8 @@ import { TrackPicker, type SpotifyTrackChoice } from "./TrackPicker";
 import { EventSuggestions } from "./EventSuggestions";
 import { MediaUploader } from "./MediaUploader";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
+import { useCanSellPremium } from "./PurchaseAvailability";
+import { withoutUpgradePrompt } from "@/lib/nativeApp";
 import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
 import type { EventFull, EventType, Plan } from "@/lib/types";
@@ -43,6 +45,7 @@ export function EventForm({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const canSell = useCanSellPremium();
   const [f, setF] = useState({
     event_type: event?.event_type ?? ("concert" as EventType),
     title: event?.title ?? "",
@@ -435,8 +438,8 @@ export function EventForm({
 
       {error && (
         <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">
-          {error}
-          {error.includes("capped at") && (
+          {canSell || !error.includes("capped at") ? error : withoutUpgradePrompt(error)}
+          {canSell && error.includes("capped at") && (
             <>
               {" "}
               <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">

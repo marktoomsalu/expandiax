@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isNativeUserAgent } from "@/lib/nativeApp";
 
 const PROTECTED = ["/my-world", "/events", "/stats", "/settings", "/onboarding", "/feed", "/reset-password", "/notifications"];
 
@@ -36,6 +37,15 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     url.searchParams.set("next", path);
+    return NextResponse.redirect(url);
+  }
+
+  // First open of the app (logged out, WebView on "/") goes straight to
+  // onboarding — on the server, so the marketing homepage and its pricing
+  // never render inside the app, not even for a frame.
+  if (!user && path === "/" && isNativeUserAgent(request.headers.get("user-agent"))) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/start";
     return NextResponse.redirect(url);
   }
 

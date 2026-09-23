@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
+import { canSellPremium } from "@/lib/nativeAppServer";
 import { EventForm } from "@/components/EventForm";
 import { dedupeRecentArtists } from "@/lib/events";
 import { EVENT_CAP } from "@/lib/plan";
@@ -40,13 +41,19 @@ export default async function NewEventPage() {
       <h1 className="mt-2 text-3xl md:text-4xl">A moment worth keeping.</h1>
       {atEventCap ? (
         <div className="card mt-8 px-6 py-12 text-center">
-          <h2 className="font-serif text-2xl">You&rsquo;ve reached the free plan&rsquo;s limit.</h2>
+          <h2 className="font-serif text-2xl">You&rsquo;ve reached {canSellPremium() ? "the free plan\u2019s" : "your"} limit.</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-            Free plans are capped at {eventCap} events.{" "}
-            <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
-              Upgrade to Premium
-            </Link>{" "}
-            to keep logging new ones.
+            {canSellPremium() ? (
+              <>
+                Free plans are capped at {eventCap} events.{" "}
+                <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
+                  Upgrade to Premium
+                </Link>{" "}
+                to keep logging new ones.
+              </>
+            ) : (
+              <>Your account is capped at {eventCap} events.</>
+            )}
           </p>
         </div>
       ) : (

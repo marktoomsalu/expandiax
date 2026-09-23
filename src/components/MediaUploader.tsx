@@ -13,6 +13,7 @@ import { uploadResumable } from "@/lib/resumableUpload";
 import type { MediaItem } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RepositionPhotoDialog } from "./RepositionPhotoDialog";
+import { useCanSellPremium } from "./PurchaseAvailability";
 import { cn } from "@/lib/utils";
 import { isNativePlatform } from "@/lib/capacitor";
 import { tapSuccess } from "@/lib/haptics";
@@ -68,6 +69,7 @@ async function uploadWithProgress(
 }
 
 export function MediaUploader(props: Props) {
+  const canSell = useCanSellPremium();
   const { userId, scope, parentId, table, fkColumn, photoCap, videoCap, items, coverId, coverTable, captions, label, extraFields, showUpgradeHint } = props;
   const router = useRouter();
   const supabase = createClient();
@@ -433,7 +435,7 @@ export function MediaUploader(props: Props) {
           </label>
         </div>
         <span className="ml-3 text-xs text-muted">JPEG/PNG/WebP up to 10 MB, or MP4/WebM/MOV up to 300 MB</span>
-        {(photoRemaining <= 0 || videoRemaining <= 0) && showUpgradeHint && (
+        {(photoRemaining <= 0 || videoRemaining <= 0) && showUpgradeHint && canSell && (
           <p className="mt-2 text-xs text-muted">
             That&rsquo;s the free plan&rsquo;s limit -{" "}
             <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
