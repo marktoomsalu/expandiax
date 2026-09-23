@@ -1,15 +1,84 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, ChevronRight, Languages, MapPin, Music2, Play } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Languages, MapPin, Music2, Play, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { focalPosition } from "@/lib/media";
 import { eventTypeMeta } from "@/lib/events";
+import { feedMusic, useFeedMusic } from "@/lib/feedMusic";
 import type { EventType } from "@/lib/types";
 
-export type FeedMediaItem = { id: string; url: string; type: "image" | "video"; alt: string; focalX?: number | null; focalY?: number | null };
+type Track = { name: string; artist: string | null; spotifyId: string | null };
+type Preview = { previewUrl: string | null; artworkUrl?: string | null };
+
+function EqBars() {
+  return (
+    <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
+      {[0, 0.2, 0.4].map((delay) => (
+        <span key={delay} className="animate-eq-bar h-full w-[3px] rounded-full bg-white" style={{ animationDelay: `${delay}s` }} />
+      ))}
+    </span>
+  );
+}
+
+function MusicSticker({ musicKey, track, preview }: { musicKey: string; track: Track; preview: Preview | null }) {
+  const { soundOn, playingKey } = useFeedMusic();
+  const playing = playingKey === musicKey;
+  const url = preview?.previewUrl ?? null;
+
+  const inner = (
+    <>
+      <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/15">
+        {preview?.artworkUrl ? (
+          <Image src={preview.artworkUrl} alt="" fill sizes="32px" className="object-cover" />
+        ) : (
+          <Music2 size={14} aria-hidden />
+        )}
+      </span>
+      <span className="min-w-0 leading-tight">
+        <span className="block truncate text-[13px] font-semibold">{track.name}</span>
+        {track.artist && <span className="block truncate text-[11px] text-white/65">{track.artist}</span>}
+      </span>
+      {url && <span className="ml-1 shrink-0">{playing ? <EqBars /> : !soundOn && <VolumeX size={14} className="text-white/70" aria-hidden />}</span>}
+    </>
+  );
+
+  const className =
+    "pointer-events-auto flex max-w-[75%] items-center gap-2 rounded-xl bg-black/35 p-1 pr-2.5 text-left text-white ring-1 ring-white/15 backdrop-blur-md";
+
+  if (url) {
+    return (
+      <button
+        type="button"
+        onClick={() => feedMusic.toggle(musicKey, url)}
+        aria-pressed={playing}
+        aria-label={playing ? `Mute ${track.name}` : `Play ${track.name}`}
+        className={cn(className, "transition-transform active:scale-95")}
+      >
+        {inner}
+      </button>
+    );
+  }
+  if (preview && track.spotifyId) {
+    return (
+      <a href={`https://open.spotify.com/track/${track.spotifyId}`} target="_blank" rel="noopener noreferrer" className={className}>
+        {inner}
+      </a>
+    );
+  }
+  return <div className={className}>{inner}</div>;
+}
+
+export type FeedMediaItem = {
+  id: string;
+  url: string;
+  type: "image" | "video";
+  alt: string;
+  focalX?: number | null;
+  focalY?: number | null;
+};
 
 type Props = {
   href: string;
@@ -22,15 +91,13 @@ type Props = {
   body: string | null;
   dateLabel: string | null;
   location: string | null;
-  track: { name: string; artist: string | null } | null;
+  track: Track | null;
   media: FeedMediaItem[];
   gradient: [string, string];
   priority?: boolean;
   actor: { username: string; display_name: string; avatar_url: string | null };
   actionLabel: string;
   when: string;
-  /** Rendered under the photo, above the actions row (e.g. the Spotify player). */
-  below?: React.ReactNode;
   /** Left side of the actions row (e.g. Remember). */
   actions?: React.ReactNode;
 };
@@ -40,10 +107,71 @@ type Props = {
 // photo opens the post; swiping pages through the set; tapping a video
 // plays it and fades the text away so nothing covers it.
 export function FeedMemoryCard(p: Props) {
+  const cardRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const previewRef = useRef<Preview | null>(null);
+  const ratioRef = useRef(0);
+  const musicKey = p.href;
+  const trackName = p.track?.name;
+  const trackArtist = p.track?.artist;
+
+  // Look the clip up a screen or so before the post arrives, so it's ready
+  // to play the moment it scrolls in.
+  useEffect(() => {
+    const node = cardRef.current;
+    if (!node || !trackName) return;
+    let cancelled = false;
+    const prefetch = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        prefetch.disconnect();
+        const qs = new URLSearchParams({
+          name: trackName,
+          artist: trackArtist ?? "",
+        });
+        fetch(`/api/music/preview?${qs}`)
+          .then((r) => r.json())
+          .catch(() => ({ previewUrl: null }))
+          .then((data: Preview) => {
+            if (cancelled) return;
+            previewRef.current = data;
+            setPreview(data);
+            feedMusic.report(musicKey, ratioRef.current, data.previewUrl ?? null);
+          });
+      },
+      { rootMargin: "800px 0px" }
+    );
+    prefetch.observe(node);
+    return () => {
+      cancelled = true;
+      prefetch.disconnect();
+    };
+  }, [musicKey, trackName, trackArtist]);
+
+  useEffect(() => {
+    const node = cardRef.current;
+    if (!node || !trackName) return;
+    const seen = new IntersectionObserver(
+      ([entry]) => {
+        ratioRef.current = entry.intersectionRatio;
+        feedMusic.report(musicKey, entry.intersectionRatio, previewRef.current?.previewUrl ?? null);
+      },
+      { threshold: [0, 0.25, 0.5, 0.6, 0.75, 0.9, 1] }
+    );
+    seen.observe(node);
+    return () => {
+      seen.disconnect();
+      feedMusic.forget(musicKey);
+    };
+  }, [musicKey, trackName]);
   const [active, setActive] = useState(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const [translated, setTranslated] = useState<{ title: string; subtitle: string | null; body: string | null } | null>(null);
+  const [translated, setTranslated] = useState<{
+    title: string;
+    subtitle: string | null;
+    body: string | null;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +202,7 @@ export function FeedMemoryCard(p: Props) {
     const video = e.currentTarget.parentElement?.querySelector("video");
     if (!video) return;
     setPlayingId(id);
+    feedMusic.yield(musicKey);
     void video.play();
   }
 
@@ -88,7 +217,10 @@ export function FeedMemoryCard(p: Props) {
       const res = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ texts: [p.title, p.subtitle ?? "", p.body ?? ""], targetLang: navigator.language }),
+        body: JSON.stringify({
+          texts: [p.title, p.subtitle ?? "", p.body ?? ""],
+          targetLang: navigator.language,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "failed");
@@ -108,6 +240,7 @@ export function FeedMemoryCard(p: Props) {
   return (
     <div>
       <div
+        ref={cardRef}
         className={cn(
           "group relative w-full overflow-hidden bg-[#14110d]",
           hasMedia ? "aspect-[4/5] sm:aspect-[4/3]" : "aspect-[5/4] sm:aspect-[16/10]"
@@ -148,7 +281,12 @@ export function FeedMemoryCard(p: Props) {
                       priority={p.priority && i === 0}
                       sizes="(min-width: 640px) 672px, 100vw"
                       className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-                      style={{ objectPosition: focalPosition({ focal_x: m.focalX ?? null, focal_y: m.focalY ?? null }) }}
+                      style={{
+                        objectPosition: focalPosition({
+                          focal_x: m.focalX ?? null,
+                          focal_y: m.focalY ?? null,
+                        }),
+                      }}
                     />
                   </Link>
                 )}
@@ -160,7 +298,9 @@ export function FeedMemoryCard(p: Props) {
             href={p.href}
             aria-label={p.title}
             className="absolute inset-0 block"
-            style={{ backgroundImage: `linear-gradient(135deg, ${p.gradient[0]} 0%, ${p.gradient[1]} 100%)` }}
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${p.gradient[0]} 0%, ${p.gradient[1]} 100%)`,
+            }}
           >
             <span className="absolute inset-0 bg-black/25" aria-hidden />
             <span className="absolute -right-6 -top-4 select-none text-[10rem] leading-none opacity-30 sm:text-[13rem]" aria-hidden>
@@ -170,7 +310,10 @@ export function FeedMemoryCard(p: Props) {
         )}
 
         {/* Scrims — top for the poster row, bottom for the story */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/55 to-transparent" aria-hidden />
+        <div
+          className={cn("pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/55 to-transparent", p.track ? "h-40" : "h-28")}
+          aria-hidden
+        />
         <div
           className={cn(
             "pointer-events-none absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300",
@@ -180,30 +323,37 @@ export function FeedMemoryCard(p: Props) {
         />
 
         {/* Poster */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center gap-2.5 p-4">
-          <Link
-            href={`/u/${p.actor.username}`}
-            aria-label={p.actor.display_name}
-            className="pointer-events-auto flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/20 font-serif text-sm text-white ring-2 ring-white/70"
-          >
-            {p.actor.avatar_url ? (
-              <Image src={p.actor.avatar_url} alt="" width={36} height={36} className="h-full w-full object-cover" />
-            ) : (
-              p.actor.display_name.charAt(0)
-            )}
-          </Link>
-          <div className="min-w-0 leading-tight text-white drop-shadow">
-            <Link href={`/u/${p.actor.username}`} className="pointer-events-auto text-sm font-semibold hover:underline">
-              {p.actor.display_name}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-4">
+          <div className="flex items-center gap-2.5">
+            <Link
+              href={`/u/${p.actor.username}`}
+              aria-label={p.actor.display_name}
+              className="pointer-events-auto flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/20 font-serif text-sm text-white ring-2 ring-white/70"
+            >
+              {p.actor.avatar_url ? (
+                <Image src={p.actor.avatar_url} alt="" width={36} height={36} className="h-full w-full object-cover" />
+              ) : (
+                p.actor.display_name.charAt(0)
+              )}
             </Link>
-            <p className="text-xs text-white/75">
-              {p.actionLabel} · {p.when}
-            </p>
+            <div className="min-w-0 leading-tight text-white drop-shadow">
+              <Link href={`/u/${p.actor.username}`} className="pointer-events-auto text-sm font-semibold hover:underline">
+                {p.actor.display_name}
+              </Link>
+              <p className="text-xs text-white/75">
+                {p.actionLabel} · {p.when}
+              </p>
+            </div>
+            {p.media.length > 1 && (
+              <span className="ml-auto rounded-full bg-black/40 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                {active + 1}/{p.media.length}
+              </span>
+            )}
           </div>
-          {p.media.length > 1 && (
-            <span className="ml-auto rounded-full bg-black/40 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
-              {active + 1}/{p.media.length}
-            </span>
+          {p.track && (
+            <div className="mt-3 flex">
+              <MusicSticker musicKey={musicKey} track={p.track} preview={preview} />
+            </div>
           )}
         </div>
 
@@ -228,7 +378,7 @@ export function FeedMemoryCard(p: Props) {
           <h3 className="mt-3 font-serif text-3xl leading-[1.08] drop-shadow-md sm:text-4xl">{shownTitle}</h3>
           {shownSubtitle && <p className="mt-1 font-serif text-lg italic text-white/85">{shownSubtitle}</p>}
           {shownBody && <p className="mt-2 line-clamp-2 max-w-md text-sm leading-relaxed text-white/85">{shownBody}</p>}
-          {(p.dateLabel || p.location || p.track) && (
+          {(p.dateLabel || p.location) && (
             <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-white/80">
               {p.dateLabel && (
                 <span className="inline-flex items-center gap-1.5">
@@ -238,15 +388,6 @@ export function FeedMemoryCard(p: Props) {
               {p.location && (
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin size={14} aria-hidden /> {p.location}
-                </span>
-              )}
-              {p.track && (
-                <span className="inline-flex min-w-0 items-center gap-1.5">
-                  <Music2 size={14} aria-hidden />
-                  <span className="truncate">
-                    {p.track.name}
-                    {p.track.artist && <span className="text-white/60"> — {p.track.artist}</span>}
-                  </span>
                 </span>
               )}
             </div>
@@ -284,8 +425,6 @@ export function FeedMemoryCard(p: Props) {
         )}
       </div>
 
-      {p.below && <div className="px-4 pt-3 sm:px-5">{p.below}</div>}
-
       <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5">
         <div className="flex items-center gap-5">{p.actions}</div>
         <button
@@ -298,7 +437,11 @@ export function FeedMemoryCard(p: Props) {
           {busy ? "Translating…" : translated ? "Show original" : "Translate"}
         </button>
       </div>
-      {error && <p role="alert" className="px-4 pb-2 text-xs text-red-800 dark:text-red-400 sm:px-5">{error}</p>}
+      {error && (
+        <p role="alert" className="px-4 pb-2 text-xs text-red-800 dark:text-red-400 sm:px-5">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

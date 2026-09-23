@@ -136,3 +136,22 @@
 .animate-badge-shimmer {
   animation: badge-shimmer 3.2s ease-in-out infinite;
 }
+
+@keyframes eq-bar {
+  0%, 100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.animate-eq-bar {
+  transform-origin: bottom;
+  animation: eq-bar 0.9s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-eq-bar {
+    animation: none;
+    transform: scaleY(0.7);
+  }
+}

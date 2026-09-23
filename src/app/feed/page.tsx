@@ -9,7 +9,6 @@ import { LikeButton } from "@/components/LikeButton";
 import { FollowButton } from "@/components/FollowButton";
 import { CommentSection } from "@/components/CommentSection";
 import { FeedMemoryCard, type FeedMediaItem } from "@/components/FeedMemoryCard";
-import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { IWasThereButton } from "@/components/IWasThereButton";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
@@ -269,18 +268,17 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
                       body={item.body}
                       dateLabel={dateLabel}
                       location={location}
-                      track={item.spotify_track_name ? { name: item.spotify_track_name, artist: item.spotify_track_artist } : null}
+                      track={
+                        item.spotify_track_name
+                          ? { name: item.spotify_track_name, artist: item.spotify_track_artist, spotifyId: item.spotify_track_id }
+                          : null
+                      }
                       media={media}
                       gradient={flagGradientColors(item.country_code)}
                       priority={index === 0}
                       actor={actor}
                       actionLabel={item.kind === "country" ? "added a country" :`logged a ${typeLabel}`}
                       when={formatRelative(item.created_at)}
-                      below={
-                        item.kind === "country" && item.spotify_track_id ? (
-                          <SpotifyEmbed trackId={item.spotify_track_id} compact />
-                        ) : undefined
-                      }
                       actions={<LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={likedByMe.has(key)} />}
                     />
                     <div className="border-t border-line px-4 py-3 sm:px-5">
