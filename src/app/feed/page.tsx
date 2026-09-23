@@ -187,7 +187,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         </div>
       </div>
 
-      <div className="card mt-8 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+      <div className="card mt-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
         <p className="font-serif text-lg">What&rsquo;s worth remembering?</p>
         <div className="flex gap-2">
           <Link href="/my-world#country-search" className="btn-ghost !px-3.5 !py-2 text-sm">
@@ -200,7 +200,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       </div>
 
       {/* NEW — memories recently added by people you follow */}
-      <section className="mt-10" aria-labelledby="new-h">
+      <section className="mt-6" aria-labelledby="new-h">
         <h2 id="new-h" className="text-sm font-medium text-muted">New</h2>
 
         {followeeIds.length === 0 ? (
