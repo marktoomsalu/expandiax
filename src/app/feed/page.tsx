@@ -4,6 +4,7 @@ import { CheckCircle2, Clock, Compass, Globe2, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
+import { GreetingHeader } from "@/components/GreetingHeader";
 import { LikeButton } from "@/components/LikeButton";
 import { FollowButton } from "@/components/FollowButton";
 import { CommentSection } from "@/components/CommentSection";
@@ -51,7 +52,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         .order("created_at", { ascending: false })
         .limit(30),
       supabase.from("public_country_counts").select("user_id, country_count"),
-      supabase.from("profiles").select("feed_last_seen_at").eq("id", user.id).single(),
+      supabase.from("profiles").select("feed_last_seen_at, username, display_name, avatar_url").eq("id", user.id).single(),
       supabase.from("events").select("id, title, event_date, cover_media_id, is_favourite").eq("user_id", user.id),
       supabase
         .from("visited_countries")
@@ -161,14 +162,29 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="eyebrow">Home</p>
-          <h1 className="mt-2 text-3xl md:text-4xl">Your world, remembered.</h1>
+          <GreetingHeader firstName={(viewerProfile?.display_name || "there").split(" ")[0]} />
         </div>
-        <Link href="/explore" className="btn-ghost !py-2 text-sm">
-          <Compass size={16} /> Explore
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/explore" className="btn-ghost !py-2 text-sm">
+            <Compass size={16} /> Explore
+          </Link>
+          {viewerProfile?.username && (
+            <Link
+              href={`/u/${viewerProfile.username}`}
+              aria-label="Your profile"
+              className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-raised font-serif text-sm text-muted"
+            >
+              {viewerProfile.avatar_url ? (
+                <Image src={viewerProfile.avatar_url} alt="" width={40} height={40} className="h-full w-full object-cover" />
+              ) : (
+                (viewerProfile.display_name || "?").charAt(0)
+              )}
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* NEW — memories recently added by people you follow */}
