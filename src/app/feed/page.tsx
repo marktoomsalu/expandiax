@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { CheckCircle2, Clock, Compass, Globe2, Users } from "lucide-react";
+import { CheckCircle2, Clock, Compass, Globe2, Ticket, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
@@ -8,12 +8,12 @@ import { GreetingHeader } from "@/components/GreetingHeader";
 import { LikeButton } from "@/components/LikeButton";
 import { FollowButton } from "@/components/FollowButton";
 import { CommentSection } from "@/components/CommentSection";
-import { FeedPostBody } from "@/components/FeedPostBody";
-import { FeedMediaCarousel, type FeedMediaItem } from "@/components/FeedMediaCarousel";
+import { FeedMemoryCard, type FeedMediaItem } from "@/components/FeedMemoryCard";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { IWasThereButton } from "@/components/IWasThereButton";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
+import { flagGradientColors } from "@/lib/flagColors";
 import {
   buildNextSuggestions,
   buildTogetherCards,
@@ -22,7 +22,7 @@ import {
   type OwnCountryLite,
   type OwnEventLite,
 } from "@/lib/feedSections";
-import { cn, formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
+import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 
 export const metadata = { title: "Feed" };
@@ -187,6 +187,18 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         </div>
       </div>
 
+      <div className="card mt-8 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+        <p className="font-serif text-lg">What&rsquo;s worth remembering?</p>
+        <div className="flex gap-2">
+          <Link href="/my-world#country-search" className="btn-ghost !px-3.5 !py-2 text-sm">
+            <Globe2 size={15} /> A place
+          </Link>
+          <Link href="/events/new" className="btn-accent !px-3.5 !py-2 text-sm">
+            <Ticket size={15} /> An event
+          </Link>
+        </div>
+      </div>
+
       {/* NEW — memories recently added by people you follow */}
       <section className="mt-10" aria-labelledby="new-h">
         <h2 id="new-h" className="text-sm font-medium text-muted">New</h2>
@@ -215,8 +227,8 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
                 You&rsquo;re caught up. Go make something worth remembering.
               </div>
             )}
-            <ul className={cn("space-y-6", showCaughtUpBanner ? "mt-4" : "mt-4")}>
-              {items.map((item) => {
+            <ul className="mt-4 space-y-8">
+              {items.map((item, index) => {
                 const actor = actors.get(item.actor_id);
                 if (!actor) return null;
                 const meta = countryByCode(item.country_code);
@@ -240,66 +252,37 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
                     : item.cover_url
                       ? [{ id: key, url: item.cover_url, type: item.cover_media_type ?? "image", alt: item.title }]
                       : [];
+                const location =
+                  item.kind === "event"
+                    ? [item.venue, item.city || item.country_name].filter(Boolean).join(", ") || null
+                    : item.city || null;
                 return (
                   <li key={key} className="card overflow-hidden">
-                    <div className="p-4 sm:p-5">
-                      <div className="flex items-start gap-3">
-                        <Link
-                          href={`/u/${actor.username}`}
-                          aria-label={actor.display_name}
-                          className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-raised font-serif text-sm text-muted"
-                        >
-                          {actor.avatar_url ? (
-                            <Image src={actor.avatar_url} alt="" width={40} height={40} className="h-full w-full object-cover" />
-                          ) : (
-                            actor.display_name.charAt(0)
-                          )}
-                        </Link>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-baseline gap-x-1.5">
-                            <Link href={`/u/${actor.username}`} className="text-sm font-medium hover:text-accent">
-                              {actor.display_name}
-                            </Link>
-                            <span className="text-xs text-muted">
-                              {item.kind === "country"
-                                ? "added a country"
-                                : `logged a ${typeLabel}${dateLabel ? ` · ${dateLabel}` : ""}`}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted">{formatRelative(item.created_at)}</span>
-                        </div>
-                      </div>
-                      <FeedPostBody
-                        href={href}
-                        flag={item.kind === "country" ? meta?.flag : undefined}
-                        title={item.title}
-                        subtitle={item.subtitle}
-                        body={item.body}
-                        metaLine={
-                          <>
-                            {item.kind === "country" && dateLabel && (
-                              <p className="mt-1 text-xs text-muted">Visited {dateLabel}</p>
-                            )}
-                            {item.kind === "event" && [item.venue, item.city, item.country_name].filter(Boolean).length > 0 && (
-                              <p className="mt-1 text-xs text-muted">
-                                Attended <span aria-hidden>📍</span> {[item.venue, item.city, item.country_name].filter(Boolean).join(", ")}
-                              </p>
-                            )}
-                          </>
-                        }
-                      />
-                      {item.kind === "country" && item.spotify_track_id && (
-                        <div className="mt-3">
+                    <FeedMemoryCard
+                      href={href}
+                      kind={item.kind}
+                      eventType={item.event_type}
+                      flag={meta?.flag}
+                      countryName={meta?.name ?? item.country_name}
+                      title={item.title}
+                      subtitle={item.subtitle}
+                      body={item.body}
+                      dateLabel={dateLabel}
+                      location={location}
+                      track={item.spotify_track_name ? { name: item.spotify_track_name, artist: item.spotify_track_artist } : null}
+                      media={media}
+                      gradient={flagGradientColors(item.country_code)}
+                      priority={index === 0}
+                      actor={actor}
+                      actionLabel={item.kind === "country" ? "added a country" :`logged a ${typeLabel}`}
+                      when={formatRelative(item.created_at)}
+                      below={
+                        item.kind === "country" && item.spotify_track_id ? (
                           <SpotifyEmbed trackId={item.spotify_track_id} compact />
-                        </div>
-                      )}
-                    </div>
-
-                    <FeedMediaCarousel items={media} />
-
-                    <div className="flex items-center gap-5 border-t border-line px-4 py-3 sm:px-5">
-                      <LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={likedByMe.has(key)} />
-                    </div>
+                        ) : undefined
+                      }
+                      actions={<LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={likedByMe.has(key)} />}
+                    />
                     <div className="border-t border-line px-4 py-3 sm:px-5">
                       <CommentSection
                         kind={item.kind}
