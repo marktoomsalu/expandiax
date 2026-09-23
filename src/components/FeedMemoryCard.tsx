@@ -178,6 +178,9 @@ export function FeedMemoryCard(p: Props) {
   const hasMedia = p.media.length > 0;
   const typeMeta = p.kind === "event" ? eventTypeMeta(p.eventType ?? "concert") : null;
   const TypeIcon = typeMeta?.icon;
+  // A country post titled just "Germany" would otherwise say it twice —
+  // once in the chip, once as the headline.
+  const titleIsCountry = p.kind === "country" && !!p.countryName && p.title.trim().toLowerCase() === p.countryName.trim().toLowerCase();
 
   const shownTitle = translated?.title ?? p.title;
   const shownSubtitle = translated?.subtitle ?? p.subtitle;
@@ -243,7 +246,10 @@ export function FeedMemoryCard(p: Props) {
         ref={cardRef}
         className={cn(
           "group relative w-full overflow-hidden bg-[#14110d]",
-          hasMedia ? "aspect-[4/5] sm:aspect-[4/3]" : "aspect-[5/4] sm:aspect-[16/10]"
+          // Square, not 4:3, on wider screens: most memories are portrait
+          // phone photos, and a wide frame keeps only a thin middle strip
+          // of them — people end up cut off below the story text.
+          hasMedia ? "aspect-[4/5] sm:aspect-square" : "aspect-[5/4] sm:aspect-[16/10]"
         )}
       >
         {hasMedia ? (
@@ -364,18 +370,27 @@ export function FeedMemoryCard(p: Props) {
             textHidden && "opacity-0"
           )}
         >
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium ring-1 ring-white/25 backdrop-blur-md">
-            {p.kind === "country" ? (
-              <>
-                <span aria-hidden>{p.flag}</span> {p.countryName ?? "Country"}
-              </>
-            ) : (
-              <>
-                {TypeIcon && <TypeIcon size={13} aria-hidden />} {typeMeta?.label}
-              </>
+          {!titleIsCountry && (
+            <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium ring-1 ring-white/25 backdrop-blur-md">
+              {p.kind === "country" ? (
+                <>
+                  <span aria-hidden>{p.flag}</span> {p.countryName ?? "Country"}
+                </>
+              ) : (
+                <>
+                  {TypeIcon && <TypeIcon size={13} aria-hidden />} {typeMeta?.label}
+                </>
+              )}
+            </span>
+          )}
+          <h3 className="font-serif text-3xl leading-[1.08] drop-shadow-md sm:text-4xl">
+            {titleIsCountry && p.flag && (
+              <span className="mr-2.5 text-[0.8em]" aria-hidden>
+                {p.flag}
+              </span>
             )}
-          </span>
-          <h3 className="mt-3 font-serif text-3xl leading-[1.08] drop-shadow-md sm:text-4xl">{shownTitle}</h3>
+            {shownTitle}
+          </h3>
           {shownSubtitle && <p className="mt-1 font-serif text-lg italic text-white/85">{shownSubtitle}</p>}
           {shownBody && <p className="mt-2 line-clamp-2 max-w-md text-sm leading-relaxed text-white/85">{shownBody}</p>}
           {(p.dateLabel || p.location) && (
