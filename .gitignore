@@ -47,3 +47,6 @@ android/local.properties
 *.tsbuildinfo
 next-env.d.ts
 .env*
+
+# Generated App Store screenshots (scripts/appstore-screenshots.mjs)
+/appstore-screenshots/
