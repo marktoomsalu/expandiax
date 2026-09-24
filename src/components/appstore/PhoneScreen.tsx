@@ -2,21 +2,22 @@ import Image from "next/image";
 import { Bell, Globe2, Plus, Rss, Sun, Ticket, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// App Store screenshot tooling: one iPhone screen (393×852 pt) of the app,
-// drawn with the app's own header/tab-bar markup (copied from SiteNav) so a
-// headless browser can capture it at 3×. Covers the real site chrome with a
-// fixed overlay. See scripts/appstore-screenshots.mjs.
-
-export const SCREEN = { width: 393, height: 852, statusBar: 54 };
+// App Store screenshot tooling: one device screen of the app, drawn with the
+// app's own header/tab-bar markup (copied from SiteNav) as a fixed overlay
+// over the real site chrome. Fills whatever viewport it's captured at —
+// iPhone (393×852 pt) or iPad (1032×1376 pt); md: switches to iPad system
+// UI. See scripts/appstore-screenshots.mjs.
 
 type Tab = "feed" | "world" | "events" | "profile" | null;
 
 function StatusBar() {
   return (
-    <div className="flex items-center justify-between bg-brand-purple px-8 font-sans text-white" style={{ height: SCREEN.statusBar }}>
-      <span className="pt-1 text-[16px] font-semibold tracking-tight">9:41</span>
-      <span className="flex items-center gap-1.5 pt-1" aria-hidden>
-        <svg width="18" height="12" viewBox="0 0 18 12" fill="white">
+    <div className="flex h-[54px] items-center justify-between bg-brand-purple px-8 font-sans text-white md:h-6 md:px-5">
+      <span className="pt-1 text-[16px] font-semibold tracking-tight md:pt-0 md:text-[12px]">
+        9:41<span className="ml-1.5 hidden font-medium md:inline">Tue 9 Sep</span>
+      </span>
+      <span className="flex items-center gap-1.5 pt-1 md:pt-0" aria-hidden>
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="white" className="md:hidden">
           <rect x="0" y="8" width="3" height="4" rx="1" />
           <rect x="5" y="5.5" width="3" height="6.5" rx="1" />
           <rect x="10" y="3" width="3" height="9" rx="1" />
@@ -25,6 +26,7 @@ function StatusBar() {
         <svg width="16" height="12" viewBox="0 0 16 12" fill="white">
           <path d="M8 11.5 10.3 9a3.3 3.3 0 0 0-4.6 0L8 11.5Zm-4.5-4.7 1.4 1.5a4.4 4.4 0 0 1 6.2 0l1.4-1.5a6.4 6.4 0 0 0-9 0ZM.5 3.7l1.4 1.5a8.6 8.6 0 0 1 12.2 0l1.4-1.5a10.6 10.6 0 0 0-15 0Z" />
         </svg>
+        <span className="hidden text-[12px] font-medium md:inline">100%</span>
         <svg width="27" height="13" viewBox="0 0 27 13" fill="none">
           <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke="white" strokeOpacity="0.45" />
           <rect x="2" y="2" width="20" height="9" rx="2.2" fill="white" />
@@ -38,7 +40,7 @@ function StatusBar() {
 function Header() {
   return (
     <div className="border-b border-white/10 bg-brand-purple">
-      <div className="flex h-14 items-center justify-between px-5">
+      <div className="mx-auto flex h-14 max-w-shell items-center justify-between px-5">
         <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} priority className="h-6 w-auto" />
         <div className="flex items-center gap-3 text-white/70">
           <Bell size={19} />
@@ -62,9 +64,9 @@ function TabBar({ active }: { active: Tab }) {
     <>
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-30 h-[98px] backdrop-blur-sm [background:linear-gradient(to_top,rgb(var(--canvas)/0.45)_0%,rgb(var(--canvas)/0.32)_25%,rgb(var(--canvas)/0.18)_50%,rgb(var(--canvas)/0.07)_75%,transparent_100%)]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-30 h-[98px] backdrop-blur-sm [background:linear-gradient(to_top,rgb(var(--canvas)/0.45)_0%,rgb(var(--canvas)/0.32)_25%,rgb(var(--canvas)/0.18)_50%,rgb(var(--canvas)/0.07)_75%,transparent_100%)] md:h-[84px]"
       />
-      <nav className="absolute inset-x-4 bottom-[38px] z-40 rounded-full border border-white/10 bg-brand-purple/95 shadow-lg shadow-black/30 backdrop-blur">
+      <nav className="absolute inset-x-4 bottom-[38px] z-40 mx-auto max-w-2xl rounded-full border border-white/10 bg-brand-purple/95 shadow-lg shadow-black/30 backdrop-blur md:bottom-[24px]">
         <div className="relative flex items-stretch justify-around px-2">
           {link("feed", "Feed", Rss)}
           {link("world", "My World", Globe2)}
@@ -81,17 +83,14 @@ function TabBar({ active }: { active: Tab }) {
   );
 }
 
-export function PhoneScreen({ tab, children, chrome = true }: { tab: Tab; children: React.ReactNode; chrome?: boolean }) {
+export function PhoneScreen({ tab, children }: { tab: Tab; children: React.ReactNode }) {
   return (
-    <div
-      className="fixed left-0 top-0 z-[1000] flex flex-col overflow-hidden bg-canvas text-ink antialiased"
-      style={{ width: SCREEN.width, height: SCREEN.height }}
-    >
+    <div className="fixed inset-0 z-[1000] flex flex-col overflow-hidden bg-canvas text-ink antialiased">
       <StatusBar />
-      {chrome && <Header />}
+      <Header />
       <div className="relative min-h-0 flex-1 overflow-hidden">{children}</div>
       <TabBar active={tab} />
-      <span aria-hidden className="absolute bottom-2 left-1/2 z-50 h-[5px] w-[134px] -translate-x-1/2 rounded-full bg-black/85" />
+      <span aria-hidden className="absolute bottom-2 left-1/2 z-50 h-[5px] w-[134px] -translate-x-1/2 rounded-full bg-black/85 md:w-[320px]" />
     </div>
   );
 }
