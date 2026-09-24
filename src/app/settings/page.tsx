@@ -53,6 +53,11 @@ export default async function SettingsPage() {
           <DigestToggle userId={user.id} initialEnabled={profile.weekly_digest_enabled} />
         </div>
         <div>
+          <p className="text-sm font-medium">Blocked accounts</p>
+          <p className="mt-1 text-xs text-muted">People you&rsquo;ve blocked can&rsquo;t see you, and you can&rsquo;t see them.</p>
+          <Link href="/settings/blocked" className="btn-ghost mt-3 !py-2 text-sm">Manage blocked accounts</Link>
+        </div>
+        <div>
           <p className="text-sm font-medium">Your data</p>
           <p className="mt-1 text-xs text-muted">Download everything you&rsquo;ve added, as a single file.</p>
           <div className="mt-3"><ExportDataButton userId={user.id} /></div>

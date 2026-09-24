@@ -8,6 +8,7 @@ import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
+import { BlockButton } from "@/components/BlockButton";
 import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { CommentSection } from "@/components/CommentSection";
@@ -261,6 +262,7 @@ export default async function PublicEventPage({
         <div className="mt-8 flex items-center justify-center gap-6 border-t border-line pt-6">
           {isOwnProfile && <ShareButton kind="event" targetId={event.id} title={event.title} />}
           <ReportButton targetType="event" targetId={event.id} targetUrl={`/u/${profile.username}/events/${event.id}`} />
+          {viewer && !isOwnProfile && <BlockButton targetId={profile.id} targetName={profile.display_name} targetUsername={profile.username} />}
         </div>
       </div>
     </div>

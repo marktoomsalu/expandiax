@@ -7,6 +7,7 @@ import { WorldMapLink } from "@/components/WorldMapLink";
 import { RatingStars } from "@/components/Rating";
 import { FollowButton } from "@/components/FollowButton";
 import { ReportButton } from "@/components/ReportButton";
+import { BlockButton } from "@/components/BlockButton";
 import { BadgeGrid } from "@/components/BadgeGrid";
 import { EarlyExplorerBadge } from "@/components/EarlyExplorerBadge";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -489,8 +490,9 @@ export default async function PublicProfilePage({ params }: { params: { username
       )}
 
       {!isOwnProfile && (
-        <div className="mt-16 flex justify-center border-t border-line pt-6">
+        <div className="mt-16 flex items-center justify-center gap-6 border-t border-line pt-6">
           <ReportButton targetType="profile" targetId={profile.id} targetUrl={`/u/${profile.username}`} />
+          {viewer && <BlockButton targetId={profile.id} targetName={profile.display_name} targetUsername={profile.username} />}
         </div>
       )}
 

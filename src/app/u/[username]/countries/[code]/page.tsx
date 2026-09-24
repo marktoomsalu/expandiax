@@ -8,6 +8,7 @@ import { countryByCode } from "@/lib/countries";
 import { territoryByCode, territoryToMeta } from "@/lib/territories";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
+import { BlockButton } from "@/components/BlockButton";
 import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { PhotoGallery } from "@/components/PhotoGallery";
@@ -260,6 +261,7 @@ export default async function PublicCountryPage({
         <div className="mt-6 flex items-center justify-center gap-6">
           {isOwnProfile && <ShareButton kind="country" targetId={country.id} title={`${meta.flag} ${meta.name}`} />}
           <ReportButton targetType="country" targetId={country.id} targetUrl={`/u/${profile.username}/countries/${meta.code.toLowerCase()}`} />
+          {viewer && !isOwnProfile && <BlockButton targetId={profile.id} targetName={profile.display_name} targetUsername={profile.username} />}
         </div>
       </div>
     </div>

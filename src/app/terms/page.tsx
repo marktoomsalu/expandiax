@@ -46,6 +46,12 @@ export default function TermsPage() {
             them first. Every profile, country page, and event has a Report option; use it if you see something
             that shouldn&rsquo;t be there, and we&rsquo;ll take a look.
           </p>
+          <p className="mt-2">
+            You can also block any account from its profile. Blocking is your own decision: it hides the two of you
+            from each other and ends any follows between you, without telling them and without affecting their
+            account. It isn&rsquo;t a report - if someone is breaking the rules, use Report as well. You can undo a
+            block any time in Settings.
+          </p>
         </section>
 
         <section>
@@ -53,7 +59,9 @@ export default function TermsPage() {
           <p className="mt-2">
             We can remove content or suspend an account that breaks these terms, is used to harass or impersonate
             someone, or is being used for anything illegal. We&rsquo;ll generally do this only in response to a
-            report or a clear violation, not arbitrarily.
+            report or a clear violation, not arbitrarily. A block by itself never
+            leads to any action against an account; when several people report or block the same account, we look at
+            it ourselves before deciding anything.
           </p>
         </section>
 
