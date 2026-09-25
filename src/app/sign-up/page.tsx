@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { AppleSignInButton } from "@/components/AppleSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { PasswordField } from "@/components/PasswordField";
+import { ConsentCheckbox } from "@/components/LegalConsent";
+import { PRIVACY_VERSION, TERMS_VERSION } from "@/lib/legal";
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
@@ -18,6 +20,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,6 +28,10 @@ export default function SignUpPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!agreed) {
+      setError("Please confirm you're 16 or older and agree to the Terms and Privacy Policy to continue.");
+      return;
+    }
     const uname = username.trim().toLowerCase();
     if (!USERNAME_RE.test(uname)) {
       setError("Usernames are 3–24 characters: lowercase letters, numbers and underscores.");
@@ -55,7 +62,15 @@ export default function SignUpPage() {
       email: email.trim(),
       password,
       options: {
-        data: { username: uname, display_name: displayName.trim() || "Traveller" },
+        data: {
+          username: uname,
+          display_name: displayName.trim() || "Traveller",
+          // What they agreed to, and when — kept with the account.
+          terms_accepted_at: new Date().toISOString(),
+          terms_version: TERMS_VERSION,
+          privacy_version: PRIVACY_VERSION,
+          age_confirmed: true,
+        },
         emailRedirectTo: `${location.origin}/auth/callback?next=/onboarding`,
       },
     });
@@ -82,9 +97,13 @@ export default function SignUpPage() {
         One place for every country you&rsquo;ve set foot in and every event you never want to forget.
       </p>
 
-      <div className="mt-8 space-y-3">
-        <AppleSignInButton next="/onboarding" />
-        <GoogleSignInButton next="/onboarding" />
+      <div className="mt-8 rounded-lg border border-line bg-surface px-4 py-3.5">
+        <ConsentCheckbox checked={agreed} onChange={setAgreed} />
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <AppleSignInButton next="/onboarding" disabled={!agreed} />
+        <GoogleSignInButton next="/onboarding" disabled={!agreed} />
       </div>
       <div className="my-6 flex items-center gap-3 text-xs text-muted">
         <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />

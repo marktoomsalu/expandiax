@@ -12,13 +12,17 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [consented, setConsented] = useState(false);
   const native = isNativePlatform();
 
-  async function goStripe(path: string) {
+  async function goStripe(path: string, body?: Record<string, unknown>) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(path, { method: "POST" });
+      const res = await fetch(path, {
+        method: "POST",
+        ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
+      });
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error || "Something went wrong.");
       window.location.href = data.url;
@@ -122,7 +126,28 @@ export function BillingActions({ plan, source }: { plan: Plan; source: BillingSo
   return (
     <div>
       <SubscriptionDisclosure />
-      <button type="button" className="btn-accent" onClick={() => goStripe("/api/stripe/checkout")} disabled={busy}>
+      <label className="mb-4 flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-muted">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 shrink-0 accent-[rgb(var(--accent))]"
+          checked={consented}
+          onChange={(e) => setConsented(e.target.checked)}
+        />
+        <span>
+          I agree to the{" "}
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2">
+            Terms of Service
+          </a>
+          . I want Premium to start right away, and I understand that if I use my 14-day right to withdraw, I&rsquo;ll pay for the
+          time I&rsquo;ve already used.
+        </span>
+      </label>
+      <button
+        type="button"
+        className="btn-accent disabled:opacity-50"
+        onClick={() => goStripe("/api/stripe/checkout", { consent: true })}
+        disabled={busy || !consented}
+      >
         {busy ? "Redirecting…" : "Upgrade to Premium"}
       </button>
       {error && <p role="alert" className="mt-2 whitespace-pre-wrap text-sm text-red-800 dark:text-red-400">{error}</p>}

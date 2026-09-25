@@ -1,4 +1,5 @@
 import type { createClient } from "@/lib/supabase/client";
+import { stripMediaMetadata } from "@/lib/mediaMetadata";
 
 export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
 export const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
@@ -77,6 +78,9 @@ export async function uploadMediaItem(
       fileToUpload = opts.file;
     }
   }
+
+  // Uploads are served from public URLs — take location/camera data out first.
+  fileToUpload = await stripMediaMetadata(fileToUpload, opts.kind);
 
   const path = storagePath(opts.userId, opts.scope, opts.parentId, fileToUpload);
 

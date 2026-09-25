@@ -1225,6 +1225,10 @@ create trigger device_tokens_touch before update on public.device_tokens
 -- ---------- Push notification dispatch ----------
 -- Fires /api/push/send on every new notifications row (likes, comments,
 -- follows), same net.http_post pattern as the follow-email webhook above.
+--
+-- REPLACE_WITH_PUSH_WEBHOOK_SECRET below must be the same value as the
+-- PUSH_WEBHOOK_SECRET environment variable on Vercel. Set it directly in the
+-- database when you create this function - never commit the real value.
 
 create or replace function public.trigger_notify_push()
 returns trigger
@@ -1235,7 +1239,7 @@ begin
     url := 'https://expandiax.com/api/push/send',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer 870c986f92415f16b416cd5387c1d026863a0b009f724da392486eb126fc81ed'
+      'Authorization', 'Bearer REPLACE_WITH_PUSH_WEBHOOK_SECRET'
     ),
     body := jsonb_build_object('record', row_to_json(new))
   );

@@ -16,6 +16,8 @@ export default async function SettingsPage() {
   if (!user) redirect("/sign-in");
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   if (!profile) redirect("/sign-in");
+  const { data: billing } = await supabase.from("billing").select("plan, source").eq("user_id", user.id).maybeSingle();
+  const subscription = billing?.plan === "premium" ? { source: billing.source as "stripe" | "apple" } : null;
 
   return (
     <div className="mx-auto max-w-md px-5 py-12">
@@ -65,7 +67,7 @@ export default async function SettingsPage() {
         <div>
           <p className="text-sm font-medium text-red-800 dark:text-red-400">Danger zone</p>
           <p className="mt-1 text-xs text-muted">Permanently delete your account and everything in it.</p>
-          <div className="mt-3"><DeleteAccountButton userId={user.id} /></div>
+          <div className="mt-3"><DeleteAccountButton userId={user.id} subscription={subscription} /></div>
         </div>
       </div>
 

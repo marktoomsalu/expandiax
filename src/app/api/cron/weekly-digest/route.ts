@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResend } from "@/lib/resend";
+import { escapeHtml, unsubscribeUrl } from "@/lib/unsubscribe";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -70,13 +71,16 @@ export async function GET(request: NextRequest) {
     if (counts!.comment > 0) lines.push(`${pluralize(counts!.comment, "new comment")}`);
 
     try {
+      const unsubscribe = unsubscribeUrl(profile.id);
       await resend.emails.send({
         from: "ExpandiaX <digest@expandiax.com>",
         to: email,
         subject: "Your week on ExpandiaX",
+        // Mail apps show their own one-click "Unsubscribe" from these.
+        headers: { "List-Unsubscribe": `<${unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
         html: `
           <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #17171b;">
-            <h1 style="font-size: 20px; font-weight: 600;">Hi ${profile.display_name || profile.username},</h1>
+            <h1 style="font-size: 20px; font-weight: 600;">Hi ${escapeHtml(profile.display_name || profile.username)},</h1>
             <p style="font-size: 14px; line-height: 1.6;">Here&rsquo;s what happened on ExpandiaX this week:</p>
             <ul style="font-size: 14px; line-height: 1.8;">
               ${lines.map((l) => `<li>${l}</li>`).join("")}
@@ -86,7 +90,7 @@ export async function GET(request: NextRequest) {
             </p>
             <p style="font-size: 12px; color: #6b7280; margin-top: 32px;">
               Don&rsquo;t want these emails?
-              <a href="https://expandiax.com/settings" style="color: #6b7280;">Turn off weekly digests</a>.
+              <a href="${unsubscribe}" style="color: #6b7280;">Unsubscribe with one click</a>.
             </p>
           </div>
         `,

@@ -8,6 +8,7 @@ import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, Move, Star, Trash2
 import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
 import { classifyFile, focalPosition, validateFile, storagePath } from "@/lib/media";
+import { stripMediaMetadata } from "@/lib/mediaMetadata";
 import { compressVideo } from "@/lib/videoCompress";
 import { uploadResumable } from "@/lib/resumableUpload";
 import type { MediaItem } from "@/lib/types";
@@ -165,6 +166,9 @@ export function MediaUploader(props: Props) {
             fileToUpload = p.file;
           }
         }
+
+        // Uploads are served from public URLs — take location/camera data out first.
+        fileToUpload = await stripMediaMetadata(fileToUpload, p.kind);
 
         setPhase((cur) => ({ ...cur, [p.previewUrl]: "uploading" }));
         setProgress((cur) => ({ ...cur, [p.previewUrl]: 0 }));

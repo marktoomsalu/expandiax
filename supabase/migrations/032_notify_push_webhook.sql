@@ -16,7 +16,7 @@ begin
     url := 'https://expandiax.com/api/push/send',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer 870c986f92415f16b416cd5387c1d026863a0b009f724da392486eb126fc81ed'
+      'Authorization', 'Bearer REPLACE_WITH_PUSH_WEBHOOK_SECRET'
     ),
     body := jsonb_build_object('record', row_to_json(new))
   );

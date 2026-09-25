@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AppleSignInButton } from "@/components/AppleSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { ConsentNotice } from "@/components/LegalConsent";
 import { PasswordField } from "@/components/PasswordField";
 
 function SignInForm() {
@@ -47,6 +48,7 @@ function SignInForm() {
         <AppleSignInButton next={params.get("next") ?? "/my-world"} />
         <GoogleSignInButton next={params.get("next") ?? "/my-world"} />
       </div>
+      <ConsentNotice />
       <div className="my-6 flex items-center gap-3 text-xs text-muted">
         <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
       </div>
