@@ -9,7 +9,7 @@ export const company = {
   address: "Akadeemia tee 3, Mustamäe, 12616 Tallinn, Harju county" as string | null, // registered address
   vatNumber: null as string | null, // EU VAT number, once registered
   // Where the database and file storage run (Supabase dashboard → Settings → Infrastructure).
-  dataRegion: null as string | null, // e.g. "Frankfurt, Germany"
+  dataRegion: "Ireland (EU)" as string | null,
   // One shared address for everything for now — swap in role addresses
   // (support@, privacy@, legal@) once those mailboxes exist.
   supportEmail: "team@expandiax.com",
