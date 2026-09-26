@@ -16,6 +16,7 @@ import { RatingInput } from "./Rating";
 import { ArtistPicker, type SpotifyArtist } from "./ArtistPicker";
 import { TrackPicker, type SpotifyTrackChoice } from "./TrackPicker";
 import { EventSuggestions } from "./EventSuggestions";
+import { PastShowPicker } from "./PastShowPicker";
 import { MediaUploader } from "./MediaUploader";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
 import { useCanSellPremium } from "./PurchaseAvailability";
@@ -23,6 +24,7 @@ import { withoutUpgradePrompt } from "@/lib/nativeApp";
 import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
 import type { EventFull, EventType, Plan } from "@/lib/types";
+import type { PastShow } from "@/lib/concerts";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -66,6 +68,11 @@ export function EventForm({
     spotify_artist_image: event?.spotify_artist_image ?? null,
     spotify_favourite_track_id: event?.spotify_favourite_track_id ?? null,
   });
+  // The real show picked from setlist.fm (concerts only) — its songs become
+  // one-tap choices for "Favourite song performed".
+  const [pastShow, setPastShow] = useState<PastShow | null>(null);
+  const showArtist = f.spotify_artist_name || f.title;
+  useEffect(() => setPastShow(null), [showArtist]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -347,6 +354,24 @@ export function EventForm({
           <input id="e-date" type="date" className="field" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} required />
         </div>
 
+        {!event && f.event_type === "concert" && (
+          <PastShowPicker
+            artist={showArtist}
+            selectedId={pastShow?.id ?? null}
+            onPick={(show) => {
+              setPastShow(show);
+              setF((cur) => ({
+                ...cur,
+                event_date: show.date,
+                venue: show.venue || cur.venue,
+                city: show.city || cur.city,
+                country_code: show.countryCode ?? cur.country_code,
+                subtitle: cur.subtitle || show.tour || "",
+              }));
+            }}
+          />
+        )}
+
         {!event && (
           <EventSuggestions
             title={f.title}
@@ -392,6 +417,26 @@ export function EventForm({
           <div>
             <label htmlFor="e-highlight" className="mb-1.5 block text-sm font-medium">{meta.highlightLabel}</label>
             <input id="e-highlight" className="field" value={f.highlight} onChange={(e) => set("highlight", e.target.value)} />
+            {f.event_type === "concert" && pastShow && pastShow.songs.length > 0 && (
+              <div className="mt-2">
+                <p className="mb-1.5 text-xs text-muted">From the setlist that night:</p>
+                <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
+                  {pastShow.songs.map((song) => (
+                    <button
+                      key={song}
+                      type="button"
+                      onClick={() => setF((cur) => ({ ...cur, highlight: song, spotify_favourite_track_id: null }))}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        f.highlight === song ? "border-accent bg-accent-soft font-medium" : "border-line hover:border-accent"
+                      )}
+                    >
+                      {song}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {meta.songPicker && (
               <div className="mt-2">
                 {f.spotify_favourite_track_id ? (

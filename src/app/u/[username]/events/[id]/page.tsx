@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -13,6 +14,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { CommentSection } from "@/components/CommentSection";
 import { IWasThereButton } from "@/components/IWasThereButton";
+import { ArtistUpcomingShows } from "@/components/UpcomingShows";
 import { formatDate } from "@/lib/utils";
 import { focalPosition } from "@/lib/media";
 import type { CommentWithAuthor, Event, EventFull } from "@/lib/types";
@@ -250,6 +252,12 @@ export default async function PublicEventPage({
               ))}
             </ul>
           </section>
+        )}
+
+        {event.event_type === "concert" && (
+          <Suspense fallback={null}>
+            <ArtistUpcomingShows artist={event.spotify_artist_name || event.title} />
+          </Suspense>
         )}
 
         <section className="mt-12 border-t border-line pt-8" aria-labelledby="comments-h">

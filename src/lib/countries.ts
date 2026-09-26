@@ -41,6 +41,47 @@ export function countryByCode(code: string | null | undefined): Country | undefi
   return code ? byCode.get(code.toUpperCase()) : undefined;
 }
 
+// Other names outside services use for the same country.
+const NAME_ALIASES: Record<string, string> = {
+  "united states of america": "US",
+  usa: "US",
+  "united kingdom of great britain and northern ireland": "GB",
+  uk: "GB",
+  "great britain": "GB",
+  england: "GB",
+  scotland: "GB",
+  wales: "GB",
+  "northern ireland": "GB",
+  "czech republic": "CZ",
+  turkey: "TR",
+  "korea, republic of": "KR",
+  "republic of korea": "KR",
+  "russian federation": "RU",
+  "the netherlands": "NL",
+  holland: "NL",
+  "cote d'ivoire": "CI",
+  "côte d'ivoire": "CI",
+  "democratic republic of the congo": "CD",
+  congo: "CG",
+  macedonia: "MK",
+  swaziland: "SZ",
+  "holy see": "VA",
+  "viet nam": "VN",
+  "iran, islamic republic of": "IR",
+  "cabo verde": "CV",
+  "east timor": "TL",
+  burma: "MM",
+};
+
+const byName = new Map(COUNTRIES.map((c) => [c.name.toLowerCase(), c]));
+
+/** Finds a country from a name written by another service ("United States of America", "Czech Republic"…). */
+export function countryByName(name: string | null | undefined): Country | undefined {
+  if (!name) return undefined;
+  const key = name.trim().toLowerCase();
+  return byName.get(key) ?? countryByCode(NAME_ALIASES[key]);
+}
+
 export function countryByNumeric(numeric: string): Country | undefined {
   return byNumeric.get(numeric);
 }

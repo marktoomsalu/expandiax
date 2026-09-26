@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import Image from "next/image";
 import { CheckCircle2, Clock, Compass, Globe2, Ticket, Users } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -23,6 +24,8 @@ import {
 } from "@/lib/feedSections";
 import { loadThenMemory } from "@/lib/thenMemory";
 import { ThenCard } from "@/components/ThenCard";
+import { ArtistsOnTour } from "@/components/UpcomingShows";
+import { artistsSeenLive } from "@/lib/concerts";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 
@@ -53,10 +56,10 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         .order("created_at", { ascending: false })
         .limit(30),
       supabase.from("public_country_counts").select("user_id, country_count"),
-      supabase.from("profiles").select("feed_last_seen_at, username, display_name, avatar_url").eq("id", user.id).single(),
+      supabase.from("profiles").select("feed_last_seen_at, username, display_name, avatar_url, home_country_code").eq("id", user.id).single(),
       supabase
         .from("events")
-        .select("id, title, event_date, cover_media_id, is_favourite, event_media!event_media_event_id_fkey(count)")
+        .select("id, title, event_date, event_type, spotify_artist_name, cover_media_id, is_favourite, event_media!event_media_event_id_fkey(count)")
         .eq("user_id", user.id),
       supabase
         .from("visited_countries")
@@ -92,6 +95,8 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const now = new Date();
   const picked = viewerProfile?.username ? pickResurfacedMemory(ownEvents, ownCountries, user.id, now, viewerProfile.username) : null;
   const then = picked ? await loadThenMemory(supabase, picked, now) : null;
+
+  const liveArtists = artistsSeenLive(ownEventsRaw ?? []);
 
   const next = buildNextSuggestions(
     (followeeCountryRows ?? []).map((r) => r.country_code),
@@ -365,6 +370,11 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           </ul>
         </section>
       )}
+
+      {/* Artists you've seen live who are touring again */}
+      <Suspense fallback={null}>
+        <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />
+      </Suspense>
 
       {/* NEXT — experiences that could become future memories */}
       <section className="mt-10" aria-labelledby="next-h">
