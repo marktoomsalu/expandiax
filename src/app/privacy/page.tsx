@@ -132,6 +132,10 @@ export default function PrivacyPage() {
             <Strong>Open-Meteo</Strong> - if you change the place for events near you, the city name you type is looked
             up there to find it on the map. The choice isn’t saved.
           </li>
+          <li>
+            <Strong>Wikidata</Strong> (Wikimedia Foundation) - when you search for a race, match or other sport event
+            while logging it, the text you type is sent to Wikidata to find it.
+          </li>
         </LegalList>
         <p>
           We may also share information when the law requires it, or to protect someone’s safety. Otherwise we don’t
