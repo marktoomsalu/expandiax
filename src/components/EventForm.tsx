@@ -17,7 +17,6 @@ import { ArtistPicker, type SpotifyArtist } from "./ArtistPicker";
 import { TrackPicker, type SpotifyTrackChoice } from "./TrackPicker";
 import { EventSuggestions } from "./EventSuggestions";
 import { PastShowPicker } from "./PastShowPicker";
-import { SportEventSearch } from "./SportEventSearch";
 import { MediaUploader } from "./MediaUploader";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
 import { useCanSellPremium } from "./PurchaseAvailability";
@@ -331,22 +330,6 @@ export function EventForm({
               onChange={applyArtist}
             />
           </div>
-        )}
-
-        {!event && f.event_type === "sport" && (
-          <SportEventSearch
-            onPick={(hit, { sport }) =>
-              setF((cur) => ({
-                ...cur,
-                title: hit.name,
-                event_date: hit.date ?? cur.event_date,
-                venue: hit.venue ?? cur.venue,
-                city: hit.city ?? cur.city,
-                country_code: hit.countryCode ?? cur.country_code,
-                subtitle: cur.subtitle || sport || "",
-              }))
-            }
-          />
         )}
 
         <div>
