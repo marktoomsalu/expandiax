@@ -1,19 +1,19 @@
 import { CalendarClock, Ticket } from "lucide-react";
 import { countryByCode } from "@/lib/countries";
 import {
-  artistKey,
   nearbyConfigured,
   nearbyEvents,
   tourHighlights,
   upcomingConfigured,
   upcomingShows,
-  type NearbyEvent,
   type NearbyWhere,
   type SeenArtist,
   type UpcomingShow,
 } from "@/lib/concerts";
 import { formatDate } from "@/lib/utils";
+import { nearbyCards } from "@/lib/nearbyCards";
 import { EventCarousel, type CarouselCard } from "./EventCarousel";
+import { NearbyEvents } from "./NearbyEvents";
 import { ExternalLink } from "./ExternalLink";
 
 // Server components — render them inside <Suspense> so a slow outside service
@@ -120,34 +120,8 @@ export async function ArtistsOnTour({ artists, homeCountry }: { artists: SeenArt
 }
 
 /** Feed: concerts, sport and shows on near where you are right now (or your home country). */
-export async function NearbyEventsRow({ where, place, seenArtists }: { where: NearbyWhere; place: string; seenArtists: SeenArtist[] }) {
+export async function NearbyEventsRow({ where, place, seenArtists }: { where: NearbyWhere | null; place: string | null; seenArtists: SeenArtist[] }) {
   if (!nearbyConfigured()) return null;
-  const events = await nearbyEvents(where).catch(() => []);
-  if (events.length === 0) return null;
-  const seen = new Set(seenArtists.map((a) => artistKey(a.name)));
-  const seenLive = (e: NearbyEvent) => e.performers.some((p) => seen.has(artistKey(p)));
-  // Artists you've seen live go first; otherwise soonest first.
-  const ordered = [...events.filter(seenLive), ...events.filter((e) => !seenLive(e))];
-  const cards: CarouselCard[] = ordered.map((e) => ({
-    id: e.id,
-    title: e.name,
-    date: e.date,
-    time: e.time,
-    venue: e.venue,
-    city: e.city,
-    countryCode: e.countryCode,
-    url: e.url,
-    image: e.image,
-    category: e.category,
-    priceFrom: e.priceFrom,
-    moreDates: e.moreDates,
-    badge: seenLive(e) ? "You\u2019ve seen them live" : null,
-  }));
-  return (
-    <div>
-      <h3 className="mb-3 font-serif text-xl">Happening near {place}</h3>
-      <EventCarousel cards={cards} filter label={`Events near ${place}`} />
-      <p className="mt-2 text-[11px] text-muted">Events from Ticketmaster</p>
-    </div>
-  );
+  const events = where ? await nearbyEvents(where).catch(() => []) : [];
+  return <NearbyEvents initialCards={nearbyCards(events, seenArtists)} initialPlace={where ? place : null} />;
 }

@@ -128,6 +128,10 @@ export default function PrivacyPage() {
             described above. Nothing that identifies you is sent. Ticket links open their websites, which have their
             own privacy policies.
           </li>
+          <li>
+            <Strong>Open-Meteo</Strong> - if you change the place for events near you, the city name you type is looked
+            up there to find it on the map. The choice isn’t saved.
+          </li>
         </LegalList>
         <p>
           We may also share information when the law requires it, or to protect someone’s safety. Otherwise we don’t

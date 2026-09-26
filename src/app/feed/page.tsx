@@ -399,11 +399,9 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />
         </Suspense>
 
-        {nearby && (
-          <Suspense fallback={null}>
-            <NearbyEventsRow where={nearby.where} place={nearby.place} seenArtists={liveArtists} />
-          </Suspense>
-        )}
+        <Suspense fallback={null}>
+          <NearbyEventsRow where={nearby?.where ?? null} place={nearby?.place ?? null} seenArtists={artistsSeenLive(ownEventsRaw ?? [], 50)} />
+        </Suspense>
 
         {next.length > 0 ? (
           <div>
