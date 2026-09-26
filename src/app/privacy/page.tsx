@@ -129,6 +129,11 @@ export default function PrivacyPage() {
             own privacy policies.
           </li>
           <li>
+            <Strong>Unsplash</Strong> - countries without photos of your own show a credited stock photo from
+            Unsplash. It loads directly from Unsplash&rsquo;s servers, which see your IP address the way any website you
+            load an image from does. Nothing else about you is shared.
+          </li>
+          <li>
             <Strong>Open-Meteo</Strong> - if you change the place for events near you, the city name you type is looked
             up there to find it on the map. The choice isn’t saved.
           </li>

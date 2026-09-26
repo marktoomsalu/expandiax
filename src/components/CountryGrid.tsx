@@ -2,16 +2,19 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import Image from "next/image";
+import { ImagePlus, Search } from "lucide-react";
 import { CountryCardMedia } from "./CountryCardMedia";
 import { countryByCode } from "@/lib/countries";
 import { territoryByCode, territoryFlagFor } from "@/lib/territories";
+import type { StockPhoto } from "@/lib/stockPhotos";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
+import { StockCredit } from "./StockCredit";
 
 type VisitLite = { year: number; visited_from: string | null; visited_to: string | null };
 type Row = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
 
-export function CountryGrid({ countries }: { countries: Row[] }) {
+export function CountryGrid({ countries, stock = {} }: { countries: Row[]; stock?: Record<string, StockPhoto> }) {
   const [query, setQuery] = useState("");
 
   const shown = useMemo(() => {
@@ -69,6 +72,28 @@ export function CountryGrid({ countries }: { countries: Row[] }) {
                         name={c.country_name}
                         detail={detail}
                       />
+                    ) : stock[c.country_code] ? (
+                      // No photos of their own yet: a stock photo, clearly marked, and an invitation to add theirs.
+                      <>
+                        <Image
+                          src={stock[c.country_code].srcSmall}
+                          alt=""
+                          fill
+                          unoptimized
+                          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                          className="object-cover saturate-[0.85]"
+                          style={{ backgroundColor: stock[c.country_code].color }}
+                        />
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10" aria-hidden />
+                        <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-12 text-white">
+                          <p className="font-serif text-xl drop-shadow-sm">{flag} {c.country_name}</p>
+                          <p className="mt-0.5 text-xs text-white/75">{detail}</p>
+                          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-[#14110d] shadow-sm transition-transform group-hover:scale-[1.03]">
+                            <ImagePlus size={13} aria-hidden /> Add your memories
+                          </span>
+                          <StockCredit photo={stock[c.country_code]} linked={false} className="mt-2.5 block text-white/60" />
+                        </div>
+                      </>
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
                         <span className="font-serif text-5xl opacity-60" aria-hidden>{flag}</span>

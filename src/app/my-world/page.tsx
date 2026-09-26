@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, Plus } from "lucide-react";
+import { BarChart3, ImagePlus, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { MapNavigator } from "@/components/MapNavigator";
@@ -10,6 +10,7 @@ import { CountryGrid } from "@/components/CountryGrid";
 import { COUNTRIES, CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import { isTerritoryCode, TOTAL_TERRITORIES } from "@/lib/territories";
 import { visitSortKey } from "@/lib/utils";
+import { stockPhotoFor, type StockPhoto } from "@/lib/stockPhotos";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
 
 export const metadata = { title: "My World" };
@@ -47,6 +48,14 @@ export default async function MyWorldPage() {
   // something worth the same prime real estate as a filled-in trip.
   const hasContent = (c: Row) => c.country_media.length > 0 || c.country_visits.length > 0;
   const countries = [...byRecency.filter(hasContent), ...byRecency.filter((c) => !hasContent(c))];
+  // Countries without a photo of their own show a stock one, and the nudge
+  // points at the most recent of them.
+  const withoutPhotos = countries.filter((c) => c.country_media.length === 0);
+  const stock: Record<string, StockPhoto> = {};
+  for (const c of withoutPhotos) {
+    const photo = stockPhotoFor(c.country_code, user.id);
+    if (photo) stock[c.country_code] = photo;
+  }
   const realCountries = countries.filter((c) => !isTerritoryCode(c.country_code));
   const territoryCount = countries.length - realCountries.length;
   const codes = countries.map((c) => c.country_code);
@@ -132,8 +141,27 @@ export default async function MyWorldPage() {
 
           <section className="mt-10" aria-labelledby="countries-h">
             <h2 id="countries-h" className="text-xl">Your countries</h2>
+            {withoutPhotos.length > 0 && (
+              <Link
+                href={`/my-world/${withoutPhotos[0].country_code.toLowerCase()}`}
+                className="card mt-4 flex items-center gap-3 px-4 py-3.5 transition-shadow hover:shadow-md"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+                  <ImagePlus size={18} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">
+                    {withoutPhotos.length === 1 ? "1 country is" : `${withoutPhotos.length} countries are`} waiting for your photos
+                  </span>
+                  <span className="block truncate text-xs text-muted">
+                    Start with {withoutPhotos[0].country_name} - add a few photos and a line about the trip.
+                  </span>
+                </span>
+                <span className="shrink-0 text-xs font-semibold text-accent">Add →</span>
+              </Link>
+            )}
             <div className="mt-4">
-              <CountryGrid countries={countries} />
+              <CountryGrid countries={countries} stock={stock} />
             </div>
           </section>
         </>

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
+import { stockPhotoFor } from "@/lib/stockPhotos";
+import { StockCredit } from "@/components/StockCredit";
 import { BarChart3, Pencil, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -176,6 +178,7 @@ export default async function PublicProfilePage({ params }: { params: { username
       }))
     )
     .sort((a, b) => visitSortKey(b.visit).localeCompare(visitSortKey(a.visit)));
+  const codesWithPhotos = new Set(countries.filter((c) => c.country_media.length > 0).map((c) => c.country_code));
   const recentTrips = allTrips.slice(0, 4);
   const gallery = [
     ...countries.flatMap((c) => c.country_media.map((m) => ({ ...m, alt: `Photo from ${c.country_name}` }))),
@@ -346,6 +349,7 @@ export default async function PublicProfilePage({ params }: { params: { username
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {recentTrips.map(({ visit, countryCode, countryName, cover }) => {
               const meta = countryByCode(countryCode);
+              const stock = !cover && !codesWithPhotos.has(countryCode) ? stockPhotoFor(countryCode, profile.id) : null;
               return (
                 <Link key={visit.id} href={`/u/${profile.username}/countries/${countryCode.toLowerCase()}`} className="card group overflow-hidden">
                   {cover && (
@@ -358,6 +362,21 @@ export default async function PublicProfilePage({ params }: { params: { username
                         className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                         style={{ objectPosition: focalPosition(cover) }}
                       />
+                    </div>
+                  )}
+                  {stock && (
+                    // No photos of this country yet: a credited stock photo instead of an empty card.
+                    <div className="relative aspect-[16/8] w-full" style={{ backgroundColor: stock.color }}>
+                      <Image
+                        src={stock.srcSmall}
+                        alt=""
+                        fill
+                        unoptimized
+                        sizes="(min-width: 640px) 50vw, 100vw"
+                        className="object-cover saturate-[0.85]"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" aria-hidden />
+                      <StockCredit photo={stock} linked={false} className="absolute bottom-2.5 right-3" />
                     </div>
                   )}
                   <div className="px-5 py-4">

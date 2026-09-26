@@ -160,3 +160,59 @@ export function splitFresh<T extends { created_at: string }>(
   const n = Math.min(newCount, maxFresh, items.length);
   return { fresh: items.slice(0, n), earlier: items.slice(n) };
 }
+
+// ---------- Country bursts: one card instead of a flood ----------
+
+export type CountryBurst<T> = { kind: "burst"; actorId: string; items: T[] };
+
+/**
+ * Someone picking the countries they've been to (onboarding, or a catch-up
+ * session) shouldn't fill everyone's feed with one bare card per country.
+ * Bare country posts (no photos, no story) from the same person added within
+ * a few hours of each other become one "added N countries" card, placed
+ * where the newest of them was. In someone's first week (`joinedAt`), all
+ * their bare countries become one welcome card, however spread out, from
+ * two up. Posts with photos or words stay as they are.
+ */
+export function groupCountryBursts<T extends { kind: string; actor_id: string; created_at: string }>(
+  items: T[],
+  isBare: (item: T) => boolean,
+  { windowHours = 6, min = 3, joinedAt }: { windowHours?: number; min?: number; joinedAt?: (actorId: string) => string | null | undefined } = {}
+): (T | CountryBurst<T>)[] {
+  const WEEK = 7 * 86_400_000;
+  const inFirstWeek = (item: T) => {
+    const joined = joinedAt?.(item.actor_id);
+    if (!joined) return false;
+    const age = Date.parse(item.created_at) - Date.parse(joined);
+    return age >= 0 && age < WEEK;
+  };
+  const window = windowHours * 3_600_000;
+  const used = new Set<T>();
+  const out: (T | CountryBurst<T>)[] = [];
+  for (const item of items) {
+    if (used.has(item)) continue;
+    if (item.kind !== "country" || !isBare(item)) {
+      out.push(item);
+      continue;
+    }
+    const welcome = inFirstWeek(item);
+    // Chain back in time: each next one within the window of the previous.
+    const group = [item];
+    let last = Date.parse(item.created_at);
+    for (const other of items) {
+      if (other === item || used.has(other) || other.kind !== "country" || other.actor_id !== item.actor_id || !isBare(other)) continue;
+      const t = Date.parse(other.created_at);
+      if (welcome ? inFirstWeek(other) : t <= last && last - t <= window) {
+        group.push(other);
+        last = Math.min(last, t);
+      }
+    }
+    if (group.length >= (welcome ? 2 : min)) {
+      group.forEach((g) => used.add(g));
+      out.push({ kind: "burst", actorId: item.actor_id, items: group });
+    } else {
+      out.push(item);
+    }
+  }
+  return out;
+}

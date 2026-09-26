@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import type { StockPhoto } from "@/lib/stockPhotos";
+import { StockCredit } from "./StockCredit";
 import Link from "next/link";
 import { CalendarDays, ChevronLeft, ChevronRight, Languages, MapPin, Music2, Play, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -94,6 +96,8 @@ type Props = {
   track: Track | null;
   media: FeedMediaItem[];
   gradient: [string, string];
+  /** A credited stock photo for a country with no photos of its own yet. */
+  stock?: StockPhoto | null;
   priority?: boolean;
   actor: { username: string; display_name: string; avatar_url: string | null };
   actionLabel: string;
@@ -299,6 +303,18 @@ export function FeedMemoryCard(p: Props) {
               </div>
             ))}
           </div>
+        ) : p.stock ? (
+          <Link href={p.href} aria-label={p.title} className="absolute inset-0 block" style={{ backgroundColor: p.stock.color }}>
+            <Image
+              src={p.stock.src}
+              alt={p.stock.alt}
+              fill
+              unoptimized
+              priority={p.priority}
+              sizes="(min-width: 640px) 672px, 100vw"
+              className="object-cover saturate-[0.85] transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+            />
+          </Link>
         ) : (
           <Link
             href={p.href}
@@ -353,6 +369,11 @@ export function FeedMemoryCard(p: Props) {
             {p.media.length > 1 && (
               <span className="ml-auto rounded-full bg-black/40 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
                 {active + 1}/{p.media.length}
+              </span>
+            )}
+            {!hasMedia && p.stock && (
+              <span className="pointer-events-auto ml-auto self-start rounded-full bg-black/35 px-2.5 py-1.5 backdrop-blur-sm">
+                <StockCredit photo={p.stock} />
               </span>
             )}
           </div>

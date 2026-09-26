@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickResurfacedMemory, splitFresh, type OwnCountryLite, type OwnEventLite } from "./feedSections";
+import { groupCountryBursts, pickResurfacedMemory, splitFresh, type OwnCountryLite, type OwnEventLite } from "./feedSections";
 
 const NOW = new Date("2026-09-23T12:00:00");
 
@@ -85,5 +85,47 @@ describe("splitFresh", () => {
   it("first-ever visit: the newest few", () => {
     expect(splitFresh(items, null, { firstVisit: 3 }).fresh).toHaveLength(3);
     expect(splitFresh([], null).fresh).toEqual([]);
+  });
+});
+
+describe("groupCountryBursts", () => {
+  const c = (id: string, actor: string, time: string, bare = true, kind = "country") => ({ id, kind, actor_id: actor, created_at: `2026-09-26T${time}:00Z`, bare });
+  const isBare = (i: { bare: boolean }) => i.bare;
+
+  it("a burst of bare countries from one person becomes one card, where the newest was", () => {
+    const items = [c("e1", "anna", "12:00", false, "event"), c("c1", "mark", "11:50"), c("c2", "mark", "11:49"), c("x", "anna", "11:30"), c("c3", "mark", "11:00"), c("c4", "mark", "09:00")];
+    const out = groupCountryBursts(items, isBare);
+    expect(out.map((o) => ("items" in o ? `burst:${o.items.map((i) => i.id).join(",")}` : o.id))).toEqual(["e1", "burst:c1,c2,c3,c4", "x"]);
+  });
+
+  it("countries with photos or a story stay as their own posts; small groups aren't merged", () => {
+    const out = groupCountryBursts([c("c1", "mark", "11:50"), c("photo", "mark", "11:49", false), c("c2", "mark", "11:48")], isBare);
+    expect(out.map((o) => ("items" in o ? "burst" : o.id))).toEqual(["c1", "photo", "c2"]);
+  });
+
+  it("additions far apart in time aren't grouped", () => {
+    const out = groupCountryBursts([c("a", "mark", "20:00"), c("b", "mark", "12:00"), c("c", "mark", "04:00")], isBare);
+    expect(out.every((o) => !("items" in o))).toBe(true);
+  });
+});
+
+describe("groupCountryBursts for new members", () => {
+  const c = (id: string, day: string, time: string, actor = "new") => ({ id, kind: "country", actor_id: actor, created_at: `2026-09-${day}T${time}:00Z` });
+  const joinedAt = (actor: string) => (actor === "new" ? "2026-09-20T10:00:00Z" : "2025-01-01T00:00:00Z");
+
+  it("everything bare from someone's first week becomes one welcome card, even days apart and just two", () => {
+    const out = groupCountryBursts([c("a", "24", "09:00"), c("b", "21", "18:00")], () => true, { joinedAt });
+    expect(out).toHaveLength(1);
+    expect("items" in out[0] && out[0].items.map((i) => i.id)).toEqual(["a", "b"]);
+  });
+
+  it("after the first week, the usual rule applies", () => {
+    const out = groupCountryBursts([c("late", "29", "09:00"), c("a", "24", "09:00"), c("b", "21", "18:00")], () => true, { joinedAt });
+    expect(out.map((o) => ("items" in o ? "burst" : o.id))).toEqual(["late", "burst"]);
+  });
+
+  it("long-time members still need 3 within a few hours", () => {
+    const out = groupCountryBursts([c("a", "24", "09:00", "old"), c("b", "21", "18:00", "old")], () => true, { joinedAt });
+    expect(out.every((o) => !("items" in o))).toBe(true);
   });
 });

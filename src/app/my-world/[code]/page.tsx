@@ -1,12 +1,16 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ExternalLink, Lock, MapPin } from "lucide-react";
+import { ArrowLeft, ExternalLink, ImagePlus, Lock, MapPin } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { canSellPremium } from "@/lib/nativeAppServer";
 import { countryByCode } from "@/lib/countries";
 import { territoryByCode, territoryToMeta } from "@/lib/territories";
 import { CountryEditor, AddCountryForm } from "@/components/CountryEditor";
 import { ShareButton } from "@/components/ShareButton";
+import { StockCredit } from "@/components/StockCredit";
+import { stockPhotoFor } from "@/lib/stockPhotos";
+import { visitSortKey } from "@/lib/utils";
 import { COUNTRY_CAP } from "@/lib/plan";
 import type { Plan, VisitedCountryFull } from "@/lib/types";
 
@@ -38,6 +42,8 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   const atCountryCap = countryCap !== null && (countryCount ?? 0) >= countryCap;
   const needsPremiumForTerritory = isTerritory && plan !== "premium";
   const canSell = canSellPremium();
+  const stock = visited && visited.country_media.length === 0 ? stockPhotoFor(meta.code, user.id) : null;
+  const latestVisit = visited ? [...visited.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)))[0] : undefined;
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
@@ -72,6 +78,30 @@ export default async function ManageCountryPage({ params }: { params: { code: st
           </div>
         )}
       </div>
+
+      {stock && visited && (
+        // Nothing of their own here yet: a credited stock photo as a placeholder, and the way to replace it.
+        <div className="relative mt-6 h-56 overflow-hidden rounded-2xl sm:h-72" style={{ backgroundColor: stock.color }}>
+          <Image src={stock.src} alt={stock.alt} fill priority unoptimized sizes="(min-width: 768px) 768px, 100vw" className="object-cover saturate-[0.85]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/5" aria-hidden />
+          <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+            <p className="font-serif text-2xl drop-shadow">This is Unsplash&rsquo;s {meta.name}. Show us yours.</p>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              {latestVisit ? (
+                <Link
+                  href={`/my-world/${meta.code.toLowerCase()}/visits/${latestVisit.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-sm font-semibold text-[#14110d] shadow-sm"
+                >
+                  <ImagePlus size={15} aria-hidden /> Add your photos
+                </Link>
+              ) : (
+                <span className="text-sm text-white/85">Add a trip below, then your photos.</span>
+              )}
+              <StockCredit photo={stock} />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-10">
         {!visited ? (

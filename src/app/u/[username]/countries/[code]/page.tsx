@@ -1,8 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
+import { stockPhotoFor } from "@/lib/stockPhotos";
+import { StockCredit } from "@/components/StockCredit";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, ArrowRight, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, ImagePlus, Pencil } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { territoryByCode, territoryToMeta } from "@/lib/territories";
@@ -121,6 +123,7 @@ export default async function PublicCountryPage({
     allMedia.find((m) => m.id === country.cover_media_id) ??
     (mostRecentVisit ? allMedia.find((m) => m.country_visit_id === mostRecentVisit.id) : undefined) ??
     allMedia[0];
+  const stock = cover ? null : stockPhotoFor(meta.code, profile.id);
   const years = [...new Set(country.country_visits.map((v) => v.year))].sort();
   const highlightedVisits = [...country.country_visits]
     .filter(
@@ -151,6 +154,22 @@ export default async function PublicCountryPage({
             className="object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" aria-hidden />
+        </div>
+      )}
+      {!cover && stock && (
+        // No photos of their own yet: a credited stock photo, never passed off as theirs.
+        <div className="relative h-[34vh] min-h-56 w-full overflow-hidden" style={{ backgroundColor: stock.color }}>
+          <Image src={stock.src} alt={stock.alt} fill priority unoptimized sizes="100vw" className="object-cover saturate-[0.85]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/10" aria-hidden />
+          {isOwnProfile && (
+            <Link
+              href={`/my-world/${meta.code.toLowerCase()}`}
+              className="absolute bottom-4 left-5 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-sm font-semibold text-[#14110d] shadow-sm"
+            >
+              <ImagePlus size={15} aria-hidden /> Add your own photos
+            </Link>
+          )}
+          <StockCredit photo={stock} className="absolute bottom-4 right-5" />
         </div>
       )}
 

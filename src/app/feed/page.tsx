@@ -16,8 +16,10 @@ import { eventTypeMeta } from "@/lib/events";
 import { flagGradientColors } from "@/lib/flagColors";
 import {
   buildNextSuggestions,
+  groupCountryBursts,
   pickResurfacedMemory,
   splitFresh,
+  type CountryBurst,
   type OwnCountryLite,
   type OwnEventLite,
 } from "@/lib/feedSections";
@@ -25,6 +27,8 @@ import { loadThenMemory } from "@/lib/thenMemory";
 import { ThenCard } from "@/components/ThenCard";
 import { ArtistsOnTour, NearbyEventsRow } from "@/components/UpcomingShows";
 import { TogetherSection } from "@/components/TogetherSection";
+import { CountryBurstCard } from "@/components/CountryBurstCard";
+import { stockPhotoFor } from "@/lib/stockPhotos";
 import { artistsSeenLive, type NearbyWhere } from "@/lib/concerts";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
@@ -123,7 +127,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   );
 
   let items: FeedEvent[] = [];
-  let actors = new Map<string, Pick<Profile, "id" | "username" | "display_name" | "avatar_url">>();
+  let actors = new Map<string, Pick<Profile, "id" | "username" | "display_name" | "avatar_url" | "created_at">>();
   const likedByMe = new Set<string>();
   const commentsByKey = new Map<string, CommentWithAuthor[]>();
   const mediaByKey = new Map<string, RawMedia[]>();
@@ -143,7 +147,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       const countryRefIds = items.filter((i) => i.kind === "country").map((i) => i.ref_id);
       const eventRefIds = items.filter((i) => i.kind === "event").map((i) => i.ref_id);
       const [{ data: profiles }, { data: likeRows }, { data: commentRows }, { data: countryMediaRows }, { data: eventMediaRows }] = await Promise.all([
-        supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", actorIds),
+        supabase.from("profiles").select("id, username, display_name, avatar_url, created_at").in("id", actorIds),
         supabase.from("likes").select("kind, target_id").eq("user_id", user.id).in("target_id", refIds),
         supabase
           .from("comments")
@@ -180,9 +184,34 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   }
 
 
-  const { fresh, earlier } = splitFresh(items, previousLastSeenAt);
 
   await supabase.from("profiles").update({ feed_last_seen_at: new Date().toISOString() }).eq("id", user.id);
+
+  // A country post with nothing but the country in it — part of a burst if several come at once.
+  const isBareCountry = (item: FeedEvent) =>
+    item.kind === "country" && !(mediaByKey.get(`country:${item.ref_id}`)?.length) && !item.cover_url && !item.body?.trim() && !item.spotify_track_id;
+
+  // Group first, then split into new / earlier — so one person's burst of
+  // countries is always a single card, never cut in two by the caught-up line.
+  const entries = groupCountryBursts(items, isBareCountry, { joinedAt: (id) => actors.get(id)?.created_at });
+  const timed = entries.map((entry) => ({ entry, created_at: entry.kind === "burst" ? entry.items[0].created_at : entry.created_at }));
+  const split = splitFresh(timed, previousLastSeenAt);
+  const fresh = split.fresh.map((t) => t.entry);
+  const earlier = split.earlier.map((t) => t.entry);
+
+  const renderEntry = (entry: FeedEvent | CountryBurst<FeedEvent>, index: number) => {
+    if (entry.kind !== "burst") return renderPost(entry, index);
+    const actor = actors.get(entry.actorId);
+    if (!actor) return null;
+    const newest = entry.items[0].created_at;
+    // A burst within a week of joining is someone's first map — welcome them.
+    const isNewMember = !!actor.created_at && Date.parse(newest) - Date.parse(actor.created_at) < 7 * 86_400_000;
+    return (
+      <li key={`burst:${entry.items[0].ref_id}`} className="card overflow-hidden">
+        <CountryBurstCard actor={actor} codes={entry.items.map((i) => i.country_code)} isNewMember={isNewMember} when={formatRelative(newest)} />
+      </li>
+    );
+  };
 
   const renderPost = (item: FeedEvent, index: number) => {
     const actor = actors.get(item.actor_id);
@@ -232,6 +261,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           }
           media={media}
           gradient={flagGradientColors(item.country_code)}
+          stock={item.kind === "country" && media.length === 0 ? stockPhotoFor(item.country_code, item.actor_id) : null}
           priority={index === 0}
           actor={actor}
           actionLabel={item.kind === "country" ? "added a country" :`logged a ${typeLabel}`}
@@ -308,7 +338,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       {fresh.length > 0 && (
         <section className="mt-6" aria-labelledby="new-h">
           <h2 id="new-h" className="text-sm font-medium text-muted">New</h2>
-          <ul className="mt-4 space-y-8">{fresh.map((item, i) => renderPost(item, i))}</ul>
+          <ul className="mt-4 space-y-8">{fresh.map((entry, i) => renderEntry(entry, i))}</ul>
         </section>
       )}
 
@@ -425,7 +455,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       {earlier.length > 0 && (
         <section className="mt-12" aria-labelledby="earlier-h">
           <h2 id="earlier-h" className="text-sm font-medium text-muted">Earlier from people you follow</h2>
-          <ul className="mt-4 space-y-8">{earlier.map((item, i) => renderPost(item, fresh.length + i))}</ul>
+          <ul className="mt-4 space-y-8">{earlier.map((entry, i) => renderEntry(entry, fresh.length + i))}</ul>
           {items.length >= limit && (
             <div className="mt-8 flex justify-center">
               <Link href={`/feed?limit=${limit + PAGE_SIZE}#earlier-h`} className="btn-ghost">
