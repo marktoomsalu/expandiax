@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, Check, ChevronDown, ListMusic } from "lucide-react";
 import { countryByCode } from "@/lib/countries";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { PastShow } from "@/lib/concerts";
 
 type Result = { shows: PastShow[]; total?: number; page?: number; perPage?: number; configured?: boolean; error?: string };
@@ -14,16 +14,25 @@ const YEARS = Array.from({ length: 40 }, (_, i) => THIS_YEAR - i);
 // Logging a concert: pick the artist, see their real past shows (setlist.fm),
 // tap the one you were at — date, venue, city and country fill in, and the
 // songs they played become one-tap choices for your favourite.
+//
+// Opens by itself once the artist is chosen from Spotify (a settled name);
+// while the name is only being typed it waits for a tap, since setlist.fm
+// allows a limited number of requests a day.
 export function PastShowPicker({
   artist,
+  autoOpen,
   selectedId,
   onPick,
 }: {
   artist: string;
+  autoOpen: boolean;
   selectedId: string | null;
   onPick: (show: PastShow) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
+  useEffect(() => {
+    if (autoOpen) setOpen(true);
+  }, [autoOpen, artist]);
   const [year, setYear] = useState<number | "">("");
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<Result | null>(null);
@@ -62,7 +71,7 @@ export function PastShowPicker({
   const hasMore = !!result && !!result.total && !!result.perPage && (result.page ?? 1) * result.perPage < result.total;
 
   return (
-    <div className="rounded-lg border border-line bg-raised">
+    <div className={cn("rounded-lg border bg-raised", open ? "border-accent" : "border-line")}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -71,7 +80,7 @@ export function PastShowPicker({
       >
         <span className="flex items-center gap-2 font-medium">
           <CalendarDays size={15} className="text-accent" aria-hidden />
-          Find the show you were at
+          {selectedId ? "Picked from their past shows" : `Which ${artist.trim()} show were you at?`}
         </span>
         <ChevronDown size={16} className={cn("shrink-0 text-muted transition-transform", open && "rotate-180")} aria-hidden />
       </button>
@@ -79,9 +88,7 @@ export function PastShowPicker({
       {open && (
         <div className="border-t border-line px-4 pb-4 pt-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-muted">
-              {artist.trim()}&rsquo;s past shows{year ? ` in ${year}` : ""}
-            </p>
+            <p className="text-xs text-muted">Tap yours and the date, venue and setlist fill in.</p>
             <label className="sr-only" htmlFor="past-show-year">Year</label>
             <select
               id="past-show-year"
@@ -112,7 +119,9 @@ export function PastShowPicker({
                       picked ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-accent"
                     )}
                   >
-                    <span className="w-24 shrink-0 text-xs font-medium text-muted">{formatDate(s.date)}</span>
+                    <span className="w-20 shrink-0 whitespace-nowrap pt-0.5 text-xs font-medium text-muted">
+                      {new Date(`${s.date}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{s.venue || "Venue unknown"}</span>
                       <span className="block truncate text-xs text-muted">

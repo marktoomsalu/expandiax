@@ -6,6 +6,8 @@ export const dynamic = "force-dynamic";
 
 // An artist's past shows (setlist.fm), so logging a concert is a tap.
 export async function GET(request: NextRequest) {
+  // Checked before sign-in: whether the feature is switched on isn't private.
+  if (!process.env.SETLISTFM_API_KEY) return NextResponse.json({ configured: false, shows: [] });
   if (!(await getAuthUser())) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   const artist = request.nextUrl.searchParams.get("artist")?.trim().slice(0, 120);
   if (!artist) return NextResponse.json({ shows: [], total: 0, page: 1, perPage: 20 });

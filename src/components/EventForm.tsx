@@ -337,6 +337,25 @@ export function EventForm({
           <input id="e-title" className="field" value={f.title} onChange={(e) => set("title", e.target.value)} required placeholder={meta.titlePlaceholder} />
         </div>
 
+        {!event && f.event_type === "concert" && (
+          <PastShowPicker
+            artist={showArtist}
+            autoOpen={!!f.spotify_artist_name}
+            selectedId={pastShow?.id ?? null}
+            onPick={(show) => {
+              setPastShow(show);
+              setF((cur) => ({
+                ...cur,
+                event_date: show.date,
+                venue: show.venue || cur.venue,
+                city: show.city || cur.city,
+                country_code: show.countryCode ?? cur.country_code,
+                subtitle: cur.subtitle || show.tour || "",
+              }));
+            }}
+          />
+        )}
+
         <div>
           <p className="mb-1.5 block text-sm font-medium">Country *</p>
           {country ? (
@@ -353,24 +372,6 @@ export function EventForm({
           <label htmlFor="e-date" className="mb-1.5 block text-sm font-medium">Date *</label>
           <input id="e-date" type="date" className="field" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} required />
         </div>
-
-        {!event && f.event_type === "concert" && (
-          <PastShowPicker
-            artist={showArtist}
-            selectedId={pastShow?.id ?? null}
-            onPick={(show) => {
-              setPastShow(show);
-              setF((cur) => ({
-                ...cur,
-                event_date: show.date,
-                venue: show.venue || cur.venue,
-                city: show.city || cur.city,
-                country_code: show.countryCode ?? cur.country_code,
-                subtitle: cur.subtitle || show.tour || "",
-              }));
-            }}
-          />
-        )}
 
         {!event && (
           <EventSuggestions
