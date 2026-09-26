@@ -30,7 +30,7 @@ export type UpcomingShow = {
 
 // ---------------------------------------------------------------- setlist.fm (past shows)
 
-type SetlistSong = { name?: string };
+type SetlistSong = { name?: string; tape?: boolean }; // tape = recorded intro/outro, not played live
 type SetlistFmSetlist = {
   id: string;
   eventDate: string; // dd-MM-yyyy
@@ -45,7 +45,9 @@ export function pastShowFromSetlist(s: SetlistFmSetlist): PastShow | null {
   if (!m) return null;
   const code = s.venue?.city?.country?.code?.toUpperCase() ?? null;
   const country = countryByCode(code) ?? countryByName(s.venue?.city?.country?.name);
-  const songs = (s.sets?.set ?? []).flatMap((set) => (set.song ?? []).map((song) => song.name?.trim() ?? "")).filter(Boolean);
+  const songs = (s.sets?.set ?? [])
+    .flatMap((set) => (set.song ?? []).filter((song) => !song.tape).map((song) => song.name?.trim() ?? ""))
+    .filter(Boolean);
   return {
     id: s.id,
     date: `${m[3]}-${m[2]}-${m[1]}`,
@@ -160,6 +162,14 @@ export function upcomingFromTicketmaster(e: TicketmasterEvent, artistName: strin
   };
 }
 
+async function ticketmasterAttractionId(artistName: string, apikey: string): Promise<string | null> {
+  const params = new URLSearchParams({ apikey, keyword: artistName, classificationName: "music", size: "10" });
+  const res = await fetch(`https://app.ticketmaster.com/discovery/v2/attractions.json?${params}`, { next: { revalidate: 60 * 60 * 24 } });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { _embedded?: { attractions?: { id: string; name?: string }[] } };
+  return data._embedded?.attractions?.find((a) => a.name && normalize(a.name) === normalize(artistName))?.id ?? null;
+}
+
 export function upcomingConfigured(): boolean {
   return !!(process.env.BANDSINTOWN_APP_ID || process.env.TICKETMASTER_API_KEY);
 }
@@ -179,13 +189,16 @@ export async function upcomingShows(artistName: string, limit = 20): Promise<Upc
       if (Array.isArray(data)) shows = data.map((e) => upcomingFromBandsintown(e as BandsintownEvent)).filter((s): s is UpcomingShow => s !== null);
     }
   } else if (process.env.TICKETMASTER_API_KEY) {
-    const params = new URLSearchParams({
-      apikey: process.env.TICKETMASTER_API_KEY,
-      keyword: artistName,
-      classificationName: "music",
-      sort: "date,asc",
-      size: "50",
-    });
+    const apikey = process.env.TICKETMASTER_API_KEY;
+    // Find the artist itself first: a keyword search for events returns
+    // tributes and festivals that crowd out the artist's own shows.
+    const attractionId = await ticketmasterAttractionId(artistName, apikey);
+    const params = new URLSearchParams({ apikey, sort: "date,asc", size: "50" });
+    if (attractionId) params.set("attractionId", attractionId);
+    else {
+      params.set("keyword", artistName);
+      params.set("classificationName", "music");
+    }
     const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params}`, { next: { revalidate: 60 * 60 * 6 } });
     if (res.ok) {
       const data = (await res.json()) as { _embedded?: { events?: TicketmasterEvent[] } };
@@ -195,11 +208,13 @@ export async function upcomingShows(artistName: string, limit = 20): Promise<Upc
     throw new Error("not_configured");
   }
 
+  // One row per night: services list the same show twice, sometimes with a
+  // different city name for the same venue.
   const seen = new Set<string>();
   return shows
     .filter((s) => s.date >= today)
     .filter((s) => {
-      const key = `${s.date}|${normalize(s.venue)}|${normalize(s.city)}`;
+      const key = `${s.date}|${normalize(s.venue) || normalize(s.city)}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;

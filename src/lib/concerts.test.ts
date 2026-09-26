@@ -17,7 +17,7 @@ const setlist = (over: Record<string, unknown> = {}) => ({
   url: "https://www.setlist.fm/setlist/x.html",
   tour: { name: "Summer Tour" },
   venue: { name: "Tallinn Song Festival Grounds", city: { name: "Tallinn", country: { code: "EE", name: "Estonia" } } },
-  sets: { set: [{ song: [{ name: "Yellow" }, { name: "Clocks" }] }, { encore: 1, song: [{ name: "Fix You" }, { name: "Yellow" }] }] },
+  sets: { set: [{ song: [{ name: "Flying Theme", tape: true }, { name: "Yellow" }, { name: "Clocks" }] }, { encore: 1, song: [{ name: "Fix You" }, { name: "Yellow" }] }] },
   ...over,
 });
 
@@ -31,7 +31,7 @@ describe("pastShowFromSetlist", () => {
       countryCode: "EE",
       countryName: "Estonia",
       tour: "Summer Tour",
-      songs: ["Yellow", "Clocks", "Fix You"], // encore included, repeats removed
+      songs: ["Yellow", "Clocks", "Fix You"], // encore included, repeats and recorded intros removed
       url: "https://www.setlist.fm/setlist/x.html",
     });
   });
@@ -128,7 +128,7 @@ describe("fetching (services mocked)", () => {
       json([
         { id: 2, datetime: "2026-12-01T20:00:00", venue: { name: "B", city: "Riga", country: "Latvia" } },
         { id: 1, datetime: "2026-10-10T20:00:00", venue: { name: "A", city: "Tallinn", country: "Estonia" } },
-        { id: 3, datetime: "2026-10-10T20:00:00", venue: { name: "A", city: "Tallinn", country: "Estonia" } },
+        { id: 3, datetime: "2026-10-10T20:00:00", venue: { name: "A", city: "Tallinn Old Town", country: "Estonia" } },
         { id: 4, datetime: "2026-09-01T20:00:00", venue: { name: "Old", city: "Oslo", country: "Norway" } },
       ])
     );
@@ -137,8 +137,9 @@ describe("fetching (services mocked)", () => {
     expect(shows.map((s) => s.city)).toEqual(["Tallinn", "Riga"]);
   });
 
-  it("upcoming via Ticketmaster when Bandsintown isn't set up", async () => {
+  it("upcoming via Ticketmaster when Bandsintown isn't set up: looks the artist up first", async () => {
     process.env.TICKETMASTER_API_KEY = "tm";
+    fetchMock.mockResolvedValueOnce(json({ _embedded: { attractions: [{ id: "K8tribute", name: "Coldplay Tribute" }, { id: "K8vZ", name: "Coldplay" }] } }));
     fetchMock.mockResolvedValueOnce(
       json({
         _embedded: {
@@ -149,7 +150,9 @@ describe("fetching (services mocked)", () => {
       })
     );
     const shows = await upcomingShows("Coldplay");
-    expect(fetchMock.mock.calls[0][0]).toContain("app.ticketmaster.com/discovery/v2/events.json");
+    expect(fetchMock.mock.calls[0][0]).toContain("discovery/v2/attractions.json");
+    expect(fetchMock.mock.calls[1][0]).toContain("discovery/v2/events.json");
+    expect(fetchMock.mock.calls[1][0]).toContain("attractionId=K8vZ");
     expect(shows).toHaveLength(1);
     expect(shows[0]).toMatchObject({ city: "Berlin", countryCode: "DE" });
   });
