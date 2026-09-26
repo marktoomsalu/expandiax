@@ -1,15 +1,4 @@
 import { countryByCode } from "@/lib/countries";
-import type { EventPrefill } from "@/lib/eventPrefill";
-import type { FeedEvent } from "@/lib/types";
-
-function normalizeTitle(title: string): string {
-  return title.trim().toLowerCase();
-}
-
-/** Same-experience matching key for TOGETHER — must be built identically on both sides (a followee's feed row and the viewer's own event). */
-export function eventMatchKey(title: string, eventDate: string): string {
-  return `${normalizeTitle(title)}|${eventDate}`;
-}
 
 // ---------- THEN: a resurfaced memory from the viewer's own archive ----------
 
@@ -131,58 +120,7 @@ export function pickResurfacedMemory(
   return pool[hash % pool.length].memory;
 }
 
-// ---------- TOGETHER: shared experiences with people you follow ----------
-
-export type TogetherCard =
-  | { status: "shared"; actorName: string; title: string; theirHref: string; ownHref: string }
-  | { status: "prompt"; actorName: string; title: string; theirHref: string; prefill: EventPrefill };
-
-/** Reuses the same followees' feed rows NEW already fetched — no second query. */
-export function buildTogetherCards(
-  feedEvents: FeedEvent[],
-  actors: Map<string, { username: string; display_name: string }>,
-  ownEventsByKey: Map<string, string>,
-  limit = 4
-): TogetherCard[] {
-  const results: TogetherCard[] = [];
-  for (const item of feedEvents) {
-    if (item.kind !== "event" || !item.visit_date) continue;
-    const actor = actors.get(item.actor_id);
-    if (!actor) continue;
-    const key = eventMatchKey(item.title, item.visit_date);
-    const ownId = ownEventsByKey.get(key);
-    if (ownId) {
-      results.push({
-        status: "shared",
-        actorName: actor.display_name,
-        title: item.title,
-        theirHref: `/u/${actor.username}/events/${item.ref_id}`,
-        ownHref: `/events/${ownId}/edit`,
-      });
-    } else {
-      results.push({
-        status: "prompt",
-        actorName: actor.display_name,
-        title: item.title,
-        theirHref: `/u/${actor.username}/events/${item.ref_id}`,
-        prefill: {
-          title: item.title,
-          event_type: item.event_type ?? "concert",
-          event_date: item.visit_date,
-          venue: item.venue ?? "",
-          city: item.city ?? "",
-          country_code: item.country_code,
-          country_name: item.country_name ?? "",
-          spotify_artist_id: null,
-          spotify_artist_name: null,
-          spotify_artist_image: null,
-        },
-      });
-    }
-    if (results.length >= limit) break;
-  }
-  return results;
-}
+// ---------- TOGETHER lives in src/lib/together.ts ----------
 
 // ---------- NEXT: experiences that could become future memories ----------
 

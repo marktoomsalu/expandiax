@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import Image from "next/image";
-import { CheckCircle2, Clock, Compass, Globe2, Ticket, Users } from "lucide-react";
+import { CheckCircle2, Clock, Compass, Globe2, Ticket } from "lucide-react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -11,14 +11,11 @@ import { LikeButton } from "@/components/LikeButton";
 import { FollowButton } from "@/components/FollowButton";
 import { CommentSection } from "@/components/CommentSection";
 import { FeedMemoryCard, type FeedMediaItem } from "@/components/FeedMemoryCard";
-import { IWasThereButton } from "@/components/IWasThereButton";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
 import { flagGradientColors } from "@/lib/flagColors";
 import {
   buildNextSuggestions,
-  buildTogetherCards,
-  eventMatchKey,
   pickResurfacedMemory,
   splitFresh,
   type OwnCountryLite,
@@ -27,6 +24,7 @@ import {
 import { loadThenMemory } from "@/lib/thenMemory";
 import { ThenCard } from "@/components/ThenCard";
 import { ArtistsOnTour, NearbyEventsRow } from "@/components/UpcomingShows";
+import { TogetherSection } from "@/components/TogetherSection";
 import { artistsSeenLive, type NearbyWhere } from "@/lib/concerts";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
@@ -110,7 +108,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     ...(c as unknown as Omit<OwnCountryLite, "media_count">),
     media_count: (country_media as unknown as { count: number }[])[0]?.count ?? 0,
   }));
-  const ownEventsByKey = new Map(ownEvents.map((e) => [eventMatchKey(e.title, e.event_date), e.id]));
   const ownCountryCodes = new Set(ownCountries.map((c) => c.country_code));
 
   const now = new Date();
@@ -182,11 +179,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     }
   }
 
-  const together = buildTogetherCards(
-    items,
-    new Map([...actors.entries()].map(([id, p]) => [id, { username: p.username, display_name: p.display_name }])),
-    ownEventsByKey
-  );
 
   const { fresh, earlier } = splitFresh(items, previousLastSeenAt);
 
@@ -347,46 +339,16 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         </section>
       )}
 
-      {/* TOGETHER — shared experiences with people you follow */}
-      {together.length > 0 && (
-        <section className="mt-10" aria-labelledby="together-h">
-          <h2 id="together-h" className="flex items-center gap-1.5 text-sm font-medium text-muted">
-            <Users size={14} aria-hidden /> Together
-          </h2>
-          <ul className="mt-4 space-y-3">
-            {together.map((card, i) => (
-              <li key={i} className="card flex items-center justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  {card.status === "shared" ? (
-                    <>
-                      <p className="text-sm">
-                        You and <span className="font-medium">{card.actorName}</span> were both at
-                      </p>
-                      <p className="truncate font-serif text-lg">{card.title}</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm">
-                        <span className="font-medium">{card.actorName}</span> was at
-                      </p>
-                      <p className="truncate font-serif text-lg">{card.title}</p>
-                      <p className="mt-0.5 text-xs text-muted">Were you there too?</p>
-                    </>
-                  )}
-                </div>
-                {card.status === "shared" ? (
-                  <Link href={card.ownHref} className="btn-ghost shrink-0 !py-2 text-xs">
-                    Your version
-                  </Link>
-                ) : (
-                  <div className="shrink-0">
-                    <IWasThereButton prefill={card.prefill} label="I was there" />
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
+      {/* TOGETHER — moments shared with people you follow */}
+      {viewerProfile?.username && (
+        <Suspense fallback={null}>
+          <TogetherSection
+            userId={user.id}
+            followeeIds={followeeIds}
+            homeCountry={viewerProfile.home_country_code ?? null}
+            me={{ username: viewerProfile.username, display_name: viewerProfile.display_name, avatar_url: viewerProfile.avatar_url }}
+          />
+        </Suspense>
       )}
 
       {/* NEXT — experiences that could become future memories */}
