@@ -25,6 +25,7 @@ export type UpcomingShow = {
   countryCode: string | null;
   countryName: string | null;
   url: string | null; // event page (with ticket links)
+  image: string | null;
   source: "bandsintown" | "ticketmaster";
 };
 
@@ -74,6 +75,9 @@ async function setlistFm<T>(path: string): Promise<T | null> {
 }
 
 const normalize = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]/gu, "");
+
+/** Compare artist names loosely ("AC/DC" = "ACDC", "Beyoncé" = "Beyonce"). */
+export const artistKey = normalize;
 
 /** The artist's MusicBrainz id — the exact artist, not every band with a similar name. */
 async function artistMbid(artistName: string): Promise<string | null> {
@@ -128,19 +132,34 @@ export function upcomingFromBandsintown(e: BandsintownEvent): UpcomingShow | nul
     countryCode: country?.code ?? null,
     countryName: country?.name ?? e.venue?.country ?? null,
     url: e.url ?? null,
+    image: null,
     source: "bandsintown",
   };
 }
 
+type TicketmasterImage = { ratio?: string; url: string; width?: number; fallback?: boolean };
 type TicketmasterEvent = {
   id: string;
+  name?: string;
   url?: string;
-  dates?: { start?: { localDate?: string } };
+  images?: TicketmasterImage[];
+  dates?: { start?: { localDate?: string; localTime?: string }; status?: { code?: string } };
+  classifications?: { segment?: { name?: string }; genre?: { name?: string } }[];
+  priceRanges?: { min?: number; currency?: string }[];
   _embedded?: {
     venues?: { name?: string; city?: { name?: string }; country?: { countryCode?: string; name?: string } }[];
     attractions?: { name?: string }[];
   };
 };
+
+/** A wide photo that's sharp on a phone but not huge: the smallest 16:9 at least 640px wide. */
+export function ticketmasterImage(images: TicketmasterImage[] | undefined): string | null {
+  const list = (images ?? []).filter((i) => i.url);
+  const real = list.filter((i) => !i.fallback);
+  const pool = real.length ? real : list;
+  const wide = pool.filter((i) => i.ratio === "16_9").sort((a, b) => (a.width ?? 0) - (b.width ?? 0));
+  return (wide.find((i) => (i.width ?? 0) >= 640) ?? wide.at(-1) ?? pool[0])?.url ?? null;
+}
 
 /** Ticketmaster searches by keyword, so keep only events the artist is actually on the bill of. */
 export function upcomingFromTicketmaster(e: TicketmasterEvent, artistName: string): UpcomingShow | null {
@@ -158,6 +177,7 @@ export function upcomingFromTicketmaster(e: TicketmasterEvent, artistName: strin
     countryCode: country?.code ?? null,
     countryName: country?.name ?? venue?.country?.name ?? null,
     url: e.url ?? null,
+    image: ticketmasterImage(e.images),
     source: "ticketmaster",
   };
 }
@@ -225,24 +245,28 @@ export async function upcomingShows(artistName: string, limit = 20): Promise<Upc
 
 // ---------------------------------------------------------------- feed: your artists on tour
 
+export type SeenArtist = { name: string; image: string | null };
+
 /** The artists someone has seen live, most recently seen first, one entry per artist. */
 export function artistsSeenLive(
-  events: { event_type: string; title: string; spotify_artist_name: string | null; event_date: string }[],
+  events: { event_type: string; title: string; spotify_artist_name: string | null; spotify_artist_image?: string | null; event_date: string }[],
   limit = 4
-): string[] {
-  const seen = new Map<string, { name: string; last: string }>();
+): SeenArtist[] {
+  const seen = new Map<string, SeenArtist & { last: string }>();
   for (const e of events) {
     if (e.event_type !== "concert") continue;
     const name = (e.spotify_artist_name || e.title).trim();
     const key = normalize(name);
     if (!key) continue;
     const prev = seen.get(key);
-    if (!prev || e.event_date > prev.last) seen.set(key, { name: prev?.name ?? name, last: e.event_date });
+    const image = prev?.image ?? e.spotify_artist_image ?? null;
+    if (!prev || e.event_date > prev.last) seen.set(key, { name: prev?.name ?? name, image, last: e.event_date });
+    else if (!prev.image && image) prev.image = image;
   }
   return [...seen.values()]
     .sort((a, b) => b.last.localeCompare(a.last))
     .slice(0, limit)
-    .map((a) => a.name);
+    .map(({ name, image }) => ({ name, image }));
 }
 
 /** For each artist, the dates worth showing: ones in your home country first, then the soonest. */
@@ -260,4 +284,140 @@ export function tourHighlights(
     })
     .sort((a, b) => Number(b.hasNear) - Number(a.hasNear) || a.shows[0].date.localeCompare(b.shows[0].date))
     .map(({ artist, shows, total }) => ({ artist, shows, total }));
+}
+
+// ---------------------------------------------------------------- feed: happening near you
+
+export type NearbyCategory = "music" | "sport" | "arts" | "other";
+
+export type NearbyEvent = {
+  id: string;
+  name: string;
+  date: string; // yyyy-mm-dd, the first date when it runs several nights
+  time: string | null; // HH:mm
+  venue: string;
+  city: string;
+  countryCode: string | null;
+  url: string | null;
+  image: string | null;
+  category: NearbyCategory;
+  genre: string | null;
+  performers: string[];
+  priceFrom: { amount: number; currency: string } | null;
+  moreDates: number;
+};
+
+// Listings that aren't events someone would go to.
+const NOT_AN_EVENT = /\b(parking|car park|vip package|hospitality package|upgrade|voucher|gift ?card|add-?on|shuttle)\b/i;
+
+function categoryOf(segment: string | undefined): NearbyCategory {
+  if (segment === "Music") return "music";
+  if (segment === "Sports") return "sport";
+  if (segment === "Arts & Theatre") return "arts";
+  return "other";
+}
+
+export function nearbyFromTicketmaster(e: TicketmasterEvent): NearbyEvent | null {
+  const date = e.dates?.start?.localDate;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !e.name) return null;
+  if (NOT_AN_EVENT.test(e.name) || ["cancelled", "offsale"].includes(e.dates?.status?.code ?? "")) return null;
+  const venue = e._embedded?.venues?.[0];
+  const cls = e.classifications?.[0];
+  const genre = cls?.genre?.name;
+  const price = (e.priceRanges ?? []).filter((p) => typeof p.min === "number" && p.min > 0 && p.currency).sort((a, b) => a.min! - b.min!)[0];
+  return {
+    id: `tm-${e.id}`,
+    name: e.name.trim(),
+    date,
+    time: e.dates?.start?.localTime?.slice(0, 5) ?? null,
+    venue: venue?.name?.trim() ?? "",
+    city: venue?.city?.name?.trim() ?? "",
+    countryCode: (countryByCode(venue?.country?.countryCode) ?? countryByName(venue?.country?.name))?.code ?? null,
+    url: e.url ?? null,
+    image: ticketmasterImage(e.images),
+    category: categoryOf(cls?.segment?.name),
+    genre: genre && genre !== "Undefined" && genre !== "Other" ? genre : null,
+    performers: (e._embedded?.attractions ?? []).map((a) => a.name?.trim() ?? "").filter(Boolean),
+    priceFrom: price ? { amount: price.min!, currency: price.currency! } : null,
+    moreDates: 0,
+  };
+}
+
+/** A musical playing 40 nights is one card ("+39 more dates"), not 40. Keeps date order. */
+export function collapseRuns(events: NearbyEvent[]): NearbyEvent[] {
+  const byKey = new Map<string, NearbyEvent>();
+  for (const e of events) {
+    const key = `${normalize(e.name)}|${normalize(e.venue)}`;
+    const first = byKey.get(key);
+    if (first) first.moreDates += 1;
+    else byKey.set(key, { ...e });
+  }
+  return [...byKey.values()];
+}
+
+const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
+
+/** Geohash of a point; 4 characters is a ~20 km cell — plenty for "near you", and never an exact spot. */
+export function geohash(lat: number, lng: number, precision = 4): string {
+  let [latMin, latMax, lngMin, lngMax] = [-90, 90, -180, 180];
+  let hash = "";
+  let bits = 0;
+  let ch = 0;
+  let even = true;
+  while (hash.length < precision) {
+    if (even) {
+      const mid = (lngMin + lngMax) / 2;
+      if (lng >= mid) { ch = (ch << 1) | 1; lngMin = mid; } else { ch <<= 1; lngMax = mid; }
+    } else {
+      const mid = (latMin + latMax) / 2;
+      if (lat >= mid) { ch = (ch << 1) | 1; latMin = mid; } else { ch <<= 1; latMax = mid; }
+    }
+    even = !even;
+    if (++bits === 5) {
+      hash += BASE32[ch];
+      bits = 0;
+      ch = 0;
+    }
+  }
+  return hash;
+}
+
+export function nearbyConfigured(): boolean {
+  return !!process.env.TICKETMASTER_API_KEY;
+}
+
+export type NearbyWhere = { lat: number; lng: number } | { countryCode: string };
+
+async function ticketmasterEvents(params: Record<string, string>): Promise<TicketmasterEvent[]> {
+  const qs = new URLSearchParams({ apikey: process.env.TICKETMASTER_API_KEY!, locale: "*", sort: "date,asc", size: "100", ...params });
+  const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${qs}`, { next: { revalidate: 60 * 60 * 6 } });
+  if (!res.ok) return [];
+  const data = (await res.json()) as { _embedded?: { events?: TicketmasterEvent[] } };
+  return data._embedded?.events ?? [];
+}
+
+/**
+ * What's on near a place over the next ~3 months: soonest first, one card per
+ * run. Around a point it starts at 100 km and widens to 400 km when that's
+ * quiet (a small city next to a big one).
+ */
+export async function nearbyEvents(where: NearbyWhere, limit = 24): Promise<NearbyEvent[]> {
+  if (!nearbyConfigured()) throw new Error("not_configured");
+  // Whole days, so everyone asking today shares one cached answer.
+  const today = new Date().toISOString().slice(0, 10);
+  const until = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
+  const window = { startDateTime: `${today}T00:00:00Z`, endDateTime: `${until}T23:59:59Z` };
+
+  const collect = (raw: TicketmasterEvent[]) =>
+    collapseRuns(raw.map(nearbyFromTicketmaster).filter((e): e is NearbyEvent => e !== null && e.date >= today));
+
+  let events: NearbyEvent[];
+  if ("countryCode" in where) {
+    events = collect(await ticketmasterEvents({ ...window, countryCode: where.countryCode }));
+  } else {
+    const geoPoint = geohash(where.lat, where.lng);
+    events = collect(await ticketmasterEvents({ ...window, geoPoint, radius: "100", unit: "km" }));
+    if (events.length < 8) events = collect(await ticketmasterEvents({ ...window, geoPoint, radius: "400", unit: "km" }));
+  }
+  return events.slice(0, limit);
 }

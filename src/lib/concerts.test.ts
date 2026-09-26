@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   artistsSeenLive,
+  collapseRuns,
+  geohash,
+  nearbyEvents,
+  nearbyFromTicketmaster,
+  ticketmasterImage,
   pastShowFromSetlist,
   searchPastShows,
   tourHighlights,
@@ -166,20 +171,25 @@ describe("fetching (services mocked)", () => {
 
 describe("your artists on tour", () => {
   it("lists each artist seen live once, most recently seen first, concerts only", () => {
-    const ev = (event_type: string, title: string, event_date: string, spotify_artist_name: string | null = null) => ({ event_type, title, event_date, spotify_artist_name });
+    const ev = (event_type: string, title: string, event_date: string, spotify_artist_name: string | null = null, spotify_artist_image: string | null = null) => ({
+      event_type, title, event_date, spotify_artist_name, spotify_artist_image,
+    });
     expect(
       artistsSeenLive([
-        ev("concert", "Coldplay", "2023-06-01"),
+        ev("concert", "Coldplay", "2023-06-01", null, "https://i.scdn.co/cp.jpg"),
         ev("concert", "Music of the Spheres", "2025-07-20", "Coldplay"),
         ev("festival", "Glastonbury", "2026-06-25"),
         ev("concert", "Dua Lipa", "2024-05-01"),
       ])
-    ).toEqual(["Coldplay", "Dua Lipa"]);
+    ).toEqual([
+      { name: "Coldplay", image: "https://i.scdn.co/cp.jpg" }, // photo kept from the older entry
+      { name: "Dua Lipa", image: null },
+    ]);
   });
 
   it("puts dates in your home country first", () => {
     const show = (id: string, date: string, countryCode: string): UpcomingShow => ({
-      id, date, countryCode, venue: "V", city: "C", countryName: null, url: null, source: "bandsintown",
+      id, date, countryCode, venue: "V", city: "C", countryName: null, url: null, image: null, source: "bandsintown",
     });
     const r = tourHighlights(
       [
@@ -193,5 +203,113 @@ describe("your artists on tour", () => {
     expect(r[0].shows.map((s) => s.id)).toEqual(["b2", "b1"]);
     expect(r[1]).toMatchObject({ total: 3 });
     expect(r[1].shows).toHaveLength(2);
+  });
+});
+
+describe("happening near you (Ticketmaster)", () => {
+  const tmEvent = (over: Record<string, unknown> = {}) => ({
+    id: "G5v",
+    name: "Sting 3.0",
+    url: "https://www.ticketmaster.fi/event/G5v",
+    images: [
+      { ratio: "3_2", url: "https://s1.ticketm.net/a_3_2.jpg", width: 640 },
+      { ratio: "16_9", url: "https://s1.ticketm.net/a_16_9_2048.jpg", width: 2048 },
+      { ratio: "16_9", url: "https://s1.ticketm.net/a_16_9_640.jpg", width: 640 },
+      { ratio: "16_9", url: "https://s1.ticketm.net/a_16_9_205.jpg", width: 205 },
+    ],
+    dates: { start: { localDate: "2026-10-12", localTime: "19:30:00" }, status: { code: "onsale" } },
+    classifications: [{ segment: { name: "Music" }, genre: { name: "Rock" } }],
+    priceRanges: [{ min: 69.5, currency: "EUR" }, { min: 49, currency: "EUR" }],
+    _embedded: {
+      venues: [{ name: "Helsinki Ice Hall", city: { name: "Helsinki" }, country: { countryCode: "FI" } }],
+      attractions: [{ name: "Sting" }],
+    },
+    ...over,
+  });
+
+  it("picks a sharp but not huge wide photo", () => {
+    expect(ticketmasterImage(tmEvent().images)).toBe("https://s1.ticketm.net/a_16_9_640.jpg");
+    expect(ticketmasterImage([{ ratio: "16_9", url: "fallback.jpg", width: 1024, fallback: true }, { ratio: "16_9", url: "real.jpg", width: 305 }])).toBe("real.jpg");
+    expect(ticketmasterImage([])).toBeNull();
+  });
+
+  it("turns an event into a card", () => {
+    expect(nearbyFromTicketmaster(tmEvent())).toEqual({
+      id: "tm-G5v",
+      name: "Sting 3.0",
+      date: "2026-10-12",
+      time: "19:30",
+      venue: "Helsinki Ice Hall",
+      city: "Helsinki",
+      countryCode: "FI",
+      url: "https://www.ticketmaster.fi/event/G5v",
+      image: "https://s1.ticketm.net/a_16_9_640.jpg",
+      category: "music",
+      genre: "Rock",
+      performers: ["Sting"],
+      priceFrom: { amount: 49, currency: "EUR" },
+      moreDates: 0,
+    });
+  });
+
+  it("drops parking passes, add-ons and cancelled events", () => {
+    expect(nearbyFromTicketmaster(tmEvent({ name: "PARKING: Sting 3.0" }))).toBeNull();
+    expect(nearbyFromTicketmaster(tmEvent({ name: "Sting - VIP Package Upgrade" }))).toBeNull();
+    expect(nearbyFromTicketmaster(tmEvent({ dates: { start: { localDate: "2026-10-12" }, status: { code: "cancelled" } } }))).toBeNull();
+  });
+
+  it("shows a long run once", () => {
+    const e = nearbyFromTicketmaster(tmEvent({ name: "The Lion King", classifications: [{ segment: { name: "Arts & Theatre" } }] }))!;
+    const runs = collapseRuns([e, { ...e, id: "2", date: "2026-10-13" }, { ...e, id: "3", date: "2026-10-14" }, { ...e, id: "x", name: "Other", date: "2026-10-13" }]);
+    expect(runs.map((r) => [r.name, r.date, r.moreDates])).toEqual([["The Lion King", "2026-10-12", 2], ["Other", "2026-10-13", 0]]);
+    expect(runs[0].category).toBe("arts");
+  });
+
+  it("geohash matches the reference implementation", () => {
+    expect(geohash(57.64911, 10.40744, 11)).toBe("u4pruydqqvj"); // Wikipedia's example
+    expect(geohash(59.437, 24.7536)).toHaveLength(4);
+  });
+
+  describe("fetching", () => {
+    const fetchMock = vi.fn();
+    const json = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
+    beforeEach(() => {
+      vi.stubGlobal("fetch", fetchMock);
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-09-26T12:00:00Z"));
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+      fetchMock.mockReset();
+      delete process.env.TICKETMASTER_API_KEY;
+    });
+
+    it("needs a Ticketmaster key", async () => {
+      await expect(nearbyEvents({ countryCode: "EE" })).rejects.toThrow("not_configured");
+    });
+
+    it("searches around the point, all languages, next 3 months — and widens when it's quiet", async () => {
+      process.env.TICKETMASTER_API_KEY = "tm";
+      fetchMock.mockResolvedValueOnce(json({ _embedded: { events: [tmEvent()] } }));
+      fetchMock.mockResolvedValueOnce(json({ _embedded: { events: [tmEvent(), tmEvent({ id: "b", name: "Other show" })] } }));
+      const events = await nearbyEvents({ lat: 59.437, lng: 24.7536 });
+      const first = new URL(fetchMock.mock.calls[0][0]);
+      expect(first.searchParams.get("geoPoint")).toBe(geohash(59.437, 24.7536));
+      expect(first.searchParams.get("radius")).toBe("100");
+      expect(first.searchParams.get("locale")).toBe("*");
+      expect(first.searchParams.get("startDateTime")).toBe("2026-09-26T00:00:00Z");
+      expect(first.searchParams.get("endDateTime")).toBe("2026-12-25T23:59:59Z");
+      expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get("radius")).toBe("400");
+      expect(events.map((e) => e.name)).toEqual(["Sting 3.0", "Other show"]);
+    });
+
+    it("falls back to the whole home country", async () => {
+      process.env.TICKETMASTER_API_KEY = "tm";
+      fetchMock.mockResolvedValueOnce(json({}));
+      expect(await nearbyEvents({ countryCode: "EE" })).toEqual([]);
+      expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("countryCode")).toBe("EE");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 });

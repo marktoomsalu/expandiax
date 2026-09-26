@@ -48,6 +48,13 @@ export default function PrivacyPage() {
             which pages get used. <em>Legal basis:</em> our legitimate interest in running a secure, working service.
           </li>
           <li>
+            <Strong>Approximate location</Strong> - to show concerts and events happening near you in the feed, we use
+            the rough city our hosting provider works out from your IP address (no location permission, and we don’t
+            store it). Only a rough area of about 20-40 km is passed on to find events - never your exact position. If
+            it isn’t available we use the home country on your profile. <em>Legal basis:</em> our legitimate interest
+            in showing you relevant events.
+          </li>
+          <li>
             <Strong>Notifications</Strong> - if you use the app and allow notifications, a device token so we can send
             push notifications about likes, comments and new followers; and emails such as “X started following you” and
             an optional weekly digest (each digest has a one-click unsubscribe). <em>Legal basis:</em> contract, and
@@ -114,6 +121,12 @@ export default function PrivacyPage() {
             <Strong>Spotify</Strong> - song search goes through our server to Spotify. The Spotify player loads only
             when you tap play on a song; from then on Spotify may set cookies and handles data under its own privacy
             policy. Song previews come from Apple’s public music search, and only the song and artist name are sent.
+          </li>
+          <li>
+            <Strong>Ticketmaster</Strong>, <Strong>setlist.fm</Strong> and <Strong>Bandsintown</Strong> - to find
+            concerts and events: the name of an artist you log or have seen, and for events near you the rough area
+            described above. Nothing that identifies you is sent. Ticket links open their websites, which have their
+            own privacy policies.
           </li>
         </LegalList>
         <p>

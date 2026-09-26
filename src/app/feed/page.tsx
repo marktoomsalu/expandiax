@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Image from "next/image";
 import { CheckCircle2, Clock, Compass, Globe2, Ticket, Users } from "lucide-react";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { GreetingHeader } from "@/components/GreetingHeader";
@@ -24,8 +25,8 @@ import {
 } from "@/lib/feedSections";
 import { loadThenMemory } from "@/lib/thenMemory";
 import { ThenCard } from "@/components/ThenCard";
-import { ArtistsOnTour } from "@/components/UpcomingShows";
-import { artistsSeenLive } from "@/lib/concerts";
+import { ArtistsOnTour, NearbyEventsRow } from "@/components/UpcomingShows";
+import { artistsSeenLive, type NearbyWhere } from "@/lib/concerts";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 
@@ -34,6 +35,25 @@ export const metadata = { title: "Feed" };
 const PAGE_SIZE = 30;
 
 type RawMedia = FeedMediaItem & { displayOrder: number };
+
+// "Near you" = the approximate city Vercel works out from the connection
+// (no location permission, and it follows you when you travel), rounded
+// before it leaves us; otherwise the home country from the profile.
+function whereNearby(homeCountry: string | null): { where: NearbyWhere; place: string } | null {
+  const h = headers();
+  const lat = Number(h.get("x-vercel-ip-latitude"));
+  const lng = Number(h.get("x-vercel-ip-longitude"));
+  let city = "";
+  try {
+    city = decodeURIComponent(h.get("x-vercel-ip-city") ?? "").trim();
+  } catch {}
+  if (h.get("x-vercel-ip-latitude") && Number.isFinite(lat) && Number.isFinite(lng)) {
+    const country = countryByCode(h.get("x-vercel-ip-country"));
+    return { where: { lat, lng }, place: city || country?.name || "you" };
+  }
+  const home = countryByCode(homeCountry);
+  return home ? { where: { countryCode: home.code }, place: home.name } : null;
+}
 
 export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string } }) {
   const supabase = createClient();
@@ -59,7 +79,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       supabase.from("profiles").select("feed_last_seen_at, username, display_name, avatar_url, home_country_code").eq("id", user.id).single(),
       supabase
         .from("events")
-        .select("id, title, event_date, event_type, spotify_artist_name, cover_media_id, is_favourite, event_media!event_media_event_id_fkey(count)")
+        .select("id, title, event_date, event_type, spotify_artist_name, spotify_artist_image, cover_media_id, is_favourite, event_media!event_media_event_id_fkey(count)")
         .eq("user_id", user.id),
       supabase
         .from("visited_countries")
@@ -97,6 +117,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const then = picked ? await loadThenMemory(supabase, picked, now) : null;
 
   const liveArtists = artistsSeenLive(ownEventsRaw ?? []);
+  const nearby = whereNearby(viewerProfile?.home_country_code ?? null);
 
   const next = buildNextSuggestions(
     (followeeCountryRows ?? []).map((r) => r.country_code),
@@ -371,31 +392,40 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         </section>
       )}
 
-      {/* Artists you've seen live who are touring again */}
-      <Suspense fallback={null}>
-        <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />
-      </Suspense>
-
       {/* NEXT — experiences that could become future memories */}
-      <section className="mt-10" aria-labelledby="next-h">
+      <section className="mt-10 space-y-8" aria-labelledby="next-h">
         <h2 id="next-h" className="flex items-center gap-1.5 text-sm font-medium text-muted">
           <Globe2 size={14} aria-hidden /> Next
         </h2>
+
+        <Suspense fallback={null}>
+          <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />
+        </Suspense>
+
+        {nearby && (
+          <Suspense fallback={null}>
+            <NearbyEventsRow where={nearby.where} place={nearby.place} seenArtists={liveArtists} />
+          </Suspense>
+        )}
+
         {next.length > 0 ? (
-          <ul className="mt-4 flex flex-wrap gap-2.5">
-            {next.map((s) => (
-              <li key={s.code}>
-                <span className="flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-sm">
-                  <span aria-hidden>{s.flag}</span> {s.name}
-                  <span className="text-xs text-muted">
-                    {s.friendCount} {s.friendCount === 1 ? "friend has" : "friends have"} been
+          <div>
+            <h3 className="mb-3 font-serif text-xl">Where your friends have been</h3>
+            <ul className="flex flex-wrap gap-2.5">
+              {next.map((s) => (
+                <li key={s.code}>
+                  <span className="flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-sm">
+                    <span aria-hidden>{s.flag}</span> {s.name}
+                    <span className="text-xs text-muted">
+                      {s.friendCount} {s.friendCount === 1 ? "friend has" : "friends have"} been
+                    </span>
                   </span>
-                </span>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : (
-          <Link href="/start" className="card mt-4 block p-4 text-center transition-shadow hover:shadow-sm">
+          <Link href="/start" className="card block p-4 text-center transition-shadow hover:shadow-sm">
             <p className="font-serif text-lg">Log your next adventure.</p>
             <p className="mt-1 text-sm text-muted">A place, a night, a memory worth keeping.</p>
           </Link>

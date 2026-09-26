@@ -1,7 +1,19 @@
 import { CalendarClock, Ticket } from "lucide-react";
 import { countryByCode } from "@/lib/countries";
-import { tourHighlights, upcomingConfigured, upcomingShows, type UpcomingShow } from "@/lib/concerts";
+import {
+  artistKey,
+  nearbyConfigured,
+  nearbyEvents,
+  tourHighlights,
+  upcomingConfigured,
+  upcomingShows,
+  type NearbyEvent,
+  type NearbyWhere,
+  type SeenArtist,
+  type UpcomingShow,
+} from "@/lib/concerts";
 import { formatDate } from "@/lib/utils";
+import { EventCarousel, type CarouselCard } from "./EventCarousel";
 import { ExternalLink } from "./ExternalLink";
 
 // Server components — render them inside <Suspense> so a slow outside service
@@ -77,38 +89,65 @@ export async function ArtistUpcomingShows({ artist, limit = 5 }: { artist: strin
 }
 
 /** Feed: the artists you've seen live who are playing again — dates near you first. */
-export async function ArtistsOnTour({ artists, homeCountry }: { artists: string[]; homeCountry: string | null }) {
+export async function ArtistsOnTour({ artists, homeCountry }: { artists: SeenArtist[]; homeCountry: string | null }) {
   if (!upcomingConfigured() || artists.length === 0) return null;
   const byArtist = await Promise.all(
-    artists.map(async (artist) => ({ artist, shows: await upcomingShows(artist, 20).catch(() => []) }))
+    artists.map(async (a) => ({ artist: a.name, shows: await upcomingShows(a.name, 20).catch(() => []) }))
   );
-  const tours = tourHighlights(byArtist, homeCountry);
+  const tours = tourHighlights(byArtist, homeCountry, 1);
   if (tours.length === 0) return null;
+  const photo = new Map(artists.map((a) => [a.name, a.image]));
+  const cards: CarouselCard[] = tours.map(({ artist, shows: [show], total }) => ({
+    id: show.id,
+    title: artist,
+    date: show.date,
+    venue: show.venue,
+    city: show.city,
+    countryCode: show.countryCode,
+    url: show.url,
+    image: show.image ?? photo.get(artist) ?? null,
+    category: "music",
+    moreDates: total - 1,
+    badge: homeCountry && show.countryCode === homeCountry ? "Near you" : null,
+  }));
   return (
-    <section className="mt-10" aria-labelledby="on-tour-h">
-      <h2 id="on-tour-h" className="flex items-center gap-1.5 text-sm font-medium text-muted">
-        <CalendarClock size={14} aria-hidden /> Seen them live? They&rsquo;re back
-      </h2>
-      <div className="mt-4 space-y-5">
-        {tours.map((t) => (
-          <div key={t.artist}>
-            <p className="font-serif text-lg">
-              {t.artist}
-              {t.total > t.shows.length && (
-                <span className="ml-2 font-sans text-xs text-muted">+{t.total - t.shows.length} more dates</span>
-              )}
-            </p>
-            <ul className="mt-2 space-y-2">
-              {t.shows.map((s) => (
-                <li key={s.id}>
-                  <ShowRow show={s} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+    <div>
+      <h3 className="mb-3 font-serif text-xl">Seen them live? They&rsquo;re back</h3>
+      <EventCarousel cards={cards} label="Artists you've seen live, touring again" />
       <SourceNote shows={tours[0].shows} />
-    </section>
+    </div>
+  );
+}
+
+/** Feed: concerts, sport and shows on near where you are right now (or your home country). */
+export async function NearbyEventsRow({ where, place, seenArtists }: { where: NearbyWhere; place: string; seenArtists: SeenArtist[] }) {
+  if (!nearbyConfigured()) return null;
+  const events = await nearbyEvents(where).catch(() => []);
+  if (events.length === 0) return null;
+  const seen = new Set(seenArtists.map((a) => artistKey(a.name)));
+  const seenLive = (e: NearbyEvent) => e.performers.some((p) => seen.has(artistKey(p)));
+  // Artists you've seen live go first; otherwise soonest first.
+  const ordered = [...events.filter(seenLive), ...events.filter((e) => !seenLive(e))];
+  const cards: CarouselCard[] = ordered.map((e) => ({
+    id: e.id,
+    title: e.name,
+    date: e.date,
+    time: e.time,
+    venue: e.venue,
+    city: e.city,
+    countryCode: e.countryCode,
+    url: e.url,
+    image: e.image,
+    category: e.category,
+    priceFrom: e.priceFrom,
+    moreDates: e.moreDates,
+    badge: seenLive(e) ? "You\u2019ve seen them live" : null,
+  }));
+  return (
+    <div>
+      <h3 className="mb-3 font-serif text-xl">Happening near {place}</h3>
+      <EventCarousel cards={cards} filter label={`Events near ${place}`} />
+      <p className="mt-2 text-[11px] text-muted">Events from Ticketmaster</p>
+    </div>
   );
 }
