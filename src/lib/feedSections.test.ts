@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickResurfacedMemory, type OwnCountryLite, type OwnEventLite } from "./feedSections";
+import { pickResurfacedMemory, splitFresh, type OwnCountryLite, type OwnEventLite } from "./feedSections";
 
 const NOW = new Date("2026-09-23T12:00:00");
 
@@ -64,5 +64,26 @@ describe("pickResurfacedMemory", () => {
     const morning = pickResurfacedMemory(events, [], "u1", new Date("2026-09-23T08:00:00"), "mark");
     const evening = pickResurfacedMemory(events, [], "u1", new Date("2026-09-23T22:00:00"), "mark");
     expect(morning?.id).toBe(evening?.id);
+  });
+});
+
+describe("splitFresh", () => {
+  const at = (h: number) => ({ id: h, created_at: `2026-09-26T${String(h).padStart(2, "0")}:00:00.000000+00:00` });
+  const items = [at(12), at(11), at(10), at(9), at(8)]; // newest first
+
+  it("new since the last visit go first, the rest after the caught-up point", () => {
+    const { fresh, earlier } = splitFresh(items, "2026-09-26T09:30:00.000Z");
+    expect(fresh.map((i) => i.id)).toEqual([12, 11, 10]);
+    expect(earlier.map((i) => i.id)).toEqual([9, 8]);
+  });
+  it("nothing new: caught up straight away", () => {
+    expect(splitFresh(items, "2026-09-26T13:00:00+00:00").fresh).toEqual([]);
+  });
+  it("after a long break only the newest few count as new", () => {
+    expect(splitFresh(items, "2026-01-01T00:00:00Z", { maxFresh: 2 }).fresh.map((i) => i.id)).toEqual([12, 11]);
+  });
+  it("first-ever visit: the newest few", () => {
+    expect(splitFresh(items, null, { firstVisit: 3 }).fresh).toHaveLength(3);
+    expect(splitFresh([], null).fresh).toEqual([]);
   });
 });

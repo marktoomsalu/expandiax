@@ -20,6 +20,7 @@ import {
   buildTogetherCards,
   eventMatchKey,
   pickResurfacedMemory,
+  splitFresh,
   type OwnCountryLite,
   type OwnEventLite,
 } from "@/lib/feedSections";
@@ -187,12 +188,75 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     ownEventsByKey
   );
 
-  // A first-ever visit has nothing to be "caught up" from, so it's not
-  // treated as a caught-up state at all - just the plain feed, no banner.
-  const hasNewSincePreviousVisit = previousLastSeenAt !== null && items.some((i) => i.created_at > previousLastSeenAt);
-  const showCaughtUpBanner = previousLastSeenAt !== null && items.length > 0 && !hasNewSincePreviousVisit;
+  const { fresh, earlier } = splitFresh(items, previousLastSeenAt);
 
   await supabase.from("profiles").update({ feed_last_seen_at: new Date().toISOString() }).eq("id", user.id);
+
+  const renderPost = (item: FeedEvent, index: number) => {
+    const actor = actors.get(item.actor_id);
+    if (!actor) return null;
+    const meta = countryByCode(item.country_code);
+    const key = `${item.kind}:${item.ref_id}`;
+    const href =
+      item.kind === "country"
+        ? `/u/${actor.username}/countries/${item.country_code.toLowerCase()}`
+        : `/u/${actor.username}/events/${item.ref_id}`;
+    const typeLabel = item.event_type ? eventTypeMeta(item.event_type).label.toLowerCase() : "event";
+    const dateLabel = item.visit_date
+      ? item.visit_date_precision === "month"
+        ? formatMonthYear(item.visit_date)
+        : formatDate(item.visit_date)
+      : item.visit_year
+        ? String(item.visit_year)
+        : null;
+    const rawMedia = mediaByKey.get(key) ?? [];
+    const media: FeedMediaItem[] =
+      rawMedia.length > 0
+        ? [...rawMedia].sort((a, b) => (a.url === item.cover_url ? -1 : b.url === item.cover_url ? 1 : 0))
+        : item.cover_url
+          ? [{ id: key, url: item.cover_url, type: item.cover_media_type ?? "image", alt: item.title }]
+          : [];
+    const location =
+      item.kind === "event"
+        ? [item.venue, item.city || item.country_name].filter(Boolean).join(", ") || null
+        : item.city || null;
+    return (
+      <li key={key} className="card overflow-hidden">
+        <FeedMemoryCard
+          href={href}
+          kind={item.kind}
+          eventType={item.event_type}
+          flag={meta?.flag}
+          countryName={meta?.name ?? item.country_name}
+          title={item.title}
+          subtitle={item.subtitle}
+          body={item.body}
+          dateLabel={dateLabel}
+          location={location}
+          track={
+            item.spotify_track_name
+              ? { name: item.spotify_track_name, artist: item.spotify_track_artist, spotifyId: item.spotify_track_id }
+              : null
+          }
+          media={media}
+          gradient={flagGradientColors(item.country_code)}
+          priority={index === 0}
+          actor={actor}
+          actionLabel={item.kind === "country" ? "added a country" :`logged a ${typeLabel}`}
+          when={formatRelative(item.created_at)}
+          actions={<LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={likedByMe.has(key)} />}
+        />
+        <div className="border-t border-line px-4 py-3 sm:px-5">
+          <CommentSection
+            kind={item.kind}
+            targetId={item.ref_id}
+            posterId={item.actor_id}
+            initialComments={commentsByKey.get(key) ?? []}
+          />
+        </div>
+      </li>
+    );
+  };
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-10">
@@ -233,112 +297,45 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         </div>
       </div>
 
-      {/* NEW — memories recently added by people you follow */}
-      <section className="mt-6" aria-labelledby="new-h">
-        <h2 id="new-h" className="text-sm font-medium text-muted">New</h2>
+      {followeeIds.length === 0 ? (
+        <div className="mt-6">
+          <EmptyState
+            title="Your feed is quiet."
+            body="Follow other travellers to see the countries they pin and the events they log, right here."
+            actionLabel="Explore travellers"
+            actionHref="/explore"
+          />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="mt-6">
+          <EmptyState title="Nothing yet." body="The people you follow haven't added anything public yet - check back soon." />
+        </div>
+      ) : null}
 
-        {followeeIds.length === 0 ? (
-          <div className="mt-4">
-            <EmptyState
-              title="Your feed is quiet."
-              body="Follow other travellers to see the countries they pin and the events they log, right here."
-              actionLabel="Explore travellers"
-              actionHref="/explore"
-            />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="mt-4">
-            <EmptyState
-              title="Nothing yet."
-              body="The people you follow haven't added anything public yet - check back soon."
-            />
-          </div>
-        ) : (
-          <>
-            {showCaughtUpBanner && (
-              <div className="mt-4 flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm text-muted">
-                <CheckCircle2 size={16} className="text-accent" aria-hidden />
-                You&rsquo;re caught up. Go make something worth remembering.
-              </div>
-            )}
-            <ul className="mt-4 space-y-8">
-              {items.map((item, index) => {
-                const actor = actors.get(item.actor_id);
-                if (!actor) return null;
-                const meta = countryByCode(item.country_code);
-                const key = `${item.kind}:${item.ref_id}`;
-                const href =
-                  item.kind === "country"
-                    ? `/u/${actor.username}/countries/${item.country_code.toLowerCase()}`
-                    : `/u/${actor.username}/events/${item.ref_id}`;
-                const typeLabel = item.event_type ? eventTypeMeta(item.event_type).label.toLowerCase() : "event";
-                const dateLabel = item.visit_date
-                  ? item.visit_date_precision === "month"
-                    ? formatMonthYear(item.visit_date)
-                    : formatDate(item.visit_date)
-                  : item.visit_year
-                    ? String(item.visit_year)
-                    : null;
-                const rawMedia = mediaByKey.get(key) ?? [];
-                const media: FeedMediaItem[] =
-                  rawMedia.length > 0
-                    ? [...rawMedia].sort((a, b) => (a.url === item.cover_url ? -1 : b.url === item.cover_url ? 1 : 0))
-                    : item.cover_url
-                      ? [{ id: key, url: item.cover_url, type: item.cover_media_type ?? "image", alt: item.title }]
-                      : [];
-                const location =
-                  item.kind === "event"
-                    ? [item.venue, item.city || item.country_name].filter(Boolean).join(", ") || null
-                    : item.city || null;
-                return (
-                  <li key={key} className="card overflow-hidden">
-                    <FeedMemoryCard
-                      href={href}
-                      kind={item.kind}
-                      eventType={item.event_type}
-                      flag={meta?.flag}
-                      countryName={meta?.name ?? item.country_name}
-                      title={item.title}
-                      subtitle={item.subtitle}
-                      body={item.body}
-                      dateLabel={dateLabel}
-                      location={location}
-                      track={
-                        item.spotify_track_name
-                          ? { name: item.spotify_track_name, artist: item.spotify_track_artist, spotifyId: item.spotify_track_id }
-                          : null
-                      }
-                      media={media}
-                      gradient={flagGradientColors(item.country_code)}
-                      priority={index === 0}
-                      actor={actor}
-                      actionLabel={item.kind === "country" ? "added a country" :`logged a ${typeLabel}`}
-                      when={formatRelative(item.created_at)}
-                      actions={<LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={likedByMe.has(key)} />}
-                    />
-                    <div className="border-t border-line px-4 py-3 sm:px-5">
-                      <CommentSection
-                        kind={item.kind}
-                        targetId={item.ref_id}
-                        posterId={item.actor_id}
-                        initialComments={commentsByKey.get(key) ?? []}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
+      {/* NEW — added by people you follow since your last visit */}
+      {fresh.length > 0 && (
+        <section className="mt-6" aria-labelledby="new-h">
+          <h2 id="new-h" className="text-sm font-medium text-muted">New</h2>
+          <ul className="mt-4 space-y-8">{fresh.map((item, i) => renderPost(item, i))}</ul>
+        </section>
+      )}
 
-        {items.length >= limit && (
-          <div className="mt-8 flex justify-center">
-            <Link href={`/feed?limit=${limit + PAGE_SIZE}`} className="btn-ghost">
-              Load more
-            </Link>
-          </div>
-        )}
-      </section>
+      {/* The caught-up point: your own memory and what's next come before older posts. */}
+      {items.length > 0 && (
+        <div className="mt-10 flex items-center gap-3" role="status">
+          <span className="h-px flex-1 bg-line" aria-hidden />
+          <span className="flex flex-col items-center text-center">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent">
+              <CheckCircle2 size={20} aria-hidden />
+            </span>
+            <span className="mt-2 font-serif text-lg">You&rsquo;re all caught up</span>
+            <span className="text-xs text-muted">
+              {fresh.length > 0 ? "That's everything new from people you follow." : "Nothing new since your last visit."}
+            </span>
+          </span>
+          <span className="h-px flex-1 bg-line" aria-hidden />
+        </div>
+      )}
 
       {/* THEN — a memory resurfaced from your own past */}
       {then && (
@@ -464,6 +461,21 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           </div>
         </section>
       )}
+      {/* EARLIER — posts from before your last visit */}
+      {earlier.length > 0 && (
+        <section className="mt-12" aria-labelledby="earlier-h">
+          <h2 id="earlier-h" className="text-sm font-medium text-muted">Earlier from people you follow</h2>
+          <ul className="mt-4 space-y-8">{earlier.map((item, i) => renderPost(item, fresh.length + i))}</ul>
+          {items.length >= limit && (
+            <div className="mt-8 flex justify-center">
+              <Link href={`/feed?limit=${limit + PAGE_SIZE}#earlier-h`} className="btn-ghost">
+                Load more
+              </Link>
+            </div>
+          )}
+        </section>
+      )}
+
     </div>
   );
 }

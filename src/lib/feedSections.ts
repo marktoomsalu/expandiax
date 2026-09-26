@@ -204,3 +204,21 @@ export function buildNextSuggestions(followeeCountryCodes: string[], ownCountryC
   }
   return suggestions;
 }
+
+/**
+ * Splits the feed (newest first) into what's new since your last visit and
+ * everything earlier — the "you're all caught up" point sits between them,
+ * with your own memory and what's next right after it. After a long break
+ * only the newest few count as new, so the caught-up point is never buried;
+ * on a first-ever visit the newest few do.
+ */
+export function splitFresh<T extends { created_at: string }>(
+  items: T[],
+  lastSeenAt: string | null,
+  { maxFresh = 10, firstVisit = 5 } = {}
+): { fresh: T[]; earlier: T[] } {
+  const seen = lastSeenAt ? Date.parse(lastSeenAt) : null;
+  const newCount = seen === null ? firstVisit : items.filter((i) => Date.parse(i.created_at) > seen).length;
+  const n = Math.min(newCount, maxFresh, items.length);
+  return { fresh: items.slice(0, n), earlier: items.slice(n) };
+}
