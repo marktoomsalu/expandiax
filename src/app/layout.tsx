@@ -34,8 +34,6 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "ExpandiaX",
   },
-  // Site ownership check for Impact (Ticketmaster's affiliate network).
-  other: { "impact-site-verification": "f783cf38-a960-4e45-bce3-398fda1dd5f9" },
 };
 
 export const viewport: Viewport = {

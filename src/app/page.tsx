@@ -18,8 +18,6 @@ const SAMPLE_CODES = ["EE", "FI", "SE", "PL", "ES", "IT", "PT", "GR", "JP", "TH"
 export default function LandingPage() {
   return (
     <div>
-      {/* Proves to Impact (Ticketmaster's affiliate network) that we own this site. */}
-      <span hidden>Impact-Site-Verification: f783cf38-a960-4e45-bce3-398fda1dd5f9</span>
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div
