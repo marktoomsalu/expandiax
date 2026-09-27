@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Calendar, Camera, ChevronRight, Heart, Lock, MapPinPlus, MessageSquareText, Music2, Plus, Rss, X } from "lucide-react";
+import { Calendar, ChevronRight, Lock, MapPinPlus, MessageSquareText, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadMediaItem } from "@/lib/media";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
@@ -12,8 +12,10 @@ import { useCanSellPremium } from "./PurchaseAvailability";
 import { withoutUpgradePrompt } from "@/lib/nativeApp";
 import type { DatePrecision, Plan, VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { TripCard } from "./TripCard";
+import type { StockPhoto } from "@/lib/stockPhotos";
 import { VisitDateFields } from "./VisitDateFields";
-import { cn, formatVisitRange, visitSortKey } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
 
 type Meta = { code: string; name: string; flag: string; capital: string };
@@ -247,7 +249,19 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   );
 }
 
-export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; meta: Meta; plan: Plan }) {
+export type TripView = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  photos: number;
+  videos: number;
+  hasSoundtrack: boolean;
+  photo: string | null;
+  stock: StockPhoto | null;
+  mediaPaths: string[];
+};
+
+export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountryFull; meta: Meta; plan: Plan; trips: TripView[] }) {
   const router = useRouter();
   const supabase = createClient();
   const [precision, setPrecision] = useState<DatePrecision>("year");
@@ -262,12 +276,10 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
   const [addingVisit, setAddingVisit] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const [favouriteBusy, setFavouriteBusy] = useState(false);
+  const [adding, setAdding] = useState(trips.length === 0);
   const [feedBusy, setFeedBusy] = useState(false);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const visits = [...data.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
 
   async function addVisit(e: React.FormEvent) {
     e.preventDefault();
@@ -334,21 +346,6 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
     router.refresh();
   }
 
-  async function removeVisit(id: string) {
-    await supabase.from("country_visits").delete().eq("id", id);
-    router.refresh();
-  }
-
-  async function toggleFavourite() {
-    setFavouriteBusy(true);
-    await supabase
-      .from("visited_countries")
-      .update({ is_favourite: !data.is_favourite })
-      .eq("id", data.id);
-    setFavouriteBusy(false);
-    router.refresh();
-  }
-
   async function toggleShareToFeed() {
     setFeedBusy(true);
     await supabase
@@ -380,165 +377,180 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
     router.refresh();
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="font-serif text-lg">Trip details</h3>
-          <p className="text-xs text-muted">Optional - add as much or as little as you like, any time.</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleOnlyMe}
-            disabled={privacyBusy}
-            aria-pressed={!data.is_public}
-            title={data.is_public ? "Visible to everyone who can see your profile" : "Only you can see this country"}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-              !data.is_public ? "border-ink bg-ink text-canvas" : "border-line text-muted hover:text-accent"
-            )}
-          >
-            <Lock size={13} />
-            {data.is_public ? "Visible" : "Only me"}
-          </button>
-          {data.is_public && (
-          <button
-            type="button"
-            onClick={toggleShareToFeed}
-            disabled={feedBusy}
-            aria-pressed={data.share_to_feed}
-            title={data.share_to_feed ? "Visible in followers' feeds" : "Hidden from the feed"}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-              data.share_to_feed
-                ? "border-accent bg-accent-soft text-accent"
-                : "border-line text-muted hover:text-accent"
-            )}
-          >
-            <Rss size={13} />
-            {data.share_to_feed ? "In feed" : "Not in feed"}
-          </button>
-          )}
-          <button
-            type="button"
-            onClick={toggleFavourite}
-            disabled={favouriteBusy}
-            aria-pressed={data.is_favourite}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-              data.is_favourite
-                ? "border-accent bg-accent-soft text-accent"
-                : "border-line text-muted hover:text-accent"
-            )}
-          >
-            <Heart size={13} className={data.is_favourite ? "fill-accent" : undefined} />
-            {data.is_favourite ? "Favourite" : "Mark favourite"}
-          </button>
-        </div>
-      </div>
+  function openAddTrip() {
+    setAdding(true);
+    requestAnimationFrame(() => document.getElementById("add-trip")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
 
-      {/* Visits — each trip carries its own photos, soundtrack and memory */}
-      <section>
-        <h4 className="font-serif text-lg">Your trips</h4>
-        {visits.length > 0 && (
-          <ul className="mt-3 space-y-2">
-            {visits.map((v) => {
-              const photoCount = data.country_media.filter((m) => m.country_visit_id === v.id).length;
-              return (
-                <li key={v.id} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3.5 py-2.5">
-                  <Link href={`/my-world/${meta.code.toLowerCase()}/visits/${v.id}`} className="group min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 text-sm font-medium group-hover:text-accent">
-                      {formatVisitRange(v)}
-                      {photoCount > 0 && <Camera size={12} className="text-muted" aria-label={`${photoCount} photos`} />}
-                      {v.spotify_track_id && <Music2 size={12} className="text-muted" aria-label="Has a soundtrack" />}
-                    </p>
-                    {v.highlight && <p className="mt-0.5 truncate text-sm text-muted">{v.highlight}</p>}
-                  </Link>
-                  <ChevronRight size={15} className="shrink-0 text-muted" aria-hidden />
-                  <button
-                    type="button"
-                    aria-label={`Remove the ${v.year} visit`}
-                    className="shrink-0 text-muted hover:text-red-700"
-                    onClick={() => removeVisit(v.id)}
-                  >
-                    <X size={14} />
-                  </button>
-                </li>
-              );
-            })}
+  const pill = "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors";
+  return (
+    <div className="space-y-10">
+      {/* Trips — each carries its own photos, soundtrack and memory */}
+      <section aria-labelledby="trips-h">
+        <div className="flex items-center justify-between gap-4">
+          <h2 id="trips-h" className="font-serif text-3xl">Your trips</h2>
+          <button type="button" onClick={openAddTrip} className="inline-flex items-center gap-1.5 text-base font-medium text-accent hover:underline">
+            <Plus size={18} aria-hidden /> Add trip
+          </button>
+        </div>
+
+        {trips.length > 0 && (
+          <ul className="mt-5 space-y-4">
+            {trips.map((t, i) => (
+              <li key={t.id}>
+                <TripCard
+                  visitId={t.id}
+                  mediaPaths={t.mediaPaths}
+                  href={`/my-world/${meta.code.toLowerCase()}/visits/${t.id}`}
+                  title={t.title}
+                  subtitle={t.subtitle}
+                  photos={t.photos}
+                  videos={t.videos}
+                  hasSoundtrack={t.hasSoundtrack}
+                  photo={t.photo}
+                  stock={t.stock}
+                  priority={i === 0}
+                />
+              </li>
+            ))}
           </ul>
         )}
-        <form onSubmit={addVisit} className="mt-3 space-y-6 rounded-lg border border-dashed border-line px-4 py-5">
-          <p className="flex items-center gap-1.5 text-sm font-medium">
-            <Plus size={15} className="text-accent" aria-hidden /> Add a trip
-          </p>
-          <div>
-            <p className="eyebrow mb-3">Photos & videos</p>
-            <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
-            {pendingMedia.some((p) => p.kind === "video") && (
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-muted">Video upload quality</span>
-                <div className="flex gap-1.5">
-                  {(["standard", "hd"] as const).map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => setVideoQuality(q)}
-                      className={cn(
-                        "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                        videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
-                      )}
-                    >
-                      {q === "standard" ? "Standard - faster" : "HD - original"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="border-t border-line pt-5">
-            <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><Calendar size={14} className="text-accent" aria-hidden /> When</span>
-            <VisitDateFields
-              precision={precision}
-              onPrecisionChange={setPrecision}
-              year={year}
-              onYearChange={setYear}
-              month={month}
-              onMonthChange={setMonth}
-              visitedFrom={visitedFrom}
-              onVisitedFromChange={setVisitedFrom}
-              visitedTo={visitedTo}
-              onVisitedToChange={setVisitedTo}
-            />
-          </div>
-          <div className="border-t border-line pt-5">
-            <label htmlFor="highlight-input" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
-              <MessageSquareText size={14} className="text-accent" aria-hidden /> A quick memory
-            </label>
-            <input
-              id="highlight-input"
-              type="text"
-              placeholder="Optional - add more on its page after"
-              className="field !py-1.5 w-full text-sm"
-              maxLength={1000}
-              value={highlight}
-              onChange={(e) => setHighlight(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="btn-accent w-full justify-center !py-2 text-sm" disabled={addingVisit}>
-            <Plus size={15} /> {addingVisit ? uploadStatus ?? "Adding…" : "Add this trip"}
+
+        {!adding ? (
+          <button
+            type="button"
+            onClick={openAddTrip}
+            className="mt-4 flex w-full items-center gap-4 rounded-2xl border border-dashed border-line px-5 py-5 text-left transition-colors hover:border-accent"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-accent/50 text-accent">
+              <Plus size={20} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Plan another trip to {meta.name}?</span>
+              <span className="block text-sm text-muted">Add a new trip and keep your memories together.</span>
+            </span>
+            <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
           </button>
-        </form>
+        ) : (
+          <form id="add-trip" onSubmit={addVisit} className="mt-4 scroll-mt-6 space-y-6 rounded-2xl border border-line bg-surface px-5 py-6 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="flex items-center gap-2 font-serif text-xl">
+                <Plus size={18} className="text-accent" aria-hidden /> {trips.length ? `Another trip to ${meta.name}` : `Your first trip to ${meta.name}`}
+              </p>
+              {trips.length > 0 && (
+                <button type="button" onClick={() => setAdding(false)} aria-label="Close" className="text-muted hover:text-ink">
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+            <div>
+              <p className="eyebrow mb-3">Photos & videos</p>
+              <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
+              {pendingMedia.some((p) => p.kind === "video") && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-muted">Video upload quality</span>
+                  <div className="flex gap-1.5">
+                    {(["standard", "hd"] as const).map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setVideoQuality(q)}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                          videoQuality === q ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
+                        )}
+                      >
+                        {q === "standard" ? "Standard - faster" : "HD - original"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="border-t border-line pt-5">
+              <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><Calendar size={14} className="text-accent" aria-hidden /> When</span>
+              <VisitDateFields
+                precision={precision}
+                onPrecisionChange={setPrecision}
+                year={year}
+                onYearChange={setYear}
+                month={month}
+                onMonthChange={setMonth}
+                visitedFrom={visitedFrom}
+                onVisitedFromChange={setVisitedFrom}
+                visitedTo={visitedTo}
+                onVisitedToChange={setVisitedTo}
+              />
+            </div>
+            <div className="border-t border-line pt-5">
+              <label htmlFor="highlight-input" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+                <MessageSquareText size={14} className="text-accent" aria-hidden /> A quick memory
+              </label>
+              <input
+                id="highlight-input"
+                type="text"
+                placeholder="Optional - add more on its page after"
+                className="field !py-1.5 w-full text-sm"
+                maxLength={1000}
+                value={highlight}
+                onChange={(e) => setHighlight(e.target.value)}
+              />
+            </div>
+            {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
+            <button type="submit" className="btn-accent w-full justify-center !py-2.5 text-sm" disabled={addingVisit}>
+              <Plus size={15} /> {addingVisit ? uploadStatus ?? "Adding…" : "Add this trip"}
+            </button>
+          </form>
+        )}
       </section>
 
-      {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
-
-      <div className="border-t border-line pt-5">
-        <button type="button" className="btn-danger" onClick={() => setConfirmRemove(true)}>
-          Remove from my map
-        </button>
-      </div>
+      {/* Who sees it, and the way out */}
+      <section aria-labelledby="settings-h" className="card px-5 py-5">
+        <h2 id="settings-h" className="font-serif text-xl">{meta.name} settings</h2>
+        <div className="mt-4 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Who can see it</p>
+              <p className="text-xs text-muted">
+                {data.is_public ? "Everyone who can see your profile." : "Only you - hidden from everyone else."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleOnlyMe}
+              disabled={privacyBusy}
+              aria-pressed={!data.is_public}
+              className={cn(pill, !data.is_public ? "border-ink bg-ink text-canvas" : "border-line text-muted hover:text-accent")}
+            >
+              <Lock size={13} />
+              {data.is_public ? "Visible" : "Only me"}
+            </button>
+          </div>
+          {data.is_public && (
+            <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">In your followers&rsquo; feeds</p>
+                <p className="text-xs text-muted">New trips and photos show up for people who follow you.</p>
+              </div>
+              <button
+                type="button"
+                onClick={toggleShareToFeed}
+                disabled={feedBusy}
+                aria-pressed={data.share_to_feed}
+                className={cn(pill, data.share_to_feed ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-accent")}
+              >
+                <Rss size={13} />
+                {data.share_to_feed ? "In feed" : "Not in feed"}
+              </button>
+            </div>
+          )}
+          <div className="border-t border-line pt-4">
+            <button type="button" className="text-sm font-medium text-red-700 hover:underline dark:text-red-400" onClick={() => setConfirmRemove(true)}>
+              Remove {meta.name} from my map
+            </button>
+          </div>
+        </div>
+      </section>
 
       <ConfirmDialog
         open={confirmRemove}

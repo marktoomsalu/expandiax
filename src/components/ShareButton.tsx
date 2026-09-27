@@ -9,9 +9,11 @@ type Props = {
   targetId: string;
   title: string;
   className?: string;
+  /** One short "Share" button (downloads the image where the share sheet isn't available). */
+  compact?: boolean;
 };
 
-export function ShareButton({ kind, targetId, title, className }: Props) {
+export function ShareButton({ kind, targetId, title, className, compact = false }: Props) {
   const [mounted, setMounted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +82,18 @@ export function ShareButton({ kind, targetId, title, className }: Props) {
 
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.canShare === "function";
   const btnClass = "inline-flex items-center gap-1.5 text-sm text-muted hover:text-accent disabled:opacity-50";
+
+  if (compact) {
+    return (
+      <div>
+        <button type="button" onClick={canNativeShare ? share : downloadImage} disabled={busy} className={cn(btnClass, className)}>
+          <Share2 size={18} />
+          {busy ? "Preparing…" : "Share"}
+        </button>
+        {error && <p role="alert" className="mt-1.5 text-xs text-red-300">{error}</p>}
+      </div>
+    );
+  }
 
   return (
     <div>

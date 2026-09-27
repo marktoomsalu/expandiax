@@ -1,19 +1,24 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ExternalLink, ImagePlus, Lock, MapPin } from "lucide-react";
+import { ArrowLeft, Lock, MapPin } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { canSellPremium } from "@/lib/nativeAppServer";
 import { countryByCode } from "@/lib/countries";
 import { territoryByCode, territoryToMeta } from "@/lib/territories";
-import { CountryEditor, AddCountryForm } from "@/components/CountryEditor";
-import { ShareButton } from "@/components/ShareButton";
-import { StockCredit } from "@/components/StockCredit";
-import { StockImage } from "@/components/StockImage";
+import { CountryEditor, AddCountryForm, type TripView } from "@/components/CountryEditor";
+import { CountryHero } from "@/components/CountryHero";
 import { stockPhotoFor } from "@/lib/stockPhotos";
-import { visitSortKey } from "@/lib/utils";
+import { formatVisitRange, visitSortKey } from "@/lib/utils";
 import { COUNTRY_CAP } from "@/lib/plan";
 import type { Plan, VisitedCountryFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
+
+/** "Kotor", "Kotor & Budva", "Kotor, Budva & Perast", "Kotor, Budva & 3 more". */
+function listCities(cities: string[]): string {
+  if (cities.length <= 1) return cities[0] ?? "";
+  if (cities.length <= 3) return `${cities.slice(0, -1).join(", ")} & ${cities.at(-1)}`;
+  return `${cities.slice(0, 2).join(", ")} & ${cities.length - 2} more`;
+}
 
 export default async function ManageCountryPage({ params }: { params: { code: string } }) {
   const country = countryByCode(params.code);
@@ -30,7 +35,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
     supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
     supabase
       .from("visited_countries")
-      .select("*, country_visits(*), country_media!country_media_visited_country_id_fkey(*)")
+      .select("*, country_visits(*), country_cities(*), country_media!country_media_visited_country_id_fkey(*)")
       .eq("user_id", user.id)
       .eq("country_code", meta.code)
       .maybeSingle(),
@@ -43,9 +48,75 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   const atCountryCap = countryCap !== null && (countryCount ?? 0) >= countryCap;
   const needsPremiumForTerritory = isTerritory && plan !== "premium";
   const canSell = canSellPremium();
-  const stock = visited && visited.country_media.length === 0 ? stockPhotoFor(meta.code, user.id) : null;
-  const latestVisit = visited ? [...visited.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)))[0] : undefined;
+  if (visited && profile) {
+    const visits = [...visited.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
+    const images = visited.country_media.filter((m) => m.media_type === "image").sort((a, b) => a.display_order - b.display_order);
+    const tripCover = (visitId: string, coverId: string | null) => {
+      const own = images.filter((m) => m.country_visit_id === visitId);
+      return own.find((m) => m.id === coverId) ?? own[0];
+    };
+    // The country's picture: the one you chose, else your latest trip's, else any of yours.
+    const heroPhoto =
+      images.find((m) => m.id === visited.cover_media_id) ??
+      (visits[0] ? tripCover(visits[0].id, visits[0].cover_media_id) : undefined) ??
+      images[0];
+    const trips: TripView[] = visits.map((v) => {
+      const media = visited.country_media.filter((m) => m.country_visit_id === v.id);
+      const cover = tripCover(v.id, v.cover_media_id);
+      const cities = (visited.country_cities ?? []).filter((c) => c.country_visit_id === v.id).map((c) => c.city_name);
+      return {
+        id: v.id,
+        title: formatVisitRange(v),
+        subtitle: cities.length ? listCities(cities) : v.highlight.trim() || null,
+        photos: media.filter((m) => m.media_type === "image").length,
+        videos: media.filter((m) => m.media_type === "video").length,
+        hasSoundtrack: !!v.spotify_track_id,
+        photo: cover?.public_url ?? null,
+        // Different stock photo per trip, so an empty country doesn't repeat one picture.
+        stock: cover ? null : stockPhotoFor(meta.code, v.id),
+        mediaPaths: media.map((m) => m.storage_path),
+      };
+    });
 
+    return (
+      <div>
+        <CountryHero
+          visitedCountryId={visited.id}
+          flag={meta.flag}
+          name={meta.name}
+          continent={meta.continent}
+          isTerritory={isTerritory}
+          onlyMe={!visited.is_public}
+          trips={visits.length}
+          memories={visited.country_media.length}
+          photo={heroPhoto?.public_url ?? null}
+          stock={heroPhoto ? null : stockPhotoFor(meta.code, user.id)}
+          publicHref={visited.is_public ? `/u/${profile.username}/countries/${meta.code.toLowerCase()}` : null}
+          initialFavourite={visited.is_favourite}
+        />
+        <div className="mx-auto max-w-3xl space-y-8 px-5 pb-16 pt-8">
+          {meta.code === "US" && (plan === "premium" || canSell) && (
+            <div className="card flex flex-wrap items-center justify-between gap-4 border-accent/30 bg-accent-soft/40 px-5 py-4">
+              <div>
+                <p className="flex items-center gap-1.5 text-sm font-medium">
+                  <MapPin size={15} className="text-accent" aria-hidden /> Track your US states too
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  See exactly which states you&rsquo;ve explored, on their own map alongside your world map.
+                </p>
+              </div>
+              <Link href="/my-world/states" className="btn-accent shrink-0 !py-2 text-sm">
+                <MapPin size={15} /> Add US States
+              </Link>
+            </div>
+          )}
+          <CountryEditor data={visited} meta={meta} plan={plan} trips={trips} />
+        </div>
+      </div>
+    );
+  }
+
+  // Not on the map yet: add it.
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
       <Link href="/my-world" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
@@ -67,108 +138,52 @@ export default async function ManageCountryPage({ params }: { params: { code: st
             {meta.name}
           </h1>
         </div>
-        {visited && profile && (
-          <div className="flex items-center gap-5">
-            <ShareButton kind="country" targetId={visited.id} title={`${meta.flag} ${meta.name}`} />
-            <Link
-              href={`/u/${profile.username}/countries/${meta.code.toLowerCase()}`}
-              className="inline-flex items-center gap-1.5 text-sm text-accent underline-offset-4 hover:underline"
-            >
-              View public page <ExternalLink size={14} />
-            </Link>
-          </div>
-        )}
       </div>
 
-      {stock && visited && (
-        // Nothing of their own here yet: a credited stock photo as a placeholder, and the way to replace it.
-        <div className="relative mt-6 h-56 overflow-hidden rounded-2xl sm:h-72" style={{ backgroundColor: stock.color }}>
-          <StockImage photo={stock} alt={stock.alt} priority sizes="(min-width: 768px) 768px, 100vw" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/5" aria-hidden />
-          <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-            <p className="font-serif text-2xl drop-shadow">This is Unsplash&rsquo;s {meta.name}. Show us yours.</p>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              {latestVisit ? (
-                <Link
-                  href={`/my-world/${meta.code.toLowerCase()}/visits/${latestVisit.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-sm font-semibold text-[#14110d] shadow-sm"
-                >
-                  <ImagePlus size={15} aria-hidden /> Add your photos
-                </Link>
-              ) : (
-                <span className="text-sm text-white/85">Add a trip below, then your photos.</span>
-              )}
-              <StockCredit photo={stock} />
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="mt-10">
-        {!visited ? (
-          <div className="card px-6 py-10 text-center">
-            <h2 className="font-serif text-2xl">Not on your map yet.</h2>
-            {needsPremiumForTerritory ? (
-              <>
-                <Lock size={22} className="mx-auto mt-3 text-muted" aria-hidden />
-                {canSell ? (
-                  <>
-                    <p className="mx-auto mt-3 max-w-sm text-sm text-muted">
-                      {meta.name} is a special territory - tracking those is a Premium feature, separate from your 195-country limit.
-                    </p>
-                    <Link href="/settings/billing" className="btn-accent mt-5">Upgrade to Premium</Link>
-                  </>
-                ) : (
+        <div className="card px-6 py-10 text-center">
+          <h2 className="font-serif text-2xl">Not on your map yet.</h2>
+          {needsPremiumForTerritory ? (
+            <>
+              <Lock size={22} className="mx-auto mt-3 text-muted" aria-hidden />
+              {canSell ? (
+                <>
                   <p className="mx-auto mt-3 max-w-sm text-sm text-muted">
-                    {meta.name} is a special territory - tracking those isn&rsquo;t available on your account.
+                    {meta.name} is a special territory - tracking those is a Premium feature, separate from your 195-country limit.
                   </p>
-                )}
-              </>
-            ) : atCountryCap ? (
-              <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                {canSell ? (
-                  <>
-                    You&rsquo;ve reached the free plan&rsquo;s {countryCap}-country limit.{" "}
-                    <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
-                      Upgrade to Premium
-                    </Link>{" "}
-                    to keep adding countries.
-                  </>
-                ) : (
-                  <>You&rsquo;ve reached your {countryCap}-country limit.</>
-                )}
-              </p>
-            ) : (
-              <>
-                <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                  Add your first trip - photos and a soundtrack live with it, right after.
+                  <Link href="/settings/billing" className="btn-accent mt-5">Upgrade to Premium</Link>
+                </>
+              ) : (
+                <p className="mx-auto mt-3 max-w-sm text-sm text-muted">
+                  {meta.name} is a special territory - tracking those isn&rsquo;t available on your account.
                 </p>
-                <div className="mt-6">
-                  <AddCountryForm meta={meta} plan={plan} />
-                </div>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {meta.code === "US" && (plan === "premium" || canSell) && (
-              <div className="card flex flex-wrap items-center justify-between gap-4 border-accent/30 bg-accent-soft/40 px-5 py-4">
-                <div>
-                  <p className="flex items-center gap-1.5 text-sm font-medium">
-                    <MapPin size={15} className="text-accent" aria-hidden /> Track your US states too
-                  </p>
-                  <p className="mt-1 text-xs text-muted">
-                    See exactly which states you&rsquo;ve explored, on their own map alongside your world map.
-                  </p>
-                </div>
-                <Link href="/my-world/states" className="btn-accent shrink-0 !py-2 text-sm">
-                  <MapPin size={15} /> Add US States
-                </Link>
+              )}
+            </>
+          ) : atCountryCap ? (
+            <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+              {canSell ? (
+                <>
+                  You&rsquo;ve reached the free plan&rsquo;s {countryCap}-country limit.{" "}
+                  <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
+                    Upgrade to Premium
+                  </Link>{" "}
+                  to keep adding countries.
+                </>
+              ) : (
+                <>You&rsquo;ve reached your {countryCap}-country limit.</>
+              )}
+            </p>
+          ) : (
+            <>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+                Add your first trip - photos and a soundtrack live with it, right after.
+              </p>
+              <div className="mt-6">
+                <AddCountryForm meta={meta} plan={plan} />
               </div>
-            )}
-            <CountryEditor data={visited} meta={meta} plan={plan} />
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
