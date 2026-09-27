@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import Image from "next/image";
 import { CheckCircle2, Clock, Compass, Globe2, Ticket } from "lucide-react";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { GreetingHeader } from "@/components/GreetingHeader";
@@ -29,7 +28,8 @@ import { ArtistsOnTour, NearbyEventsRow } from "@/components/UpcomingShows";
 import { TogetherSection } from "@/components/TogetherSection";
 import { CountryBurstCard } from "@/components/CountryBurstCard";
 import { stockPhotoFor } from "@/lib/stockPhotos";
-import { artistsSeenLive, type NearbyWhere } from "@/lib/concerts";
+import { artistsSeenLive } from "@/lib/concerts";
+import { whereAmI } from "@/lib/location";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 
@@ -39,24 +39,6 @@ const PAGE_SIZE = 30;
 
 type RawMedia = FeedMediaItem & { displayOrder: number };
 
-// "Near you" = the approximate city Vercel works out from the connection
-// (no location permission, and it follows you when you travel), rounded
-// before it leaves us; otherwise the home country from the profile.
-function whereNearby(homeCountry: string | null): { where: NearbyWhere; place: string } | null {
-  const h = headers();
-  const lat = Number(h.get("x-vercel-ip-latitude"));
-  const lng = Number(h.get("x-vercel-ip-longitude"));
-  let city = "";
-  try {
-    city = decodeURIComponent(h.get("x-vercel-ip-city") ?? "").trim();
-  } catch {}
-  if (h.get("x-vercel-ip-latitude") && Number.isFinite(lat) && Number.isFinite(lng)) {
-    const country = countryByCode(h.get("x-vercel-ip-country"));
-    return { where: { lat, lng }, place: city || country?.name || "you" };
-  }
-  const home = countryByCode(homeCountry);
-  return home ? { where: { countryCode: home.code }, place: home.name } : null;
-}
 
 export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string } }) {
   const supabase = createClient();
@@ -119,7 +101,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const then = picked ? await loadThenMemory(supabase, picked, now) : null;
 
   const liveArtists = artistsSeenLive(ownEventsRaw ?? []);
-  const nearby = whereNearby(viewerProfile?.home_country_code ?? null);
+  const nearby = whereAmI(viewerProfile?.home_country_code ?? null);
 
   const next = buildNextSuggestions(
     (followeeCountryRows ?? []).map((r) => r.country_code),
