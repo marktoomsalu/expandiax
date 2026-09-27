@@ -7,7 +7,7 @@ export type TogetherData = {
   shared: Shared[];
   prompts: Prompt[];
   people: Record<string, TogetherPerson>;
-  covers: Record<string, string>; // event id → cover photo
+  covers: Record<string, string>; // event id → that person's own cover photo (never a stand-in)
 };
 
 type Supabase = ReturnType<typeof createClient>;
@@ -66,8 +66,7 @@ export async function loadTogether(supabase: Supabase, userId: string, followeeI
     for (const e of events) {
       const own = (media ?? []).filter((m) => m.event_id === e.id);
       const cover = own.find((m) => m.id === e.cover_media_id) ?? own[0];
-      const url = cover?.public_url ?? e.spotify_artist_image;
-      if (url) covers[e.id] = url;
+      if (cover?.public_url) covers[e.id] = cover.public_url;
     }
   }
 

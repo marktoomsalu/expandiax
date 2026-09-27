@@ -90,8 +90,13 @@ export function SharedCard({
     const [a, b] = flagGradientColors(item.countryCode);
     const body = (
       <>
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-3xl" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>
-          <span aria-hidden>{country?.flag}</span>
+        <span className="relative shrink-0">
+          <span className="flex h-14 w-14 items-center justify-center rounded-xl text-3xl" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>
+            <span aria-hidden>{country?.flag}</span>
+          </span>
+          <span className="absolute -bottom-2 -right-3">
+            <AvatarPair me={me} person={person} size={24} />
+          </span>
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm">
@@ -100,7 +105,6 @@ export function SharedCard({
           <span className="block truncate font-serif text-lg">{country?.name ?? item.countryCode}</span>
           <span className="block text-xs text-muted">{formatOverlap(item.from, item.to)}</span>
         </span>
-        <AvatarPair me={me} person={person} />
       </>
     );
     return variant === "feed" ? (
@@ -141,13 +145,33 @@ export function SharedCard({
     </span>
   );
 
+  // Two photos side by side only when you've both added your own — otherwise
+  // one image (a photo either of you added, else the artist) and your faces.
+  const both = !!covers[theirs.id] && !!covers[mine.id];
+  const single = covers[theirs.id] ?? covers[mine.id] ?? theirs.spotify_artist_image ?? mine.spotify_artist_image ?? undefined;
+
   if (variant === "feed") {
     return (
-      <Link href={`/together#event-${theirs.id}`} className="card flex items-center gap-3.5 p-3.5 transition-shadow hover:shadow-md">
-        <span className="grid w-24 shrink-0 grid-cols-2 gap-1">
-          <Tile url={covers[theirs.id]} gradient={gradient} tall />
-          <Tile url={covers[mine.id]} gradient={gradient} tall />
-        </span>
+      <Link href={`/together#event-${theirs.id}`} className="card flex items-center gap-4 p-3.5 transition-shadow hover:shadow-md">
+        {both ? (
+          <span className="grid w-24 shrink-0 grid-cols-2 gap-1">
+            <Tile url={covers[theirs.id]} gradient={gradient} tall />
+            <Tile url={covers[mine.id]} gradient={gradient} tall />
+          </span>
+        ) : (
+          <span className="relative w-14 shrink-0">
+            <span className="relative block h-14 w-14 overflow-hidden rounded-xl bg-raised">
+              {single ? (
+                <Image src={single} alt="" fill sizes="56px" className="object-cover" />
+              ) : (
+                <span className="block h-full w-full" style={{ background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` }} />
+              )}
+            </span>
+            <span className="absolute -bottom-2 -right-3">
+              <AvatarPair me={me} person={person} size={24} />
+            </span>
+          </span>
+        )}
         {text}
       </Link>
     );
@@ -156,14 +180,34 @@ export function SharedCard({
   return (
     <div id={`event-${theirs.id}`} className="card scroll-mt-24 p-4">
       <div className="flex items-start gap-3">{text}</div>
-      <div className="mt-3 grid grid-cols-2 gap-2.5">
-        <Link href={`/u/${person.username}/events/${theirs.id}`} className="group block">
-          <Tile url={covers[theirs.id]} label={`${first}’s memory`} gradient={gradient} />
-        </Link>
-        <Link href={`/u/${me.username}/events/${mine.id}`} className="group block">
-          <Tile url={covers[mine.id]} label="Your memory" gradient={gradient} />
-        </Link>
-      </div>
+      {both ? (
+        <div className="mt-3 grid grid-cols-2 gap-2.5">
+          <Link href={`/u/${person.username}/events/${theirs.id}`} className="group block">
+            <Tile url={covers[theirs.id]} label={`${first}’s memory`} gradient={gradient} />
+          </Link>
+          <Link href={`/u/${me.username}/events/${mine.id}`} className="group block">
+            <Tile url={covers[mine.id]} label="Your memory" gradient={gradient} />
+          </Link>
+        </div>
+      ) : (
+        <>
+          <span className="relative mt-3 block aspect-[16/9] w-full overflow-hidden rounded-lg bg-raised">
+            {single ? (
+              <Image src={single} alt="" fill sizes="(max-width: 640px) 90vw, 600px" className="object-cover" />
+            ) : (
+              <span className="block h-full w-full" style={{ background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` }} />
+            )}
+          </span>
+          <div className="mt-3 flex gap-2 text-xs">
+            <Link href={`/u/${person.username}/events/${theirs.id}`} className="btn-ghost !px-3 !py-1.5">
+              {first}&rsquo;s memory
+            </Link>
+            <Link href={`/u/${me.username}/events/${mine.id}`} className="btn-ghost !px-3 !py-1.5">
+              Your memory
+            </Link>
+          </div>
+        </>
+      )}
     </div>
   );
 }
