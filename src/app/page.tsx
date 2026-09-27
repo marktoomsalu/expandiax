@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Camera, Check, Globe2, Sparkles, Ticket } from "lucide-react";
 import { WorldMap } from "@/components/WorldMap";
 import { FadeIn } from "@/components/FadeIn";
+import { HeroFilm } from "@/components/film/HeroFilm";
 import { RatingStars } from "@/components/Rating";
 import { COUNTRIES, TOTAL_COUNTRIES, countryByCode } from "@/lib/countries";
 import type { StockPhoto } from "@/lib/stockPhotos";
@@ -65,26 +66,31 @@ export default function LandingPage() {
           className="gradient-travel pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[64rem] -translate-x-1/2 rounded-full opacity-[0.16] blur-3xl dark:opacity-[0.22]"
         />
         <div className="relative mx-auto max-w-shell px-5 pb-10 pt-16 md:pt-24">
-          <FadeIn className="text-center">
-            <p className="eyebrow">ExpandiaX</p>
-            <h1 className="mx-auto mt-4 max-w-3xl text-5xl leading-[1.02] md:text-7xl">
-              Your world, <span className="italic text-accent">remembered.</span>
-            </h1>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted">
-              Track the countries you have explored, preserve the moments that mattered and build a
-              visual archive of every event that made you feel alive.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-              <Link href="/start" className="btn-accent !px-10 !py-4 !text-lg font-semibold shadow-lg shadow-accent/25">
-                Start my world
-              </Link>
-              <Link href="/explore" className="btn-ghost !px-7 !py-3">Explore travellers</Link>
-            </div>
-            <p className="mt-4 text-sm text-muted">
-              Already have an account?{" "}
-              <Link href="/sign-in" className="text-accent underline-offset-4 hover:underline">Sign in</Link>
-            </p>
-          </FadeIn>
+          <div className="grid items-center gap-12 lg:grid-cols-[1fr_auto] lg:gap-16">
+            <FadeIn className="text-center lg:text-left">
+              <p className="eyebrow">ExpandiaX</p>
+              <h1 className="mx-auto mt-4 max-w-3xl text-5xl lg:mx-0 leading-[1.02] md:text-7xl">
+                Your world, <span className="italic text-accent">remembered.</span>
+              </h1>
+              <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted lg:mx-0">
+                Track the countries you have explored, preserve the moments that mattered and build a
+                visual archive of every event that made you feel alive.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
+                <Link href="/start" className="btn-accent !px-10 !py-4 !text-lg font-semibold shadow-lg shadow-accent/25">
+                  Start my world
+                </Link>
+                <Link href="/explore" className="btn-ghost !px-7 !py-3">Explore travellers</Link>
+              </div>
+              <p className="mt-4 text-sm text-muted">
+                Already have an account?{" "}
+                <Link href="/sign-in" className="text-accent underline-offset-4 hover:underline">Sign in</Link>
+              </p>
+            </FadeIn>
+            <FadeIn delay={0.1}>
+              <HeroFilm />
+            </FadeIn>
+          </div>
 
           <FadeIn delay={0.15} className="mt-14">
             <div className="overflow-hidden rounded-card border border-line bg-surface p-2 shadow-sm sm:p-5">

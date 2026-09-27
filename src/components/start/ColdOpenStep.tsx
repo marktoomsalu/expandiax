@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { WelcomeFilm, welcomeFilmSeen } from "@/components/film/WelcomeFilm";
+import { useAutoplayOk } from "@/components/film/useAutoplayOk";
 
 const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), {
   ssr: false,
@@ -15,19 +18,30 @@ const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").the
 // it above the copy, rather than trying to force it into a full-bleed
 // absolute background, works with that model instead of fighting it.
 export function ColdOpenStep({ onStart }: { onStart: () => void }) {
+  // The launch film plays first, once per device — never for reduced
+  // motion or data saving.
+  const autoplay = useAutoplayOk();
+  const [film, setFilm] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (autoplay !== null) setFilm(autoplay && !welcomeFilmSeen());
+  }, [autoplay]);
+
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-brand-purple px-6 pt-[env(safe-area-inset-top)] text-center text-white">
-      <div className="w-full max-w-xl opacity-90">
-        <WorldGlobeInner visitedCodes={[]} interactive={false} autoRotate />
+    <>
+      {film && <WelcomeFilm onDone={() => setFilm(false)} />}
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-brand-purple px-6 pt-[env(safe-area-inset-top)] text-center text-white">
+        <div className="w-full max-w-xl opacity-90">
+          <WorldGlobeInner visitedCodes={[]} interactive={false} autoRotate />
+        </div>
+        <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} priority className="mt-4 h-8 w-auto" />
+        <p className="mt-6 font-serif text-2xl leading-snug sm:text-3xl">Your world, remembered.</p>
+        <button type="button" onClick={onStart} className="btn-accent mt-10 px-8">
+          Start my world
+        </button>
+        <Link href="/sign-in" className="mt-5 pb-8 text-sm text-white/60 hover:text-white">
+          I already have an account
+        </Link>
       </div>
-      <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} priority className="mt-4 h-8 w-auto" />
-      <p className="mt-6 font-serif text-2xl leading-snug sm:text-3xl">Your world, remembered.</p>
-      <button type="button" onClick={onStart} className="btn-accent mt-10 px-8">
-        Start my world
-      </button>
-      <Link href="/sign-in" className="mt-5 pb-8 text-sm text-white/60 hover:text-white">
-        I already have an account
-      </Link>
-    </div>
+    </>
   );
 }
