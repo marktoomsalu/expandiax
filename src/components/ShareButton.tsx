@@ -87,7 +87,7 @@ export function ShareButton({ kind, targetId, title, className, compact = false 
     return (
       <div>
         <button type="button" onClick={canNativeShare ? share : downloadImage} disabled={busy} className={cn(btnClass, className)}>
-          <Share2 size={18} />
+          <Share2 size={16} />
           {busy ? "Preparing…" : "Share"}
         </button>
         {error && <p role="alert" className="mt-1.5 text-xs text-red-300">{error}</p>}

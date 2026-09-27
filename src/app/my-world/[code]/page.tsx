@@ -8,7 +8,8 @@ import { territoryByCode, territoryToMeta } from "@/lib/territories";
 import { CountryEditor, AddCountryForm, type TripView } from "@/components/CountryEditor";
 import { CountryHero } from "@/components/CountryHero";
 import { stockPhotoFor } from "@/lib/stockPhotos";
-import { formatVisitRange, visitSortKey } from "@/lib/utils";
+import { visitSortKey } from "@/lib/utils";
+import { tripTitle } from "@/lib/tripTitle";
 import { COUNTRY_CAP } from "@/lib/plan";
 import type { Plan, VisitedCountryFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
@@ -64,9 +65,11 @@ export default async function ManageCountryPage({ params }: { params: { code: st
       const media = visited.country_media.filter((m) => m.country_visit_id === v.id);
       const cover = tripCover(v.id, v.cover_media_id);
       const cities = (visited.country_cities ?? []).filter((c) => c.country_visit_id === v.id).map((c) => c.city_name);
+      const { headline, days } = tripTitle(v);
       return {
         id: v.id,
-        title: formatVisitRange(v),
+        title: headline,
+        days,
         subtitle: cities.length ? listCities(cities) : v.highlight.trim() || null,
         photos: media.filter((m) => m.media_type === "image").length,
         videos: media.filter((m) => m.media_type === "video").length,

@@ -11,7 +11,7 @@ import { VisitEditor } from "@/components/VisitEditor";
 import { MediaUploader } from "@/components/MediaUploader";
 import { ShareButton } from "@/components/ShareButton";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
-import { formatVisitRange } from "@/lib/utils";
+import { tripTitle } from "@/lib/tripTitle";
 import type { CountryCity, CountryMedia, CountryVisit, Plan } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 
@@ -57,6 +57,7 @@ export default async function VisitPage({
   const photos = images.length;
   const videos = visit.country_media.length - photos;
   const cities = visit.country_cities.map((c) => c.city_name);
+  const title = tripTitle(visit);
 
   return (
     <div>
@@ -85,8 +86,9 @@ export default async function VisitPage({
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-white/75">
             {meta.flag} {meta.name} · Trip
           </p>
-          <h1 className="mt-2 font-serif text-5xl leading-none drop-shadow-md">{formatVisitRange(visit)}</h1>
-          {cities.length > 0 && <p className="mt-2 truncate text-lg text-white/85">{cities.join(", ")}</p>}
+          {title.days && <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75">{title.days}</p>}
+          <h1 className={`${title.days ? "mt-1" : "mt-2"} font-serif text-4xl leading-none drop-shadow-md`}>{title.headline}</h1>
+          {cities.length > 0 && <p className="mt-2 truncate text-base text-white/85">{cities.join(", ")}</p>}
           <p className="mt-3 flex items-center gap-3 text-sm text-white/80">
             <span className="inline-flex items-center gap-1.5">
               <ImageIcon size={16} aria-hidden /> {photos} {photos === 1 ? "photo" : "photos"}

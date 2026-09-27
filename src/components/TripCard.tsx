@@ -16,6 +16,7 @@ export function TripCard({
   mediaPaths,
   href,
   title,
+  days,
   subtitle,
   photos,
   videos,
@@ -28,6 +29,7 @@ export function TripCard({
   mediaPaths: string[];
   href: string;
   title: string;
+  days: string | null;
   subtitle: string | null;
   photos: number;
   videos: number;
@@ -62,7 +64,7 @@ export function TripCard({
 
   const empty = photos === 0 && videos === 0;
   return (
-    <div className="group relative h-48 overflow-hidden rounded-2xl bg-[#14110d] shadow-lg ring-1 ring-black/5 sm:h-56">
+    <div className="group relative h-44 overflow-hidden rounded-2xl bg-[#14110d] shadow-lg ring-1 ring-black/5 sm:h-52">
       {photo ? (
         <Image src={photo} alt="" fill priority={priority} sizes="(min-width: 768px) 720px, 100vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
       ) : stock ? (
@@ -73,45 +75,46 @@ export function TripCard({
 
       <Link href={href} className="absolute inset-0" aria-label={`Open the trip: ${title}`} />
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 p-5 pr-20 text-white">
-        <p className="font-serif text-3xl leading-tight drop-shadow sm:text-4xl">{title}</p>
-        <p className="mt-1 truncate text-base text-white/85">{subtitle ?? (empty ? "Add your memories" : "")}</p>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4 pr-16 text-white sm:p-5 sm:pr-20">
+        {days && <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75">{days}</p>}
+        <p className="font-serif text-[26px] leading-tight drop-shadow sm:text-3xl">{title}</p>
+        <p className="mt-0.5 truncate text-sm text-white/85">{subtitle ?? (empty ? "Add your memories" : "")}</p>
         {!empty && (
-          <p className="mt-3 flex items-center gap-3 text-sm text-white/85">
+          <p className="mt-2.5 flex items-center gap-2.5 text-xs text-white/85 sm:text-sm">
             <span className="inline-flex items-center gap-1.5">
-              <ImageIcon size={16} aria-hidden /> {photos} {photos === 1 ? "photo" : "photos"}
+              <ImageIcon size={14} aria-hidden /> {photos} {photos === 1 ? "photo" : "photos"}
             </span>
             {videos > 0 && (
               <>
                 <span aria-hidden>·</span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Video size={16} aria-hidden /> {videos} {videos === 1 ? "video" : "videos"}
+                  <Video size={14} aria-hidden /> {videos} {videos === 1 ? "video" : "videos"}
                 </span>
               </>
             )}
             {hasSoundtrack && (
               <>
                 <span aria-hidden>·</span>
-                <Music2 size={15} aria-label="Has a soundtrack" />
+                <Music2 size={13} aria-label="Has a soundtrack" />
               </>
             )}
           </p>
         )}
       </div>
 
-      <span className="pointer-events-none absolute bottom-5 right-5 flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white ring-1 ring-white/25 backdrop-blur transition-colors group-hover:bg-accent">
-        <ChevronRight size={20} aria-hidden />
+      <span className="pointer-events-none absolute bottom-4 right-4 flex h-9 w-9 sm:bottom-5 sm:right-5 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-black/45 text-white ring-1 ring-white/25 backdrop-blur transition-colors group-hover:bg-accent">
+        <ChevronRight size={18} aria-hidden />
       </span>
 
-      <div ref={menuRef} className="absolute right-4 top-4">
+      <div ref={menuRef} className="absolute right-3 top-3 sm:right-4 sm:top-4">
         <button
           type="button"
           onClick={() => setMenu((m) => !m)}
           aria-label={`More for ${title}`}
           aria-expanded={menu}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-black/45 text-white ring-1 ring-white/20 backdrop-blur hover:bg-black/60"
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-black/45 text-white ring-1 ring-white/20 backdrop-blur hover:bg-black/60"
         >
-          <MoreHorizontal size={20} />
+          <MoreHorizontal size={18} />
         </button>
         {menu && (
           <div className="absolute right-0 top-12 z-10 w-44 overflow-hidden rounded-xl border border-line bg-surface py-1 text-sm shadow-xl">
@@ -134,7 +137,7 @@ export function TripCard({
 
       <ConfirmDialog
         open={confirm}
-        title={`Remove ${title}?`}
+        title={`Remove the ${days ?? title} trip?`}
         body="This trip's photos, cities and notes will be deleted from your archive. This cannot be undone."
         confirmLabel="Remove trip"
         busy={removing}

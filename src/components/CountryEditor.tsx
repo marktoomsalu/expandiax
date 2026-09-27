@@ -252,6 +252,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
 export type TripView = {
   id: string;
   title: string;
+  days: string | null;
   subtitle: string | null;
   photos: number;
   videos: number;
@@ -388,9 +389,9 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
       {/* Trips — each carries its own photos, soundtrack and memory */}
       <section aria-labelledby="trips-h">
         <div className="flex items-center justify-between gap-4">
-          <h2 id="trips-h" className="font-serif text-3xl">Your trips</h2>
-          <button type="button" onClick={openAddTrip} className="inline-flex items-center gap-1.5 text-base font-medium text-accent hover:underline">
-            <Plus size={18} aria-hidden /> Add trip
+          <h2 id="trips-h" className="font-serif text-2xl">Your trips</h2>
+          <button type="button" onClick={openAddTrip} className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
+            <Plus size={16} aria-hidden /> Add trip
           </button>
         </div>
 
@@ -403,6 +404,7 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
                   mediaPaths={t.mediaPaths}
                   href={`/my-world/${meta.code.toLowerCase()}/visits/${t.id}`}
                   title={t.title}
+                  days={t.days}
                   subtitle={t.subtitle}
                   photos={t.photos}
                   videos={t.videos}
@@ -420,14 +422,14 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
           <button
             type="button"
             onClick={openAddTrip}
-            className="mt-4 flex w-full items-center gap-4 rounded-2xl border border-dashed border-line px-5 py-5 text-left transition-colors hover:border-accent"
+            className="mt-4 flex w-full items-center gap-3.5 rounded-2xl border border-dashed border-line px-4 py-4 text-left transition-colors hover:border-accent"
           >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-accent/50 text-accent">
-              <Plus size={20} aria-hidden />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/50 text-accent">
+              <Plus size={18} aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block font-medium">Plan another trip to {meta.name}?</span>
-              <span className="block text-sm text-muted">Add a new trip and keep your memories together.</span>
+              <span className="block text-sm font-medium">Plan another trip to {meta.name}?</span>
+              <span className="block text-xs text-muted">Add a new trip and keep your memories together.</span>
             </span>
             <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
           </button>
@@ -506,7 +508,7 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
 
       {/* Who sees it, and the way out */}
       <section aria-labelledby="settings-h" className="card px-5 py-5">
-        <h2 id="settings-h" className="font-serif text-xl">{meta.name} settings</h2>
+        <h2 id="settings-h" className="font-serif text-lg">{meta.name} settings</h2>
         <div className="mt-4 space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
