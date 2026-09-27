@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { findTogether, tripRange, type Prompt, type Shared, type TogetherEvent, type TogetherTrip } from "@/lib/together";
 import type { DatePrecision } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 export type TogetherPerson = { id: string; username: string; display_name: string; avatar_url: string | null };
 export type TogetherData = {
@@ -57,12 +58,12 @@ export async function loadTogether(supabase: Supabase, userId: string, followeeI
   const events = shared.flatMap((s) => (s.kind === "event" ? [s.mine, s.theirs] : [])) as EventRow[];
   const covers: Record<string, string> = {};
   if (events.length) {
-    const { data: media } = await supabase
+    const { data: media } = await signMedia(await supabase
       .from("event_media")
       .select("id, event_id, public_url, media_type, display_order")
       .in("event_id", events.map((e) => e.id))
       .eq("media_type", "image")
-      .order("display_order", { ascending: true });
+      .order("display_order", { ascending: true }));
     for (const e of events) {
       const own = (media ?? []).filter((m) => m.event_id === e.id);
       const cover = own.find((m) => m.id === e.cover_media_id) ?? own[0];

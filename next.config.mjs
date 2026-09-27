@@ -5,6 +5,8 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co", pathname: "/storage/v1/object/public/**" },
+      // Memories are private: pages get short-lived signed links (src/lib/signedMedia.ts).
+      { protocol: "https", hostname: "**.supabase.co", pathname: "/storage/v1/object/sign/**" },
       { protocol: "https", hostname: "picsum.photos" },
       { protocol: "https", hostname: "i.scdn.co" },
       { protocol: "https", hostname: "**.mzstatic.com" },

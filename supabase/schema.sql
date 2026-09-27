@@ -711,12 +711,35 @@ create policy "event media delete" on public.event_media for delete
   using (public.owns_event(event_id));
 
 -- ---------- Storage ----------
--- One public bucket. Every object lives under <user_id>/... so ownership
--- is enforced by matching the first folder to auth.uid().
+-- "media" holds memories (photos and videos) and is private: the app hands
+-- out short-lived signed links, only for files the viewer may see
+-- (src/lib/signedMedia.ts). "avatars" holds profile photos and is public.
+-- Every object lives under <user_id>/... so ownership is enforced by
+-- matching the first folder to auth.uid().
 
 insert into storage.buckets (id, name, public, file_size_limit)
-values ('media', 'media', true, 314572800) -- 300 MB hard cap per object
+values ('media', 'media', false, 314572800) -- 300 MB hard cap per object
 on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do nothing;
+
+create policy "users upload their own avatar"
+  on storage.objects for insert
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "users update their own avatar"
+  on storage.objects for update
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "users delete their own avatar"
+  on storage.objects for delete
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "owners list their own avatars"
+  on storage.objects for select
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- Files are viewable by their public links, but only owners can list a
 -- folder — otherwise anyone could enumerate private accounts' photos

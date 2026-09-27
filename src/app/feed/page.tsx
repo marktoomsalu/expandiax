@@ -32,6 +32,7 @@ import { artistsSeenLive } from "@/lib/concerts";
 import { whereAmI } from "@/lib/location";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 export const metadata = { title: "Feed" };
 
@@ -116,12 +117,12 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const mediaByKey = new Map<string, RawMedia[]>();
 
   if (followeeIds.length > 0) {
-    const { data: feedData } = await supabase
+    const { data: feedData } = await signMedia(await supabase
       .from("feed_events")
       .select("*")
       .in("actor_id", followeeIds)
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .limit(limit));
     items = (feedData ?? []) as FeedEvent[];
 
     if (items.length > 0) {
@@ -143,7 +144,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         eventRefIds.length
           ? supabase.from("event_media").select("id, event_id, public_url, media_type, display_order, caption, focal_x, focal_y").in("event_id", eventRefIds)
           : Promise.resolve({ data: [] as { id: string; event_id: string; public_url: string; media_type: "image" | "video"; display_order: number; caption: string; focal_x: number | null; focal_y: number | null }[] }),
-      ]);
+      ]).then((r) => signMedia(r));
       actors = new Map((profiles ?? []).map((p) => [p.id, p]));
       for (const row of likeRows ?? []) likedByMe.add(`${row.kind}:${row.target_id}`);
       for (const row of (commentRows ?? []) as CommentWithAuthor[]) {

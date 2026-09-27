@@ -5,6 +5,7 @@ import { formatDate, formatVisitRange } from "@/lib/utils";
 import type { ResurfacedMemory } from "@/lib/feedSections";
 import type { ThenMemory, ThenPhoto } from "@/components/ThenCard";
 import type { DatePrecision, EventType } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 type MediaRow = { id: string; public_url: string; media_type: "image" | "video"; display_order: number; focal_x: number | null; focal_y: number | null };
 
@@ -29,13 +30,13 @@ export async function loadThenMemory(supabase: ReturnType<typeof createClient>, 
   const eyebrow = (date: Date | null) => (picked.isAnniversary ? picked.subtitle : date ? `One to remember · ${agoLabel(date, now)}` : "One to remember");
 
   if (picked.kind === "event") {
-    const { data } = await supabase
+    const { data } = await signMedia(await supabase
       .from("events")
       .select(
         "title, event_type, event_date, venue, city, country_code, country_name, review, highlight, spotify_artist_image, cover_media_id, event_media!event_media_event_id_fkey(id, public_url, media_type, display_order, focal_x, focal_y)"
       )
       .eq("id", picked.id)
-      .maybeSingle();
+      .maybeSingle());
     if (!data) return null;
     const e = data as unknown as {
       title: string;
@@ -67,13 +68,13 @@ export async function loadThenMemory(supabase: ReturnType<typeof createClient>, 
     };
   }
 
-  const { data } = await supabase
+  const { data } = await signMedia(await supabase
     .from("visited_countries")
     .select(
       "country_code, country_name, cover_media_id, country_media!country_media_visited_country_id_fkey(id, public_url, media_type, display_order, focal_x, focal_y), country_visits(year, visited_from, visited_to, date_precision, highlight)"
     )
     .eq("id", picked.id)
-    .maybeSingle();
+    .maybeSingle());
   if (!data) return null;
   const c = data as unknown as {
     country_code: string;

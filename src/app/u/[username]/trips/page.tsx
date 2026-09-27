@@ -6,6 +6,7 @@ import { countryByCode } from "@/lib/countries";
 import { formatVisitRange, visitSortKey } from "@/lib/utils";
 import { focalPosition } from "@/lib/media";
 import type { CountryMedia, CountryVisit, VisitedCountry } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 export const metadata = { title: "Trips" };
 
@@ -41,10 +42,10 @@ export default async function AllTripsPage({
 
   const limit = Math.min(Math.max(Number(searchParams?.limit) || PAGE_SIZE, PAGE_SIZE), 300);
 
-  const { data } = await supabase
+  const { data } = await signMedia(await supabase
     .from("visited_countries")
     .select("country_code, country_name, cover_media_id, country_media!country_media_visited_country_id_fkey(*), country_visits(id, year, visited_from, visited_to, date_precision, highlight)")
-    .eq("user_id", profile.id);
+    .eq("user_id", profile.id));
 
   const countries = (data ?? []) as CountryRow[];
   const allTrips: TripCard[] = countries

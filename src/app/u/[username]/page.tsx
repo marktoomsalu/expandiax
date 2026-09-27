@@ -23,6 +23,7 @@ import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@
 import { TOTAL_US_STATES } from "@/lib/usStates";
 import { visitSortKey, formatVisitRange } from "@/lib/utils";
 import type { CountryVisit, Event, EventMedia, CountryMedia, Profile, VisitedCountry, VisitedUSState } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight">;
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
@@ -117,7 +118,7 @@ export default async function PublicProfilePage({ params }: { params: { username
       viewer && !isOwnProfile
         ? supabase.from("follow_requests").select("requester_id").eq("requester_id", viewer.id).eq("target_id", profile.id).maybeSingle()
         : Promise.resolve({ data: null }),
-    ]);
+    ]).then((r) => signMedia(r));
 
   const isFollowing = !!followingRow;
   const followedBy = !!followedByRow;

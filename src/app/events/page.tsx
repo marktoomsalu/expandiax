@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { RatingStars } from "@/components/Rating";
 import { formatDate } from "@/lib/utils";
 import type { Event, EventMedia } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 export const metadata = { title: "Events" };
 
@@ -18,11 +19,11 @@ export default async function EventsPage() {
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const { data } = await supabase
+  const { data } = await signMedia(await supabase
     .from("events")
     .select("*, event_media!event_media_event_id_fkey(*)")
     .eq("user_id", user.id)
-    .order("event_date", { ascending: false });
+    .order("event_date", { ascending: false }));
 
   const events = (data ?? []) as Row[];
 

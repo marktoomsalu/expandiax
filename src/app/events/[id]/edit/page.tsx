@@ -6,6 +6,7 @@ import { EventForm } from "@/components/EventForm";
 import { DeleteEventButton } from "@/components/DeleteEventButton";
 import { dedupeRecentArtists } from "@/lib/events";
 import type { EventFull, Plan } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 export const metadata = { title: "Edit event" };
 
@@ -36,7 +37,7 @@ export default async function EditEventPage({
       .not("spotify_artist_id", "is", null)
       .order("event_date", { ascending: false })
       .limit(50),
-  ]);
+  ]).then((r) => signMedia(r));
 
   const event = data as EventFull | null;
   if (!event) notFound();

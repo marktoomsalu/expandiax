@@ -18,6 +18,7 @@ import { PhotoGallery } from "@/components/PhotoGallery";
 import { CommentSection } from "@/components/CommentSection";
 import { formatDate, formatVisitRange, visitSortKey } from "@/lib/utils";
 import type { CommentWithAuthor, Event, VisitedCountryFull } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 export async function generateMetadata({
   params,
@@ -56,7 +57,8 @@ export async function generateMetadata({
   return {
     title,
     description,
-    openGraph: { title, description, images: cover ? [cover.public_url] : undefined },
+    // Link previews are fetched by other apps later, so they get a longer-lived link (public pages only).
+    openGraph: { title, description, images: cover ? [await signMedia(cover.public_url, { lifetimeDays: 30 })] : undefined },
     twitter: { title, description },
   };
 }
@@ -102,7 +104,7 @@ export default async function PublicCountryPage({
       .eq("country_code", meta.code)
       .eq("is_public", true)
       .order("event_date", { ascending: false }),
-  ]);
+  ]).then((r) => signMedia(r));
 
   const country = data as VisitedCountryFull | null;
   if (!country) notFound();

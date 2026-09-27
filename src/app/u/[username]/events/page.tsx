@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { RatingStars } from "@/components/Rating";
 import { formatDate } from "@/lib/utils";
 import type { Event, EventMedia } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 export const metadata = { title: "Events" };
 
@@ -38,13 +39,13 @@ export default async function AllEventsPage({
 
   const limit = Math.min(Math.max(Number(searchParams?.limit) || PAGE_SIZE, PAGE_SIZE), 300);
 
-  const { data } = await supabase
+  const { data } = await signMedia(await supabase
     .from("events")
     .select("*, event_media!event_media_event_id_fkey(*)")
     .eq("user_id", profile.id)
     .eq("is_public", true)
     .order("event_date", { ascending: false })
-    .limit(limit);
+    .limit(limit));
 
   const events = (data ?? []) as EventRow[];
 

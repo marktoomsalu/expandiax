@@ -12,6 +12,7 @@ import { isTerritoryCode, TOTAL_TERRITORIES } from "@/lib/territories";
 import { visitSortKey } from "@/lib/utils";
 import { stockPhotoFor, type StockPhoto } from "@/lib/stockPhotos";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 export const metadata = { title: "My World" };
 
@@ -36,7 +37,7 @@ export default async function MyWorldPage() {
       .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to)")
       .eq("user_id", user.id),
     supabase.from("profiles").select("home_country_code").eq("id", user.id).single(),
-  ]);
+  ]).then((r) => signMedia(r));
 
   // Territories (Greenland, Gibraltar, etc.) live in this same table now —
   // codes/visitCounts stay unfiltered (so they show on the map and in "Your

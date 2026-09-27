@@ -5,6 +5,7 @@ import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
 import { countryPathD } from "@/lib/countryShape";
 import { flagGradientColors } from "@/lib/flagColors";
+import { signMedia } from "@/lib/signedMedia";
 
 const SIZE = { width: 1080, height: 1920 };
 const SHAPE_SIZE = 820;
@@ -230,13 +231,13 @@ export async function GET(_req: NextRequest, { params }: { params: { kind: strin
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   if (kind === "country") {
-    const { data } = await supabase
+    const { data } = await signMedia(await supabase
       .from("visited_countries")
       .select(
         "country_code, country_name, cover_media_id, user_id, country_media!country_media_visited_country_id_fkey(id, public_url, media_type, display_order), country_visits(year)"
       )
       .eq("id", id)
-      .maybeSingle();
+      .maybeSingle());
     if (!data) return new Response("Not found", { status: 404 });
     if (data.user_id !== user.id) return new Response("Forbidden", { status: 403 });
 
@@ -262,13 +263,13 @@ export async function GET(_req: NextRequest, { params }: { params: { kind: strin
     });
   }
 
-  const { data } = await supabase
+  const { data } = await signMedia(await supabase
     .from("events")
     .select(
       "title, subtitle, venue, city, country_code, country_name, event_type, cover_media_id, user_id, event_media!event_media_event_id_fkey(id, public_url, media_type, display_order)"
     )
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle());
   if (!data) return new Response("Not found", { status: 404 });
   if (data.user_id !== user.id) return new Response("Forbidden", { status: 403 });
 

@@ -18,6 +18,7 @@ import { ArtistUpcomingShows } from "@/components/UpcomingShows";
 import { formatDate } from "@/lib/utils";
 import { focalPosition } from "@/lib/media";
 import type { CommentWithAuthor, Event, EventFull } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 export async function generateMetadata({
   params,
@@ -49,7 +50,8 @@ export async function generateMetadata({
   return {
     title,
     description,
-    openGraph: { title, description, images: cover ? [cover.public_url] : undefined },
+    // Link previews are fetched by other apps later, so they get a longer-lived link (public pages only).
+    openGraph: { title, description, images: cover ? [await signMedia(cover.public_url, { lifetimeDays: 30 })] : undefined },
     twitter: { title, description },
   };
 }
@@ -67,12 +69,12 @@ export default async function PublicEventPage({
     .maybeSingle();
   if (!profile) notFound();
 
-  const { data } = await supabase
+  const { data } = await signMedia(await supabase
     .from("events")
     .select("*, event_media!event_media_event_id_fkey(*)")
     .eq("id", params.id)
     .eq("user_id", profile.id)
-    .maybeSingle();
+    .maybeSingle());
   const event = data as EventFull | null;
   if (!event) notFound();
 

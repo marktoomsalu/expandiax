@@ -64,13 +64,14 @@ export function ProfileForm({
   async function onAvatarCropped(blob: Blob) {
     setAvatarBusy(true);
     const path = `${profile.id}/avatar/${crypto.randomUUID()}.jpg`;
-    const { error: upErr } = await supabase.storage.from("media").upload(path, blob, { contentType: "image/jpeg" });
+    // Profile photos live in their own public bucket; memories stay private.
+    const { error: upErr } = await supabase.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg" });
     if (upErr) {
       setError("Could not upload the photo. Try again.");
       setAvatarBusy(false);
       return;
     }
-    const { data } = supabase.storage.from("media").getPublicUrl(path);
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     setAvatarUrl(data.publicUrl);
     setAvatarBusy(false);
     if (cropSrc) URL.revokeObjectURL(cropSrc);

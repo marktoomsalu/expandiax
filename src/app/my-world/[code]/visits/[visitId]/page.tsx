@@ -9,6 +9,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { formatVisitRange } from "@/lib/utils";
 import type { CountryCity, CountryMedia, CountryVisit, Plan } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 type VisitRow = CountryVisit & {
   visited_countries: { id: string; user_id: string; country_code: string };
@@ -41,7 +42,7 @@ export default async function VisitPage({
       .eq("visited_countries.country_code", meta.code)
       .maybeSingle(),
     supabase.from("profiles").select("plan").eq("id", user.id).single(),
-  ]);
+  ]).then((r) => signMedia(r));
 
   if (!data) notFound();
   const visit = data as VisitRow;

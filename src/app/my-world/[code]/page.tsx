@@ -13,6 +13,7 @@ import { stockPhotoFor } from "@/lib/stockPhotos";
 import { visitSortKey } from "@/lib/utils";
 import { COUNTRY_CAP } from "@/lib/plan";
 import type { Plan, VisitedCountryFull } from "@/lib/types";
+import { signMedia } from "@/lib/signedMedia";
 
 export default async function ManageCountryPage({ params }: { params: { code: string } }) {
   const country = countryByCode(params.code);
@@ -34,7 +35,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
       .eq("country_code", meta.code)
       .maybeSingle(),
     supabase.from("visited_countries").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-  ]);
+  ]).then((r) => signMedia(r));
 
   const visited = data as VisitedCountryFull | null;
   const plan = (profile?.plan ?? "free") as Plan;

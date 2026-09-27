@@ -11,14 +11,15 @@ import { ConfirmDialog } from "./ConfirmDialog";
 // and a fixed list of folder names would leave those behind on deletion.
 async function listUserFiles(
   supabase: ReturnType<typeof createClient>,
-  userId: string
+  userId: string,
+  bucket: "media" | "avatars" = "media"
 ): Promise<string[]> {
   const paths: string[] = [];
   async function walk(prefix: string, depth: number) {
     if (depth > 4) return;
     let offset = 0;
     for (;;) {
-      const { data: entries } = await supabase.storage.from("media").list(prefix, { limit: 1000, offset });
+      const { data: entries } = await supabase.storage.from(bucket).list(prefix, { limit: 1000, offset });
       if (!entries || entries.length === 0) return;
       for (const entry of entries) {
         if (entry.id === null) await walk(`${prefix}/${entry.name}`, depth + 1);
@@ -76,8 +77,20 @@ export function ExportDataButton({ userId }: { userId: string }) {
       setError("Could not prepare your export. Try again.");
       return;
     }
+    // Photos and videos are private, so the export carries a download link
+    // for each of your files, valid for 7 days.
+    const mediaPaths = [
+      ...(countries ?? []).flatMap((c) => (c.country_media ?? []).map((m: { storage_path: string }) => m.storage_path)),
+      ...(events ?? []).flatMap((e) => (e.event_media ?? []).map((m: { storage_path: string }) => m.storage_path)),
+    ];
+    const downloads: { file: string; download_url: string }[] = [];
+    for (let i = 0; i < mediaPaths.length; i += 100) {
+      const { data: signed } = await supabase.storage.from("media").createSignedUrls(mediaPaths.slice(i, i + 100), 7 * 86_400);
+      for (const d of signed ?? []) if (d.path && d.signedUrl) downloads.push({ file: d.path, download_url: d.signedUrl });
+    }
     const payload = {
       exported_at: new Date().toISOString(),
+      photo_and_video_downloads_valid_7_days: downloads,
       profile,
       countries,
       events,
@@ -145,6 +158,8 @@ export function DeleteAccountButton({ userId, subscription = null }: { userId: s
     }
     const paths = await listUserFiles(supabase, userId);
     if (paths.length) await supabase.storage.from("media").remove(paths);
+    const avatarPaths = await listUserFiles(supabase, userId, "avatars");
+    if (avatarPaths.length) await supabase.storage.from("avatars").remove(avatarPaths);
     const { error: err } = await supabase.rpc("delete_own_account");
     if (err) {
       setError("Could not delete your account. Try again, or contact support.");
