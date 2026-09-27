@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
+import { isNativePlatform } from "@/lib/capacitor";
 
 // v2: earlier builds wrongly marked the film as seen when a phone blocked autoplay.
 const SEEN_KEY = "expandiax:welcome-film-seen-v2";
@@ -23,8 +24,26 @@ export function welcomeFilmSeen(): boolean {
  */
 export function WelcomeFilm({ onDone }: { onDone: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
-  // Vertical on a phone held upright, wide on computers. Rendered only in the browser.
-  const [tall] = useState(() => window.matchMedia("(orientation: portrait)").matches);
+  // The version that fits the screen: iPhone-shaped (9:19.5) on iPhone X and
+  // newer, 9:16 on shorter phones like the SE, wide on computers and sideways
+  // tablets — so nothing gets cropped. In the app it's the welcome film
+  // (they've already downloaded it — show what they can do); on the website,
+  // the launch film. Rendered only in the browser.
+  const [film] = useState(() => {
+    const shape = window.innerHeight / window.innerWidth;
+    const native = isNativePlatform();
+    if (shape >= 1.9)
+      return native
+        ? { src: "/film/expandiax-welcome-tall.mp4", poster: "/film/poster-welcome-tall.jpg" }
+        : { src: "/film/expandiax-15s.mp4", poster: "/film/poster-15s.jpg" };
+    if (shape >= 1.2)
+      return native
+        ? { src: "/film/expandiax-welcome.mp4", poster: "/film/poster-welcome.jpg" }
+        : { src: "/film/expandiax-15s.mp4", poster: "/film/poster-15s.jpg" };
+    return native
+      ? { src: "/film/expandiax-welcome-wide.mp4", poster: "/film/poster-welcome-wide.jpg" }
+      : { src: "/film/expandiax-wide-15s.mp4", poster: "/film/poster-wide.jpg" };
+  });
   const [muted, setMuted] = useState(true);
   const [leaving, setLeaving] = useState(false);
 
@@ -58,8 +77,8 @@ export function WelcomeFilm({ onDone }: { onDone: () => void }) {
     >
       <video
         ref={video}
-        src={tall ? "/film/expandiax-15s.mp4" : "/film/expandiax-wide-15s.mp4"}
-        poster={tall ? "/film/poster-15s.jpg" : "/film/poster-wide.jpg"}
+        src={film.src}
+        poster={film.poster}
         muted={muted}
         playsInline
         autoPlay
@@ -71,7 +90,8 @@ export function WelcomeFilm({ onDone }: { onDone: () => void }) {
         onError={() => close(false)}
         className="absolute inset-0 h-full w-full object-cover"
       />
-      <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      {/* At the bottom, clear of the notch and of every scene's text. */}
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
           onClick={() => {
