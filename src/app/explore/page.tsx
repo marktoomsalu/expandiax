@@ -7,6 +7,7 @@ import { RatingStars } from "@/components/Rating";
 import { FollowButton } from "@/components/FollowButton";
 import { EventCarousel } from "@/components/EventCarousel";
 import { ExploreCity } from "@/components/ExploreCity";
+import { ExploreTeaser } from "@/components/ExploreTeaser";
 import { StockImage } from "@/components/StockImage";
 import { COUNTRIES, countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
@@ -143,6 +144,13 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
   const { data: me } = viewer ? await supabase.from("profiles").select("home_country_code").eq("id", viewer.id).single() : { data: null };
   const here = whereAmI(me?.home_country_code ?? null, searchParams);
   const picked = here?.source === "picked";
+
+  // Explore is for members. Visitors see what's inside — real artists and
+  // places, but never real people — and how to get in.
+  if (!viewer) {
+    const preview = await loadExplore(supabase, null, null);
+    return <ExploreTeaser trending={preview.trending} places={preview.places} place={here?.source === "connection" ? here.city : null} />;
+  }
 
   const [data, { data: recentEvents }, { data: newest }, { data: countRows }, { data: followRows }] = await Promise.all([
     loadExplore(supabase, viewer?.id ?? null, here),

@@ -11,6 +11,7 @@ import { LIVE_TYPES } from "@/lib/exploreData";
 import { IWasThereButton } from "@/components/IWasThereButton";
 import { ArtistUpcomingShows } from "@/components/UpcomingShows";
 import { formatDate } from "@/lib/utils";
+import { MembersOnly } from "@/components/MembersOnly";
 
 type Row = LiveRow & {
   venue: string;
@@ -132,9 +133,12 @@ export default async function LiveHubPage({ params }: { params: { slug: string }
                   )}
                   {mine && <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent">You were there</span>}
                 </div>
-                <ul className="mt-3 flex flex-wrap gap-2">
-                  {group.map((r) =>
-                    r.profiles ? (
+                {!viewer ? (
+                  <MembersOnly count={new Set(group.map((r) => r.user_id)).size} next={`/explore/live/${params.slug}`} />
+                ) : (
+                  <ul className="mt-3 flex flex-wrap gap-2">
+                    {group.map((r) =>
+                      r.profiles ? (
                       <li key={r.id}>
                         <Link
                           href={`/u/${r.profiles.username}/events/${r.id}`}
@@ -148,9 +152,10 @@ export default async function LiveHubPage({ params }: { params: { slug: string }
                           {r.profiles.display_name}
                         </Link>
                       </li>
-                    ) : null
-                  )}
-                </ul>
+                      ) : null
+                    )}
+                  </ul>
+                )}
               </li>
             );
           })}

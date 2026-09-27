@@ -14,6 +14,7 @@ import { stockPhotoFor } from "@/lib/stockPhotos";
 import { EventCarousel } from "@/components/EventCarousel";
 import { StockImage } from "@/components/StockImage";
 import { StockCredit } from "@/components/StockCredit";
+import { MembersOnly } from "@/components/MembersOnly";
 
 export function generateMetadata({ params }: { params: { code: string } }) {
   return { title: countryByCode(params.code)?.name ?? "Explore" };
@@ -108,23 +109,29 @@ export default async function CountryHubPage({ params }: { params: { code: strin
             <h2 id="tv-h" className="flex items-center gap-2 text-2xl">
               <Users size={20} className="text-accent" aria-hidden /> Travellers who&rsquo;ve been
             </h2>
-            <ul className="mt-4 flex flex-wrap gap-2">
-              {travellers.slice(0, 40).map(({ id, p }) => (
-                <li key={id}>
-                  <Link
-                    href={`/u/${p.username}/countries/${country.code.toLowerCase()}`}
-                    className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 text-sm hover:border-accent"
-                  >
-                    {p.avatar_url ? (
-                      <Image src={p.avatar_url} alt="" width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
-                    ) : (
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-raised font-serif text-xs text-muted">{p.display_name.charAt(0)}</span>
-                    )}
-                    {p.display_name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            {!viewer ? (
+              <div className="mt-4">
+                <MembersOnly count={travellers.length} next={`/explore/country/${country.code.toLowerCase()}`} />
+              </div>
+            ) : (
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {travellers.slice(0, 40).map(({ id, p }) => (
+                  <li key={id}>
+                    <Link
+                      href={`/u/${p.username}/countries/${country.code.toLowerCase()}`}
+                      className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 text-sm hover:border-accent"
+                    >
+                      {p.avatar_url ? (
+                        <Image src={p.avatar_url} alt="" width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
+                      ) : (
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-raised font-serif text-xs text-muted">{p.display_name.charAt(0)}</span>
+                      )}
+                      {p.display_name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         )}
 
