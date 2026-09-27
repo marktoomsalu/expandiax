@@ -18,8 +18,8 @@ const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").the
 // it above the copy, rather than trying to force it into a full-bleed
 // absolute background, works with that model instead of fighting it.
 export function ColdOpenStep({ onStart }: { onStart: () => void }) {
-  // The launch film plays first, once per device — never for reduced
-  // motion or data saving.
+  // The launch film comes first, once per device — not for reduced motion
+  // or data saving.
   const autoplay = useAutoplayOk();
   const [film, setFilm] = useState<boolean | null>(null);
   useEffect(() => {

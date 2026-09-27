@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 
-const SEEN_KEY = "expandiax:welcome-film-seen";
+// v2: earlier builds wrongly marked the film as seen when a phone blocked autoplay.
+const SEEN_KEY = "expandiax:welcome-film-seen-v2";
 
 export function welcomeFilmSeen(): boolean {
   try {
@@ -16,8 +17,9 @@ export function welcomeFilmSeen(): boolean {
 /**
  * The 15-second film, full screen, as the very first thing on /start —
  * silent to begin with (browsers only autoplay muted), with Sound on and
- * Skip. Plays once per device. If the browser won't play it, it simply
- * gets out of the way.
+ * Skip. If the phone won't play it by itself it simply steps aside — and
+ * tries again next time, because it only counts as seen once it has ended
+ * or been skipped.
  */
 export function WelcomeFilm({ onDone }: { onDone: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
@@ -26,17 +28,25 @@ export function WelcomeFilm({ onDone }: { onDone: () => void }) {
   const [muted, setMuted] = useState(true);
   const [leaving, setLeaving] = useState(false);
 
-  function finish() {
+  function close(seen: boolean) {
     if (leaving) return;
-    try {
-      localStorage.setItem(SEEN_KEY, "1");
-    } catch {}
+    if (seen) {
+      try {
+        localStorage.setItem(SEEN_KEY, "1");
+      } catch {}
+    }
     setLeaving(true);
     setTimeout(onDone, 450);
   }
+  const finish = () => close(true);
 
+  const started = useRef(false);
   useEffect(() => {
-    video.current?.play().catch(() => finish());
+    // Blocked, or not started after a moment (some phones neither play nor
+    // say no): step aside without counting it as seen.
+    video.current?.play().catch(() => close(false));
+    const t = setTimeout(() => !started.current && close(false), 2500);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -54,8 +64,11 @@ export function WelcomeFilm({ onDone }: { onDone: () => void }) {
         playsInline
         autoPlay
         preload="auto"
+        onPlaying={() => {
+          started.current = true;
+        }}
         onEnded={finish}
-        onError={finish}
+        onError={() => close(false)}
         className="absolute inset-0 h-full w-full object-cover"
       />
       <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
