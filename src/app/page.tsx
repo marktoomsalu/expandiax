@@ -1,9 +1,12 @@
 import Link from "next/link";
-import { Camera, Check, Globe2, Music2, Sparkles, Ticket } from "lucide-react";
+import { Camera, Check, Globe2, Sparkles, Ticket } from "lucide-react";
 import { WorldMap } from "@/components/WorldMap";
 import { FadeIn } from "@/components/FadeIn";
 import { RatingStars } from "@/components/Rating";
-import { TOTAL_COUNTRIES } from "@/lib/countries";
+import { COUNTRIES, TOTAL_COUNTRIES, countryByCode } from "@/lib/countries";
+import type { StockPhoto } from "@/lib/stockPhotos";
+import { StockImage } from "@/components/StockImage";
+import { StockCredit } from "@/components/StockCredit";
 
 const FREE_FEATURES = ["Up to 40 countries", "Up to 20 events", "5 photos & 3 videos per entry"];
 const PREMIUM_FEATURES = [
@@ -13,7 +16,44 @@ const PREMIUM_FEATURES = [
   "Custom accent colour & Premium badge",
 ];
 
-const SAMPLE_CODES = ["EE", "FI", "SE", "PL", "ES", "IT", "PT", "GR", "JP", "TH", "MA", "MX", "PE", "GE", "NZ"];
+// Maya's map — the example traveller below, so the map and her profile tell one story.
+const SAMPLE_CODES = [
+  "CA", "US", "MX", "PE", "CL", "AR", "IS", "PT", "ES", "FR", "IT", "GR",
+  "MA", "NA", "ZA", "TZ", "JO", "IN", "TH", "VN", "KR", "JP", "NZ",
+];
+const SAMPLE_CONTINENTS = new Set(SAMPLE_CODES.map((c) => countryByCode(c)?.continent)).size;
+const SAMPLE_PCT = `${Math.round((SAMPLE_CODES.length / COUNTRIES.length) * 1000) / 10}%`;
+
+// Example photos from Unsplash, hotlinked and credited like the country photos in the app.
+const UTM = "utm_source=expandiax&utm_medium=referral";
+const unsplash = (id: string, raw: string, color: string, alt: string, author: string, username: string, slug: string): StockPhoto => ({
+  id,
+  raw,
+  color,
+  alt,
+  author,
+  authorUrl: `https://unsplash.com/@${username}?${UTM}`,
+  photoUrl: `https://unsplash.com/photos/${slug}?${UTM}`,
+  unsplashUrl: `https://unsplash.com/?${UTM}`,
+});
+const DEADVLEI = unsplash(
+  "M6xllhci484",
+  "https://images.unsplash.com/photo-1597342809356-6dc1115906c1?ixlib=rb-4.1.0",
+  "#0c2673",
+  "A lone dead acacia on the white clay of Deadvlei, red dunes and deep blue sky behind",
+  "Sean Robertson",
+  "knuknuk",
+  "bare-tree-on-desert-during-daytime-M6xllhci484"
+);
+const NEON_NIGHT = unsplash(
+  "r3XvSBEQQLo",
+  "https://images.unsplash.com/photo-1574155376612-bfa4ed8aabfd?ixlib=rb-4.1.0",
+  "#260c0c",
+  "A crowd with hands up under pink laser beams at a concert",
+  "A J.",
+  "antoinejulien",
+  "group-of-people-enjoying-concert-r3XvSBEQQLo"
+);
 
 export default function LandingPage() {
   return (
@@ -69,20 +109,33 @@ export default function LandingPage() {
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
           {/* Example traveller profile */}
           <FadeIn delay={0.05}>
-            <article className="card overflow-hidden" aria-label="Example traveller profile">
-              <div className="flex items-center gap-4 border-b border-line px-6 py-5">
-                <span aria-hidden className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-soft font-serif text-xl text-accent">L</span>
+            <article className="card flex h-full flex-col overflow-hidden" aria-label="Example traveller profile">
+              <div className="relative aspect-[16/8] w-full">
+                <StockImage photo={DEADVLEI} alt={DEADVLEI.alt} aspect="2:1" sizes="(min-width: 1024px) 560px, 100vw" />
+                <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+                <span className="absolute right-3 top-3 rounded-full bg-black/40 px-2.5 py-1.5 backdrop-blur-sm">
+                  <StockCredit photo={DEADVLEI} />
+                </span>
+                <div className="absolute inset-x-0 bottom-0 px-6 py-5 text-white">
+                  <p className="text-[0.625rem] font-semibold uppercase tracking-[0.2em] text-white/70">🇳🇦 Namibia · favourite memory</p>
+                  <p className="mt-1 font-serif text-2xl italic leading-snug">
+                    &ldquo;Deadvlei at sunrise - red dunes, black trees, and a silence you could hear.&rdquo;
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 border-b border-line px-6 py-4">
+                <span aria-hidden className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft font-serif text-lg text-accent">M</span>
                 <div>
-                  <p className="font-serif text-xl">Liis Kask</p>
-                  <p className="text-xs text-muted">@liiskask · from 🇪🇪 Estonia</p>
+                  <p className="font-serif text-xl">Maya Laurent</p>
+                  <p className="text-xs text-muted">@mayalaurent · from 🇨🇦 Canada</p>
                 </div>
                 <Globe2 size={18} className="ml-auto text-muted" aria-hidden />
               </div>
-              <div className="grid grid-cols-3 divide-x divide-line text-center">
+              <div className="mt-auto grid grid-cols-3 divide-x divide-line text-center">
                 {[
-                  ["15", "countries"],
-                  ["7.7%", "of the world"],
-                  ["4", "continents"],
+                  [String(SAMPLE_CODES.length), "countries"],
+                  [SAMPLE_PCT, "of the world"],
+                  [String(SAMPLE_CONTINENTS), "continents"],
                 ].map(([v, l]) => (
                   <div key={l} className="px-2 py-5">
                     <p className="font-serif text-3xl">{v}</p>
@@ -90,36 +143,33 @@ export default function LandingPage() {
                   </div>
                 ))}
               </div>
-              <div className="border-t border-line px-6 py-5">
-                <p className="text-sm italic leading-relaxed text-muted">
-                  &ldquo;Saaremaa in June - juniper, sea wind, and the light that never quite leaves.&rdquo;
-                </p>
-                <p className="mt-2 text-xs text-muted">🇪🇪 Estonia · favourite memory</p>
-              </div>
             </article>
           </FadeIn>
 
           {/* Example event memory */}
           <FadeIn delay={0.1}>
-            <article className="card overflow-hidden" aria-label="Example event memory">
-              <div className="relative flex aspect-[16/8] items-end bg-[#14110f] px-6 py-5">
-                <div aria-hidden className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_20%,rgba(255,99,71,0.35),transparent_60%),radial-gradient(ellipse_at_20%_100%,rgba(13,148,136,0.28),transparent_55%)]" />
+            <article className="card flex h-full flex-col overflow-hidden" aria-label="Example event memory">
+              <div className="relative flex aspect-[16/8] items-end px-6 py-5">
+                <StockImage photo={NEON_NIGHT} alt={NEON_NIGHT.alt} aspect="2:1" sizes="(min-width: 1024px) 560px, 100vw" />
+                <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                <span className="absolute right-3 top-3 rounded-full bg-black/40 px-2.5 py-1.5 backdrop-blur-sm">
+                  <StockCredit photo={NEON_NIGHT} />
+                </span>
                 <div className="relative text-white">
-                  <p className="text-[0.625rem] font-semibold uppercase tracking-[0.2em] text-white/60">Estadio Metropolitano · Madrid</p>
-                  <p className="mt-1 font-serif text-3xl italic">The Last Summer Tour</p>
+                  <p className="text-[0.625rem] font-semibold uppercase tracking-[0.2em] text-white/70">🇰🇷 Olympic Hall · Seoul</p>
+                  <p className="mt-1 font-serif text-3xl italic">The Neon Encore</p>
                 </div>
-                <Music2 size={18} className="absolute right-5 top-5 text-white/50" aria-hidden />
               </div>
-              <div className="px-6 py-5">
+              <div className="flex flex-1 flex-col px-6 py-5">
                 <div className="flex items-center justify-between">
-                  <p className="font-serif text-xl">Stadium night, Madrid</p>
+                  <p className="font-serif text-xl">Neon night, Seoul</p>
                   <RatingStars value={10} />
                 </div>
                 <p className="mt-2 text-sm italic leading-relaxed text-muted">
-                  &ldquo;60,000 phones went dark for the acoustic encore. You could hear the city breathing.&rdquo;
+                  &ldquo;The whole hall sang the last chorus in three languages. I didn&rsquo;t want the lights to come back on.&rdquo;
                 </p>
-                <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
-                  <Camera size={13} aria-hidden /> 5 photos · 2 videos · favourite song saved
+                <p className="mt-auto flex items-center gap-1.5 pt-3 text-xs text-muted">
+                  <Camera size={13} aria-hidden /> 8 photos · 3 videos · favourite song saved
                 </p>
               </div>
             </article>

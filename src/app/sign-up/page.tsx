@@ -112,11 +112,11 @@ export default function SignUpPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label htmlFor="display_name" className="mb-1.5 block text-sm font-medium">Display name</label>
-          <input id="display_name" className="field" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Liis Kask" autoComplete="name" />
+          <input id="display_name" className="field" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Maya Laurent" autoComplete="name" />
         </div>
         <div>
           <label htmlFor="username" className="mb-1.5 block text-sm font-medium">Username</label>
-          <input id="username" className="field" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="liiskask" required autoComplete="username" aria-describedby="username-hint" />
+          <input id="username" className="field" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="mayalaurent" required autoComplete="username" aria-describedby="username-hint" />
           <p id="username-hint" className="mt-1 text-xs text-muted">Your public address: expandiax.example/u/{username.trim().toLowerCase() || "username"}</p>
         </div>
         <div>
