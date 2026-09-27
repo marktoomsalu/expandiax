@@ -21,6 +21,8 @@ export function welcomeFilmSeen(): boolean {
  */
 export function WelcomeFilm({ onDone }: { onDone: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
+  // Vertical on a phone held upright, wide on computers. Rendered only in the browser.
+  const [tall] = useState(() => window.matchMedia("(orientation: portrait)").matches);
   const [muted, setMuted] = useState(true);
   const [leaving, setLeaving] = useState(false);
 
@@ -46,15 +48,15 @@ export function WelcomeFilm({ onDone }: { onDone: () => void }) {
     >
       <video
         ref={video}
-        src="/film/expandiax-15s.mp4"
-        poster="/film/poster-15s.jpg"
+        src={tall ? "/film/expandiax-15s.mp4" : "/film/expandiax-wide-15s.mp4"}
+        poster={tall ? "/film/poster-15s.jpg" : "/film/poster-wide.jpg"}
         muted={muted}
         playsInline
         autoPlay
         preload="auto"
         onEnded={finish}
         onError={finish}
-        className="absolute inset-0 h-full w-full object-cover sm:object-contain"
+        className="absolute inset-0 h-full w-full object-cover"
       />
       <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <button
