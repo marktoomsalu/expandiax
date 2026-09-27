@@ -103,8 +103,9 @@ export async function loadExplore(supabase: Supabase, viewerId: string | null, h
 
   const ids = [...new Set([...[...localIds.keys()].slice(0, 12), ...clickWithIds.map((c) => c.id)])];
   const { data: profiles } = ids.length
-    ? await supabase.from("profiles").select("id, username, display_name, avatar_url, visibility").in("id", ids)
+    ? await supabase.from("profiles").select("id, username, display_name, avatar_url, visibility").in("id", ids).eq("discoverable", true)
     : { data: [] as Omit<ExplorePerson, "countries">[] };
+  // People who opted out of suggestions never appear here.
   const byId = new Map((profiles ?? []).map((p) => [p.id, { ...(p as Omit<ExplorePerson, "countries">), countries: countryCount.get(p.id) ?? 0 }]));
 
   return {

@@ -9,6 +9,7 @@ export type Profile = {
   bio: string;
   home_country_code: string | null;
   visibility: ProfileVisibility;
+  discoverable: boolean; // false = left out of search and suggestions
   plan: Plan;
   accent_color: string | null;
   weekly_digest_enabled: boolean;
@@ -52,6 +53,7 @@ export type VisitedCountry = {
   cover_media_id: string | null;
   is_favourite: boolean;
   share_to_feed: boolean;
+  is_public: boolean; // false = "Only me"
   created_at: string;
   updated_at: string;
 };

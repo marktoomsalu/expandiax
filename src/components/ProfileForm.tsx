@@ -36,6 +36,7 @@ export function ProfileForm({
   const [visibility, setVisibility] = useState<ProfileVisibility | null>(
     requireVisibilityChoice ? null : profile.visibility
   );
+  const [discoverable, setDiscoverable] = useState(profile.discoverable ?? true);
   const [accentColor, setAccentColor] = useState(profile.accent_color ?? "#E91E63");
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -111,6 +112,7 @@ export function ProfileForm({
         bio: bio.trim(),
         home_country_code: homeCountry || null,
         visibility,
+        discoverable,
         avatar_url: avatarUrl,
         accent_color: profile.plan === "premium" ? accentColor : null,
       })
@@ -224,15 +226,26 @@ export function ProfileForm({
         )}
         <label className="flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "public"} onChange={() => setVisibility("public")} />
-          <span><strong className="font-medium">Public</strong> - anyone with your link can see your map, memories and public events.</span>
+          <span><strong className="font-medium">Public</strong> - anyone can see your map, memories and public events.</span>
         </label>
         <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "friends"} onChange={() => setVisibility("friends")} />
-          <span><strong className="font-medium">Friends only</strong> - visible only to people who follow you back (mutual followers).</span>
+          <span><strong className="font-medium">Friends only</strong> - only people you follow and who follow you back can see your map and memories.</span>
         </label>
         <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "private"} onChange={() => setVisibility("private")} />
-          <span><strong className="font-medium">Private</strong> - only you can see your archive.</span>
+          <span><strong className="font-medium">Private</strong> - people have to ask to follow you; only followers you approve can see your map and memories.</span>
+        </label>
+        <p className="mt-3 text-xs text-muted">
+          Whichever you choose, members can see your name, username and profile photo (on your comments, for example), and you
+          can hide single countries and events with &ldquo;Only me&rdquo;.
+        </p>
+        <label className="mt-4 flex cursor-pointer items-start gap-3 border-t border-line pt-4 text-sm">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[rgb(var(--accent))]" checked={discoverable} onChange={(e) => setDiscoverable(e.target.checked)} />
+          <span>
+            <strong className="font-medium">Show me in search and suggestions</strong> - turn off to stay out of search, &ldquo;People
+            you may click with&rdquo; and &ldquo;Travellers who know&rdquo;. People who already follow you still see you as usual.
+          </span>
         </label>
       </fieldset>
 

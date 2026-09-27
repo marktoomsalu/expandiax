@@ -57,6 +57,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         .from("profiles")
         .select("id, username, display_name, avatar_url")
         .eq("visibility", "public")
+        .eq("discoverable", true)
         .neq("id", user.id)
         .order("created_at", { ascending: false })
         .limit(30),

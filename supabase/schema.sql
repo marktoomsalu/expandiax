@@ -20,6 +20,8 @@ create table public.profiles (
   bio text not null default '',
   home_country_code text,
   visibility text not null default 'private' check (visibility in ('public', 'friends', 'private')),
+  -- false = left out of search and suggestions (followers still see you as usual).
+  discoverable boolean not null default true,
   -- Denormalized from billing.plan by sync_profile_plan() below — safe to
   -- read publicly (it's just the plan name, no Stripe identifiers), unlike
   -- the billing table itself which is locked to owner-only reads.
@@ -75,6 +77,8 @@ create table public.visited_countries (
   cover_media_id uuid, -- FK added below (circular reference)
   is_favourite boolean not null default false,
   share_to_feed boolean not null default true,
+  -- false = "Only me": hidden from everyone else, whatever the profile's visibility.
+  is_public boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, country_code)
@@ -349,7 +353,7 @@ language sql stable security definer set search_path = public
 as $$
   select exists (
     select 1 from public.visited_countries vc
-    where vc.id = vc_id and public.is_profile_public(vc.user_id)
+    where vc.id = vc_id and vc.is_public and public.is_profile_public(vc.user_id)
   );
 $$;
 
@@ -591,7 +595,7 @@ create policy "owner reads own billing" on public.billing for select
 -- visited_countries
 create policy "visited countries readable when owner or profile public"
   on public.visited_countries for select
-  using (user_id = auth.uid() or public.is_profile_public(user_id));
+  using (user_id = auth.uid() or (is_public and public.is_profile_public(user_id)));
 
 -- Territories (Greenland, Gibraltar, etc.) go through this same insert
 -- policy as ordinary countries — Premium is only required when the code
@@ -714,9 +718,15 @@ insert into storage.buckets (id, name, public, file_size_limit)
 values ('media', 'media', true, 314572800) -- 300 MB hard cap per object
 on conflict (id) do nothing;
 
-create policy "media is publicly readable"
+-- Files are viewable by their public links, but only owners can list a
+-- folder — otherwise anyone could enumerate private accounts' photos
+-- (see migration 046).
+create policy "owners list their own media"
   on storage.objects for select
-  using (bucket_id = 'media');
+  using (
+    bucket_id = 'media'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 create policy "users upload into their own folder"
   on storage.objects for insert
@@ -769,6 +779,11 @@ create policy "users follow non-private profiles"
 create policy "users unfollow"
   on public.follows for delete
   using (follower_id = auth.uid());
+
+-- Removing a follower, without blocking them.
+create policy "users remove their followers"
+  on public.follows for delete
+  using (followee_id = auth.uid());
 
 -- Private profiles can't be followed directly (profile_allows_follow
 -- rejects it above) — this is the only path in: request, then the target
@@ -1164,6 +1179,31 @@ $$;
 
 create trigger follow_requests_notify after insert on public.follow_requests
   for each row execute function public.notify_on_follow_request();
+
+-- A private account that becomes public or friends-only approves its pending
+-- requests (as if accepted one by one) instead of leaving them stuck.
+create or replace function public.approve_requests_when_opened()
+returns trigger
+language plpgsql security definer set search_path = public
+as $$
+begin
+  if old.visibility = 'private' and new.visibility <> 'private' then
+    insert into public.follows (follower_id, followee_id)
+    select requester_id, target_id from public.follow_requests where target_id = new.id
+    on conflict do nothing;
+
+    insert into public.notifications (user_id, actor_id, kind)
+    select requester_id, target_id, 'follow_accepted' from public.follow_requests where target_id = new.id;
+
+    delete from public.follow_requests where target_id = new.id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_approve_requests_when_opened
+  after update of visibility on public.profiles
+  for each row execute function public.approve_requests_when_opened();
 
 -- Callable only by the request's target (via auth.uid()) — accepts by
 -- creating the actual follows row, notifies the requester, and clears the

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { FollowList } from "@/components/FollowList";
 
 export const metadata = { title: "Followers" };
@@ -29,6 +29,7 @@ export default async function FollowersPage({ params }: { params: { username: st
     .eq("followee_id", profile.id)
     .order("created_at", { ascending: false });
 
+  const viewer = await getAuthUser();
   const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
   const followers = (data ?? []).map((r) => one(r.follower)).filter((p): p is NonNullable<typeof p> => !!p);
 
@@ -39,7 +40,10 @@ export default async function FollowersPage({ params }: { params: { username: st
       </Link>
       <p className="eyebrow mt-8">{profile.display_name}</p>
       <h1 className="mt-1 text-3xl md:text-4xl">Followers</h1>
-      <FollowList profiles={followers} emptyMessage={`${profile.display_name} doesn't have any followers yet.`} />
+      {viewer?.id === profile.id && followers.length > 0 && (
+        <p className="mt-2 text-sm text-muted">Removing someone doesn&rsquo;t tell them or block them - they just stop seeing what only followers can see.</p>
+      )}
+      <FollowList profiles={followers} emptyMessage={`${profile.display_name} doesn't have any followers yet.`} removable={viewer?.id === profile.id} />
     </div>
   );
 }

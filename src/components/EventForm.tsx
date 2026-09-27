@@ -469,7 +469,7 @@ export function EventForm({
         <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-line bg-raised px-4 py-3">
           <label className="flex cursor-pointer items-center gap-2.5 text-sm">
             <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.is_public} onChange={(e) => set("is_public", e.target.checked)} />
-            Visible on my public profile
+            Visible to others <span className="text-xs text-muted">(untick for &ldquo;Only me&rdquo;)</span>
           </label>
           <label className="flex cursor-pointer items-center gap-2.5 text-sm">
             <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.is_favourite} onChange={(e) => set("is_favourite", e.target.checked)} />

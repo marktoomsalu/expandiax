@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Calendar, Camera, ChevronRight, Heart, MapPinPlus, MessageSquareText, Music2, Plus, Rss, X } from "lucide-react";
+import { Calendar, Camera, ChevronRight, Heart, Lock, MapPinPlus, MessageSquareText, Music2, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadMediaItem } from "@/lib/media";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
@@ -264,6 +264,7 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [favouriteBusy, setFavouriteBusy] = useState(false);
   const [feedBusy, setFeedBusy] = useState(false);
+  const [privacyBusy, setPrivacyBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const visits = [...data.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
@@ -358,6 +359,18 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
     router.refresh();
   }
 
+  // "Only me": this country disappears for everyone else — map, counts,
+  // feed, comments — while the rest of the profile stays as it is.
+  async function toggleOnlyMe() {
+    setPrivacyBusy(true);
+    await supabase
+      .from("visited_countries")
+      .update({ is_public: !data.is_public })
+      .eq("id", data.id);
+    setPrivacyBusy(false);
+    router.refresh();
+  }
+
   async function removeCountry() {
     setRemoving(true);
     const paths = data.country_media.map((m) => m.storage_path);
@@ -377,6 +390,21 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
             type="button"
+            onClick={toggleOnlyMe}
+            disabled={privacyBusy}
+            aria-pressed={!data.is_public}
+            title={data.is_public ? "Visible to everyone who can see your profile" : "Only you can see this country"}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              !data.is_public ? "border-ink bg-ink text-canvas" : "border-line text-muted hover:text-accent"
+            )}
+          >
+            <Lock size={13} />
+            {data.is_public ? "Visible" : "Only me"}
+          </button>
+          {data.is_public && (
+          <button
+            type="button"
             onClick={toggleShareToFeed}
             disabled={feedBusy}
             aria-pressed={data.share_to_feed}
@@ -391,6 +419,7 @@ export function CountryEditor({ data, meta, plan }: { data: VisitedCountryFull; 
             <Rss size={13} />
             {data.share_to_feed ? "In feed" : "Not in feed"}
           </button>
+          )}
           <button
             type="button"
             onClick={toggleFavourite}

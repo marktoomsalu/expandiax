@@ -155,10 +155,13 @@ export default function PrivacyPage() {
 
       <LegalSection title="Who can see your content">
         <p>
-          Entirely up to you, per profile and per event: <Strong>private</Strong> (only you), <Strong>friends</Strong>{" "}
-          (people who follow you and whom you follow back), or <Strong>public</Strong> (anyone, discoverable on Explore,
-          and public pages can also show up in search engines like Google). You can change this at any time, and you can{" "}
-          <Strong>block</Strong> anyone to hide the two of you from each other.
+          Entirely up to you. Your profile is <Strong>private</Strong> (people ask to follow you, and only followers you
+          approve see your map and memories), <Strong>friends only</Strong> (only people you follow who follow you back),
+          or <Strong>public</Strong> (anyone; public pages can also show up in search engines like Google). On top of that,
+          any single country or event can be set to <Strong>only me</Strong>. Your name, username and profile photo are
+          visible to other members (on your comments, for example); you can choose not to appear in search and
+          suggestions. You can change all of this at any time, <Strong>remove</Strong> a follower, and <Strong>block</Strong>{" "}
+          anyone to hide the two of you from each other.
         </p>
         <p>
           <Strong>One thing to know:</Strong> your photos and videos are stored at web addresses that are hard to guess

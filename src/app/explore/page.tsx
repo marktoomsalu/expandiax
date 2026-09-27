@@ -160,7 +160,7 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
       .eq("is_public", true)
       .order("created_at", { ascending: false })
       .limit(6),
-    supabase.from("profiles").select("id, username, display_name, avatar_url").eq("visibility", "public").order("created_at", { ascending: false }).limit(30),
+    supabase.from("profiles").select("id, username, display_name, avatar_url").eq("visibility", "public").eq("discoverable", true).order("created_at", { ascending: false }).limit(30),
     supabase.from("public_country_counts").select("user_id, country_count"),
     viewer ? supabase.from("follows").select("followee_id").eq("follower_id", viewer.id) : Promise.resolve({ data: [] as { followee_id: string }[] }),
   ]);
@@ -181,8 +181,9 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
     // Search isn't limited to public profiles — private accounts should still be
     // findable so they can be requested; their content stays gated regardless.
     const [{ data: byUsername }, { data: byName }, { data: liveRows }] = await Promise.all([
-      supabase.from("profiles").select("id, username, display_name, avatar_url, visibility").ilike("username", like).limit(20),
-      supabase.from("profiles").select("id, username, display_name, avatar_url, visibility").ilike("display_name", like).limit(20),
+      // People who opted out of search only turn up for those who already follow them.
+      supabase.from("profiles").select("id, username, display_name, avatar_url, visibility, discoverable").ilike("username", like).limit(20),
+      supabase.from("profiles").select("id, username, display_name, avatar_url, visibility, discoverable").ilike("display_name", like).limit(20),
       supabase
         .from("events")
         .select("id, user_id, event_type, title, spotify_artist_name, spotify_artist_image, event_date")
@@ -192,7 +193,9 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
         .limit(300),
     ]);
     const map = new Map<string, ProfileLite>();
-    for (const p of [...(byUsername ?? []), ...(byName ?? [])] as ProfileLite[]) map.set(p.id, p);
+    for (const p of [...(byUsername ?? []), ...(byName ?? [])] as (ProfileLite & { discoverable: boolean })[]) {
+      if (p.discoverable || following.has(p.id)) map.set(p.id, p);
+    }
     people = [...map.values()].sort((a, b) => (countsByUser.get(b.id) ?? 0) - (countsByUser.get(a.id) ?? 0));
     const lower = q.toLowerCase();
     places = COUNTRIES.filter((c) => c.name.toLowerCase().includes(lower) || c.capital.toLowerCase() === lower).slice(0, 8);
