@@ -38,32 +38,37 @@ export function VisitDateFields({
             type="button"
             onClick={() => onPrecisionChange(p)}
             className={cn(
-              "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+              "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
               precision === p ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
             )}
           >
-            {p === "year" ? "Year only" : p === "month" ? "Month" : "Exact date"}
+            {p === "year" ? "Year only" : p === "month" ? "Month" : "Exact dates"}
           </button>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <label htmlFor="year-input" className="sr-only">Year</label>
-        <input
-          id="year-input"
-          type="number"
-          inputMode="numeric"
-          min={1900}
-          max={2100}
-          placeholder="2024"
-          className="field !w-20 !py-1.5"
-          value={year}
-          onChange={(e) => onYearChange(e.target.value)}
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        {/* With exact dates the year comes from the dates themselves. */}
+        {precision !== "day" && (
+          <>
+            <label htmlFor="year-input" className="sr-only">Year</label>
+            <input
+              id="year-input"
+              type="number"
+              inputMode="numeric"
+              min={1900}
+              max={2100}
+              placeholder="2024"
+              className="field !w-24 !py-2"
+              value={year}
+              onChange={(e) => onYearChange(e.target.value)}
+            />
+          </>
+        )}
 
         {precision === "month" && (
           <>
             <label htmlFor="month-input" className="sr-only">Month</label>
-            <select id="month-input" className="field !w-32 !py-1.5 text-sm" value={month} onChange={(e) => onMonthChange(e.target.value)}>
+            <select id="month-input" className="field !w-36 !py-2 text-sm" value={month} onChange={(e) => onMonthChange(e.target.value)}>
               <option value="">Month</option>
               {MONTH_NAMES.map((name, i) => (
                 <option key={name} value={String(i + 1).padStart(2, "0")}>{name}</option>
@@ -79,7 +84,7 @@ export function VisitDateFields({
               id="date-from-input"
               type="date"
               title="From date"
-              className="field !w-[8.5rem] !py-1.5 text-sm"
+              className="field min-w-[9rem] flex-1 !py-2 text-sm"
               value={visitedFrom}
               onChange={(e) => {
                 onVisitedFromChange(e.target.value);
@@ -91,7 +96,7 @@ export function VisitDateFields({
               id="date-to-input"
               type="date"
               title="To date (optional)"
-              className="field !w-[8.5rem] !py-1.5 text-sm"
+              className="field min-w-[9rem] flex-1 !py-2 text-sm"
               value={visitedTo}
               onChange={(e) => onVisitedToChange(e.target.value)}
             />

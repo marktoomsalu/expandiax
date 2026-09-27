@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft, Image as ImageIcon, Video } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { StockCredit } from "@/components/StockCredit";
 import { StockImage } from "@/components/StockImage";
 import { stockPhotoFor } from "@/lib/stockPhotos";
@@ -16,7 +16,7 @@ import type { CountryCity, CountryMedia, CountryVisit, Plan } from "@/lib/types"
 import { signMedia } from "@/lib/signedMedia";
 
 type VisitRow = CountryVisit & {
-  visited_countries: { id: string; user_id: string; country_code: string };
+  visited_countries: { id: string; user_id: string; country_code: string; is_public: boolean; share_to_feed: boolean };
   country_media: CountryMedia[];
   country_cities: CountryCity[];
 };
@@ -40,7 +40,7 @@ export default async function VisitPage({
   const [{ data }, { data: profile }] = await Promise.all([
     supabase
       .from("country_visits")
-      .select("*, visited_countries!inner(id, user_id, country_code), country_media!country_media_country_visit_id_fkey(*), country_cities(*)")
+      .select("*, visited_countries!inner(id, user_id, country_code, is_public, share_to_feed), country_media!country_media_country_visit_id_fkey(*), country_cities(*)")
       .eq("id", params.visitId)
       .eq("visited_countries.user_id", user.id)
       .eq("visited_countries.country_code", meta.code)
@@ -60,81 +60,97 @@ export default async function VisitPage({
   const title = tripTitle(visit);
 
   return (
-    <div>
-      {/* The trip's own photo on top — or a credited stock one until you add yours */}
-      <div className="relative -mt-px h-[46vh] max-h-[440px] min-h-[300px] w-full overflow-hidden bg-[#14110d]">
-        {cover ? (
-          <Image src={cover.public_url} alt="" fill priority sizes="100vw" className="object-cover" />
-        ) : stock ? (
-          <StockImage photo={stock} alt={stock.alt} priority sizes="100vw" />
-        ) : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/25" aria-hidden />
-        <div className="absolute inset-x-0 top-0 mx-auto flex max-w-2xl items-center justify-between px-5 pt-5">
-          <Link
-            href={`/my-world/${meta.code.toLowerCase()}`}
-            className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-sm text-white backdrop-blur hover:bg-black/50"
-          >
-            <ArrowLeft size={15} /> {meta.flag} {meta.name}
-          </Link>
-          {stock && (
-            <span className="rounded-full bg-black/35 px-2.5 py-1.5 backdrop-blur-sm">
-              <StockCredit photo={stock} />
-            </span>
-          )}
-        </div>
-        <div className="absolute inset-x-0 bottom-0 mx-auto max-w-2xl px-5 pb-6 text-white">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-white/75">
-            {meta.flag} {meta.name} · Trip
-          </p>
-          {title.days && <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/75">{title.days}</p>}
-          <h1 className={`${title.days ? "mt-1" : "mt-2"} font-serif text-4xl leading-none drop-shadow-md`}>{title.headline}</h1>
-          {cities.length > 0 && <p className="mt-2 truncate text-base text-white/85">{cities.join(", ")}</p>}
-          <p className="mt-3 flex items-center gap-3 text-sm text-white/80">
-            <span className="inline-flex items-center gap-1.5">
-              <ImageIcon size={16} aria-hidden /> {photos} {photos === 1 ? "photo" : "photos"}
-            </span>
-            {videos > 0 && (
-              <span className="inline-flex items-center gap-1.5">
-                · <Video size={16} aria-hidden /> {videos} {videos === 1 ? "video" : "videos"}
-              </span>
-            )}
+    <div className="mx-auto max-w-2xl px-5 pb-16 pt-6">
+      <div className="flex items-center gap-4">
+        <Link
+          href={`/my-world/${meta.code.toLowerCase()}`}
+          aria-label={`Back to ${meta.name}`}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface hover:border-accent"
+        >
+          <ArrowLeft size={20} />
+        </Link>
+        <div className="min-w-0">
+          <h1 className="font-serif text-3xl leading-tight sm:text-4xl">Edit trip</h1>
+          <p className="truncate text-sm text-muted">
+            {meta.name} · {title.headline}
+            {title.days ? ` · ${title.days}` : ""}
           </p>
         </div>
       </div>
 
-      <div className="mx-auto max-w-2xl px-5 pb-16 pt-8">
-        {searchParams.created && (
-          <p role="status" className="mt-6 rounded-lg border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm">
-            Added to your map. Add more whenever you like - a soundtrack, more photos, the story behind it.
-          </p>
+      {searchParams.created && (
+        <p role="status" className="mt-5 rounded-2xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm">
+          Added to your map. Add more whenever you like - a soundtrack, more photos, the story behind it.
+        </p>
+      )}
+
+      {/* The trip's cover — or a credited stock photo until you add yours */}
+      <div className="relative mt-5 aspect-[16/9] w-full overflow-hidden rounded-2xl bg-[#14110d] shadow-lg ring-1 ring-black/5">
+        {cover ? (
+          <Image src={cover.public_url} alt="" fill priority sizes="(min-width: 672px) 672px, 100vw" className="object-cover" />
+        ) : stock ? (
+          <StockImage photo={stock} alt={stock.alt} priority sizes="(min-width: 672px) 672px, 100vw" />
+        ) : null}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" aria-hidden />
+        {stock && (
+          <span className="absolute right-3 top-3 rounded-full bg-black/40 px-2.5 py-1.5 backdrop-blur-sm">
+            <StockCredit photo={stock} />
+          </span>
         )}
-
-        <div className={searchParams.created ? "mt-8" : ""}>
-          <MediaUploader
-            userId={user.id}
-            scope="countries"
-            parentId={visit.id}
-            table="country_media"
-            fkColumn="country_visit_id"
-            extraFields={{ visited_country_id: visit.visited_country_id }}
-            photoCap={PHOTO_CAP[plan]}
-            videoCap={VIDEO_CAP[plan]}
-            items={visit.country_media}
-            coverId={visit.cover_media_id}
-            coverTable="country_visits"
-            captions
-            label="Photos & videos from this trip"
-            showUpgradeHint={plan === "free"}
-          />
+        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white sm:p-5">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 font-serif text-xl leading-tight drop-shadow sm:text-2xl">
+              <span aria-hidden>{meta.flag}</span> {cities.length ? cities.slice(0, 3).join(", ") : `${meta.name} trip`}
+            </p>
+            <p className="mt-1 text-sm text-white/80">
+              {photos} {photos === 1 ? "photo" : "photos"} · {videos}/{VIDEO_CAP[plan]} videos
+            </p>
+          </div>
+          <a
+            href="#photos"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/45 px-3.5 py-2 text-sm font-medium text-white ring-1 ring-white/25 backdrop-blur hover:bg-black/60"
+          >
+            <ImageIcon size={16} aria-hidden /> {cover ? "Change" : "Add cover"}
+          </a>
         </div>
+      </div>
 
-        <div className="mt-8">
-          <VisitEditor visit={visit} cities={visit.country_cities} />
-        </div>
+      <div id="photos" className="mt-4 scroll-mt-24">
+        <MediaUploader
+          userId={user.id}
+          scope="countries"
+          parentId={visit.id}
+          table="country_media"
+          fkColumn="country_visit_id"
+          extraFields={{ visited_country_id: visit.visited_country_id }}
+          photoCap={PHOTO_CAP[plan]}
+          videoCap={VIDEO_CAP[plan]}
+          items={visit.country_media}
+          coverId={visit.cover_media_id}
+          coverTable="country_visits"
+          captions
+          label="Your photos & videos"
+          showUpgradeHint={plan === "free"}
+          tiles
+        />
+      </div>
 
-        <div className="mt-10 flex items-center justify-center border-t border-line pt-6">
-          <ShareButton kind="country" targetId={visit.visited_country_id} title={`${meta.flag} ${meta.name}`} />
-        </div>
+      <div className="mt-6">
+        <VisitEditor
+          visit={visit}
+          cities={visit.country_cities}
+          country={{
+            id: visit.visited_countries.id,
+            code: meta.code,
+            name: meta.name,
+            is_public: visit.visited_countries.is_public,
+            share_to_feed: visit.visited_countries.share_to_feed,
+          }}
+        />
+      </div>
+
+      <div className="mt-8 flex items-center justify-center">
+        <ShareButton kind="country" targetId={visit.visited_country_id} title={`${meta.flag} ${meta.name}`} />
       </div>
     </div>
   );

@@ -2,11 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, MapPin, MessageSquareText, Music2, Plus, X } from "lucide-react";
+import { Calendar, Check, MapPin, MessageSquareText, Music2, Plus, Share2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { VisitDateFields } from "./VisitDateFields";
 import { SoundtrackPicker } from "./SoundtrackPicker";
 import type { CountryCity, CountryVisit, DatePrecision } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { Basket } from "./Basket";
+
+type Sharing = "feed" | "profile" | "private";
+export type TripCountry = { id: string; code: string; name: string; is_public: boolean; share_to_feed: boolean };
 
 function savedAgoLabel(savedAt: number, now: number): string {
   const secs = Math.max(0, Math.round((now - savedAt) / 1000));
@@ -29,7 +34,7 @@ function useSavedAgo(savedAt: number | null) {
   return savedAt === null ? null : savedAgoLabel(savedAt, now);
 }
 
-export function VisitEditor({ visit, cities }: { visit: CountryVisit; cities: CountryCity[] }) {
+export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; cities: CountryCity[]; country: TripCountry }) {
   const router = useRouter();
   const supabase = createClient();
   const [cityList, setCityList] = useState(cities);
@@ -57,20 +62,31 @@ export function VisitEditor({ visit, cities }: { visit: CountryVisit; cities: Co
     };
   }, []);
 
-  async function saveDates(e: React.FormEvent) {
-    e.preventDefault();
-    const y = parseInt(year, 10);
+  const [sharing, setSharing] = useState<Sharing>(!country.is_public ? "private" : country.share_to_feed ? "feed" : "profile");
+
+  async function changeSharing(next: Sharing) {
+    const before = sharing;
+    setSharing(next);
+    const update = next === "private" ? { is_public: false } : { is_public: true, share_to_feed: next === "feed" };
+    const { error: err } = await supabase.from("visited_countries").update(update).eq("id", country.id);
+    if (err) setSharing(before);
+    else router.refresh();
+  }
+
+  // Saves the dates; false (with a message) when they don't make sense.
+  async function persistDates(): Promise<boolean> {
+    const y = parseInt(precision === "day" && visitedFrom ? visitedFrom.slice(0, 4) : year, 10);
     if (Number.isNaN(y) || y < 1900 || y > 2100) {
-      setError("Enter a year between 1900 and 2100.");
-      return;
+      setError(precision === "day" ? "Choose the date you arrived." : "Enter a year between 1900 and 2100.");
+      return false;
     }
     if (precision === "day" && visitedFrom && visitedTo && visitedTo < visitedFrom) {
       setError("The \"to\" date can't be before the \"from\" date.");
-      return;
+      return false;
     }
     if (precision === "month" && !month) {
       setError("Choose a month.");
-      return;
+      return false;
     }
     setError(null);
     setBusy(true);
@@ -93,9 +109,17 @@ export function VisitEditor({ visit, cities }: { visit: CountryVisit; cities: Co
     setBusy(false);
     if (err) {
       setError("Could not save the dates. Try again.");
-      return;
+      return false;
     }
     setDatesSavedAt(Date.now());
+    return true;
+  }
+
+  async function saveTrip() {
+    if (memoryDebounce.current) clearTimeout(memoryDebounce.current);
+    if (!(await persistDates())) return;
+    await commitMemory(memory);
+    router.push(`/my-world/${country.code.toLowerCase()}`);
     router.refresh();
   }
 
@@ -145,15 +169,24 @@ export function VisitEditor({ visit, cities }: { visit: CountryVisit; cities: Co
     router.refresh();
   }
 
-  return (
-    <div className="card space-y-6 px-5 py-6">
-      <div>
-        <h3 className="font-serif text-lg">Details</h3>
-        <p className="text-xs text-muted">Add as much or as little as you like.</p>
-      </div>
+  const segment = (value: Sharing, label: string) => (
+    <button
+      key={value}
+      type="button"
+      onClick={() => changeSharing(value)}
+      aria-pressed={sharing === value}
+      className={cn(
+        "flex-1 whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition-colors",
+        sharing === value ? "bg-accent-soft text-accent ring-1 ring-accent" : "text-muted hover:text-ink"
+      )}
+    >
+      {label}
+    </button>
+  );
 
-      <form onSubmit={saveDates} className="space-y-3">
-        <span className="flex items-center gap-1.5 text-sm font-medium"><Calendar size={14} className="text-accent" aria-hidden /> When</span>
+  return (
+    <div className="space-y-3">
+      <Basket icon={Calendar} title="When" hint="Set the dates for your trip.">
         <VisitDateFields
           precision={precision}
           onPrecisionChange={setPrecision}
@@ -166,72 +199,79 @@ export function VisitEditor({ visit, cities }: { visit: CountryVisit; cities: Co
           visitedTo={visitedTo}
           onVisitedToChange={setVisitedTo}
         />
-        <div className="flex items-center gap-3">
-          <button type="submit" className="btn-ghost !py-1.5 text-sm" disabled={busy}>
-            {busy ? "Saving…" : "Save dates"}
-          </button>
-          {!busy && datesSavedAgo && <span role="status" className="text-xs text-accent">{datesSavedAgo}</span>}
-        </div>
-        {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
-      </form>
+        {!busy && datesSavedAgo && <p role="status" className="mt-2 text-xs text-accent">{datesSavedAgo}</p>}
+      </Basket>
 
-      <div className="border-t border-line pt-5">
-        <label htmlFor="visit-memory" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
-          <MessageSquareText size={14} className="text-accent" aria-hidden /> Memory
-        </label>
+      <Basket icon={MessageSquareText} title="Quick memory" hint="What made this trip special?">
+        <label htmlFor="visit-memory" className="sr-only">Memory</label>
         <textarea
           id="visit-memory"
-          className="field min-h-28"
-          placeholder="What made this trip its own thing?"
+          className="field min-h-24"
+          placeholder="Write a few words about your experience…"
           value={memory}
           maxLength={1000}
           onChange={(e) => onMemoryChange(e.target.value)}
           onBlur={onMemoryBlur}
         />
-        <div className="mt-1.5 text-xs">
+        <p className="mt-1.5 text-xs">
           {memorySaving ? (
             <span role="status" className="text-muted">Saving…</span>
           ) : memorySavedAgo ? (
             <span role="status" className="text-accent">{memorySavedAgo}</span>
           ) : (
-            <span className="text-muted">Saves automatically as you type.</span>
+            <span className="text-muted">Saved automatically as you type.</span>
           )}
-        </div>
-      </div>
+        </p>
+      </Basket>
 
-      <div className="grid gap-5 border-t border-line pt-5 sm:grid-cols-2">
-        <div>
-          <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><Music2 size={14} className="text-accent" aria-hidden /> Soundtrack</span>
-          <p className="mb-1.5 text-xs text-muted">The song this trip sounded like.</p>
-          <SoundtrackPicker table="country_visits" recordId={visit.id} initialTrackId={visit.spotify_track_id} />
-        </div>
+      <Basket icon={Music2} title="Soundtrack" hint="The song this trip sounded like.">
+        <SoundtrackPicker table="country_visits" recordId={visit.id} initialTrackId={visit.spotify_track_id} />
+      </Basket>
 
-        <div>
-          <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><MapPin size={14} className="text-accent" aria-hidden /> Cities</span>
-          <div className="flex flex-wrap items-center gap-2">
-            {cityList.map((c) => (
-              <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-sm">
-                {c.city_name}
-                <button type="button" aria-label={`Remove ${c.city_name}`} className="text-muted hover:text-red-700" onClick={() => removeCity(c.id)}>
-                  <X size={13} />
-                </button>
-              </span>
-            ))}
-            <form onSubmit={addCity} className="flex items-center gap-1.5">
-              <label htmlFor="visit-city-input" className="sr-only">Add a city</label>
-              <input
-                id="visit-city-input"
-                type="text"
-                placeholder="Add a city"
-                className="field !w-32 !py-1.5 text-sm"
-                value={cityInput}
-                onChange={(e) => setCityInput(e.target.value)}
-              />
-              <button type="submit" className="btn-ghost !px-2.5 !py-1.5 text-sm" aria-label="Add city"><Plus size={15} /></button>
-            </form>
-          </div>
+      <Basket icon={MapPin} title="Places" hint="Add the places you visited.">
+        <div className="flex flex-wrap items-center gap-2">
+          {cityList.map((c) => (
+            <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised px-3 py-1.5 text-sm">
+              {c.city_name}
+              <button type="button" aria-label={`Remove ${c.city_name}`} className="text-muted hover:text-red-700" onClick={() => removeCity(c.id)}>
+                <X size={14} />
+              </button>
+            </span>
+          ))}
+          <form onSubmit={addCity} className="flex min-w-[12rem] flex-1 items-center gap-2">
+            <label htmlFor="visit-city-input" className="sr-only">Add a city</label>
+            <input
+              id="visit-city-input"
+              type="text"
+              placeholder="Add a city…"
+              className="field min-w-0 flex-1 !py-2 text-sm"
+              value={cityInput}
+              onChange={(e) => setCityInput(e.target.value)}
+            />
+            <button
+              type="submit"
+              aria-label="Add city"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line hover:border-accent hover:text-accent"
+            >
+              <Plus size={16} />
+            </button>
+          </form>
         </div>
-      </div>
+      </Basket>
+
+      <Basket icon={Share2} title="Sharing" hint={`Who can see ${country.name} - for all your trips there.`}>
+        <div className="flex rounded-full border border-line p-1" role="group" aria-label="Who can see it">
+          {segment("feed", "In feed")}
+          {segment("profile", "Profile only")}
+          {segment("private", "Only me")}
+        </div>
+      </Basket>
+
+      {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
+
+      <button type="button" onClick={saveTrip} disabled={busy || memorySaving} className="btn-accent w-full justify-center !py-3.5 text-base font-semibold">
+        <Check size={18} /> {busy ? "Saving…" : "Save trip"}
+      </button>
     </div>
   );
 }

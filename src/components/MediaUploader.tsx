@@ -36,6 +36,8 @@ type Props = {
   extraFields?: Record<string, string>;
   /** Shows a link to /settings/billing once either cap is hit — pass true when the current user is on the free plan. */
   showUpgradeHint?: boolean;
+  /** Big "Take photo" / "Add photos or videos" tiles on top instead of small buttons below. */
+  tiles?: boolean;
 };
 
 type Pending = { file: File; previewUrl: string; caption: string; kind: "image" | "video" };
@@ -71,7 +73,8 @@ async function uploadWithProgress(
 
 export function MediaUploader(props: Props) {
   const canSell = useCanSellPremium();
-  const { userId, scope, parentId, table, fkColumn, photoCap, videoCap, items, coverId, coverTable, captions, label, extraFields, showUpgradeHint } = props;
+  const { userId, scope, parentId, table, fkColumn, photoCap, videoCap, items, coverId, coverTable, captions, label, extraFields, showUpgradeHint, tiles = false } = props;
+  const cameraRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -264,8 +267,51 @@ export function MediaUploader(props: Props) {
     ? `Save 1 ${pending[0].kind === "image" ? "photo" : "video"}`
     : `Save ${pending.length} items`;
 
+  const tile =
+    "flex w-full items-center gap-2.5 rounded-2xl border border-line bg-surface p-3 text-left shadow-sm transition-colors hover:border-accent sm:gap-3.5 sm:p-4";
+  const tileText = (title: string, hint: string) => (
+    <span className="min-w-0 flex-1">
+      <span className="block font-serif text-[15px] leading-tight sm:text-lg">{title}</span>
+      <span className="mt-0.5 block text-[11px] leading-snug text-muted sm:text-xs">{hint}</span>
+    </span>
+  );
+
   return (
     <section>
+      {tiles && (
+        <div className="mb-5 grid grid-cols-2 gap-2.5 sm:gap-3">
+          {isNativePlatform() ? (
+            <button type="button" onClick={takeNativePhoto} className={cn(tile, photoRemaining <= 0 && "pointer-events-none opacity-40")}>
+              <CameraIcon size={24} className="shrink-0 text-accent" aria-hidden />
+              {tileText("Take photo", "Capture a moment from this trip")}
+            </button>
+          ) : (
+            <>
+              {/* In a phone's browser this opens the camera; on a computer it's a file picker. */}
+              <input
+                ref={cameraRef}
+                id={`${table}-camera-input`}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                onChange={(e) => pickFiles(e.target.files)}
+              />
+              <label htmlFor={`${table}-camera-input`} className={cn(tile, "cursor-pointer", photoRemaining <= 0 && "pointer-events-none opacity-40")}>
+                <CameraIcon size={24} className="shrink-0 text-accent" aria-hidden />
+                {tileText("Take photo", "Capture a moment from this trip")}
+              </label>
+            </>
+          )}
+          <label
+            htmlFor={`${table}-media-input`}
+            className={cn(tile, "cursor-pointer", photoRemaining <= 0 && videoRemaining <= 0 && "pointer-events-none opacity-40")}
+          >
+            <ImagePlus size={24} className="shrink-0 text-accent" aria-hidden />
+            {tileText("Add photos or videos", "From your device or library")}
+          </label>
+        </div>
+      )}
       <div className="flex items-baseline justify-between">
         <h3 className="font-serif text-lg">{label}</h3>
         <p className="text-xs text-muted">
@@ -398,47 +444,49 @@ export function MediaUploader(props: Props) {
       )}
 
       <div className="mt-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {isNativePlatform() && (
-            <button
-              type="button"
-              className={cn("btn-ghost !py-2 text-sm", photoRemaining <= 0 && "pointer-events-none opacity-40")}
-              onClick={takeNativePhoto}
-            >
-              <CameraIcon size={16} />
-              Take photo
-            </button>
-          )}
-          <input
-            ref={inputRef}
-            id={`${table}-media-input`}
-            type="file"
-            accept="image/*,video/*"
-            multiple
-            className="sr-only"
-            onChange={(e) => pickFiles(e.target.files)}
-          />
-          {/*
-            Deliberately a plain file input on native too, not
-            @capacitor/camera's gallery picker: WKWebView/Android WebView
-            already hand file inputs off to the native picker sheet (Photos
-            + Browse/Files app + Take Photo), so this loses nothing while
-            gaining folder browsing and skipping the extra webPath fetch+blob
-            round trip the Camera plugin needs per photo — that conversion
-            was the main source of the native picker feeling slower than web.
-          */}
-          <label
-            htmlFor={`${table}-media-input`}
-            className={cn(
-              "btn-ghost cursor-pointer !py-2 text-sm",
-              photoRemaining <= 0 && videoRemaining <= 0 && "pointer-events-none opacity-40"
+        <input
+          ref={inputRef}
+          id={`${table}-media-input`}
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          className="sr-only"
+          onChange={(e) => pickFiles(e.target.files)}
+        />
+        {!tiles && (
+          <div className="flex flex-wrap items-center gap-2">
+            {isNativePlatform() && (
+              <button
+                type="button"
+                className={cn("btn-ghost !py-2 text-sm", photoRemaining <= 0 && "pointer-events-none opacity-40")}
+                onClick={takeNativePhoto}
+              >
+                <CameraIcon size={16} />
+                Take photo
+              </button>
             )}
-          >
-            <ImagePlus size={16} />
-            Add photos or videos
-          </label>
-        </div>
-        <span className="ml-3 text-xs text-muted">JPEG/PNG/WebP up to 10 MB, or MP4/WebM/MOV up to 300 MB</span>
+            {/*
+              Deliberately a plain file input on native too, not
+              @capacitor/camera's gallery picker: WKWebView/Android WebView
+              already hand file inputs off to the native picker sheet (Photos
+              + Browse/Files app + Take Photo), so this loses nothing while
+              gaining folder browsing and skipping the extra webPath fetch+blob
+              round trip the Camera plugin needs per photo — that conversion
+              was the main source of the native picker feeling slower than web.
+            */}
+            <label
+              htmlFor={`${table}-media-input`}
+              className={cn(
+                "btn-ghost cursor-pointer !py-2 text-sm",
+                photoRemaining <= 0 && videoRemaining <= 0 && "pointer-events-none opacity-40"
+              )}
+            >
+              <ImagePlus size={16} />
+              Add photos or videos
+            </label>
+          </div>
+        )}
+        <span className={cn("text-xs text-muted", !tiles && "ml-3")}>JPEG/PNG/WebP up to 10 MB, or MP4/WebM/MOV up to 300 MB</span>
         {(photoRemaining <= 0 || videoRemaining <= 0) && showUpgradeHint && canSell && (
           <p className="mt-2 text-xs text-muted">
             That&rsquo;s the free plan&rsquo;s limit -{" "}
