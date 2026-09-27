@@ -5,23 +5,6 @@ import { Play } from "lucide-react";
 import { useAutoplayOk } from "./useAutoplayOk";
 import { FilmModal } from "./FilmModal";
 
-/** "▶ Watch the film" — a small button for the hero. */
-export function WatchFilmButton() {
-  const [open, setOpen] = useState(false);
-  const close = useCallback(() => setOpen(false), []);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-2 text-sm font-medium text-ink hover:text-accent">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white shadow-md shadow-accent/30">
-          <Play size={14} className="translate-x-px fill-current" aria-hidden />
-        </span>
-        Watch the film <span className="text-muted">· 30 s</span>
-      </button>
-      <FilmModal open={open} onClose={close} />
-    </>
-  );
-}
-
 /**
  * The wide film looping silently in a cinematic frame; tapping it plays the
  * full film with sound. Only plays while on screen, and not at all for
