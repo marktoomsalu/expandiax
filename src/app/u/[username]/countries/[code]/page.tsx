@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { StockCredit } from "@/components/StockCredit";
+import { StockImage } from "@/components/StockImage";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowLeft, ArrowRight, ImagePlus, Pencil } from "lucide-react";
@@ -159,7 +160,7 @@ export default async function PublicCountryPage({
       {!cover && stock && (
         // No photos of their own yet: a credited stock photo, never passed off as theirs.
         <div className="relative h-[34vh] min-h-56 w-full overflow-hidden" style={{ backgroundColor: stock.color }}>
-          <Image src={stock.src} alt={stock.alt} fill priority unoptimized sizes="100vw" className="object-cover saturate-[0.85]" />
+          <StockImage photo={stock} alt={stock.alt} priority sizes="100vw" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/10" aria-hidden />
           {isOwnProfile && (
             <Link

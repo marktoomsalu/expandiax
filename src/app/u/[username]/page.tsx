@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { StockCredit } from "@/components/StockCredit";
+import { StockImage } from "@/components/StockImage";
 import { BarChart3, Pencil, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -367,14 +368,7 @@ export default async function PublicProfilePage({ params }: { params: { username
                   {stock && (
                     // No photos of this country yet: a credited stock photo instead of an empty card.
                     <div className="relative aspect-[16/8] w-full" style={{ backgroundColor: stock.color }}>
-                      <Image
-                        src={stock.srcSmall}
-                        alt=""
-                        fill
-                        unoptimized
-                        sizes="(min-width: 640px) 50vw, 100vw"
-                        className="object-cover saturate-[0.85]"
-                      />
+                      <StockImage photo={stock} aspect="2:1" sizes="(min-width: 640px) 50vw, 100vw" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" aria-hidden />
                       <StockCredit photo={stock} linked={false} className="absolute bottom-2.5 right-3" />
                     </div>

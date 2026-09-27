@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { ImagePlus, Search } from "lucide-react";
 import { CountryCardMedia } from "./CountryCardMedia";
 import { countryByCode } from "@/lib/countries";
@@ -10,6 +9,7 @@ import { territoryByCode, territoryFlagFor } from "@/lib/territories";
 import type { StockPhoto } from "@/lib/stockPhotos";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
 import { StockCredit } from "./StockCredit";
+import { StockImage } from "./StockImage";
 
 type VisitLite = { year: number; visited_from: string | null; visited_to: string | null };
 type Row = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
@@ -75,14 +75,10 @@ export function CountryGrid({ countries, stock = {} }: { countries: Row[]; stock
                     ) : stock[c.country_code] ? (
                       // No photos of their own yet: a stock photo, clearly marked, and an invitation to add theirs.
                       <>
-                        <Image
-                          src={stock[c.country_code].srcSmall}
-                          alt=""
-                          fill
-                          unoptimized
+                        <StockImage
+                          photo={stock[c.country_code]}
+                          aspect="3:4"
                           sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                          className="object-cover saturate-[0.85]"
-                          style={{ backgroundColor: stock[c.country_code].color }}
                         />
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10" aria-hidden />
                         <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-12 text-white">

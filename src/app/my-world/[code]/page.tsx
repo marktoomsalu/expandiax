@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ExternalLink, ImagePlus, Lock, MapPin } from "lucide-react";
@@ -9,6 +8,7 @@ import { territoryByCode, territoryToMeta } from "@/lib/territories";
 import { CountryEditor, AddCountryForm } from "@/components/CountryEditor";
 import { ShareButton } from "@/components/ShareButton";
 import { StockCredit } from "@/components/StockCredit";
+import { StockImage } from "@/components/StockImage";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { visitSortKey } from "@/lib/utils";
 import { COUNTRY_CAP } from "@/lib/plan";
@@ -82,7 +82,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
       {stock && visited && (
         // Nothing of their own here yet: a credited stock photo as a placeholder, and the way to replace it.
         <div className="relative mt-6 h-56 overflow-hidden rounded-2xl sm:h-72" style={{ backgroundColor: stock.color }}>
-          <Image src={stock.src} alt={stock.alt} fill priority unoptimized sizes="(min-width: 768px) 768px, 100vw" className="object-cover saturate-[0.85]" />
+          <StockImage photo={stock} alt={stock.alt} priority sizes="(min-width: 768px) 768px, 100vw" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/5" aria-hidden />
           <div className="absolute inset-x-0 bottom-0 p-5 text-white">
             <p className="font-serif text-2xl drop-shadow">This is Unsplash&rsquo;s {meta.name}. Show us yours.</p>

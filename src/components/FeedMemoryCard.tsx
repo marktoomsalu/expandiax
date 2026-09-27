@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { StockPhoto } from "@/lib/stockPhotos";
 import { StockCredit } from "./StockCredit";
+import { StockImage } from "./StockImage";
 import Link from "next/link";
 import { CalendarDays, ChevronLeft, ChevronRight, Languages, MapPin, Music2, Play, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -305,14 +306,12 @@ export function FeedMemoryCard(p: Props) {
           </div>
         ) : p.stock ? (
           <Link href={p.href} aria-label={p.title} className="absolute inset-0 block" style={{ backgroundColor: p.stock.color }}>
-            <Image
-              src={p.stock.src}
+            <StockImage
+              photo={p.stock}
               alt={p.stock.alt}
-              fill
-              unoptimized
               priority={p.priority}
               sizes="(min-width: 640px) 672px, 100vw"
-              className="object-cover saturate-[0.85] transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+              className="transition-transform duration-700 ease-out group-hover:scale-[1.03]"
             />
           </Link>
         ) : (

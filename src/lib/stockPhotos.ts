@@ -11,8 +11,7 @@ type Entry = { id: string; raw: string; color: string; alt: string; author: stri
 
 export type StockPhoto = {
   id: string;
-  src: string; // ~1200px wide
-  srcSmall: string; // ~640px wide
+  raw: string; // Unsplash's resizable original — see StockImage
   color: string; // average colour, shown while it loads
   alt: string;
   author: string;
@@ -22,7 +21,6 @@ export type StockPhoto = {
 };
 
 const UTM = "utm_source=expandiax&utm_medium=referral";
-const sized = (raw: string, w: number) => `${raw}${raw.includes("?") ? "&" : "?"}w=${w}&q=75&fm=jpg&fit=crop&auto=format`;
 
 function hash(s: string) {
   let h = 0;
@@ -37,8 +35,7 @@ export function stockPhotoFor(countryCode: string | null | undefined, seed = "")
   const p = list[hash(`${seed}:${countryCode}`) % list.length];
   return {
     id: p.id,
-    src: sized(p.raw, 1200),
-    srcSmall: sized(p.raw, 640),
+    raw: p.raw,
     color: p.color,
     alt: p.alt || `A view of ${countryCode}`,
     author: p.author,
@@ -46,4 +43,20 @@ export function stockPhotoFor(countryCode: string | null | undefined, seed = "")
     photoUrl: `${p.html}?${UTM}`,
     unsplashUrl: `https://unsplash.com/?${UTM}`,
   };
+}
+
+/**
+ * An Unsplash image URL at a given width — and, with `aspect` ("3:4"),
+ * cropped by Unsplash to exactly that shape (around the most detailed part
+ * of the photo), so a tall card gets a tall, full-resolution image instead
+ * of a small landscape one stretched to fill it.
+ */
+export function stockUrl(raw: string, width: number, aspect?: string, quality = 80): string {
+  const params = new URLSearchParams({ w: String(width), q: String(quality), auto: "format" });
+  if (aspect) {
+    params.set("ar", aspect);
+    params.set("fit", "crop");
+    params.set("crop", "entropy");
+  }
+  return `${raw}${raw.includes("?") ? "&" : "?"}${params}`;
 }
