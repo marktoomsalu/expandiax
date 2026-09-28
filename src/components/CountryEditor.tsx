@@ -10,11 +10,11 @@ import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
 import { useCanSellPremium } from "./PurchaseAvailability";
 import { withoutUpgradePrompt } from "@/lib/nativeApp";
-import type { DatePrecision, Plan, VisitedCountryFull } from "@/lib/types";
+import type { DatePrecision, Plan, TripKind, VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { TripCard } from "./TripCard";
+import { StayRow, type StayView } from "./StayRow";
+import { TripKindToggle } from "./TripKindToggle";
 import { SuggestedDatesNote, usePhotoDateRange, useSuggestedDates } from "./PhotoDateSuggestion";
-import type { StockPhoto } from "@/lib/stockPhotos";
 import { VisitDateFields } from "./VisitDateFields";
 import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
@@ -75,6 +75,8 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
+  const [kind, setKind] = useState<TripKind>("trip");
+  const [title, setTitle] = useState("");
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   // When the chosen photos were taken (read on the device) fills the dates by
   // itself, marked as a suggestion, until the person changes them.
@@ -152,6 +154,8 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
         visited_to: to,
         date_precision: datePrecision,
         highlight: highlight.trim(),
+        title: title.trim().slice(0, 80),
+        kind,
       })
       .select("id")
       .single();
@@ -180,6 +184,19 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   return (
     <form onSubmit={submit} className="mx-auto max-w-sm space-y-6 text-left">
       <div>
+        <TripKindToggle value={kind} onChange={setKind} />
+        <label htmlFor="first-title" className="sr-only">Name (optional)</label>
+        <input
+          id="first-title"
+          type="text"
+          className="field mt-2 !py-1.5 w-full text-sm"
+          maxLength={80}
+          placeholder={kind === "lived" ? "Name - optional, e.g. My Ljubljana years" : `Name - optional, e.g. ${meta.name} Road Trip`}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </div>
+      <div className="border-t border-line pt-5">
         <p className="eyebrow mb-3">Photos & videos</p>
         <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
         {pendingMedia.some((p) => p.kind === "video") && (
@@ -255,20 +272,8 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   );
 }
 
-export type TripView = {
-  id: string;
-  title: string;
-  days: string | null;
-  subtitle: string | null;
-  photos: number;
-  videos: number;
-  hasSoundtrack: boolean;
-  photo: string | null;
-  stock: StockPhoto | null;
-  mediaPaths: string[];
-};
 
-export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountryFull; meta: Meta; plan: Plan; trips: TripView[] }) {
+export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountryFull; meta: Meta; plan: Plan; trips: StayView[] }) {
   const router = useRouter();
   const supabase = createClient();
   const [precision, setPrecision] = useState<DatePrecision>("year");
@@ -277,6 +282,8 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
+  const [kind, setKind] = useState<TripKind>("trip");
+  const [title, setTitle] = useState("");
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   // When the chosen photos were taken (read on the device) fills the dates by
   // itself, marked as a suggestion, until the person changes them.
@@ -334,6 +341,8 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
         visited_to: to,
         date_precision: datePrecision,
         highlight: highlight.trim(),
+        title: title.trim().slice(0, 80),
+        kind,
       })
       .select("id")
       .single();
@@ -399,33 +408,20 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
       {/* Trips — each carries its own photos, soundtrack and memory */}
       <section aria-labelledby="trips-h">
         <div className="flex items-center justify-between gap-4">
-          <h2 id="trips-h" className="font-serif text-2xl">Your trips</h2>
+          <h2 id="trips-h" className="font-serif text-2xl">All stays & trips</h2>
           <button type="button" onClick={openAddTrip} className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-            <Plus size={16} aria-hidden /> Add trip
+            <Plus size={16} aria-hidden /> Add
           </button>
         </div>
 
         {trips.length > 0 && (
-          <ul className="mt-5 space-y-4">
+          <ol className="mt-4">
             {trips.map((t, i) => (
               <li key={t.id}>
-                <TripCard
-                  visitId={t.id}
-                  mediaPaths={t.mediaPaths}
-                  href={`/my-world/${meta.code.toLowerCase()}/visits/${t.id}`}
-                  title={t.title}
-                  days={t.days}
-                  subtitle={t.subtitle}
-                  photos={t.photos}
-                  videos={t.videos}
-                  hasSoundtrack={t.hasSoundtrack}
-                  photo={t.photo}
-                  stock={t.stock}
-                  priority={i === 0}
-                />
+                <StayRow stay={t} href={`/my-world/${meta.code.toLowerCase()}/visits/${t.id}`} first={i === 0} last={i === trips.length - 1} />
               </li>
             ))}
-          </ul>
+          </ol>
         )}
 
         {!adding ? (
@@ -438,8 +434,8 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
               <Plus size={18} aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium">Plan another trip to {meta.name}?</span>
-              <span className="block text-xs text-muted">Add a new trip and keep your memories together.</span>
+              <span className="block text-sm font-medium">Add a trip or stay in {meta.name}</span>
+              <span className="block text-xs text-muted">Another trip, or a time you lived here.</span>
             </span>
             <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
           </button>
@@ -447,7 +443,7 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
           <form id="add-trip" onSubmit={addVisit} className="mt-4 scroll-mt-6 space-y-6 rounded-2xl border border-line bg-surface px-5 py-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <p className="flex items-center gap-2 font-serif text-xl">
-                <Plus size={18} className="text-accent" aria-hidden /> {trips.length ? `Another trip to ${meta.name}` : `Your first trip to ${meta.name}`}
+                <Plus size={18} className="text-accent" aria-hidden /> {trips.length ? `Another trip or stay in ${meta.name}` : `Your first trip to ${meta.name}`}
               </p>
               {trips.length > 0 && (
                 <button type="button" onClick={() => setAdding(false)} aria-label="Close" className="text-muted hover:text-ink">
@@ -456,6 +452,19 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
               )}
             </div>
             <div>
+              <TripKindToggle value={kind} onChange={setKind} />
+              <label htmlFor="add-title" className="sr-only">Name (optional)</label>
+              <input
+                id="add-title"
+                type="text"
+                className="field mt-2 !py-1.5 w-full text-sm"
+                maxLength={80}
+                placeholder={kind === "lived" ? "Name - optional, e.g. My Ljubljana years" : `Name - optional, e.g. ${meta.name} Road Trip`}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+            <div className="border-t border-line pt-5">
               <p className="eyebrow mb-3">Photos & videos</p>
               <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
               {pendingMedia.some((p) => p.kind === "video") && (
@@ -511,7 +520,7 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
             </div>
             {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
             <button type="submit" className="btn-accent w-full justify-center !py-2.5 text-sm" disabled={addingVisit}>
-              <Plus size={15} /> {addingVisit ? uploadStatus ?? "Adding…" : "Add this trip"}
+              <Plus size={15} /> {addingVisit ? uploadStatus ?? "Adding…" : kind === "lived" ? "Add this stay" : "Add this trip"}
             </button>
           </form>
         )}

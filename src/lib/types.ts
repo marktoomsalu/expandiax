@@ -73,8 +73,23 @@ export type CountryVisit = {
   spotify_track_name: string | null;
   spotify_track_artist: string | null;
   spotify_track_image: string | null;
+  title: string; // "Slovenia Road Trip" — empty until named
+  kind: TripKind;
 };
-export type CountryCity = { id: string; visited_country_id: string; country_visit_id: string; city_name: string };
+export type TripKind = "trip" | "lived";
+
+/** A place within a trip: its own dates, order in the journey, and spot on the map. */
+export type CountryCity = {
+  id: string;
+  visited_country_id: string;
+  country_visit_id: string;
+  city_name: string;
+  arrived: string | null;
+  departed: string | null;
+  position: number;
+  lat: number | null;
+  lng: number | null;
+};
 
 export type MediaItem = {
   id: string;
@@ -88,7 +103,7 @@ export type MediaItem = {
   created_at: string;
 };
 
-export type CountryMedia = MediaItem & { visited_country_id: string; country_visit_id: string };
+export type CountryMedia = MediaItem & { visited_country_id: string; country_visit_id: string; city_id: string | null };
 export type EventMedia = MediaItem & { event_id: string };
 
 export type EventType = "concert" | "festival" | "sport" | "conference" | "personal" | "other";

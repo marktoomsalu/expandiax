@@ -24,8 +24,7 @@ export function CountryHero({
   continent,
   isTerritory,
   onlyMe,
-  trips,
-  memories,
+  summary,
   photo,
   stock,
   publicHref,
@@ -37,8 +36,7 @@ export function CountryHero({
   continent: string;
   isTerritory: boolean;
   onlyMe: boolean;
-  trips: number;
-  memories: number;
+  summary: string; // "5 trips · 3 places · Lived here 2025 – 2026"
   photo: string | null;
   stock: StockPhoto | null;
   publicHref: string | null;
@@ -95,9 +93,7 @@ export function CountryHero({
           </span>
           {name}
         </h1>
-        <p className="mt-2 text-sm text-white/80">
-          {trips} {trips === 1 ? "trip" : "trips"} · {memories > 0 ? `${memories} ${memories === 1 ? "memory" : "memories"}` : "no photos yet"}
-        </p>
+        <p className="mt-2 text-sm text-white/80">{summary}</p>
 
         <div className="mt-4 flex items-center gap-x-4">
           <ShareButton kind="country" targetId={visitedCountryId} title={`${flag} ${name}`} compact className="!text-white/90 hover:!text-white" />

@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, Move, Star, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, MapPin, Move, Star, Trash2 } from "lucide-react";
 import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
 import { classifyFile, focalPosition, validateFile, storagePath } from "@/lib/media";
@@ -18,6 +18,7 @@ import { useCanSellPremium } from "./PurchaseAvailability";
 import { cn } from "@/lib/utils";
 import { isNativePlatform } from "@/lib/capacitor";
 import { tapSuccess } from "@/lib/haptics";
+import { nearestPlace, photoSpot } from "@/lib/photoDates";
 
 type Props = {
   userId: string;
@@ -38,9 +39,12 @@ type Props = {
   showUpgradeHint?: boolean;
   /** Big "Take photo" / "Add photos or videos" tiles on top instead of small buttons below. */
   tiles?: boolean;
+  /** A trip's places: each photo can belong to one (matched by where it was taken, on the device). */
+  places?: UploaderPlace[];
 };
 
-type Pending = { file: File; previewUrl: string; caption: string; kind: "image" | "video" };
+type Pending = { file: File; previewUrl: string; caption: string; kind: "image" | "video"; placeId?: string | null };
+export type UploaderPlace = { id: string; name: string; lat: number | null; lng: number | null };
 
 /** Upload with real progress via the Storage REST endpoint. */
 async function uploadWithProgress(
@@ -74,6 +78,9 @@ async function uploadWithProgress(
 export function MediaUploader(props: Props) {
   const canSell = useCanSellPremium();
   const { userId, scope, parentId, table, fkColumn, photoCap, videoCap, items, coverId, coverTable, captions, label, extraFields, showUpgradeHint, tiles = false } = props;
+  const places = table === "country_media" ? props.places ?? [] : [];
+  // With two or more places, each photo shows (and can change) which one it's from.
+  const choosePlace = places.length >= 2;
   const cameraRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
@@ -121,6 +128,22 @@ export function MediaUploader(props: Props) {
       else addedVideos++;
     }
     if (next.length) setPending((p) => [...p, ...next]);
+    // Where each photo was taken (read on the device, before it's stripped for
+    // upload) puts it under the nearest place in the trip. Never stored.
+    if (choosePlace && places.some((pl) => pl.lat != null)) {
+      for (const item of next) {
+        if (item.kind !== "image") continue;
+        photoSpot(item.file).then((spot) => {
+          const place = spot ? nearestPlace(spot, places) : null;
+          if (place) setPending((cur) => cur.map((x) => (x.previewUrl === item.previewUrl && x.placeId === undefined ? { ...x, placeId: place.id } : x)));
+        });
+      }
+    }
+  }
+
+  async function setPlace(item: MediaItem, placeId: string) {
+    await supabase.from(table).update({ city_id: placeId || null }).eq("id", item.id);
+    router.refresh();
   }
 
   function pickFiles(list: FileList | null) {
@@ -203,6 +226,7 @@ export function MediaUploader(props: Props) {
           media_type: p.kind,
           caption: p.caption,
           display_order: order++,
+          ...(choosePlace && p.placeId ? { city_id: p.placeId } : {}),
         });
         if (dbError) {
           await supabase.storage.from("media").remove([path]);
@@ -346,6 +370,13 @@ export function MediaUploader(props: Props) {
                 </span>
               )}
               {m.caption && <p className="truncate px-2 py-1.5 text-xs text-muted">{m.caption}</p>}
+              {choosePlace && (
+                <PlaceSelect
+                  places={places}
+                  value={(m as MediaItem & { city_id?: string | null }).city_id ?? ""}
+                  onChange={(v) => setPlace(m, v)}
+                />
+              )}
               <div className="flex items-center justify-between border-t border-line px-1.5 py-1">
                 <div className="flex">
                   <button type="button" aria-label="Move earlier" className="p-1.5 text-muted hover:text-ink disabled:opacity-30" disabled={i === 0} onClick={() => move(m, -1)}>
@@ -395,6 +426,13 @@ export function MediaUploader(props: Props) {
                       <div className="h-1 bg-accent transition-all" style={{ width: `${progress[p.previewUrl]}%` }} />
                     </div>
                   </>
+                )}
+                {choosePlace && (
+                  <PlaceSelect
+                    places={places}
+                    value={p.placeId ?? ""}
+                    onChange={(v) => setPending((cur) => cur.map((x) => (x.previewUrl === p.previewUrl ? { ...x, placeId: v || null } : x)))}
+                  />
                 )}
                 {captions && (
                   <input
@@ -529,5 +567,23 @@ export function MediaUploader(props: Props) {
         />
       )}
     </section>
+  );
+}
+
+/** Which of the trip's places a photo is from. */
+function PlaceSelect({ places, value, onChange }: { places: UploaderPlace[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex items-center gap-1.5 border-t border-line px-2 py-1.5 text-xs text-muted">
+      <MapPin size={12} className="shrink-0 text-accent" aria-hidden />
+      <span className="sr-only">Place</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="min-w-0 flex-1 bg-transparent text-ink focus:outline-none">
+        <option value="">Which place?</option>
+        {places.map((pl) => (
+          <option key={pl.id} value={pl.id}>
+            {pl.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

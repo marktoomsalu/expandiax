@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Check, MapPin, MessageSquareText, Music2, Plus, Share2, X } from "lucide-react";
+import { Calendar, Check, MapPin, MessageSquareText, Music2, PenLine, Share2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { VisitDateFields } from "./VisitDateFields";
 import { SoundtrackPicker } from "./SoundtrackPicker";
-import type { CountryCity, CountryVisit, DatePrecision } from "@/lib/types";
+import type { CountryCity, CountryVisit, DatePrecision, TripKind } from "@/lib/types";
+import { TripKindToggle } from "./TripKindToggle";
+import { TripPlacesEditor } from "./TripPlacesEditor";
 import { cn } from "@/lib/utils";
 import { Basket } from "./Basket";
 import { SuggestedDatesNote, useSuggestedDates, type DateRange } from "./PhotoDateSuggestion";
@@ -39,8 +41,8 @@ function useSavedAgo(savedAt: number | null) {
 export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; cities: CountryCity[]; country: TripCountry }) {
   const router = useRouter();
   const supabase = createClient();
-  const [cityList, setCityList] = useState(cities);
-  const [cityInput, setCityInput] = useState("");
+  const [title, setTitle] = useState(visit.title ?? "");
+  const [kind, setKind] = useState<TripKind>(visit.kind ?? "trip");
   const [precision, setPrecision] = useState<DatePrecision>(visit.date_precision);
   const [year, setYear] = useState(String(visit.year));
   const [month, setMonth] = useState(visit.date_precision === "month" && visit.visited_from ? visit.visited_from.slice(5, 7) : "");
@@ -138,7 +140,12 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
     if (memoryDebounce.current) clearTimeout(memoryDebounce.current);
     if (!(await persistDates())) return;
     await commitMemory(memory);
-    router.push(`/my-world/${country.code.toLowerCase()}`);
+    const { error: err } = await supabase.from("country_visits").update({ title: title.trim().slice(0, 80), kind }).eq("id", visit.id);
+    if (err) {
+      setError("Could not save the name. Try again.");
+      return;
+    }
+    router.push(`/my-world/${country.code.toLowerCase()}/visits/${visit.id}`);
     router.refresh();
   }
 
@@ -166,27 +173,7 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
     commitMemory(memory);
   }
 
-  async function addCity(e: React.FormEvent) {
-    e.preventDefault();
-    const name = cityInput.trim();
-    if (!name) return;
-    const { data: inserted, error: err } = await supabase
-      .from("country_cities")
-      .insert({ visited_country_id: visit.visited_country_id, country_visit_id: visit.id, city_name: name })
-      .select("*")
-      .single();
-    if (!err && inserted) {
-      setCityList((c) => [...c, inserted as CountryCity]);
-      setCityInput("");
-      router.refresh();
-    }
-  }
 
-  async function removeCity(id: string) {
-    setCityList((c) => c.filter((x) => x.id !== id));
-    await supabase.from("country_cities").delete().eq("id", id);
-    router.refresh();
-  }
 
   const segment = (value: Sharing, label: string) => (
     <button
@@ -205,6 +192,19 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
 
   return (
     <div className="space-y-3">
+      <Basket icon={PenLine} title="Name & type" hint="Give it a name, and say whether it was a trip or somewhere you lived.">
+        <label htmlFor="trip-title" className="sr-only">Name</label>
+        <input
+          id="trip-title"
+          className="field"
+          maxLength={80}
+          placeholder={kind === "lived" ? `Lived in ${cities[0]?.city_name ?? country.name}` : `e.g. ${country.name} Road Trip`}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        <TripKindToggle value={kind} onChange={setKind} className="mt-2" />
+      </Basket>
+
       <Basket icon={Calendar} title="When" hint="Set the dates for your trip.">
         <VisitDateFields
           precision={precision}
@@ -248,35 +248,8 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
         <SoundtrackPicker table="country_visits" recordId={visit.id} initialTrackId={visit.spotify_track_id} />
       </Basket>
 
-      <Basket icon={MapPin} title="Places" hint="Add the places you visited.">
-        <div className="flex flex-wrap items-center gap-2">
-          {cityList.map((c) => (
-            <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised px-3 py-1.5 text-sm">
-              {c.city_name}
-              <button type="button" aria-label={`Remove ${c.city_name}`} className="text-muted hover:text-red-700" onClick={() => removeCity(c.id)}>
-                <X size={14} />
-              </button>
-            </span>
-          ))}
-          <form onSubmit={addCity} className="flex min-w-[12rem] flex-1 items-center gap-2">
-            <label htmlFor="visit-city-input" className="sr-only">Add a city</label>
-            <input
-              id="visit-city-input"
-              type="text"
-              placeholder="Add a city…"
-              className="field min-w-0 flex-1 !py-2 text-sm"
-              value={cityInput}
-              onChange={(e) => setCityInput(e.target.value)}
-            />
-            <button
-              type="submit"
-              aria-label="Add city"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line hover:border-accent hover:text-accent"
-            >
-              <Plus size={16} />
-            </button>
-          </form>
-        </div>
+      <Basket id="places" icon={MapPin} title="Places" hint="Where you went, in order - each with its own dates.">
+        <TripPlacesEditor visitId={visit.id} visitedCountryId={visit.visited_country_id} countryCode={country.code} initial={cities} />
       </Basket>
 
       <Basket icon={Share2} title="Sharing" hint={`Who can see ${country.name} - for all your trips there.`}>

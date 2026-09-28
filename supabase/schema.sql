@@ -106,6 +106,10 @@ create table public.country_visits (
   spotify_track_name text,
   spotify_track_artist text,
   spotify_track_image text,
+  -- A name of your own ("Slovenia Road Trip"), and whether this was a trip
+  -- or somewhere you lived.
+  title text not null default '' constraint country_visits_title_len check (length(title) <= 80),
+  kind text not null default 'trip' constraint country_visits_kind_ck check (kind in ('trip', 'lived')),
   check (visited_to is null or visited_from is null or visited_to >= visited_from)
 );
 
@@ -115,7 +119,16 @@ create table public.country_cities (
   -- Every city belongs to a specific trip — no general, visit-less pool,
   -- matching photos/notes/soundtrack.
   country_visit_id uuid not null references public.country_visits (id) on delete cascade,
-  city_name text not null check (length(city_name) between 1 and 80)
+  city_name text not null check (length(city_name) between 1 and 80),
+  -- The place's own dates within the trip, its order in the journey, and
+  -- where it is (from the city search) so it can go on a map.
+  arrived date,
+  departed date,
+  position int not null default 0,
+  lat double precision,
+  lng double precision,
+  constraint country_cities_dates_ck check (departed is null or arrived is null or departed >= arrived),
+  constraint country_cities_coords_ck check ((lat is null and lng is null) or (lat between -90 and 90 and lng between -180 and 180))
 );
 
 create table public.country_media (
@@ -134,8 +147,28 @@ create table public.country_media (
   -- cover/hero — a focal point, not a full crop box. Null = default bias.
   focal_x smallint check (focal_x between 0 and 100),
   focal_y smallint check (focal_y between 0 and 100),
+  -- Which of the trip's places this was taken at, if known.
+  city_id uuid references public.country_cities (id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+-- A photo's place has to be one of its own trip's places.
+create or replace function public.country_media_city_same_trip()
+returns trigger language plpgsql as $$
+begin
+  if new.city_id is not null and not exists (
+    select 1 from public.country_cities c
+    where c.id = new.city_id and c.country_visit_id = new.country_visit_id
+  ) then
+    raise exception 'That place is not part of this trip';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger country_media_city_same_trip
+  before insert or update of city_id, country_visit_id on public.country_media
+  for each row execute function public.country_media_city_same_trip();
 
 alter table public.visited_countries
   add constraint visited_countries_cover_media_fk
@@ -248,6 +281,7 @@ create index country_visits_vc_idx on public.country_visits (visited_country_id)
 create index country_cities_vc_idx on public.country_cities (visited_country_id);
 create index country_media_vc_idx on public.country_media (visited_country_id, display_order);
 create index country_media_visit_idx on public.country_media (country_visit_id, display_order);
+create index country_media_city_idx on public.country_media (city_id);
 create index events_user_date_idx on public.events (user_id, event_date desc);
 create index events_country_idx on public.events (user_id, country_code);
 create index event_media_event_idx on public.event_media (event_id, display_order);
@@ -655,6 +689,9 @@ create policy "country cities readable" on public.country_cities for select
   using (public.owns_visited_country(visited_country_id)
          or public.visited_country_is_public(visited_country_id));
 create policy "country cities insert" on public.country_cities for insert
+  with check (public.owns_visited_country(visited_country_id));
+create policy "country cities update" on public.country_cities for update
+  using (public.owns_visited_country(visited_country_id))
   with check (public.owns_visited_country(visited_country_id));
 create policy "country cities delete" on public.country_cities for delete
   using (public.owns_visited_country(visited_country_id));

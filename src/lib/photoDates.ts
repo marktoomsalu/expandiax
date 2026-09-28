@@ -1,3 +1,5 @@
+import { distanceKm } from "@/lib/tripPlaces";
+
 // When photos were taken, read on the person's own device from the photo
 // file (EXIF), to suggest a trip's or event's dates. Nothing is stored or
 // sent — and location/camera details are stripped before upload anyway.
@@ -44,4 +46,39 @@ export function describeDays(from: string, to: string): string {
   if (ay === by && am === bm) return `${ad}–${bd} ${MONTHS[am - 1]} ${ay}`;
   if (ay === by) return `${ad} ${short(am)} – ${bd} ${short(bm)} ${ay}`;
   return `${ad} ${short(am)} ${ay} – ${bd} ${short(bm)} ${by}`;
+}
+
+// ---------- Where a photo was taken — only to match it to a place in the trip ----------
+
+/** A photo's location from its EXIF, read on the device. Never stored or sent. */
+export async function photoSpot(file: File): Promise<{ lat: number; lng: number } | null> {
+  if (!file.type.startsWith("image/")) return null;
+  try {
+    const exifr = await import("exifr");
+    const gps = await exifr.gps(await file.arrayBuffer());
+    const lat = gps?.latitude;
+    const lng = gps?.longitude;
+    return typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The trip's place closest to where the photo was taken, if it's within `maxKm`. */
+export function nearestPlace<P extends { id: string; lat: number | null; lng: number | null }>(
+  spot: { lat: number; lng: number },
+  places: P[],
+  maxKm = 60
+): P | null {
+  let best: P | null = null;
+  let bestKm = Infinity;
+  for (const p of places) {
+    if (p.lat == null || p.lng == null) continue;
+    const km = distanceKm(spot, { lat: p.lat, lng: p.lng });
+    if (km < bestKm) {
+      best = p;
+      bestKm = km;
+    }
+  }
+  return bestKm <= maxKm ? best : null;
 }
