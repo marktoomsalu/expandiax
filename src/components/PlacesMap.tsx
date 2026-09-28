@@ -34,6 +34,8 @@ export function PlacesMap({ points, route = false, className }: { points: MapPoi
     (async () => {
       const maplibre = await import("maplibre-gl");
       if (cancelled || !box.current) return;
+      // Its worker can't be found once bundled; it's served from /public (see scripts/copy-maplibre-worker.mjs).
+      maplibre.setWorkerUrl(`/maplibre/${maplibre.getVersion()}/maplibre-gl-worker.mjs`);
       const dark = document.documentElement.classList.contains("dark");
       const m = new maplibre.Map({
         container: box.current,

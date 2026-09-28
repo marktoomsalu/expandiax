@@ -32,6 +32,13 @@ export function TripPlacesEditor({
   const [error, setError] = useState<string | null>(null);
   const request = useRef(0);
 
+  // Places can also arrive from elsewhere on the page (photos from somewhere new).
+  const initialKey = initial.map((c) => `${c.id}:${c.arrived}:${c.departed}:${c.position}`).join("|");
+  useEffect(() => {
+    setPlaces(orderStops(initial));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialKey]);
+
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {

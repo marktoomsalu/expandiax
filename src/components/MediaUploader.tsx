@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, MapPin, Move, Star, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, MapPin, Move, Star, Trash2, X } from "lucide-react";
 import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
 import { classifyFile, focalPosition, validateFile, storagePath } from "@/lib/media";
@@ -18,7 +18,9 @@ import { useCanSellPremium } from "./PurchaseAvailability";
 import { cn } from "@/lib/utils";
 import { isNativePlatform } from "@/lib/capacitor";
 import { tapSuccess } from "@/lib/haptics";
-import { nearestPlace, photoSpot } from "@/lib/photoDates";
+import { nearestPlace } from "@/lib/photoDates";
+import { groupByTown, placeKey } from "@/lib/photoPlaces";
+import { readPhotoFacts, savePlaces } from "./PhotoPlaceSuggestion";
 
 type Props = {
   userId: string;
@@ -41,10 +43,21 @@ type Props = {
   tiles?: boolean;
   /** A trip's places: each photo can belong to one (matched by where it was taken, on the device). */
   places?: UploaderPlace[];
+  /** The trip's country — photos taken somewhere new in it become new places of the trip. */
+  countryCode?: string;
 };
 
-type Pending = { file: File; previewUrl: string; caption: string; kind: "image" | "video"; placeId?: string | null };
-export type UploaderPlace = { id: string; name: string; lat: number | null; lng: number | null };
+type NewPlace = { key: string; name: string; lat: number; lng: number };
+type Pending = {
+  file: File;
+  previewUrl: string;
+  caption: string;
+  kind: "image" | "video";
+  placeId?: string | null;
+  newPlace?: NewPlace | null; // a town in the photo that isn't one of the trip's places yet
+  day?: string | null;
+};
+export type UploaderPlace = { id: string; name: string; lat: number | null; lng: number | null; position: number; arrived: string | null; departed: string | null };
 
 /** Upload with real progress via the Storage REST endpoint. */
 async function uploadWithProgress(
@@ -94,6 +107,7 @@ export function MediaUploader(props: Props) {
   const [toDelete, setToDelete] = useState<MediaItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toReposition, setToReposition] = useState<MediaItem | null>(null);
+  const [addedPlaces, setAddedPlaces] = useState<string[]>([]);
 
   const photoCount = items.filter((m) => m.media_type === "image").length + pending.filter((p) => p.kind === "image").length;
   const videoCount = items.filter((m) => m.media_type === "video").length + pending.filter((p) => p.kind === "video").length;
@@ -128,17 +142,82 @@ export function MediaUploader(props: Props) {
       else addedVideos++;
     }
     if (next.length) setPending((p) => [...p, ...next]);
-    // Where each photo was taken (read on the device, before it's stripped for
-    // upload) puts it under the nearest place in the trip. Never stored.
-    if (choosePlace && places.some((pl) => pl.lat != null)) {
-      for (const item of next) {
-        if (item.kind !== "image") continue;
-        photoSpot(item.file).then((spot) => {
-          const place = spot ? nearestPlace(spot, places) : null;
-          if (place) setPending((cur) => cur.map((x) => (x.previewUrl === item.previewUrl && x.placeId === undefined ? { ...x, placeId: place.id } : x)));
-        });
-      }
+    if (table === "country_media" && props.countryCode) void placePhotos(next, props.countryCode);
+  }
+
+  // Where and when each photo was taken (read on the device, before it's
+  // stripped for upload): a photo from one of the trip's places goes under
+  // it; one from somewhere new suggests a new place, with its own days.
+  async function placePhotos(items: Pending[], countryCode: string) {
+    const images = items.filter((i) => i.kind === "image");
+    if (!images.length) return;
+    const facts = await readPhotoFacts(images.map((i) => i.file), countryCode);
+    const known = new Map<string, string>();
+    const rest: { url: string; fact: (typeof facts)[number] }[] = [];
+    images.forEach((item, i) => {
+      const f = facts[i];
+      const match =
+        (f.town && places.find((p) => placeKey(p.name) === placeKey(f.town!.name))) ||
+        (f.spot && nearestPlace(f.spot, places, f.town ? 10 : 60)) ||
+        null;
+      if (match) known.set(item.previewUrl, match.id);
+      else rest.push({ url: item.previewUrl, fact: f });
+    });
+    const fresh = new Map<string, NewPlace>();
+    for (const g of groupByTown(rest.map((r) => r.fact))) {
+      for (const i of g.photos) fresh.set(rest[i].url, { key: g.key, name: g.name, lat: g.lat, lng: g.lng });
     }
+    const dayOf = new Map(images.map((item, i) => [item.previewUrl, facts[i].day]));
+    setPending((cur) =>
+      cur.map((x) =>
+        dayOf.has(x.previewUrl)
+          ? {
+              ...x,
+              day: dayOf.get(x.previewUrl),
+              placeId: x.placeId === undefined ? known.get(x.previewUrl) : x.placeId,
+              newPlace: x.newPlace === undefined ? fresh.get(x.previewUrl) ?? null : x.newPlace,
+            }
+          : x
+      )
+    );
+  }
+
+  /** Before uploading: adds the new places the photos came from, and fills in days for places that have none. */
+  async function preparePlaces(): Promise<Map<string, string>> {
+    const visitedCountryId = extraFields?.visited_country_id;
+    if (table !== "country_media" || !visitedCountryId) return new Map();
+    const span = (days: (string | null | undefined)[]) => {
+      const ok = days.filter((d): d is string => !!d).sort();
+      return { arrived: ok[0] ?? null, departed: ok.at(-1) ?? null };
+    };
+    const fresh = new Map<string, NewPlace & { days: (string | null | undefined)[] }>();
+    for (const p of pending) {
+      if (p.placeId || !p.newPlace) continue;
+      const f = fresh.get(p.newPlace.key) ?? { ...p.newPlace, days: [] };
+      f.days.push(p.day);
+      fresh.set(p.newPlace.key, f);
+    }
+    for (const place of places) {
+      if (place.arrived || place.departed) continue;
+      const { arrived, departed } = span(pending.filter((p) => p.placeId === place.id).map((p) => p.day));
+      if (arrived) await supabase.from("country_cities").update({ arrived, departed }).eq("id", place.id);
+    }
+    if (!fresh.size) return new Map();
+    // A trip with one place so far had all its photos "there" — keep them there as others join.
+    if (places.length === 1) {
+      await supabase.from("country_media").update({ city_id: places[0].id }).eq("country_visit_id", parentId).is("city_id", null);
+    }
+    const toAdd = [...fresh.values()]
+      .map((f) => ({ ...f, ...span(f.days) }))
+      .sort((a, b) => (a.arrived ?? "9999").localeCompare(b.arrived ?? "9999"));
+    const ids = await savePlaces(supabase, {
+      visitedCountryId,
+      visitId: parentId,
+      places: toAdd,
+      firstPosition: places.length ? Math.max(...places.map((p) => p.position)) + 1 : 0,
+    });
+    setAddedPlaces(toAdd.filter((p) => ids.has(p.key)).map((p) => p.name));
+    return ids;
   }
 
   async function setPlace(item: MediaItem, placeId: string) {
@@ -178,6 +257,7 @@ export function MediaUploader(props: Props) {
     setBusy(true);
     setError(null);
     try {
+      const newPlaceIds = await preparePlaces();
       let order = items.length;
       for (const p of pending) {
         let fileToUpload = p.file;
@@ -226,7 +306,7 @@ export function MediaUploader(props: Props) {
           media_type: p.kind,
           caption: p.caption,
           display_order: order++,
-          ...(choosePlace && p.placeId ? { city_id: p.placeId } : {}),
+          ...((p.placeId || (p.newPlace && newPlaceIds.get(p.newPlace.key))) ? { city_id: p.placeId || newPlaceIds.get(p.newPlace!.key) } : {}),
         });
         if (dbError) {
           await supabase.storage.from("media").remove([path]);
@@ -427,7 +507,22 @@ export function MediaUploader(props: Props) {
                     </div>
                   </>
                 )}
-                {choosePlace && (
+                {p.newPlace && !p.placeId ? (
+                  <p className="flex items-center gap-1 border-t border-line px-2 py-1.5 text-xs">
+                    <MapPin size={12} className="shrink-0 text-accent" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">
+                      {p.newPlace.name} <span className="text-muted">· new place</span>
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Don't add ${p.newPlace.name}`}
+                      className="text-muted hover:text-ink"
+                      onClick={() => setPending((cur) => cur.map((x) => (x.previewUrl === p.previewUrl ? { ...x, newPlace: null } : x)))}
+                    >
+                      <X size={12} />
+                    </button>
+                  </p>
+                ) : choosePlace && (
                   <PlaceSelect
                     places={places}
                     value={p.placeId ?? ""}
@@ -460,6 +555,19 @@ export function MediaUploader(props: Props) {
               : pendingSummary}
           </button>
         </div>
+      )}
+
+      {addedPlaces.length > 0 && pending.length === 0 && (
+        <p className="mt-3 flex items-start gap-1.5 text-xs text-muted">
+          <MapPin size={13} className="mt-px shrink-0 text-accent" aria-hidden />
+          <span>
+            Added {addedPlaces.length === 1 ? addedPlaces[0] : `${addedPlaces.slice(0, -1).join(", ")} and ${addedPlaces.at(-1)}`} to this trip, from where your photos were taken
+            {" - "}
+            <a href="#places" className="text-accent underline-offset-4 hover:underline">
+              change places
+            </a>
+          </span>
+        </p>
       )}
 
       {hasPendingVideo && (

@@ -127,7 +127,8 @@ export default async function EditVisitPage({
           label="Your photos & videos"
           showUpgradeHint={plan === "free"}
           tiles
-          places={stops.map((c) => ({ id: c.id, name: c.city_name, lat: c.lat, lng: c.lng }))}
+          places={stops.map((c) => ({ id: c.id, name: c.city_name, lat: c.lat, lng: c.lng, position: c.position, arrived: c.arrived, departed: c.departed }))}
+          countryCode={visit.visited_countries.country_code}
         />
       </div>
 

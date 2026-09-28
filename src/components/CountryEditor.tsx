@@ -15,6 +15,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { StayRow, type StayView } from "./StayRow";
 import { TripKindToggle } from "./TripKindToggle";
 import { SuggestedDatesNote, usePhotoDateRange, useSuggestedDates } from "./PhotoDateSuggestion";
+import { SuggestedPlacesField, savePlaces, usePhotoPlaces } from "./PhotoPlaceSuggestion";
 import { VisitDateFields } from "./VisitDateFields";
 import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
@@ -33,14 +34,17 @@ async function uploadPendingMedia(
     media: PendingItem[];
     videoQuality: "standard" | "hd";
     onStatus: (status: string | null) => void;
+    /** The trip place each photo was taken at, if known. */
+    placeOf?: (file: File) => string | undefined;
   }
 ) {
-  const { userId, visitedCountryId, visitId, media, videoQuality, onStatus } = opts;
+  const { userId, visitedCountryId, visitId, media, videoQuality, onStatus, placeOf } = opts;
   const extraFields = { visited_country_id: visitedCountryId, country_visit_id: visitId };
 
   let done = 0;
   for (const p of media) {
     onStatus(`Uploading ${done + 1} of ${media.length}…`);
+    const cityId = placeOf?.(p.file);
     await uploadMediaItem(supabase, {
       userId,
       scope: "countries",
@@ -48,7 +52,7 @@ async function uploadPendingMedia(
       file: p.file,
       kind: p.kind,
       table: "country_media",
-      extraFields,
+      extraFields: cityId ? { ...extraFields, city_id: cityId } : extraFields,
       displayOrder: done,
       videoQuality,
       onProgress:
@@ -82,6 +86,11 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   // itself, marked as a suggestion, until the person changes them.
   const photoRange = usePhotoDateRange(pendingMedia.filter((p) => p.kind === "image").map((p) => p.file));
   const dates = useSuggestedDates(photoRange, { precision, year, visitedFrom, visitedTo, setPrecision, setYear, setVisitedFrom, setVisitedTo });
+  // …and where they were taken suggests the trip's places, each with its own days.
+  const photoFiles = pendingMedia.filter((p) => p.kind === "image").map((p) => p.file);
+  const foundPlaces = usePhotoPlaces(photoFiles, meta.code);
+  const [leftOut, setLeftOut] = useState<string[]>([]);
+  const places = foundPlaces.filter((p) => !leftOut.includes(p.key));
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -167,6 +176,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
       return;
     }
 
+    const placeIds = await savePlaces(supabase, { visitedCountryId: country.id, visitId: visit.id, places });
     await uploadPendingMedia(supabase, {
       userId: user.id,
       visitedCountryId: country.id,
@@ -174,6 +184,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
       media: pendingMedia,
       videoQuality,
       onStatus: setUploadStatus,
+      placeOf: (file) => placeIds.get(places.find((pl) => pl.photos.some((i) => photoFiles[i] === file))?.key ?? ""),
     });
 
     tapSuccess();
@@ -236,6 +247,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
         />
         {dates.suggested && <SuggestedDatesNote />}
       </div>
+      <SuggestedPlacesField places={places} onRemove={(key) => setLeftOut((cur) => [...cur, key])} />
       <div className="border-t border-line pt-5">
         <label htmlFor="first-highlight" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
           <MessageSquareText size={14} className="text-accent" aria-hidden /> A quick memory
@@ -289,6 +301,11 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
   // itself, marked as a suggestion, until the person changes them.
   const photoRange = usePhotoDateRange(pendingMedia.filter((p) => p.kind === "image").map((p) => p.file));
   const dates = useSuggestedDates(photoRange, { precision, year, visitedFrom, visitedTo, setPrecision, setYear, setVisitedFrom, setVisitedTo });
+  // …and where they were taken suggests the trip's places, each with its own days.
+  const photoFiles = pendingMedia.filter((p) => p.kind === "image").map((p) => p.file);
+  const foundPlaces = usePhotoPlaces(photoFiles, meta.code);
+  const [leftOut, setLeftOut] = useState<string[]>([]);
+  const places = foundPlaces.filter((p) => !leftOut.includes(p.key));
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [addingVisit, setAddingVisit] = useState(false);
@@ -352,6 +369,7 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
       return;
     }
 
+    const placeIds = await savePlaces(supabase, { visitedCountryId: data.id, visitId: inserted.id, places });
     await uploadPendingMedia(supabase, {
       userId: data.user_id,
       visitedCountryId: data.id,
@@ -359,6 +377,7 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
       media: pendingMedia,
       videoQuality,
       onStatus: setUploadStatus,
+      placeOf: (file) => placeIds.get(places.find((pl) => pl.photos.some((i) => photoFiles[i] === file))?.key ?? ""),
     });
 
     tapSuccess();
@@ -504,6 +523,7 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
               />
               {dates.suggested && <SuggestedDatesNote />}
             </div>
+            <SuggestedPlacesField places={places} onRemove={(key) => setLeftOut((cur) => [...cur, key])} />
             <div className="border-t border-line pt-5">
               <label htmlFor="highlight-input" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
                 <MessageSquareText size={14} className="text-accent" aria-hidden /> A quick memory

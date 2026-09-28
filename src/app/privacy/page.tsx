@@ -39,8 +39,12 @@ export default function PrivacyPage() {
           </li>
           <li>
             <Strong>Photo and video details.</Strong> We remove location and camera information (GPS coordinates,
-            device model, embedded timestamps) from photos and videos when you upload them. Your browser may read a
-            photo’s date to pre-fill the date field; that reading happens on your device and isn’t stored.
+            device model, embedded timestamps) from photos and videos when you upload them. Before that, your browser may
+            read when and where a photo was taken to suggest a trip&rsquo;s dates and the towns you visited. That
+            happens on your device, against a list of towns it downloads from us - the location itself is never sent
+            or stored; only a town you keep is saved, as part of your trip. Town names come from{" "}
+            <Ext href="https://www.geonames.org">GeoNames</Ext>{" "}
+            (CC BY 4.0).
           </li>
           <li>
             <Strong>Technical data</Strong> - IP address, browser and device type, and error reports, plus anonymous
@@ -134,8 +138,13 @@ export default function PrivacyPage() {
             load an image from does. Nothing else about you is shared.
           </li>
           <li>
-            <Strong>Open-Meteo</Strong> - if you change the place for events near you, the city name you type is looked
-            up there to find it on the map. The choice isn’t saved.
+            <Strong>Open-Meteo</Strong> - if you change the place for events near you, or search for a place to add to
+            a trip, what you type is looked up there to find it on the map. Nothing else is sent.
+          </li>
+          <li>
+            <Strong>OpenFreeMap</Strong> - maps of your trips load from OpenFreeMap&rsquo;s servers, which see your IP
+            address and which part of the map you&rsquo;re looking at, the way any website you load an image from does.
+            Nothing else about you is shared.
           </li>
         </LegalList>
         <p>
