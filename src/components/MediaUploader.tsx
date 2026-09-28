@@ -125,6 +125,9 @@ export function MediaUploader(props: Props) {
 
   function pickFiles(list: FileList | null) {
     if (!list) return;
+    // Lets the page offer the dates these photos were taken (read on the device,
+    // before their metadata is stripped for upload).
+    window.dispatchEvent(new CustomEvent<File[]>("expandiax:photos-picked", { detail: Array.from(list) }));
     addFiles(Array.from(list));
     if (inputRef.current) inputRef.current.value = "";
   }

@@ -13,6 +13,7 @@ import { withoutUpgradePrompt } from "@/lib/nativeApp";
 import type { DatePrecision, Plan, VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { TripCard } from "./TripCard";
+import { SuggestedDatesNote, usePhotoDateRange, useSuggestedDates } from "./PhotoDateSuggestion";
 import type { StockPhoto } from "@/lib/stockPhotos";
 import { VisitDateFields } from "./VisitDateFields";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,10 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
+  // When the chosen photos were taken (read on the device) fills the dates by
+  // itself, marked as a suggestion, until the person changes them.
+  const photoRange = usePhotoDateRange(pendingMedia.filter((p) => p.kind === "image").map((p) => p.file));
+  const dates = useSuggestedDates(photoRange, { precision, year, visitedFrom, visitedTo, setPrecision, setYear, setVisitedFrom, setVisitedTo });
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -202,16 +207,17 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
         <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><Calendar size={14} className="text-accent" aria-hidden /> When</span>
         <VisitDateFields
           precision={precision}
-          onPrecisionChange={setPrecision}
+          onPrecisionChange={dates.setPrecision}
           year={year}
-          onYearChange={setYear}
+          onYearChange={dates.setYear}
           month={month}
           onMonthChange={setMonth}
           visitedFrom={visitedFrom}
-          onVisitedFromChange={setVisitedFrom}
+          onVisitedFromChange={dates.setVisitedFrom}
           visitedTo={visitedTo}
-          onVisitedToChange={setVisitedTo}
+          onVisitedToChange={dates.setVisitedTo}
         />
+        {dates.suggested && <SuggestedDatesNote />}
       </div>
       <div className="border-t border-line pt-5">
         <label htmlFor="first-highlight" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
@@ -272,6 +278,10 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
+  // When the chosen photos were taken (read on the device) fills the dates by
+  // itself, marked as a suggestion, until the person changes them.
+  const photoRange = usePhotoDateRange(pendingMedia.filter((p) => p.kind === "image").map((p) => p.file));
+  const dates = useSuggestedDates(photoRange, { precision, year, visitedFrom, visitedTo, setPrecision, setYear, setVisitedFrom, setVisitedTo });
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [addingVisit, setAddingVisit] = useState(false);
@@ -473,16 +483,17 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
               <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium"><Calendar size={14} className="text-accent" aria-hidden /> When</span>
               <VisitDateFields
                 precision={precision}
-                onPrecisionChange={setPrecision}
+                onPrecisionChange={dates.setPrecision}
                 year={year}
-                onYearChange={setYear}
+                onYearChange={dates.setYear}
                 month={month}
                 onMonthChange={setMonth}
                 visitedFrom={visitedFrom}
-                onVisitedFromChange={setVisitedFrom}
+                onVisitedFromChange={dates.setVisitedFrom}
                 visitedTo={visitedTo}
-                onVisitedToChange={setVisitedTo}
+                onVisitedToChange={dates.setVisitedTo}
               />
+              {dates.suggested && <SuggestedDatesNote />}
             </div>
             <div className="border-t border-line pt-5">
               <label htmlFor="highlight-input" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">

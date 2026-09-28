@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { CountrySearch } from "@/components/CountrySearch";
 import { countryByCode } from "@/lib/countries";
 import type { OnboardingMemory } from "@/lib/onboardingDraft";
+import { localDay, photoDay } from "@/lib/photoDates";
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = localDay(new Date());
 
 export function MemoryStep({ onDone }: { onDone: (memory: OnboardingMemory, photo: File | null) => void }) {
   const [countryCode, setCountryCode] = useState<string | null>(null);
@@ -29,16 +30,9 @@ export function MemoryStep({ onDone }: { onDone: (memory: OnboardingMemory, phot
     });
     // Best-effort date prefill — a photo with no EXIF (screenshot, edited,
     // stripped metadata) just keeps whatever date is already in the field.
-    try {
-      const exifr = await import("exifr");
-      const tags = await exifr.parse(file);
-      const date = tags?.DateTimeOriginal;
-      if (date instanceof Date && !Number.isNaN(date.getTime())) {
-        setEventDate(date.toISOString().slice(0, 10));
-      }
-    } catch {
-      // Not a real image, corrupt EXIF, etc. — the manual date field still works.
-    }
+    // The photo's local day (not UTC, which could shift it to the day before).
+    const day = await photoDay(file);
+    if (day) setEventDate(day);
   }
 
   const country = countryCode ? countryByCode(countryCode) : null;

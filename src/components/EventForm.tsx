@@ -25,8 +25,9 @@ import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
 import type { EventFull, EventType, Plan } from "@/lib/types";
 import type { PastShow } from "@/lib/concerts";
+import { localDay, photoDay } from "@/lib/photoDates";
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = localDay(new Date());
 
 // One page, everything — the essentials up top (photo, type, title, country,
 // date), then a clearly separate "More details" card for everything
@@ -121,17 +122,10 @@ export function EventForm({
   const country = f.country_code ? countryByCode(f.country_code) : null;
 
   // Best-effort date prefill from the first photo's EXIF — never blocks adding.
+  // The photo's local day (not UTC, which could shift it to the day before).
   async function prefillDateFromPhoto(file: File) {
-    try {
-      const exifr = await import("exifr");
-      const tags = await exifr.parse(file);
-      const date = tags?.DateTimeOriginal;
-      if (date instanceof Date && !Number.isNaN(date.getTime())) {
-        set("event_date", date.toISOString().slice(0, 10));
-      }
-    } catch {
-      // Not a real image, corrupt EXIF, etc. — manual date field still works.
-    }
+    const day = await photoDay(file);
+    if (day) set("event_date", day);
   }
 
   async function onSubmit(e: React.FormEvent) {

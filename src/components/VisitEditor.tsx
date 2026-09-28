@@ -9,6 +9,8 @@ import { SoundtrackPicker } from "./SoundtrackPicker";
 import type { CountryCity, CountryVisit, DatePrecision } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Basket } from "./Basket";
+import { SuggestedDatesNote, useSuggestedDates, type DateRange } from "./PhotoDateSuggestion";
+import { photoDateRange } from "@/lib/photoDates";
 
 type Sharing = "feed" | "profile" | "private";
 export type TripCountry = { id: string; code: string; name: string; is_public: boolean; share_to_feed: boolean };
@@ -63,6 +65,23 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
   }, []);
 
   const [sharing, setSharing] = useState<Sharing>(!country.is_public ? "private" : country.share_to_feed ? "feed" : "profile");
+
+  // Photos just added on this page: offer their dates when they differ from the trip's.
+  const [photoRange, setPhotoRange] = useState<DateRange | null>(null);
+  useEffect(() => {
+    const onPicked = (e: Event) => {
+      photoDateRange((e as CustomEvent<File[]>).detail).then((r) => r && setPhotoRange({ from: r.from, to: r.to }));
+    };
+    window.addEventListener("expandiax:photos-picked", onPicked);
+    return () => window.removeEventListener("expandiax:photos-picked", onPicked);
+  }, []);
+  // Fills them in by itself only when the trip has no exact dates yet — never
+  // replaces dates the person set.
+  const dates = useSuggestedDates(
+    photoRange,
+    { precision, year, visitedFrom, visitedTo, setPrecision, setYear, setVisitedFrom, setVisitedTo },
+    visit.date_precision !== "day"
+  );
 
   async function changeSharing(next: Sharing) {
     const before = sharing;
@@ -189,16 +208,17 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
       <Basket icon={Calendar} title="When" hint="Set the dates for your trip.">
         <VisitDateFields
           precision={precision}
-          onPrecisionChange={setPrecision}
+          onPrecisionChange={dates.setPrecision}
           year={year}
-          onYearChange={setYear}
+          onYearChange={dates.setYear}
           month={month}
           onMonthChange={setMonth}
           visitedFrom={visitedFrom}
-          onVisitedFromChange={setVisitedFrom}
+          onVisitedFromChange={dates.setVisitedFrom}
           visitedTo={visitedTo}
-          onVisitedToChange={setVisitedTo}
+          onVisitedToChange={dates.setVisitedTo}
         />
+        {dates.suggested && <SuggestedDatesNote hint="tap Save trip to keep them." />}
         {!busy && datesSavedAgo && <p role="status" className="mt-2 text-xs text-accent">{datesSavedAgo}</p>}
       </Basket>
 
