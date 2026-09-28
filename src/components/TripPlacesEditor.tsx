@@ -2,15 +2,130 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Loader2, MapPin, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Loader2, MapPin, PenLine, Plus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { orderStops } from "@/lib/tripPlaces";
 import type { Place } from "@/lib/places";
 import type { CountryCity } from "@/lib/types";
+import { ConfirmDialog } from "./ConfirmDialog";
+
+type Spot = { lat: number; lng: number };
+
+/** Towns in the trip's country matching what's typed, so a place lands on the map. */
+function usePlaceSearch(query: string, countryCode: string) {
+  const [hits, setHits] = useState<Place[]>([]);
+  const [searching, setSearching] = useState(false);
+  const request = useRef(0);
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setHits([]);
+      return;
+    }
+    const id = ++request.current;
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`);
+        const data = (await res.json()) as { places?: Place[] };
+        if (id === request.current) setHits((data.places ?? []).filter((p) => p.countryCode === countryCode));
+      } catch {
+        if (id === request.current) setHits([]);
+      } finally {
+        if (id === request.current) setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query, countryCode]);
+  return { hits, searching };
+}
+
+/** A place search box: pick a suggestion (on the map), or keep what you typed. */
+function PlaceSearch({
+  id,
+  countryCode,
+  placeholder,
+  initial = "",
+  autoFocus,
+  submitLabel,
+  onPick,
+  onCancel,
+}: {
+  id: string;
+  countryCode: string;
+  placeholder: string;
+  initial?: string;
+  autoFocus?: boolean;
+  submitLabel: string;
+  onPick: (name: string, spot?: Spot) => Promise<boolean>;
+  onCancel?: () => void;
+}) {
+  const [query, setQuery] = useState(initial);
+  // Searching starts once they type — not for the name that's already there.
+  const [typed, setTyped] = useState(false);
+  const { hits, searching } = usePlaceSearch(typed ? query : "", countryCode);
+
+  async function pick(name: string, spot?: Spot) {
+    if (await onPick(name, spot)) {
+      setQuery("");
+      setTyped(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (hits[0]) void pick(hits[0].name, { lat: hits[0].lat, lng: hits[0].lng });
+        else void pick(query);
+      }}
+      className="relative"
+    >
+      <MapPin size={15} className="pointer-events-none absolute left-3 top-[1.15rem] -translate-y-1/2 text-muted" aria-hidden />
+      <div className="flex items-center gap-2">
+        <label htmlFor={id} className="sr-only">{placeholder}</label>
+        <input
+          id={id}
+          className="field min-w-0 flex-1 !py-2 !pl-9 text-sm"
+          placeholder={placeholder}
+          value={query}
+          autoFocus={autoFocus}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setTyped(true);
+          }}
+          onKeyDown={(e) => e.key === "Escape" && onCancel?.()}
+          autoComplete="off"
+        />
+        <button type="submit" aria-label={submitLabel} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line hover:border-accent hover:text-accent">
+          {searching ? <Loader2 size={16} className="animate-spin" /> : onCancel ? <Check size={16} /> : <Plus size={16} />}
+        </button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} aria-label="Cancel" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted hover:text-ink">
+            <X size={16} />
+          </button>
+        )}
+      </div>
+      {hits.length > 0 && (
+        <ul className="absolute left-0 right-11 top-full z-20 mt-1 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
+          {hits.map((h) => (
+            <li key={h.id}>
+              <button type="button" onClick={() => pick(h.name, { lat: h.lat, lng: h.lng })} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-raised">
+                <span className="font-medium">{h.name}</span>
+                {h.region && <span className="truncate text-xs text-muted">{h.region}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </form>
+  );
+}
 
 /**
- * The places of one trip, in journey order: search for a city (so it lands
- * on the map), give each its own dates, move them up and down, remove them.
+ * The places of one trip, in journey order: search for a town (so it lands
+ * on the map), give each its own dates, fix a name the photos got wrong,
+ * move them up and down, remove them.
  */
 export function TripPlacesEditor({
   visitId,
@@ -26,47 +141,20 @@ export function TripPlacesEditor({
   const router = useRouter();
   const supabase = createClient();
   const [places, setPlaces] = useState(() => orderStops(initial));
-  const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<Place[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [toRemove, setToRemove] = useState<CountryCity | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const request = useRef(0);
 
   // Places can also arrive from elsewhere on the page (photos from somewhere new).
-  const initialKey = initial.map((c) => `${c.id}:${c.arrived}:${c.departed}:${c.position}`).join("|");
+  const initialKey = initial.map((c) => `${c.id}:${c.city_name}:${c.arrived}:${c.departed}:${c.position}`).join("|");
   useEffect(() => {
     setPlaces(orderStops(initial));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialKey]);
 
-  useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) {
-      setHits([]);
-      return;
-    }
-    const id = ++request.current;
-    const t = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`);
-        const data = (await res.json()) as { places?: Place[] };
-        // Places in this trip's country first; others only if nothing matches there.
-        const all = data.places ?? [];
-        const here = all.filter((p) => p.countryCode === countryCode);
-        if (id === request.current) setHits(here.length ? here : []);
-      } catch {
-        if (id === request.current) setHits([]);
-      } finally {
-        if (id === request.current) setSearching(false);
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [query, countryCode]);
-
-  async function add(name: string, spot?: { lat: number; lng: number }) {
+  async function add(name: string, spot?: Spot) {
     const clean = name.trim().slice(0, 80);
-    if (!clean) return;
+    if (!clean) return false;
     setError(null);
     const position = places.length ? Math.max(...places.map((p) => p.position)) + 1 : 0;
     const { data, error: err } = await supabase
@@ -76,15 +164,34 @@ export function TripPlacesEditor({
       .single();
     if (err || !data) {
       setError("Could not add that place. Try again.");
-      return;
+      return false;
     }
     setPlaces((cur) => [...cur, data as CountryCity]);
-    setQuery("");
-    setHits([]);
     router.refresh();
+    return true;
   }
 
-  async function remove(id: string) {
+  // The right town for a place — its days and photos stay with it.
+  async function rename(id: string, name: string, spot?: Spot) {
+    const clean = name.trim().slice(0, 80);
+    if (!clean) return false;
+    setError(null);
+    const next = { city_name: clean, lat: spot?.lat ?? null, lng: spot?.lng ?? null };
+    const { error: err } = await supabase.from("country_cities").update(next).eq("id", id);
+    if (err) {
+      setError("Could not change that place. Try again.");
+      return false;
+    }
+    setPlaces((cur) => cur.map((p) => (p.id === id ? { ...p, ...next } : p)));
+    setEditing(null);
+    router.refresh();
+    return true;
+  }
+
+  async function remove() {
+    if (!toRemove) return;
+    const id = toRemove.id;
+    setToRemove(null);
     setPlaces((cur) => cur.filter((p) => p.id !== id));
     await supabase.from("country_cities").delete().eq("id", id);
     router.refresh();
@@ -121,75 +228,77 @@ export function TripPlacesEditor({
       {places.length > 0 && (
         <ol className="space-y-2">
           {places.map((p, i) => (
-            <li key={p.id} className="rounded-xl border border-line bg-raised px-3 py-2.5">
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">{i + 1}</span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                  {p.city_name}
-                  {p.lat == null && <span className="ml-1.5 text-xs font-normal text-muted">(not on the map)</span>}
-                </span>
-                <button type="button" aria-label={`Move ${p.city_name} earlier`} disabled={i === 0} onClick={() => move(p.id, -1)} className="p-1 text-muted hover:text-ink disabled:opacity-30">
-                  <ArrowUp size={15} />
-                </button>
-                <button type="button" aria-label={`Move ${p.city_name} later`} disabled={i === places.length - 1} onClick={() => move(p.id, 1)} className="p-1 text-muted hover:text-ink disabled:opacity-30">
-                  <ArrowDown size={15} />
-                </button>
-                <button type="button" aria-label={`Remove ${p.city_name}`} onClick={() => remove(p.id)} className="p-1 text-muted hover:text-red-700">
-                  <X size={15} />
-                </button>
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-2 pl-8">
-                <label className="text-[11px] text-muted">
-                  Arrived
-                  <input type="date" className="field mt-0.5 !py-1.5 text-sm" value={p.arrived ?? ""} onChange={(e) => setDates(p.id, "arrived", e.target.value)} />
-                </label>
-                <label className="text-[11px] text-muted">
-                  Left
-                  <input type="date" className="field mt-0.5 !py-1.5 text-sm" value={p.departed ?? ""} onChange={(e) => setDates(p.id, "departed", e.target.value)} />
-                </label>
+            <li key={p.id} className="space-y-2.5 rounded-xl border border-line bg-raised p-3">
+              {editing === p.id ? (
+                <PlaceSearch
+                  id={`rename-${p.id}`}
+                  countryCode={countryCode}
+                  placeholder={`The right place instead of ${p.city_name}`}
+                  initial={p.city_name}
+                  autoFocus
+                  submitLabel="Save place"
+                  onPick={(name, spot) => rename(p.id, name, spot)}
+                  onCancel={() => setEditing(null)}
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">{i + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(p.id)}
+                    aria-label={`Change ${p.city_name}`}
+                    className="group flex min-w-0 flex-1 items-center gap-1.5 text-left text-sm font-medium"
+                  >
+                    <span className="truncate">{p.city_name}</span>
+                    <PenLine size={13} className="shrink-0 text-muted group-hover:text-accent" aria-hidden />
+                    {p.lat == null && <span className="shrink-0 text-xs font-normal text-muted">(not on the map)</span>}
+                  </button>
+                  <button type="button" aria-label={`Move ${p.city_name} earlier`} disabled={i === 0} onClick={() => move(p.id, -1)} className="p-1 text-muted hover:text-ink disabled:opacity-30">
+                    <ArrowUp size={15} />
+                  </button>
+                  <button type="button" aria-label={`Move ${p.city_name} later`} disabled={i === places.length - 1} onClick={() => move(p.id, 1)} className="p-1 text-muted hover:text-ink disabled:opacity-30">
+                    <ArrowDown size={15} />
+                  </button>
+                  <button type="button" aria-label={`Remove ${p.city_name}`} onClick={() => setToRemove(p)} className="p-1 text-muted hover:text-red-700">
+                    <X size={15} />
+                  </button>
+                </div>
+              )}
+              {/* The same date fields as the trip's own. */}
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  aria-label={`Arrived in ${p.city_name}`}
+                  title="Arrived"
+                  className="field min-w-[9rem] flex-1 !py-2 text-sm"
+                  value={p.arrived ?? ""}
+                  onChange={(e) => setDates(p.id, "arrived", e.target.value)}
+                />
+                <input
+                  type="date"
+                  aria-label={`Left ${p.city_name}`}
+                  title="Left"
+                  className="field min-w-[9rem] flex-1 !py-2 text-sm"
+                  value={p.departed ?? ""}
+                  onChange={(e) => setDates(p.id, "departed", e.target.value)}
+                />
               </div>
             </li>
           ))}
         </ol>
       )}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (hits[0]) void add(hits[0].name, { lat: hits[0].lat, lng: hits[0].lng });
-          else void add(query);
-        }}
-        className="relative"
-      >
-        <MapPin size={15} className="pointer-events-none absolute left-3 top-[1.15rem] -translate-y-1/2 text-muted" aria-hidden />
-        <div className="flex items-center gap-2">
-          <label htmlFor="place-search" className="sr-only">Add a place</label>
-          <input
-            id="place-search"
-            className="field min-w-0 flex-1 !py-2 !pl-9 text-sm"
-            placeholder="Add a place - e.g. Bled"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoComplete="off"
-          />
-          <button type="submit" aria-label="Add place" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line hover:border-accent hover:text-accent">
-            {searching ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-          </button>
-        </div>
-        {hits.length > 0 && (
-          <ul className="absolute left-0 right-11 top-full z-20 mt-1 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
-            {hits.map((h) => (
-              <li key={h.id}>
-                <button type="button" onClick={() => add(h.name, { lat: h.lat, lng: h.lng })} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-raised">
-                  <span className="font-medium">{h.name}</span>
-                  {h.region && <span className="truncate text-xs text-muted">{h.region}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </form>
+      <PlaceSearch id="place-search" countryCode={countryCode} placeholder="Add a place - e.g. Bled" submitLabel="Add place" onPick={add} />
       {error && <p role="alert" className="text-xs text-red-800 dark:text-red-400">{error}</p>}
+
+      <ConfirmDialog
+        open={!!toRemove}
+        title={`Remove ${toRemove?.city_name ?? "this place"}?`}
+        body="Its photos stay in the trip - they just won't be under a place."
+        confirmLabel="Remove"
+        onConfirm={remove}
+        onCancel={() => setToRemove(null)}
+      />
     </div>
   );
 }
