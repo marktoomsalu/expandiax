@@ -8,7 +8,8 @@ import { Music2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { CountrySearch } from "./CountrySearch";
 import { countryByCode } from "@/lib/countries";
-import { uploadMediaItem } from "@/lib/media";
+import { enqueueUploads } from "@/lib/uploadQueue";
+import { useBestCover } from "./PhotoPlaceSuggestion";
 import { loadAndClearPrefill } from "@/lib/eventPrefill";
 import { EVENT_TYPES, eventTypeMeta, type RecentArtist } from "@/lib/events";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
@@ -82,7 +83,7 @@ export function EventForm({
   const videoCap = VIDEO_CAP[plan];
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const coverIndex = useBestCover(pendingMedia.filter((p) => p.kind === "image").map((p) => p.file));
 
   // "I was there" hands off shared facts from someone else's event via
   // sessionStorage (src/lib/eventPrefill.ts) — only relevant the moment a
@@ -185,29 +186,26 @@ export function EventForm({
       return;
     }
 
-    let done = 0;
-    for (const p of pendingMedia) {
-      setUploadStatus(`Uploading ${done + 1} of ${pendingMedia.length}…`);
-      await uploadMediaItem(supabase, {
-        userId,
-        scope: "events",
-        parentId: data.id,
+    // The event opens straight away; its photos and videos follow in the
+    // background, the best landscape photo becoming its cover.
+    const photos = pendingMedia.filter((p) => p.kind === "image").map((p) => p.file);
+    const cover = photos[coverIndex] ?? photos[0];
+    enqueueUploads(
+      pendingMedia.map((p, i) => ({
         file: p.file,
         kind: p.kind,
-        table: "event_media",
-        extraFields: { event_id: data.id },
-        displayOrder: done,
-        videoQuality,
-        onProgress:
-          p.kind === "video"
-            ? (pct, phase) => setUploadStatus(`${phase === "compressing" ? "Compressing" : "Uploading"} video ${done + 1} of ${pendingMedia.length} (${pct}%)…`)
-            : undefined,
-      }).catch(() => {
-        // Best-effort — the event itself is already saved either way.
-      });
-      done++;
-    }
-    setUploadStatus(null);
+        target: {
+          userId,
+          scope: "events" as const,
+          parentId: data.id,
+          table: "event_media" as const,
+          fields: { event_id: data.id },
+          displayOrder: i,
+          videoQuality,
+          cover: p.file === cover ? { table: "events" as const, id: data.id } : undefined,
+        },
+      }))
+    );
 
     tapSuccess();
     router.push(`/events/${data.id}/edit?created=1`);
@@ -493,7 +491,7 @@ export function EventForm({
       {saved && <p role="status" className="rounded-lg border border-accent/40 bg-accent-soft/50 px-3 py-2 text-sm">Event saved.</p>}
 
       <button type="submit" className="btn-accent w-full" disabled={busy}>
-        {busy ? uploadStatus ?? "Saving…" : event ? "Save changes" : "Save event"}
+        {busy ? "Saving…" : event ? "Save changes" : "Save event"}
       </button>
     </form>
   );

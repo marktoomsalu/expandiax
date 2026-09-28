@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { VisitDateFields } from "./VisitDateFields";
 import { SoundtrackPicker } from "./SoundtrackPicker";
 import type { CountryCity, CountryVisit, DatePrecision, TripKind } from "@/lib/types";
+import { suggestTripName } from "@/lib/tripPlaces";
+import { SuggestedNameNote } from "./PhotoPlaceSuggestion";
 import { TripKindToggle } from "./TripKindToggle";
 import { TripPlacesEditor } from "./TripPlacesEditor";
 import { cn } from "@/lib/utils";
@@ -42,6 +44,9 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
   const router = useRouter();
   const supabase = createClient();
   const [title, setTitle] = useState(visit.title ?? "");
+  // With no name of its own, a trip is named after its places (and keeps
+  // following them) until a name is typed.
+  const [titleTouched, setTitleTouched] = useState(!!visit.title?.trim());
   const [kind, setKind] = useState<TripKind>(visit.kind ?? "trip");
   const [precision, setPrecision] = useState<DatePrecision>(visit.date_precision);
   const [year, setYear] = useState(String(visit.year));
@@ -140,7 +145,7 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
     if (memoryDebounce.current) clearTimeout(memoryDebounce.current);
     if (!(await persistDates())) return;
     await commitMemory(memory);
-    const { error: err } = await supabase.from("country_visits").update({ title: title.trim().slice(0, 80), kind }).eq("id", visit.id);
+    const { error: err } = await supabase.from("country_visits").update({ title: titleTouched ? title.trim().slice(0, 80) : "", kind }).eq("id", visit.id);
     if (err) {
       setError("Could not save the name. Try again.");
       return;
@@ -199,9 +204,13 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
           className="field"
           maxLength={80}
           placeholder={kind === "lived" ? `Lived in ${cities[0]?.city_name ?? country.name}` : `e.g. ${country.name} Road Trip`}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          value={titleTouched ? title : suggestTripName(kind, cities.map((c) => c.city_name), country.name)}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setTitleTouched(true);
+          }}
         />
+        {!titleTouched && cities.length > 0 && <SuggestedNameNote />}
         <TripKindToggle value={kind} onChange={setKind} className="mt-2" />
       </Basket>
 

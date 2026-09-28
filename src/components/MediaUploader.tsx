@@ -7,10 +7,9 @@ import Image from "next/image";
 import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, MapPin, Move, Star, Trash2, X } from "lucide-react";
 import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
-import { classifyFile, focalPosition, validateFile, storagePath } from "@/lib/media";
-import { stripMediaMetadata } from "@/lib/mediaMetadata";
-import { compressVideo } from "@/lib/videoCompress";
-import { uploadResumable } from "@/lib/resumableUpload";
+import { classifyFile, focalPosition, validateFile } from "@/lib/media";
+import { enqueueUploads } from "@/lib/uploadQueue";
+import { QueuedMedia } from "./UploadQueue";
 import type { MediaItem } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RepositionPhotoDialog } from "./RepositionPhotoDialog";
@@ -20,7 +19,7 @@ import { isNativePlatform } from "@/lib/capacitor";
 import { tapSuccess } from "@/lib/haptics";
 import { nearestPlace } from "@/lib/photoDates";
 import { groupByTown, placeKey } from "@/lib/photoPlaces";
-import { readPhotoFacts, savePlaces } from "./PhotoPlaceSuggestion";
+import { readPhotoFacts, savePlaces, useBestCover } from "./PhotoPlaceSuggestion";
 
 type Props = {
   userId: string;
@@ -59,35 +58,6 @@ type Pending = {
 };
 export type UploaderPlace = { id: string; name: string; lat: number | null; lng: number | null; position: number; arrived: string | null; departed: string | null };
 
-/** Upload with real progress via the Storage REST endpoint. */
-async function uploadWithProgress(
-  path: string,
-  file: File,
-  onProgress: (pct: number) => void
-): Promise<void> {
-  const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error("You need to be signed in to upload.");
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/media/${path}`;
-
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url);
-    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    xhr.setRequestHeader("x-upsert", "false");
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new Error(`Upload failed (${xhr.status}). Check your storage policies.`));
-    xhr.onerror = () => reject(new Error("Upload failed. Check your connection and try again."));
-    xhr.send(file);
-  });
-}
-
 export function MediaUploader(props: Props) {
   const canSell = useCanSellPremium();
   const { userId, scope, parentId, table, fkColumn, photoCap, videoCap, items, coverId, coverTable, captions, label, extraFields, showUpgradeHint, tiles = false } = props;
@@ -99,8 +69,6 @@ export function MediaUploader(props: Props) {
   const supabase = createClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<Pending[]>([]);
-  const [progress, setProgress] = useState<Record<string, number>>({});
-  const [phase, setPhase] = useState<Record<string, "compressing" | "uploading">>({});
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -108,6 +76,7 @@ export function MediaUploader(props: Props) {
   const [deleting, setDeleting] = useState(false);
   const [toReposition, setToReposition] = useState<MediaItem | null>(null);
   const [addedPlaces, setAddedPlaces] = useState<string[]>([]);
+  const coverIndex = useBestCover(pending.filter((p) => p.kind === "image").map((p) => p.file));
 
   const photoCount = items.filter((m) => m.media_type === "image").length + pending.filter((p) => p.kind === "image").length;
   const videoCount = items.filter((m) => m.media_type === "video").length + pending.filter((p) => p.kind === "video").length;
@@ -253,78 +222,42 @@ export function MediaUploader(props: Props) {
     }
   }
 
+  // Hands everything to the background queue: the photos show as uploading
+  // right here (and on the trip or event page) while the person carries on.
   async function saveAll() {
     setBusy(true);
     setError(null);
     try {
       const newPlaceIds = await preparePlaces();
-      let order = items.length;
-      for (const p of pending) {
-        let fileToUpload = p.file;
-
-        if (p.kind === "video" && videoQuality === "standard") {
-          setPhase((cur) => ({ ...cur, [p.previewUrl]: "compressing" }));
-          setProgress((cur) => ({ ...cur, [p.previewUrl]: 0 }));
-          try {
-            fileToUpload = await compressVideo(p.file, (pct) =>
-              setProgress((cur) => ({ ...cur, [p.previewUrl]: pct }))
-            );
-          } catch {
-            // Compression can fail on unusual codecs or low-memory devices —
-            // fall back to the original file rather than blocking the upload.
-            fileToUpload = p.file;
-          }
-        }
-
-        // Uploads are served from public URLs — take location/camera data out first.
-        fileToUpload = await stripMediaMetadata(fileToUpload, p.kind);
-
-        setPhase((cur) => ({ ...cur, [p.previewUrl]: "uploading" }));
-        setProgress((cur) => ({ ...cur, [p.previewUrl]: 0 }));
-
-        const path = storagePath(userId, scope, parentId, fileToUpload);
-
-        if (p.kind === "video") {
-          const { data: sessionData } = await supabase.auth.getSession();
-          const token = sessionData.session?.access_token;
-          if (!token) throw new Error("You need to be signed in to upload.");
-          await uploadResumable(path, fileToUpload, token, (pct) =>
-            setProgress((cur) => ({ ...cur, [p.previewUrl]: pct }))
-          );
-        } else {
-          await uploadWithProgress(path, fileToUpload, (pct) =>
-            setProgress((cur) => ({ ...cur, [p.previewUrl]: pct }))
-          );
-        }
-
-        const { data: pub } = supabase.storage.from("media").getPublicUrl(path);
-        const { error: dbError } = await supabase.from(table).insert({
-          [fkColumn]: parentId,
-          ...extraFields,
-          storage_path: path,
-          public_url: pub.publicUrl,
-          media_type: p.kind,
-          caption: p.caption,
-          display_order: order++,
-          ...((p.placeId || (p.newPlace && newPlaceIds.get(p.newPlace.key))) ? { city_id: p.placeId || newPlaceIds.get(p.newPlace!.key) } : {}),
-        });
-        if (dbError) {
-          await supabase.storage.from("media").remove([path]);
-          throw new Error(
-            dbError.message.includes("at most")
-              ? dbError.message
-              : "Could not save the file details. Try again."
-          );
-        }
-        URL.revokeObjectURL(p.previewUrl);
-      }
+      const photos = pending.filter((p) => p.kind === "image");
+      // No cover yet: the best landscape photo of these becomes it.
+      const cover = coverTable && !coverId ? (photos[coverIndex] ?? photos[0])?.file : undefined;
+      enqueueUploads(
+        pending.map((p, i) => {
+          const cityId = p.placeId || (p.newPlace ? newPlaceIds.get(p.newPlace.key) : undefined);
+          return {
+            file: p.file,
+            kind: p.kind,
+            target: {
+              userId,
+              scope,
+              parentId,
+              table,
+              fields: { [fkColumn]: parentId, ...extraFields, ...(cityId ? { city_id: cityId } : {}) },
+              displayOrder: items.length + i,
+              caption: p.caption,
+              videoQuality,
+              cover: cover && p.file === cover && coverTable ? { table: coverTable, id: parentId } : undefined,
+            },
+          };
+        })
+      );
+      pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
       setPending([]);
-      setProgress({});
-      setPhase({});
       tapSuccess();
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong while uploading.");
+      setError(e instanceof Error ? e.message : "Something went wrong while saving.");
     } finally {
       setBusy(false);
     }
@@ -332,11 +265,6 @@ export function MediaUploader(props: Props) {
 
   function removePending(url: string) {
     setPending((p) => p.filter((x) => x.previewUrl !== url));
-    setPhase((cur) => {
-      const rest = { ...cur };
-      delete rest[url];
-      return rest;
-    });
     URL.revokeObjectURL(url);
   }
 
@@ -497,16 +425,6 @@ export function MediaUploader(props: Props) {
                 ) : (
                   <video src={p.previewUrl} className="aspect-[4/3] w-full bg-black object-contain" muted />
                 )}
-                {typeof progress[p.previewUrl] === "number" && (
-                  <>
-                    <p className="px-2 pt-1.5 text-[0.625rem] text-muted">
-                      {phase[p.previewUrl] === "compressing" ? "Compressing" : "Uploading"} {progress[p.previewUrl]}%
-                    </p>
-                    <div className="h-1 w-full bg-line" role="progressbar" aria-valuenow={progress[p.previewUrl]} aria-valuemin={0} aria-valuemax={100}>
-                      <div className="h-1 bg-accent transition-all" style={{ width: `${progress[p.previewUrl]}%` }} />
-                    </div>
-                  </>
-                )}
                 {p.newPlace && !p.placeId ? (
                   <p className="flex items-center gap-1 border-t border-line px-2 py-1.5 text-xs">
                     <MapPin size={12} className="shrink-0 text-accent" aria-hidden />
@@ -548,14 +466,12 @@ export function MediaUploader(props: Props) {
             ))}
           </ul>
           <button type="button" className="btn-accent mt-3 !py-2 text-sm" onClick={saveAll} disabled={busy}>
-            {busy
-              ? Object.values(phase).includes("compressing")
-                ? "Compressing…"
-                : "Uploading…"
-              : pendingSummary}
+            {busy ? "Saving…" : pendingSummary}
           </button>
         </div>
       )}
+
+      <QueuedMedia parentId={parentId} className="mt-4" />
 
       {addedPlaces.length > 0 && pending.length === 0 && (
         <p className="mt-3 flex items-start gap-1.5 text-xs text-muted">

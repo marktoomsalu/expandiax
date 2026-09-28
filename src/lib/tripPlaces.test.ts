@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayLabel, daysBetween, distanceKm, formatKm, shortDays, journeyLegs, mediaByPlace, orderStops, placesInCountry, stayLength, stayMonth, stayWhen, countrySummary, tripName } from "./tripPlaces";
+import { dayLabel, daysBetween, distanceKm, formatKm, shortDays, journeyLegs, mediaByPlace, orderStops, placesInCountry, stayLength, suggestTripName, stayMonth, stayWhen, countrySummary, tripName } from "./tripPlaces";
 
 const city = (id: string, visit: string, name: string, over: Record<string, unknown> = {}) => ({
   id, country_visit_id: visit, city_name: name, arrived: null as string | null, departed: null as string | null, position: 0, lat: null as number | null, lng: null as number | null, ...over,
@@ -56,7 +56,9 @@ describe("names", () => {
   it("uses the title, else a sensible default", () => {
     expect(tripName({ title: "Slovenia Road Trip", kind: "trip" }, "Slovenia")).toBe("Slovenia Road Trip");
     expect(tripName({ title: "", kind: "trip" }, "Slovenia")).toBe("Trip to Slovenia");
-    expect(tripName({ title: "  ", kind: "lived" }, "Slovenia", "Ljubljana")).toBe("Lived in Ljubljana");
+    expect(tripName({ title: "  ", kind: "lived" }, "Slovenia", ["Ljubljana"])).toBe("Lived in Ljubljana");
+    expect(tripName({ title: "", kind: "lived" }, "Slovenia")).toBe("Lived in Slovenia");
+    expect(tripName({ title: "", kind: "trip" }, "Slovenia", ["Bled", "Piran"])).toBe("Bled & Piran");
   });
 });
 
@@ -122,5 +124,15 @@ describe("stayWhen / stayMonth / countrySummary", () => {
     expect(countrySummary([trip], 0, 0)).toBe("1 trip · no photos yet");
     expect(countrySummary([trip], 0, 5)).toBe("1 trip · 5 memories");
     expect(countrySummary([lived], 1, 0)).toBe("1 place · Lived here 2025 – 2026");
+  });
+});
+
+describe("suggestTripName", () => {
+  it("names a trip after its places", () => {
+    expect(suggestTripName("trip", [], "Slovenia")).toBe("");
+    expect(suggestTripName("trip", ["Bled"], "Slovenia")).toBe("Bled");
+    expect(suggestTripName("trip", ["Ljubljana", "Bled", "Piran"], "Slovenia")).toBe("Ljubljana, Bled & Piran");
+    expect(suggestTripName("trip", ["Oslo", "Flåm", "Bergen", "Ålesund"], "Norway")).toBe("Around Norway");
+    expect(suggestTripName("lived", ["Ljubljana", "Bled"], "Slovenia")).toBe("Lived in Ljubljana");
   });
 });

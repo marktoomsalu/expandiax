@@ -1,3 +1,4 @@
+import { UploadQueueWatcher } from "@/components/UploadQueue";
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -78,6 +79,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <NativeKeyboard />
             <NativeFirstRunRedirect isLoggedIn={!!navUser} />
             {navUser && <PushRegistration userId={navUser.id} />}
+            {navUser && <UploadQueueWatcher userId={navUser.id} />}
             {navUser && <NativePurchases userId={navUser.id} />}
             <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
             <SiteChrome>{children}</SiteChrome>

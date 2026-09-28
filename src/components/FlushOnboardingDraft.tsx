@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { countryByCode } from "@/lib/countries";
 import { storagePath } from "@/lib/media";
-import { stripImageMetadata } from "@/lib/mediaMetadata";
+import { preparePhoto } from "@/lib/photoPrepare";
 import { loadDraft, clearDraft, loadPendingPhoto, clearPendingPhoto } from "@/lib/onboardingDraft";
 
 // Picks up a pending /start draft (sessionStorage, plus a photo in
@@ -77,8 +77,8 @@ async function flushMemory(userId: string, memory: { title: string; eventDate: s
 
   const rawPhoto = await loadPendingPhoto().catch(() => null);
   if (rawPhoto) {
-    // Uploads are served from public URLs — take location/camera data out first.
-    const photo = await stripImageMetadata(rawPhoto);
+    // Shrunk, and without location/camera data, before it goes up.
+    const photo = await preparePhoto(rawPhoto);
     const path = storagePath(userId, "events", event.id, photo);
     const { error: uploadError } = await supabase.storage.from("media").upload(path, photo);
     if (!uploadError) {

@@ -74,7 +74,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
       const prev = visits[i - 1];
       return {
         id: v.id,
-        name: tripName(v, meta.name, stops[0]),
+        name: tripName(v, meta.name, stops),
         kind: v.kind,
         places: stops.length ? listCities(stops) : v.highlight.trim() || null,
         when: stayWhen(v),

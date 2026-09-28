@@ -9,6 +9,7 @@ import { stockPhotoFor } from "@/lib/stockPhotos";
 import { describeDays } from "@/lib/photoDates";
 import { tripTitle } from "@/lib/tripTitle";
 import { dayLabel, daysBetween, formatKm, journeyLegs, mediaByPlace, orderStops, shortDays, tripName } from "@/lib/tripPlaces";
+import { QueuedMedia } from "@/components/UploadQueue";
 import { PlacesMap } from "@/components/PlacesMap";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { StockCredit } from "@/components/StockCredit";
@@ -54,7 +55,7 @@ export default async function VisitPage({ params, searchParams }: { params: { co
   const perPlace = mediaByPlace(stops, media);
   const cover = images.find((m) => m.id === visit.cover_media_id) ?? images[0];
   const stock = cover ? null : stockPhotoFor(meta.code, visit.id);
-  const name = tripName(visit, meta.name, stops[0]?.city_name);
+  const name = tripName(visit, meta.name, stops.map((s) => s.city_name));
   const when = visit.date_precision === "day" && visit.visited_from ? describeDays(visit.visited_from, visit.visited_to ?? visit.visited_from) : tripTitle(visit).headline;
   const days = visit.date_precision === "day" && visit.visited_from ? daysBetween(visit.visited_from, visit.visited_to ?? visit.visited_from) : null;
   const legs = journeyLegs(stops);
@@ -127,6 +128,8 @@ export default async function VisitPage({ params, searchParams }: { params: { co
             </span>
           )}
         </div>
+
+        <QueuedMedia parentId={visit.id} className="mt-6" />
 
         {/* Places */}
         <section className="mt-8" aria-labelledby="places-h">

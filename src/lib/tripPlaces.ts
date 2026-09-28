@@ -82,10 +82,24 @@ export function mediaByPlace<M extends Media>(stops: City[], media: M[]): Map<st
   return out;
 }
 
-/** "Slovenia Road Trip" if named; otherwise "Lived in Ljubljana" / "Trip to Slovenia". */
-export function tripName(v: Pick<Visit, "title" | "kind">, country: string, firstPlace?: string): string {
+/**
+ * A name from a trip's places, for when it has none of its own: "Bled",
+ * "Bled & Piran", "Ljubljana, Bled & Piran", "Around Slovenia" (4+), or
+ * "Lived in Ljubljana". Empty when there are no places to go on.
+ */
+export function suggestTripName(kind: Visit["kind"], places: string[], country: string): string {
+  const names = places.map((p) => p.trim()).filter(Boolean);
+  if (!names.length) return "";
+  if (kind === "lived") return `Lived in ${names[0]}`;
+  if (names.length === 1) return names[0];
+  if (names.length <= 3) return `${names.slice(0, -1).join(", ")} & ${names.at(-1)}`;
+  return `Around ${country}`;
+}
+
+/** "Slovenia Road Trip" if named; else from its places; else "Trip to Slovenia" / "Lived in Slovenia". */
+export function tripName(v: Pick<Visit, "title" | "kind">, country: string, places: string[] = []): string {
   if (v.title.trim()) return v.title.trim();
-  return v.kind === "lived" ? `Lived in ${firstPlace ?? country}` : `Trip to ${country}`;
+  return suggestTripName(v.kind, places, country) || (v.kind === "lived" ? `Lived in ${country}` : `Trip to ${country}`);
 }
 
 export type CountryPlace = {

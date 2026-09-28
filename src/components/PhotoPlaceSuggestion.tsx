@@ -6,6 +6,7 @@ import type { createClient } from "@/lib/supabase/client";
 import { photoDay, photoSpot } from "@/lib/photoDates";
 import { groupByTown, loadTowns, townFor, type SuggestedPlace, type Town } from "@/lib/photoPlaces";
 import { shortDays } from "@/lib/tripPlaces";
+import { pickCover } from "@/lib/photoPrepare";
 
 export type PhotoFacts = { day: string | null; spot: { lat: number; lng: number } | null; town: Town | null };
 
@@ -45,6 +46,36 @@ export function usePhotoPlaces(files: File[], countryCode: string): SuggestedPla
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, countryCode]);
   return places;
+}
+
+/**
+ * Which chosen photo makes the best cover (landscape, sharp, well lit) —
+ * worked out in the background as soon as they're picked, so Save never
+ * waits on it. -1 until known.
+ */
+export function useBestCover(files: File[]): number {
+  const [best, setBest] = useState(-1);
+  const key = files.map((f) => `${f.name}:${f.size}:${f.lastModified}`).join("|");
+  useEffect(() => {
+    let live = true;
+    setBest(-1);
+    if (files.length) pickCover(files).then((i) => live && setBest(i));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return best;
+}
+
+/** The small line under a name that came from the trip's places. */
+export function SuggestedNameNote() {
+  return (
+    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
+      <Camera size={13} className="shrink-0 text-accent" aria-hidden />
+      Named after the places in your photos - type to change it.
+    </p>
+  );
 }
 
 /** Adds these places to a trip, after any it already has. Returns each one's new id by key. */

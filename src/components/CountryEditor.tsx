@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Calendar, ChevronRight, Lock, MapPinPlus, MessageSquareText, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { uploadMediaItem } from "@/lib/media";
+import { enqueueUploads } from "@/lib/uploadQueue";
+import { suggestTripName } from "@/lib/tripPlaces";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
 import { useCanSellPremium } from "./PurchaseAvailability";
@@ -15,56 +16,47 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { StayRow, type StayView } from "./StayRow";
 import { TripKindToggle } from "./TripKindToggle";
 import { SuggestedDatesNote, usePhotoDateRange, useSuggestedDates } from "./PhotoDateSuggestion";
-import { SuggestedPlacesField, savePlaces, usePhotoPlaces } from "./PhotoPlaceSuggestion";
+import { SuggestedNameNote, SuggestedPlacesField, savePlaces, useBestCover, usePhotoPlaces } from "./PhotoPlaceSuggestion";
 import { VisitDateFields } from "./VisitDateFields";
 import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
 
 type Meta = { code: string; name: string; flag: string; capital: string };
 
-// Shared by both "first trip to a country" and "add another trip" below —
-// uploads whatever's pending in sequence via uploadMediaItem, reporting a
-// simple aggregate status string for the submit button.
-async function uploadPendingMedia(
-  supabase: ReturnType<typeof createClient>,
-  opts: {
-    userId: string;
-    visitedCountryId: string;
-    visitId: string;
-    media: PendingItem[];
-    videoQuality: "standard" | "hd";
-    onStatus: (status: string | null) => void;
-    /** The trip place each photo was taken at, if known. */
-    placeOf?: (file: File) => string | undefined;
-  }
-) {
-  const { userId, visitedCountryId, visitId, media, videoQuality, onStatus, placeOf } = opts;
-  const extraFields = { visited_country_id: visitedCountryId, country_visit_id: visitId };
-
-  let done = 0;
-  for (const p of media) {
-    onStatus(`Uploading ${done + 1} of ${media.length}…`);
-    const cityId = placeOf?.(p.file);
-    await uploadMediaItem(supabase, {
-      userId,
-      scope: "countries",
-      parentId: visitId,
-      file: p.file,
-      kind: p.kind,
-      table: "country_media",
-      extraFields: cityId ? { ...extraFields, city_id: cityId } : extraFields,
-      displayOrder: done,
-      videoQuality,
-      onProgress:
-        p.kind === "video"
-          ? (pct, phase) => onStatus(`${phase === "compressing" ? "Compressing" : "Uploading"} video ${done + 1} of ${media.length} (${pct}%)…`)
-          : undefined,
-    }).catch(() => {
-      // Best-effort — the trip itself is already saved either way.
-    });
-    done++;
-  }
-  onStatus(null);
+// Shared by both "first trip to a country" and "add another trip" below:
+// hands the chosen photos and videos to the background upload queue, so the
+// trip opens straight away and they follow — each under its place, and the
+// best landscape photo as the trip's cover.
+function queuePendingMedia(opts: {
+  userId: string;
+  visitedCountryId: string;
+  visitId: string;
+  media: PendingItem[];
+  videoQuality: "standard" | "hd";
+  /** The trip place each photo was taken at, if known. */
+  placeOf?: (file: File) => string | undefined;
+  cover?: File;
+}) {
+  const { userId, visitedCountryId, visitId, media, videoQuality, placeOf, cover } = opts;
+  enqueueUploads(
+    media.map((p, i) => {
+      const cityId = placeOf?.(p.file);
+      return {
+        file: p.file,
+        kind: p.kind,
+        target: {
+          userId,
+          scope: "countries" as const,
+          parentId: visitId,
+          table: "country_media" as const,
+          fields: { visited_country_id: visitedCountryId, country_visit_id: visitId, ...(cityId ? { city_id: cityId } : {}) },
+          displayOrder: i,
+          videoQuality,
+          cover: p.file === cover ? { table: "country_visits" as const, id: visitId } : undefined,
+        },
+      };
+    })
+  );
 }
 
 /** First trip to a new country — bundles marking it visited with its first
@@ -91,8 +83,11 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
   const foundPlaces = usePhotoPlaces(photoFiles, meta.code);
   const [leftOut, setLeftOut] = useState<string[]>([]);
   const places = foundPlaces.filter((p) => !leftOut.includes(p.key));
+  // Until they type a name, the trip is named after its places.
+  const [titleTouched, setTitleTouched] = useState(false);
+  const shownTitle = titleTouched ? title : suggestTripName(kind, places.map((p) => p.name), meta.name);
+  const coverIndex = useBestCover(photoFiles);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -163,7 +158,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
         visited_to: to,
         date_precision: datePrecision,
         highlight: highlight.trim(),
-        title: title.trim().slice(0, 80),
+        title: titleTouched ? title.trim().slice(0, 80) : "",
         kind,
       })
       .select("id")
@@ -177,13 +172,13 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
     }
 
     const placeIds = await savePlaces(supabase, { visitedCountryId: country.id, visitId: visit.id, places });
-    await uploadPendingMedia(supabase, {
+    queuePendingMedia({
       userId: user.id,
       visitedCountryId: country.id,
       visitId: visit.id,
       media: pendingMedia,
       videoQuality,
-      onStatus: setUploadStatus,
+      cover: photoFiles[coverIndex] ?? photoFiles[0],
       placeOf: (file) => placeIds.get(places.find((pl) => pl.photos.some((i) => photoFiles[i] === file))?.key ?? ""),
     });
 
@@ -203,9 +198,13 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
           className="field mt-2 !py-1.5 w-full text-sm"
           maxLength={80}
           placeholder={kind === "lived" ? "Name - optional, e.g. My Ljubljana years" : `Name - optional, e.g. ${meta.name} Road Trip`}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          value={shownTitle}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setTitleTouched(true);
+          }}
         />
+        {!titleTouched && shownTitle && <SuggestedNameNote />}
       </div>
       <div className="border-t border-line pt-5">
         <p className="eyebrow mb-3">Photos & videos</p>
@@ -264,7 +263,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
       </div>
       <button type="submit" className="btn-accent w-full justify-center" disabled={busy}>
         <MapPinPlus size={17} />
-        {busy ? uploadStatus ?? "Adding…" : `Add ${meta.name} to your map`}
+        {busy ? "Adding…" : `Add ${meta.name} to your map`}
       </button>
       {error && (
         <p role="alert" className="text-sm text-red-800 dark:text-red-400">
@@ -306,8 +305,11 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
   const foundPlaces = usePhotoPlaces(photoFiles, meta.code);
   const [leftOut, setLeftOut] = useState<string[]>([]);
   const places = foundPlaces.filter((p) => !leftOut.includes(p.key));
+  // Until they type a name, the trip is named after its places.
+  const [titleTouched, setTitleTouched] = useState(false);
+  const shownTitle = titleTouched ? title : suggestTripName(kind, places.map((p) => p.name), meta.name);
+  const coverIndex = useBestCover(photoFiles);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [addingVisit, setAddingVisit] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -358,7 +360,7 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
         visited_to: to,
         date_precision: datePrecision,
         highlight: highlight.trim(),
-        title: title.trim().slice(0, 80),
+        title: titleTouched ? title.trim().slice(0, 80) : "",
         kind,
       })
       .select("id")
@@ -370,13 +372,13 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
     }
 
     const placeIds = await savePlaces(supabase, { visitedCountryId: data.id, visitId: inserted.id, places });
-    await uploadPendingMedia(supabase, {
+    queuePendingMedia({
       userId: data.user_id,
       visitedCountryId: data.id,
       visitId: inserted.id,
       media: pendingMedia,
       videoQuality,
-      onStatus: setUploadStatus,
+      cover: photoFiles[coverIndex] ?? photoFiles[0],
       placeOf: (file) => placeIds.get(places.find((pl) => pl.photos.some((i) => photoFiles[i] === file))?.key ?? ""),
     });
 
@@ -479,9 +481,13 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
                 className="field mt-2 !py-1.5 w-full text-sm"
                 maxLength={80}
                 placeholder={kind === "lived" ? "Name - optional, e.g. My Ljubljana years" : `Name - optional, e.g. ${meta.name} Road Trip`}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                value={shownTitle}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  setTitleTouched(true);
+                }}
               />
+              {!titleTouched && shownTitle && <SuggestedNameNote />}
             </div>
             <div className="border-t border-line pt-5">
               <p className="eyebrow mb-3">Photos & videos</p>
@@ -540,7 +546,7 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
             </div>
             {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
             <button type="submit" className="btn-accent w-full justify-center !py-2.5 text-sm" disabled={addingVisit}>
-              <Plus size={15} /> {addingVisit ? uploadStatus ?? "Adding…" : kind === "lived" ? "Add this stay" : "Add this trip"}
+              <Plus size={15} /> {addingVisit ? "Adding…" : kind === "lived" ? "Add this stay" : "Add this trip"}
             </button>
           </form>
         )}
