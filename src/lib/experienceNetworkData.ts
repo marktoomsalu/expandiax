@@ -119,9 +119,10 @@ export async function loadTravellers(
 // ---------- For the feed: places for you, a place to start, people to meet ----------
 
 export type PlaceCard = PlaceForYou & { faces: Person[]; photo: string | null };
-export type Interest = { country: string; town: string | null; why: "dream" | "network"; people: number; places: number; events: number; photo: string | null };
-export type PersonCard = Person & { visibility: ProfileVisibility; headline: Reason | null; reasons: Reason[] };
-export type NetworkHome = { interest: Interest | null; places: PlaceCard[]; people: PersonCard[]; dreams: DreamPlace[] };
+export type PersonCard = Person & { visibility: ProfileVisibility; headline: Reason | null; reasons: Reason[]; photos: string[] };
+/** A country for your next trip: where people you follow (or, early on, anyone) have been and you haven't. */
+export type TripIdea = { country: string; friends: Person[]; network: number; people: number };
+export type NetworkHome = { places: PlaceCard[]; people: PersonCard[]; ideas: TripIdea[]; dreams: DreamPlace[] };
 
 export async function loadNetworkHome(supabase: Supabase, viewerId: string): Promise<NetworkHome> {
   const circle = await viewerCircle(supabase, viewerId);
@@ -188,7 +189,7 @@ export async function loadNetworkHome(supabase: Supabase, viewerId: string): Pro
     const score = meetScore(facts, !!livedWanted);
     if (score < 1.5) continue;
     const reasons = meetReasons(facts);
-    people.push({ id: p.id, username: p.username, display_name: p.display_name, avatar_url: p.avatar_url, visibility: p.visibility as ProfileVisibility, headline: reasons[0] ?? null, reasons: reasons.slice(1), score });
+    people.push({ id: p.id, username: p.username, display_name: p.display_name, avatar_url: p.avatar_url, visibility: p.visibility as ProfileVisibility, photos: [], headline: reasons[0] ?? null, reasons: reasons.slice(1), score });
   }
   people.sort((a, b) => b.score - a.score);
 
@@ -213,31 +214,57 @@ export async function loadNetworkHome(supabase: Supabase, viewerId: string): Pro
     photo: p.cityIds.map((id) => photoByCity.get(id)).find(Boolean) ?? null,
   }));
 
-  // ---- The place to start: somewhere you dream of, else your network's favourite
-  let interest: Interest | null = null;
-  const dreamFirst = circle.dreams[0];
-  const pick = dreamFirst
-    ? { country: dreamFirst.country_code, town: dreamFirst.place_name || cards.find((c) => c.country === dreamFirst.country_code)?.name || null, why: "dream" as const }
-    : cards[0]
-      ? { country: cards[0].country, town: cards[0].name, why: "network" as const }
-      : null;
-  if (pick) {
-    const [counts, { count: events }] = await Promise.all([
-      travellerCounts(supabase, pick.country),
-      supabase.from("events").select("id", { count: "exact", head: true }).eq("country_code", pick.country),
-    ]);
-    const townCount = pick.town ? counts.towns.get(placeKey(pick.town))?.n : undefined;
-    interest = {
-      ...pick,
-      people: townCount ?? counts.total,
-      places: counts.towns.size,
-      events: events ?? 0,
-      photo: cards.find((c) => c.country === pick.country && pick.town && placeKey(c.name) === placeKey(pick.town))?.photo ?? null,
-    };
+  // ---- Ideas for your next trip: countries your network knows and you don't
+  const mineCountries = countriesOf.get(viewerId) ?? new Set<string>();
+  const byCountry = new Map<string, { network: Set<string>; people: Set<string> }>();
+  for (const [uid, set] of countriesOf) {
+    if (uid === viewerId || blockedIds.has(uid)) continue;
+    for (const c of set) {
+      if (mineCountries.has(c)) continue;
+      const e = byCountry.get(c) ?? byCountry.set(c, { network: new Set(), people: new Set() }).get(c)!;
+      e.people.add(uid);
+      if (circle.following.has(uid)) e.network.add(uid);
+    }
   }
+  const ideaScore = (i: { country: string; network: string[]; people: number }) => i.network.length * 3 + i.people + (dreamCountries.has(i.country) ? 5 : 0);
+  const ideaRows = [...byCountry.entries()]
+    .map(([country, e]) => ({ country, network: [...e.network], people: e.people.size }))
+    .sort((a, b) => ideaScore(b) - ideaScore(a))
+    .slice(0, 9);
 
-  people.length = Math.min(people.length, 8);
-  return { interest, places: cards, people, dreams: circle.dreams };
+  // ---- Faces for ideas, and a couple of trip photos for each person
+  const topPeople = people.slice(0, 8);
+  const ideaFaceIds = [...new Set(ideaRows.flatMap((i) => i.network.slice(0, 3)))].filter((id) => !faceById.has(id));
+  const [{ data: ideaFaces }, { data: theirPhotos }] = await Promise.all([
+    ideaFaceIds.length ? supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", ideaFaceIds) : Promise.resolve({ data: [] as Person[] }),
+    topPeople.length
+      ? signMedia(
+          await supabase
+            .from("country_media")
+            .select("public_url, visited_countries!inner(user_id)")
+            .in("visited_countries.user_id", topPeople.map((p) => p.id))
+            .eq("media_type", "image")
+            .limit(80)
+        )
+      : Promise.resolve({ data: [] as { public_url: string; visited_countries: unknown }[] }),
+  ]);
+  for (const f of ideaFaces ?? []) faceById.set(f.id, f as Person);
+  for (const m of (theirPhotos ?? []) as { public_url: string; visited_countries: unknown }[]) {
+    const uid = one<{ user_id: string }>(m.visited_countries)?.user_id;
+    const person = topPeople.find((p) => p.id === uid);
+    if (person && person.photos.length < 2) person.photos.push(m.public_url);
+  }
+  const ideas: TripIdea[] = ideaRows.map((i) => ({
+    country: i.country,
+    network: i.network.length,
+    people: i.people,
+    friends: i.network
+      .slice(0, 3)
+      .map((id) => faceById.get(id))
+      .filter((x): x is Person => !!x),
+  }));
+
+  return { places: cards, people: topPeople, ideas, dreams: circle.dreams };
 }
 
 /** The rows for a country's or town's page: circles first, then everyone you can see. */
