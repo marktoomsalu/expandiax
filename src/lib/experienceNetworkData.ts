@@ -29,24 +29,20 @@ import {
 
 type Supabase = ReturnType<typeof createClient>;
 
-export type WantToGo = { country_code: string; place_name: string };
+/** A dream place: a town, or the whole country when place_name is empty (stored in want_to_go). */
+export type DreamPlace = { country_code: string; place_name: string };
 
 type VisitRow = { id: string; title: string; kind: "trip" | "lived"; year: number; visited_from: string | null; visited_to: string | null; date_precision: DatePrecision };
 type CityRow = { city_name: string; country_visit_id: string; position: number; arrived: string | null };
 
 async function viewerCircle(supabase: Supabase, viewerId: string | null) {
-  if (!viewerId) return { following: new Set<string>(), home: null as string | null, want: [] as WantToGo[] };
-  const [{ data: f }, { data: me }, { data: want }] = await Promise.all([
+  if (!viewerId) return { following: new Set<string>(), home: null as string | null, dreams: [] as DreamPlace[] };
+  const [{ data: f }, { data: me }, { data: dreams }] = await Promise.all([
     supabase.from("follows").select("followee_id").eq("follower_id", viewerId),
     supabase.from("profiles").select("home_country_code").eq("id", viewerId).single(),
     supabase.from("want_to_go").select("country_code, place_name").order("created_at", { ascending: false }),
   ]);
-  return { following: new Set((f ?? []).map((r) => r.followee_id)), home: me?.home_country_code ?? null, want: (want ?? []) as WantToGo[] };
-}
-
-/** Your Want to go list. Empty until the list exists (or when signed out). */
-export async function loadWantToGo(supabase: Supabase, viewerId: string | null): Promise<WantToGo[]> {
-  return (await viewerCircle(supabase, viewerId)).want;
+  return { following: new Set((f ?? []).map((r) => r.followee_id)), home: me?.home_country_code ?? null, dreams: (dreams ?? []) as DreamPlace[] };
 }
 
 /** The anonymous counts for a country: total, and per town (lower-cased key). */
@@ -72,7 +68,7 @@ export async function loadTravellers(
   countryCode: string,
   /** A town, as its web address slug ("novo-mesto"). */
   townSlug?: string
-): Promise<{ travellers: Traveller[]; home: string | null; want: WantToGo[]; townName: string | null }> {
+): Promise<{ travellers: Traveller[]; home: string | null; dreams: DreamPlace[]; townName: string | null }> {
   const country = countryByCode(countryCode);
   const [circle, { data }] = await Promise.all([
     viewerCircle(supabase, viewerId),
@@ -117,15 +113,15 @@ export async function loadTravellers(
     if (wanted && !stays.length) continue;
     travellers.push({ id: p.id, username: p.username, display_name: p.display_name, avatar_url: p.avatar_url, home: p.home_country_code, following, stays });
   }
-  return { travellers, home: circle.home, want: circle.want, townName };
+  return { travellers, home: circle.home, dreams: circle.dreams, townName };
 }
 
 // ---------- For the feed: places for you, a place to start, people to meet ----------
 
 export type PlaceCard = PlaceForYou & { faces: Person[]; photo: string | null };
-export type Interest = { country: string; town: string | null; why: "want" | "network"; people: number; places: number; events: number; photo: string | null };
+export type Interest = { country: string; town: string | null; why: "dream" | "network"; people: number; places: number; events: number; photo: string | null };
 export type PersonCard = Person & { visibility: ProfileVisibility; headline: Reason | null; reasons: Reason[] };
-export type NetworkHome = { interest: Interest | null; places: PlaceCard[]; people: PersonCard[]; want: WantToGo[] };
+export type NetworkHome = { interest: Interest | null; places: PlaceCard[]; people: PersonCard[]; dreams: DreamPlace[] };
 
 export async function loadNetworkHome(supabase: Supabase, viewerId: string): Promise<NetworkHome> {
   const circle = await viewerCircle(supabase, viewerId);
@@ -149,9 +145,9 @@ export async function loadNetworkHome(supabase: Supabase, viewerId: string): Pro
     towns.push({ userId: vc.user_id, country: vc.country_code, town: r.city_name, lat: r.lat, lng: r.lng, cityId: r.id, lived: one<{ kind: string }>(r.country_visits)?.kind === "lived" });
   }
 
-  const wantCountries = new Set(circle.want.map((w) => w.country_code));
-  const wantTowns = new Set(circle.want.filter((w) => w.place_name).map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
-  const places = placesForYou(towns, { id: viewerId, following: circle.following, wantCountries, wantTowns }, 10);
+  const dreamCountries = new Set(circle.dreams.map((w) => w.country_code));
+  const dreamTowns = new Set(circle.dreams.filter((w) => w.place_name).map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
+  const places = placesForYou(towns, { id: viewerId, following: circle.following, dreamCountries, dreamTowns }, 10);
 
   // ---- People you may want to meet
   const countriesOf = new Map<string, Set<string>>();
@@ -180,7 +176,7 @@ export async function loadNetworkHome(supabase: Supabase, viewerId: string): Pro
   for (const p of candProfiles ?? []) {
     const theirTowns = townsOfUser.get(p.id) ?? new Set<string>();
     const lived = livedOf.get(p.id) ?? [];
-    const livedWanted = lived.find((l) => wantCountries.has(l.country));
+    const livedWanted = lived.find((l) => dreamCountries.has(l.country));
     const sharedLiveKey = [...(liveOf.get(p.id)?.keys() ?? [])].find((k) => myLive.has(k));
     const facts = {
       countries: countriesOf.get(p.id)?.size ?? 0,
@@ -217,11 +213,11 @@ export async function loadNetworkHome(supabase: Supabase, viewerId: string): Pro
     photo: p.cityIds.map((id) => photoByCity.get(id)).find(Boolean) ?? null,
   }));
 
-  // ---- The place to start: somewhere on your list, else your network's favourite
+  // ---- The place to start: somewhere you dream of, else your network's favourite
   let interest: Interest | null = null;
-  const wantFirst = circle.want[0];
-  const pick = wantFirst
-    ? { country: wantFirst.country_code, town: wantFirst.place_name || cards.find((c) => c.country === wantFirst.country_code)?.name || null, why: "want" as const }
+  const dreamFirst = circle.dreams[0];
+  const pick = dreamFirst
+    ? { country: dreamFirst.country_code, town: dreamFirst.place_name || cards.find((c) => c.country === dreamFirst.country_code)?.name || null, why: "dream" as const }
     : cards[0]
       ? { country: cards[0].country, town: cards[0].name, why: "network" as const }
       : null;
@@ -241,7 +237,7 @@ export async function loadNetworkHome(supabase: Supabase, viewerId: string): Pro
   }
 
   people.length = Math.min(people.length, 8);
-  return { interest, places: cards, people, want: circle.want };
+  return { interest, places: cards, people, dreams: circle.dreams };
 }
 
 /** The rows for a country's or town's page: circles first, then everyone you can see. */

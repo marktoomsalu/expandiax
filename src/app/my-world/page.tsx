@@ -13,6 +13,8 @@ import { visitSortKey } from "@/lib/utils";
 import { stockPhotoFor, type StockPhoto } from "@/lib/stockPhotos";
 import type { VisitedCountry, CountryMedia } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
+import { loadDreamPlaces } from "@/lib/dreams";
+import { DreamPlaces } from "@/components/dreams/DreamPlaces";
 
 export const metadata = { title: "My World" };
 
@@ -31,13 +33,15 @@ export default async function MyWorldPage() {
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const [{ data }, { data: profile }] = await Promise.all([
+  const [{ data }, { data: profile }, dreams] = await Promise.all([
     supabase
       .from("visited_countries")
       .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to)")
       .eq("user_id", user.id),
     supabase.from("profiles").select("home_country_code").eq("id", user.id).single(),
+    loadDreamPlaces(supabase, user.id),
   ]).then((r) => signMedia(r));
+  const dreamCodes = [...new Set(dreams.map((d) => d.country_code))];
 
   // Territories (Greenland, Gibraltar, etc.) live in this same table now —
   // codes/visitCounts stay unfiltered (so they show on the map and in "Your
@@ -99,8 +103,10 @@ export default async function MyWorldPage() {
       </div>
 
       <div className="mt-8">
-        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} />
+        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} dreamCodes={dreamCodes} />
       </div>
+
+      <DreamPlaces dreams={dreams} />
 
       {codes.length === 0 ? (
         <div className="mt-10">

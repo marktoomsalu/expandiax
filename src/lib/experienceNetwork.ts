@@ -88,12 +88,11 @@ export type PlaceForYou = {
 
 /**
  * Towns worth a look: where people you follow have been, then where many
- * people have — and a boost for countries and towns on your Want to go
- * list. Towns you've been to yourself are left out.
+ * people have — and a boost for countries and towns you dream of. Towns you've been to yourself are left out.
  */
 export function placesForYou(
   rows: TownRow[],
-  viewer: { id: string; following: Set<string>; wantCountries: Set<string>; wantTowns: Set<string> },
+  viewer: { id: string; following: Set<string>; dreamCountries: Set<string>; dreamTowns: Set<string> },
   limit = 10
 ): PlaceForYou[] {
   const mine = new Set(rows.filter((r) => r.userId === viewer.id).map((r) => `${r.country}:${placeKey(r.town)}`));
@@ -112,7 +111,7 @@ export function placesForYou(
     }
   }
   const score = (p: PlaceForYou) =>
-    p.network.length * 3 + p.people.length + (viewer.wantTowns.has(p.key) ? 8 : 0) + (viewer.wantCountries.has(p.country) ? 4 : 0);
+    p.network.length * 3 + p.people.length + (viewer.dreamTowns.has(p.key) ? 8 : 0) + (viewer.dreamCountries.has(p.country) ? 4 : 0);
   return [...places.values()].sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name)).slice(0, limit);
 }
 

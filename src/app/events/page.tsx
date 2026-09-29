@@ -9,6 +9,8 @@ import { RatingStars } from "@/components/Rating";
 import { formatDate } from "@/lib/utils";
 import type { Event, EventMedia } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
+import { loadDreamEvents } from "@/lib/dreams";
+import { DreamEvents } from "@/components/dreams/DreamEvents";
 
 export const metadata = { title: "Events" };
 
@@ -19,11 +21,15 @@ export default async function EventsPage() {
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const { data } = await signMedia(await supabase
-    .from("events")
-    .select("*, event_media!event_media_event_id_fkey(*)")
-    .eq("user_id", user.id)
-    .order("event_date", { ascending: false }));
+  const [{ data }, dreams] = await Promise.all([
+    supabase
+      .from("events")
+      .select("*, event_media!event_media_event_id_fkey(*)")
+      .eq("user_id", user.id)
+      .order("event_date", { ascending: false })
+      .then((r) => signMedia(r)),
+    loadDreamEvents(supabase, user.id),
+  ]);
 
   const events = (data ?? []) as Row[];
 
@@ -58,6 +64,8 @@ export default async function EventsPage() {
         </div>
         <Link href="/events/new" className="btn-accent"><Plus size={17} /> Add event</Link>
       </div>
+
+      <DreamEvents dreams={dreams} />
 
       {events.length === 0 ? (
         <div className="mt-10">

@@ -51,7 +51,7 @@ describe("townsOf", () => {
 
 describe("placesForYou", () => {
   const row = (userId: string, country: string, town: string) => ({ userId, country, town, lat: 1, lng: 1, cityId: `${userId}-${town}` });
-  const viewer = { id: "me", following: new Set(["f1", "f2"]), wantCountries: new Set<string>(), wantTowns: new Set<string>() };
+  const viewer = { id: "me", following: new Set(["f1", "f2"]), dreamCountries: new Set<string>(), dreamTowns: new Set<string>() };
   it("puts the network's places first and leaves out your own", () => {
     const out = placesForYou(
       [row("x1", "IT", "Rome"), row("x2", "IT", "Rome"), row("x3", "IT", "Rome"), row("f1", "SI", "Bled"), row("f2", "SI", "Bled"), row("me", "AT", "Vienna"), row("f1", "AT", "Vienna")],
@@ -62,8 +62,8 @@ describe("placesForYou", () => {
       ["Rome", 0, 3],
     ]);
   });
-  it("lifts places you want to go", () => {
-    const out = placesForYou([row("x1", "IT", "Rome"), row("x2", "IT", "Rome"), row("x3", "PT", "Porto")], { ...viewer, wantCountries: new Set(["PT"]) });
+  it("lifts places you dream of", () => {
+    const out = placesForYou([row("x1", "IT", "Rome"), row("x2", "IT", "Rome"), row("x3", "PT", "Porto")], { ...viewer, dreamCountries: new Set(["PT"]) });
     expect(out[0].name).toBe("Porto");
   });
 });

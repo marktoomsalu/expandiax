@@ -10,7 +10,7 @@ import { nearbyCards } from "@/lib/nearbyCards";
 import { slugify, trendingLive, type LiveRow } from "@/lib/explore";
 import { loadTravellers, networkRows, travellerCounts } from "@/lib/experienceNetworkData";
 import { NetworkRows } from "@/components/network/NetworkRows";
-import { WantToGoButton } from "@/components/network/WantToGoButton";
+import { DreamButton } from "@/components/network/DreamButton";
 import { LIVE_TYPES } from "@/lib/exploreData";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { EventCarousel } from "@/components/EventCarousel";
@@ -46,7 +46,7 @@ export default async function CountryHubPage({ params }: { params: { code: strin
   const supabase = createClient();
   const viewer = await getAuthUser();
 
-  const [{ travellers, home, want }, counts, { data: liveRows }, { data: mine }] = await Promise.all([
+  const [{ travellers, home, dreams }, counts, { data: liveRows }, { data: mine }] = await Promise.all([
     loadTravellers(supabase, viewer?.id ?? null, country.code),
     travellerCounts(supabase, country.code),
     supabase
@@ -64,7 +64,7 @@ export default async function CountryHubPage({ params }: { params: { code: strin
   const network = travellers.filter((t) => t.following).length;
   const rows = networkRows(travellers, home, country.code);
   const towns = [...counts.towns.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).slice(0, 16);
-  const wanted = want.some((w) => w.country_code === country.code && !w.place_name);
+  const dreaming = dreams.some((w) => w.country_code === country.code && !w.place_name);
   const live = trendingLive((liveRows ?? []) as LiveRow[], { min: 1, limit: 12 });
   const photo = stockPhotoFor(country.code, "explore");
   const [a, b] = flagGradientColors(country.code);
@@ -100,7 +100,7 @@ export default async function CountryHubPage({ params }: { params: { code: strin
           </Link>
           {viewer && (
             <div className="flex flex-wrap items-center gap-2">
-              {!mine && <WantToGoButton countryCode={country.code} label={country.name} initial={wanted} />}
+              {!mine && <DreamButton target={{ kind: "place", countryCode: country.code }} label={country.name} initial={dreaming} />}
               {mine ? (
               <Link href={`/my-world/${country.code.toLowerCase()}`} className="btn-ghost !py-2 text-sm">
                 <Check size={15} /> On your map

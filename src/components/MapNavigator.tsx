@@ -8,10 +8,12 @@ export function MapNavigator({
   visitedCodes,
   visitCounts,
   homeCode,
+  dreamCodes = [],
 }: {
   visitedCodes: string[];
   visitCounts?: Record<string, number>;
   homeCode?: string | null;
+  dreamCodes?: string[];
 }) {
   const router = useRouter();
   const go = (code: string) => router.push(`/my-world/${code.toLowerCase()}`);
@@ -23,6 +25,7 @@ export function MapNavigator({
           visitedCodes={visitedCodes}
           visitCounts={visitCounts}
           homeCode={homeCode}
+          dreamCodes={dreamCodes}
           onSelect={go}
         />
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line px-2 pb-1 pt-3 text-xs text-muted">
@@ -32,6 +35,11 @@ export function MapNavigator({
           {homeCode && (
             <span className="flex items-center gap-2">
               <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#f59e0b" }} /> Home
+            </span>
+          )}
+          {dreamCodes.some((c) => !visitedCodes.includes(c)) && (
+            <span className="flex items-center gap-2">
+              <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "rgb(139,92,246)" }} /> Dreaming
             </span>
           )}
           <span className="flex items-center gap-2">

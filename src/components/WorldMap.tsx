@@ -6,6 +6,7 @@ type Props = {
   visitedCodes: string[];
   visitCounts?: Record<string, number>;
   homeCode?: string | null;
+  dreamCodes?: string[];
   onSelect?: (code: string) => void;
   interactive?: boolean;
   className?: string;
@@ -28,12 +29,13 @@ const WorldGlobeInner = dynamic(
  * quiet. Precision selection on mobile is handled by the country search next
  * to the globe, so polygon clicks are pointer-targets only.
  */
-export function WorldMap({ visitedCodes, visitCounts, homeCode, onSelect, interactive = true, className }: Props) {
+export function WorldMap({ visitedCodes, visitCounts, homeCode, dreamCodes, onSelect, interactive = true, className }: Props) {
   return (
     <WorldGlobeInner
       visitedCodes={visitedCodes}
       visitCounts={visitCounts}
       homeCode={homeCode}
+      dreamCodes={dreamCodes}
       onSelect={onSelect}
       interactive={interactive}
       className={className}

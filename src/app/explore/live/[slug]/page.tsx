@@ -12,6 +12,8 @@ import { IWasThereButton } from "@/components/IWasThereButton";
 import { ArtistUpcomingShows } from "@/components/UpcomingShows";
 import { formatDate } from "@/lib/utils";
 import { MembersOnly } from "@/components/MembersOnly";
+import { DreamButton } from "@/components/network/DreamButton";
+import { isDreamEvent } from "@/lib/dreams";
 
 type Row = LiveRow & {
   venue: string;
@@ -58,6 +60,7 @@ export default async function LiveHubPage({ params }: { params: { slug: string }
   const Icon = eventTypeMeta(type).icon;
   const image = rows.find((r) => r.spotify_artist_image)?.spotify_artist_image ?? null;
   const people = new Set(rows.map((r) => r.user_id)).size;
+  const dreaming = viewer ? await isDreamEvent(createClient(), name) : false;
 
   // One group per night (festivals and races can span a few days — the date people logged is fine).
   const nights = new Map<string, Row[]>();
@@ -88,6 +91,11 @@ export default async function LiveHubPage({ params }: { params: { slug: string }
           <p className="mt-1 text-sm text-muted">
             {rows.length} {rows.length === 1 ? "memory" : "memories"} · {people} {people === 1 ? "person" : "people"} · {nights.size} {nights.size === 1 ? "night" : "nights"}
           </p>
+          {viewer && (
+            <div className="mt-3">
+              <DreamButton target={{ kind: "event", name, eventType: type, image }} initial={dreaming} label={name} />
+            </div>
+          )}
         </div>
       </div>
 

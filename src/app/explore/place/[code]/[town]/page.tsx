@@ -8,7 +8,7 @@ import { slugify } from "@/lib/explore";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { loadTravellers, networkRows, travellerCounts } from "@/lib/experienceNetworkData";
 import { NetworkRows } from "@/components/network/NetworkRows";
-import { WantToGoButton } from "@/components/network/WantToGoButton";
+import { DreamButton } from "@/components/network/DreamButton";
 import { StockImage } from "@/components/StockImage";
 import { StockCredit } from "@/components/StockCredit";
 import { MembersOnly } from "@/components/MembersOnly";
@@ -29,7 +29,7 @@ export default async function TownPage({ params }: { params: Params }) {
   const supabase = createClient();
   const viewer = await getAuthUser();
 
-  const [{ travellers, home, want, townName }, counts] = await Promise.all([
+  const [{ travellers, home, dreams, townName }, counts] = await Promise.all([
     loadTravellers(supabase, viewer?.id ?? null, country.code, slug),
     travellerCounts(supabase, country.code),
   ]);
@@ -40,7 +40,7 @@ export default async function TownPage({ params }: { params: Params }) {
   const total = Math.max(counted?.n ?? 0, travellers.length);
   const network = travellers.filter((t) => t.following).length;
   const rows = networkRows(travellers, home, country.code);
-  const wanted = want.some((w) => w.country_code === country.code && slugify(w.place_name) === slug);
+  const dreaming = dreams.some((w) => w.country_code === country.code && slugify(w.place_name) === slug);
   const photo = stockPhotoFor(country.code, slug);
   const [a, b] = flagGradientColors(country.code);
   const base = `/explore/place/${country.code.toLowerCase()}/${slug}`;
@@ -74,7 +74,7 @@ export default async function TownPage({ params }: { params: Params }) {
           <Link href={`/explore/country/${country.code.toLowerCase()}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
             <ArrowLeft size={15} /> {country.name}
           </Link>
-          {viewer && <WantToGoButton countryCode={country.code} placeName={name} label={name} initial={wanted} />}
+          {viewer && <DreamButton target={{ kind: "place", countryCode: country.code, placeName: name }} label={name} initial={dreaming} />}
         </div>
 
         <section className="mt-10" aria-labelledby="tv-h">

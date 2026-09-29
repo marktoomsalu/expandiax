@@ -10,7 +10,7 @@ import { loadNetworkHome, type Interest, type PlaceCard } from "@/lib/experience
 import { StockImage } from "../StockImage";
 import { FaceStack } from "./FaceStack";
 import { PeopleToMeet } from "./PeopleToMeet";
-import { WantToGoButton } from "./WantToGoButton";
+import { DreamButton } from "./DreamButton";
 
 const placeHref = (country: string, town: string | null) =>
   town ? `/explore/place/${country.toLowerCase()}/${slugify(town)}` : `/explore/country/${country.toLowerCase()}`;
@@ -51,7 +51,7 @@ export function InterestHero({ i }: { i: Interest }) {
       <span className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/10" aria-hidden />
       <span className="absolute inset-x-0 bottom-0 p-5 pr-16 text-white">
         <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80">
-          {i.why === "want" ? `Because you want to go to ${country.name}` : `Popular with your network · ${country.flag} ${country.name}`}
+          {i.why === "dream" ? `Because you dream of ${country.name}` : `Popular with your network · ${country.flag} ${country.name}`}
         </span>
         <span className="mt-1 block font-serif text-4xl leading-none drop-shadow">{i.town ?? country.name}</span>
         <span className="mt-2 block text-sm text-white/85">{line}</span>
@@ -63,7 +63,7 @@ export function InterestHero({ i }: { i: Interest }) {
   );
 }
 
-export function PlaceForYou({ p, wanted }: { p: PlaceCard; wanted: boolean }) {
+export function PlaceForYou({ p, dreaming }: { p: PlaceCard; dreaming: boolean }) {
   const country = countryByCode(p.country);
   const stock = p.photo ? null : stockPhotoFor(p.country, p.key);
   const n = p.network.length || p.people.length;
@@ -92,7 +92,7 @@ export function PlaceForYou({ p, wanted }: { p: PlaceCard; wanted: boolean }) {
         </span>
       </Link>
       <span className="absolute right-2 top-2">
-        <WantToGoButton variant="icon" countryCode={p.country} placeName={p.name} lat={p.lat} lng={p.lng} initial={wanted} label={p.name} />
+        <DreamButton variant="icon" target={{ kind: "place", countryCode: p.country, placeName: p.name, lat: p.lat, lng: p.lng }} initial={dreaming} label={p.name} />
       </span>
     </li>
   );
@@ -104,9 +104,9 @@ export function PlaceForYou({ p, wanted }: { p: PlaceCard; wanted: boolean }) {
  */
 export async function Discover({ viewerId }: { viewerId: string }) {
   const supabase = createClient();
-  const { interest, places, people, want } = await loadNetworkHome(supabase, viewerId);
+  const { interest, places, people, dreams } = await loadNetworkHome(supabase, viewerId);
   if (!interest && !places.length && !people.length) return null;
-  const wanted = new Set(want.map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
+  const dreamed = new Set(dreams.map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
 
   return (
     <div className="space-y-10">
@@ -116,11 +116,11 @@ export async function Discover({ viewerId }: { viewerId: string }) {
         <section aria-labelledby="pfy-h">
           <Head id="pfy-h" title="Places for you" href="/explore#pl-h" />
           <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
-            <MapPin size={13} aria-hidden /> Where your network has been - save the ones you want to go to.
+            <MapPin size={13} aria-hidden /> Where your network has been - tap ✨ to dream of one.
           </p>
           <ul className="no-scrollbar -mx-5 mt-4 flex snap-x gap-3 overflow-x-auto px-5 pb-2">
             {places.map((p) => (
-              <PlaceForYou key={p.key} p={p} wanted={wanted.has(`${p.country}:${placeKey(p.name)}`)} />
+              <PlaceForYou key={p.key} p={p} dreaming={dreamed.has(`${p.country}:${placeKey(p.name)}`)} />
             ))}
           </ul>
         </section>
@@ -130,7 +130,7 @@ export async function Discover({ viewerId }: { viewerId: string }) {
         <section aria-labelledby="ptm-h">
           <Head id="ptm-h" title="People you may want to meet" href="/explore#cw-h" />
           <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
-            <Users size={13} aria-hidden /> They&rsquo;ve been where you&rsquo;ve been - or where you want to go.
+            <Users size={13} aria-hidden /> They&rsquo;ve been where you&rsquo;ve been - or where you dream of going.
           </p>
           <PeopleToMeet people={people} />
         </section>

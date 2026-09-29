@@ -171,7 +171,7 @@ export default function PrivacyPage() {
           visible to other members (on your comments, for example); you can choose not to appear in search and
           suggestions. Places show who has been there only to people who can already see those trips, and a count of
           travellers that includes you as a number, never by name - unless the country is set to only me or you&rsquo;ve
-          left search and suggestions. Your <Strong>Want to go</Strong> list is yours alone. You can change all of this at any time, <Strong>remove</Strong> a follower, and <Strong>block</Strong>{" "}
+          left search and suggestions. Your <Strong>dream places</Strong> and <Strong>dream events</Strong> are yours alone. You can change all of this at any time, <Strong>remove</Strong> a follower, and <Strong>block</Strong>{" "}
           anyone to hide the two of you from each other.
         </p>
         <p>

@@ -122,6 +122,8 @@ type Props = {
   visitedCodes: string[];
   visitCounts?: Record<string, number>;
   homeCode?: string | null;
+  /** Places you dream of going — a soft violet, below visited and home. */
+  dreamCodes?: string[];
   onSelect?: (code: string) => void;
   interactive?: boolean;
   className?: string;
@@ -132,7 +134,7 @@ type Props = {
 };
 
 export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function WorldGlobeInner(
-  { visitedCodes, visitCounts, homeCode, onSelect, interactive = true, className, autoRotate = false },
+  { visitedCodes, visitCounts, homeCode, dreamCodes, onSelect, interactive = true, className, autoRotate = false },
   ref
 ) {
   const { resolvedTheme } = useTheme();
@@ -144,6 +146,7 @@ export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function Worl
   const [size, setSize] = useState({ width: 320, height: 320 });
 
   const visited = useMemo(() => new Set(visitedCodes), [visitedCodes]);
+  const dreams = useMemo(() => new Set(dreamCodes ?? []), [dreamCodes]);
 
   useImperativeHandle(
     ref,
@@ -255,6 +258,7 @@ export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function Worl
             const count = p ? visitCounts?.[p.code] ?? 0 : 0;
             if (isHome) return isHover ? `rgba(${HOME_RGB.r},${HOME_RGB.g},${HOME_RGB.b},1)` : `rgba(${HOME_RGB.r},${HOME_RGB.g},${HOME_RGB.b},0.95)`;
             if (isVisited) return visitedColor(count, isHover ? 1 : 0.9);
+            if (p && dreams.has(p.code)) return isHover ? "rgba(139,92,246,0.8)" : "rgba(139,92,246,0.55)";
             if (isDark) return isHover ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.08)";
             return isHover ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.02)";
           }}
@@ -268,7 +272,8 @@ export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function Worl
             const isHome = !p.isTerritory && homeCode && p.code === homeCode;
             const count = visitCounts?.[p.code] ?? 0;
             const suffix = count >= 2 ? ` · visited ${count}×` : "";
-            return `${p.flag} ${p.name}${isHome ? " · Home" : p.isTerritory ? " · Territory" : ""}${suffix}`;
+            const dream = !visited.has(p.code) && dreams.has(p.code) ? " · Dreaming" : "";
+            return `${p.flag} ${p.name}${isHome ? " · Home" : p.isTerritory ? " · Territory" : ""}${suffix}${dream}`;
           }}
           onPolygonHover={(f) => setHoverId(f ? (f as GeoFeature).id : null)}
           onPolygonClick={(f) => {
