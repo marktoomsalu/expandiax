@@ -169,14 +169,17 @@ export default function PrivacyPage() {
           or <Strong>public</Strong> (anyone; public pages can also show up in search engines like Google). On top of that,
           any single country or event can be set to <Strong>only me</Strong>. Your name, username and profile photo are
           visible to other members (on your comments, for example); you can choose not to appear in search and
-          suggestions. You can change all of this at any time, <Strong>remove</Strong> a follower, and <Strong>block</Strong>{" "}
+          suggestions. Places show who has been there only to people who can already see those trips, and a count of
+          travellers that includes you as a number, never by name - unless the country is set to only me or you&rsquo;ve
+          left search and suggestions. Your <Strong>Want to go</Strong> list is yours alone. You can change all of this at any time, <Strong>remove</Strong> a follower, and <Strong>block</Strong>{" "}
           anyone to hide the two of you from each other.
         </p>
         <p>
-          <Strong>One thing to know:</Strong> your photos and videos are stored at web addresses that are hard to guess
-          but not password-protected. Your visibility settings control who can find and see your memories in ExpandiaX;
-          anyone who has the exact address of a file can open it. Don’t share those addresses with people you wouldn’t
-          show the photo to.
+          <Strong>How your photos are kept:</Strong> your photos and videos are stored privately. When someone your
+          settings allow opens a memory, ExpandiaX gives them a temporary link to each file that stops working after a
+          few hours (the preview image when a public page is shared elsewhere lasts up to 30 days). While a link works,
+          anyone who has it can open that file, so don&rsquo;t pass those links on to people you wouldn&rsquo;t show the
+          photo to.
         </p>
       </LegalSection>
 

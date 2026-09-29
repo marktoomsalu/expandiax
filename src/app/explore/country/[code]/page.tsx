@@ -1,14 +1,16 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Check, Flame, Plus, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, Check, Flame, MapPin, Plus, Sparkles, Users } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { flagGradientColors } from "@/lib/flagColors";
 import { nearbyConfigured, nearbyEvents } from "@/lib/concerts";
 import { nearbyCards } from "@/lib/nearbyCards";
-import { trendingLive, type LiveRow } from "@/lib/explore";
+import { slugify, trendingLive, type LiveRow } from "@/lib/explore";
+import { loadTravellers, networkRows, travellerCounts } from "@/lib/experienceNetworkData";
+import { NetworkRows } from "@/components/network/NetworkRows";
+import { WantToGoButton } from "@/components/network/WantToGoButton";
 import { LIVE_TYPES } from "@/lib/exploreData";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { EventCarousel } from "@/components/EventCarousel";
@@ -44,8 +46,9 @@ export default async function CountryHubPage({ params }: { params: { code: strin
   const supabase = createClient();
   const viewer = await getAuthUser();
 
-  const [{ data: visits }, { data: liveRows }, { data: mine }] = await Promise.all([
-    supabase.from("visited_countries").select("user_id, profiles(username, display_name, avatar_url)").eq("country_code", country.code).limit(500),
+  const [{ travellers, home, want }, counts, { data: liveRows }, { data: mine }] = await Promise.all([
+    loadTravellers(supabase, viewer?.id ?? null, country.code),
+    travellerCounts(supabase, country.code),
     supabase
       .from("events")
       .select("id, user_id, event_type, title, spotify_artist_name, spotify_artist_image, event_date")
@@ -56,10 +59,12 @@ export default async function CountryHubPage({ params }: { params: { code: strin
     viewer ? supabase.from("visited_countries").select("id").eq("user_id", viewer.id).eq("country_code", country.code).maybeSingle() : Promise.resolve({ data: null }),
   ]);
 
-  type P = { username: string; display_name: string; avatar_url: string | null };
-  const travellers = (visits ?? [])
-    .map((v) => ({ id: v.user_id, p: (Array.isArray(v.profiles) ? v.profiles[0] : v.profiles) as P | null }))
-    .filter((t): t is { id: string; p: P } => !!t.p && t.id !== viewer?.id);
+  // Everyone who's been (a number only) — never fewer than the people you can see.
+  const total = Math.max(counts.total, travellers.length + (mine ? 1 : 0));
+  const network = travellers.filter((t) => t.following).length;
+  const rows = networkRows(travellers, home, country.code);
+  const towns = [...counts.towns.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).slice(0, 16);
+  const wanted = want.some((w) => w.country_code === country.code && !w.place_name);
   const live = trendingLive((liveRows ?? []) as LiveRow[], { min: 1, limit: 12 });
   const photo = stockPhotoFor(country.code, "explore");
   const [a, b] = flagGradientColors(country.code);
@@ -74,9 +79,10 @@ export default async function CountryHubPage({ params }: { params: { code: strin
           <h1 className="mt-1 text-5xl drop-shadow">
             {country.flag} {country.name}
           </h1>
-          {travellers.length > 0 && (
+          {total > 0 && (
             <p className="mt-1 text-sm text-white/85">
-              {travellers.length + (mine ? 1 : 0)} {travellers.length + (mine ? 1 : 0) === 1 ? "traveller has" : "travellers have"} been here
+              {total.toLocaleString("en-GB")} {total === 1 ? "traveller has" : "travellers have"} been here
+              {network > 0 && ` · ${network} from your network`}
             </p>
           )}
         </div>
@@ -92,8 +98,10 @@ export default async function CountryHubPage({ params }: { params: { code: strin
           <Link href="/explore" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
             <ArrowLeft size={15} /> Explore
           </Link>
-          {viewer &&
-            (mine ? (
+          {viewer && (
+            <div className="flex flex-wrap items-center gap-2">
+              {!mine && <WantToGoButton countryCode={country.code} label={country.name} initial={wanted} />}
+              {mine ? (
               <Link href={`/my-world/${country.code.toLowerCase()}`} className="btn-ghost !py-2 text-sm">
                 <Check size={15} /> On your map
               </Link>
@@ -101,37 +109,41 @@ export default async function CountryHubPage({ params }: { params: { code: strin
               <Link href={`/my-world/${country.code.toLowerCase()}`} className="btn-accent !py-2 text-sm">
                 <Plus size={15} /> I&rsquo;ve been here
               </Link>
-            ))}
+              )}
+            </div>
+          )}
         </div>
 
         {travellers.length > 0 && (
           <section className="mt-10" aria-labelledby="tv-h">
             <h2 id="tv-h" className="flex items-center gap-2 text-2xl">
-              <Users size={20} className="text-accent" aria-hidden /> Travellers who&rsquo;ve been
+              <Users size={20} className="text-accent" aria-hidden /> Who&rsquo;s been here
             </h2>
-            {!viewer ? (
-              <div className="mt-4">
-                <MembersOnly count={travellers.length} next={`/explore/country/${country.code.toLowerCase()}`} />
-              </div>
-            ) : (
-              <ul className="mt-4 flex flex-wrap gap-2">
-                {travellers.slice(0, 40).map(({ id, p }) => (
-                  <li key={id}>
-                    <Link
-                      href={`/u/${p.username}/countries/${country.code.toLowerCase()}`}
-                      className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 text-sm hover:border-accent"
-                    >
-                      {p.avatar_url ? (
-                        <Image src={p.avatar_url} alt="" width={28} height={28} className="h-7 w-7 rounded-full object-cover" />
-                      ) : (
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-raised font-serif text-xs text-muted">{p.display_name.charAt(0)}</span>
-                      )}
-                      {p.display_name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <p className="mt-1 text-sm text-muted">Ask them where to go - people you follow first.</p>
+            <div className="mt-4">
+              {!viewer ? <MembersOnly count={travellers.length} next={`/explore/country/${country.code.toLowerCase()}`} /> : <NetworkRows rows={rows} />}
+            </div>
+          </section>
+        )}
+
+        {towns.length > 0 && (
+          <section className="mt-10" aria-labelledby="tw-h">
+            <h2 id="tw-h" className="flex items-center gap-2 text-2xl">
+              <MapPin size={20} className="text-accent" aria-hidden /> Where they went
+            </h2>
+            <ul className="mt-4 flex flex-wrap gap-2">
+              {towns.map((t) => (
+                <li key={t.name}>
+                  <Link
+                    href={`/explore/place/${country.code.toLowerCase()}/${slugify(t.name)}`}
+                    className="flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-sm hover:border-accent"
+                  >
+                    {t.name}
+                    <span className="text-xs text-muted">{t.n}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 
@@ -159,7 +171,7 @@ export default async function CountryHubPage({ params }: { params: { code: strin
           <UpcomingHere code={country.code} name={country.name} />
         </Suspense>
 
-        {travellers.length === 0 && live.length === 0 && (
+        {total === 0 && live.length === 0 && (
           <p className="mt-10 text-sm text-muted">Nobody has shared {country.name} yet. Been there? Be the first.</p>
         )}
       </div>

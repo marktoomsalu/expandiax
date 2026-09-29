@@ -245,7 +245,7 @@ export function ProfileForm({
           <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[rgb(var(--accent))]" checked={discoverable} onChange={(e) => setDiscoverable(e.target.checked)} />
           <span>
             <strong className="font-medium">Show me in search and suggestions</strong> - turn off to stay out of search, &ldquo;People
-            you may click with&rdquo; and &ldquo;Travellers who know&rdquo;. People who already follow you still see you as usual.
+            you may want to meet&rdquo;, who&rsquo;s been to a place, and the traveller counts. People who already follow you still see you as usual.
           </span>
         </label>
       </fieldset>

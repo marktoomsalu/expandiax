@@ -1,20 +1,20 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import Image from "next/image";
-import { CheckCircle2, Clock, Compass, Globe2, Ticket } from "lucide-react";
+import { CheckCircle2, Clock, Globe2, Ticket } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { GreetingHeader } from "@/components/GreetingHeader";
 import { LikeButton } from "@/components/LikeButton";
-import { FollowButton } from "@/components/FollowButton";
+import { Discover } from "@/components/network/Discover";
+import { FeedSearch } from "@/components/network/FeedSearch";
 import { CommentSection } from "@/components/CommentSection";
 import { FeedMemoryCard, type FeedMediaItem } from "@/components/FeedMemoryCard";
 import { countryByCode } from "@/lib/countries";
 import { eventTypeMeta } from "@/lib/events";
 import { flagGradientColors } from "@/lib/flagColors";
 import {
-  buildNextSuggestions,
   groupCountryBursts,
   pickResurfacedMemory,
   splitFresh,
@@ -50,44 +50,24 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
   const { data: followingRows } = await supabase.from("follows").select("followee_id").eq("follower_id", user.id);
   const followeeIds = (followingRows ?? []).map((r) => r.followee_id);
-  const followingSet = new Set(followeeIds);
 
-  const [{ data: publicProfiles }, { data: countRows }, { data: viewerProfile }, { data: ownEventsRaw }, { data: ownCountriesRaw }, { data: followeeCountryRows }] =
-    await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id, username, display_name, avatar_url")
-        .eq("visibility", "public")
-        .eq("discoverable", true)
-        .neq("id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(30),
-      supabase.from("public_country_counts").select("user_id, country_count"),
-      supabase.from("profiles").select("feed_last_seen_at, username, display_name, avatar_url, home_country_code").eq("id", user.id).single(),
-      supabase
-        .from("events")
-        .select("id, title, event_date, event_type, spotify_artist_name, spotify_artist_image, cover_media_id, is_favourite, event_media!event_media_event_id_fkey(count)")
-        .eq("user_id", user.id),
-      supabase
-        .from("visited_countries")
-        .select(
-          "id, country_code, country_name, cover_media_id, is_favourite, country_media!country_media_visited_country_id_fkey(count), country_visits(year, visited_from, visited_to, date_precision)"
-        )
-        .eq("user_id", user.id),
-      followeeIds.length
-        ? supabase.from("visited_countries").select("country_code").in("user_id", followeeIds)
-        : Promise.resolve({ data: [] as { country_code: string }[] }),
-    ]);
+  const [{ data: viewerProfile }, { data: ownEventsRaw }, { data: ownCountriesRaw }] = await Promise.all([
+    supabase.from("profiles").select("feed_last_seen_at, username, display_name, avatar_url, home_country_code").eq("id", user.id).single(),
+    supabase
+      .from("events")
+      .select("id, title, event_date, event_type, spotify_artist_name, spotify_artist_image, cover_media_id, is_favourite, event_media!event_media_event_id_fkey(count)")
+      .eq("user_id", user.id),
+    supabase
+      .from("visited_countries")
+      .select(
+        "id, country_code, country_name, cover_media_id, is_favourite, country_media!country_media_visited_country_id_fkey(count), country_visits(year, visited_from, visited_to, date_precision)"
+      )
+      .eq("user_id", user.id),
+  ]);
   // Captured before the update below overwrites it — "new since your last
   // visit" has to compare against where you last left off, not against
   // the value this same page load is about to set.
   const previousLastSeenAt = viewerProfile?.feed_last_seen_at ?? null;
-  const countsByUser = new Map((countRows ?? []).map((r) => [r.user_id, r.country_count]));
-  const suggested = (publicProfiles ?? [])
-    .filter((p) => !followingSet.has(p.id))
-    .sort((a, b) => (countsByUser.get(b.id) ?? 0) - (countsByUser.get(a.id) ?? 0))
-    .slice(0, 8);
-
   const ownEvents: OwnEventLite[] = (ownEventsRaw ?? []).map(({ event_media, ...e }) => ({
     ...e,
     media_count: (event_media as unknown as { count: number }[])[0]?.count ?? 0,
@@ -96,7 +76,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     ...(c as unknown as Omit<OwnCountryLite, "media_count">),
     media_count: (country_media as unknown as { count: number }[])[0]?.count ?? 0,
   }));
-  const ownCountryCodes = new Set(ownCountries.map((c) => c.country_code));
 
   const now = new Date();
   const picked = viewerProfile?.username ? pickResurfacedMemory(ownEvents, ownCountries, user.id, now, viewerProfile.username) : null;
@@ -105,10 +84,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const liveArtists = artistsSeenLive(ownEventsRaw ?? []);
   const nearby = whereAmI(viewerProfile?.home_country_code ?? null);
 
-  const next = buildNextSuggestions(
-    (followeeCountryRows ?? []).map((r) => r.country_code),
-    ownCountryCodes
-  );
 
   let items: FeedEvent[] = [];
   let actors = new Map<string, Pick<Profile, "id" | "username" | "display_name" | "avatar_url" | "created_at">>();
@@ -272,9 +247,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           <GreetingHeader firstName={(viewerProfile?.display_name || "there").split(" ")[0]} />
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/explore" className="btn-ghost !py-2 text-sm">
-            <Compass size={16} /> Explore
-          </Link>
           {viewerProfile?.username && (
             <Link
               href={`/u/${viewerProfile.username}`}
@@ -290,6 +262,8 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           )}
         </div>
       </div>
+
+      <FeedSearch />
 
       <div className="card mt-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
         <p className="font-serif text-lg">What&rsquo;s worth remembering?</p>
@@ -318,6 +292,15 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         </div>
       ) : null}
 
+      {/* DISCOVER — the experience network; first when there's nothing new */}
+      {fresh.length === 0 && (
+        <div className="mt-8">
+          <Suspense fallback={null}>
+            <Discover viewerId={user.id} />
+          </Suspense>
+        </div>
+      )}
+
       {/* NEW — added by people you follow since your last visit */}
       {fresh.length > 0 && (
         <section className="mt-6" aria-labelledby="new-h">
@@ -340,6 +323,14 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
             </span>
           </span>
           <span className="h-px flex-1 bg-line" aria-hidden />
+        </div>
+      )}
+
+      {fresh.length > 0 && (
+        <div className="mt-10">
+          <Suspense fallback={null}>
+            <Discover viewerId={user.id} />
+          </Suspense>
         </div>
       )}
 
@@ -378,63 +369,8 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         <Suspense fallback={null}>
           <NearbyEventsRow where={nearby?.where ?? null} place={nearby?.place ?? null} seenArtists={artistsSeenLive(ownEventsRaw ?? [], 50)} />
         </Suspense>
-
-        {next.length > 0 ? (
-          <div>
-            <h3 className="mb-3 font-serif text-xl">Where your friends have been</h3>
-            <ul className="flex flex-wrap gap-2.5">
-              {next.map((s) => (
-                <li key={s.code}>
-                  <span className="flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-sm">
-                    <span aria-hidden>{s.flag}</span> {s.name}
-                    <span className="text-xs text-muted">
-                      {s.friendCount} {s.friendCount === 1 ? "friend has" : "friends have"} been
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <Link href="/start" className="card block p-4 text-center transition-shadow hover:shadow-sm">
-            <p className="font-serif text-lg">Log your next adventure.</p>
-            <p className="mt-1 text-sm text-muted">A place, a night, a memory worth keeping.</p>
-          </Link>
-        )}
       </section>
 
-      {suggested.length > 0 && (
-        <section className="mt-10" aria-labelledby="discover-h">
-          <div className="flex items-center justify-between">
-            <h2 id="discover-h" className="text-sm font-medium text-muted">Discover travellers</h2>
-            <Link href="/explore" className="text-xs text-accent hover:underline">See all</Link>
-          </div>
-          <div className="mt-3 flex gap-3 overflow-x-auto pb-2">
-            {suggested.map((p) => (
-              <div key={p.id} className="flex w-36 shrink-0 flex-col items-center rounded-lg border border-line bg-surface px-3 py-4 text-center">
-                <Link
-                  href={`/u/${p.username}`}
-                  aria-label={p.display_name}
-                  className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-line bg-raised font-serif text-lg text-muted"
-                >
-                  {p.avatar_url ? (
-                    <Image src={p.avatar_url} alt="" width={56} height={56} className="h-full w-full object-cover" />
-                  ) : (
-                    p.display_name.charAt(0)
-                  )}
-                </Link>
-                <Link href={`/u/${p.username}`} className="mt-2 line-clamp-1 text-sm font-medium hover:text-accent">
-                  {p.display_name}
-                </Link>
-                <p className="text-xs text-muted">{countsByUser.get(p.id) ?? 0} countries</p>
-                <div className="mt-2">
-                  <FollowButton targetId={p.id} visibility="public" initialFollowing={false} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
       {/* EARLIER — posts from before your last visit */}
       {earlier.length > 0 && (
         <section className="mt-12" aria-labelledby="earlier-h">
