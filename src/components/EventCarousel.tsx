@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import type { EventSource } from "@/lib/eventSources";
 import Image from "next/image";
-import { Drama, Music, Sparkles, Trophy, type LucideIcon } from "lucide-react";
+import { Drama, Music, Presentation, Sparkles, Tent, Trophy, type LucideIcon } from "lucide-react";
 import { countryByCode } from "@/lib/countries";
 import { flagGradientColors } from "@/lib/flagColors";
 import type { NearbyCategory } from "@/lib/concerts";
@@ -23,11 +24,14 @@ export type CarouselCard = {
   priceFrom?: { amount: number; currency: string } | null;
   moreDates?: number;
   badge?: string | null; // e.g. "You've seen them live"
+  source?: EventSource;
 };
 
 const CATEGORY: Record<NearbyCategory, { label: string; icon: LucideIcon }> = {
   music: { label: "Concerts", icon: Music },
+  festival: { label: "Festivals", icon: Tent },
   sport: { label: "Sport", icon: Trophy },
+  conference: { label: "Conferences", icon: Presentation },
   arts: { label: "Theatre & arts", icon: Drama },
   other: { label: "More", icon: Sparkles },
 };

@@ -23,7 +23,8 @@ export function whereAmI(homeCountry: string | null, picked?: Picked): Here | nu
   const pLng = Number(picked?.lng);
   if (picked?.city && Number.isFinite(pLat) && Number.isFinite(pLng) && Math.abs(pLat) <= 90 && Math.abs(pLng) <= 180) {
     const cc = countryByCode(picked.cc)?.code ?? null;
-    return { where: { lat: pLat, lng: pLng }, place: picked.city.slice(0, 80), city: picked.city.slice(0, 80), countryCode: cc, source: "picked" };
+    const town = picked.city.slice(0, 80);
+    return { where: { lat: pLat, lng: pLng, city: town, countryCode: cc }, place: town, city: town, countryCode: cc, source: "picked" };
   }
 
   const h = headers();
@@ -35,7 +36,7 @@ export function whereAmI(homeCountry: string | null, picked?: Picked): Here | nu
   } catch {}
   if (h.get("x-vercel-ip-latitude") && Number.isFinite(lat) && Number.isFinite(lng)) {
     const country = countryByCode(h.get("x-vercel-ip-country"));
-    return { where: { lat, lng }, place: city || country?.name || "you", city: city || null, countryCode: country?.code ?? null, source: "connection" };
+    return { where: { lat, lng, city: city || null, countryCode: country?.code ?? null }, place: city || country?.name || "you", city: city || null, countryCode: country?.code ?? null, source: "connection" };
   }
 
   const home = countryByCode(homeCountry);

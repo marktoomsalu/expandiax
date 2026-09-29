@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { sourcesCredit } from "@/lib/eventSources";
 import { Loader2, MapPin, Pencil, RotateCcw, X } from "lucide-react";
 import { countryByCode } from "@/lib/countries";
 import type { Place } from "@/lib/places";
@@ -48,7 +49,7 @@ export function NearbyEvents({ initialCards, initialPlace }: { initialCards: Car
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`/api/events/nearby?lat=${p.lat}&lng=${p.lng}`);
+      const res = await fetch(`/api/events/nearby?lat=${p.lat}&lng=${p.lng}&cc=${encodeURIComponent(p.countryCode ?? "")}&city=${encodeURIComponent(p.name)}`);
       const data = (await res.json()) as { cards?: CarouselCard[]; error?: string };
       if (!res.ok) throw new Error(data.error);
       setPlace(p.name);
@@ -160,14 +161,14 @@ export function NearbyEvents({ initialCards, initialPlace }: { initialCards: Car
         <EventCarousel key={place ?? ""} cards={cards} filter label={`Events near ${place ?? "you"}`} />
       ) : place ? (
         <p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-muted">
-          Nothing on Ticketmaster near {place} in the next 3 months.{" "}
+          Nothing we know of near {place} in the next 3 months.{" "}
           <button type="button" onClick={() => setEditing(true)} className="font-medium text-accent hover:underline">
             Try another city
           </button>
         </p>
       ) : null}
 
-      {cards.length > 0 && !loading && <p className="mt-2 text-[11px] text-muted">Events from Ticketmaster</p>}
+      {cards.length > 0 && !loading && <p className="mt-2 text-[11px] text-muted">{sourcesCredit(cards.map((c) => c.source))}</p>}
     </div>
   );
 }

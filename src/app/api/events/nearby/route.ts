@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { artistsSeenLive, nearbyConfigured, nearbyEvents } from "@/lib/concerts";
 import { nearbyCards } from "@/lib/nearbyCards";
+import { countryByCode } from "@/lib/countries";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   }
   const supabase = createClient();
   const [events, { data: own }] = await Promise.all([
-    nearbyEvents({ lat, lng }).catch(() => []),
+    nearbyEvents({ lat, lng, countryCode: countryByCode(request.nextUrl.searchParams.get("cc"))?.code ?? null, city: request.nextUrl.searchParams.get("city")?.slice(0, 80) || null }).catch(() => []),
     supabase.from("events").select("event_type, title, spotify_artist_name, event_date").eq("user_id", user.id).eq("event_type", "concert"),
   ]);
   return NextResponse.json({ cards: nearbyCards(events, artistsSeenLive(own ?? [], 50)) });

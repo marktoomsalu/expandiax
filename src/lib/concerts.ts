@@ -1,3 +1,4 @@
+import { fientaNearby, seatgeekNearby, skiddleNearby, weave, type EventSource } from "@/lib/eventSources";
 import { countryByCode, countryByName } from "@/lib/countries";
 
 // Concert data from outside services, used to make logging a concert quick
@@ -288,7 +289,7 @@ export function tourHighlights(
 
 // ---------------------------------------------------------------- feed: happening near you
 
-export type NearbyCategory = "music" | "sport" | "arts" | "other";
+export type NearbyCategory = "music" | "festival" | "sport" | "conference" | "arts" | "other";
 
 export type NearbyEvent = {
   id: string;
@@ -305,13 +306,14 @@ export type NearbyEvent = {
   performers: string[];
   priceFrom: { amount: number; currency: string } | null;
   moreDates: number;
+  source?: EventSource;
 };
 
 // Listings that aren't events someone would go to.
 const NOT_AN_EVENT = /\b(parking|car park|vip package|hospitality package|upgrade|voucher|gift ?card|add-?on|shuttle)\b/i;
 
-function categoryOf(segment: string | undefined): NearbyCategory {
-  if (segment === "Music") return "music";
+function categoryOf(segment: string | undefined, name = ""): NearbyCategory {
+  if (segment === "Music") return /festival|fest\b/i.test(name) ? "festival" : "music";
   if (segment === "Sports") return "sport";
   if (segment === "Arts & Theatre") return "arts";
   return "other";
@@ -335,11 +337,12 @@ export function nearbyFromTicketmaster(e: TicketmasterEvent): NearbyEvent | null
     countryCode: (countryByCode(venue?.country?.countryCode) ?? countryByName(venue?.country?.name))?.code ?? null,
     url: e.url ?? null,
     image: ticketmasterImage(e.images),
-    category: categoryOf(cls?.segment?.name),
+    category: categoryOf(cls?.segment?.name, e.name),
     genre: genre && genre !== "Undefined" && genre !== "Other" ? genre : null,
     performers: (e._embedded?.attractions ?? []).map((a) => a.name?.trim() ?? "").filter(Boolean),
     priceFrom: price ? { amount: price.min!, currency: price.currency! } : null,
     moreDates: 0,
+    source: "ticketmaster",
   };
 }
 
@@ -382,11 +385,13 @@ export function geohash(lat: number, lng: number, precision = 4): string {
   return hash;
 }
 
+/** Always: Fienta needs no key, and Ticketmaster, Skiddle and SeatGeek join when theirs are set. */
 export function nearbyConfigured(): boolean {
-  return !!process.env.TICKETMASTER_API_KEY;
+  return true;
 }
 
-export type NearbyWhere = { lat: number; lng: number } | { countryCode: string };
+// A point can carry its town and country too, for sources that search by those (Fienta).
+export type NearbyWhere = { lat: number; lng: number; countryCode?: string | null; city?: string | null } | { countryCode: string };
 
 async function ticketmasterEvents(params: Record<string, string>): Promise<TicketmasterEvent[]> {
   const qs = new URLSearchParams({ apikey: process.env.TICKETMASTER_API_KEY!, locale: "*", sort: "date,asc", size: "100", ...params });
@@ -396,28 +401,34 @@ async function ticketmasterEvents(params: Record<string, string>): Promise<Ticke
   return data._embedded?.events ?? [];
 }
 
+async function ticketmasterNearby(where: NearbyWhere, window: { startDateTime: string; endDateTime: string }, today: string): Promise<NearbyEvent[]> {
+  if (!process.env.TICKETMASTER_API_KEY) return [];
+  const collect = (raw: TicketmasterEvent[]) => raw.map(nearbyFromTicketmaster).filter((e): e is NearbyEvent => e !== null && e.date >= today);
+  if (!("lat" in where)) return collect(await ticketmasterEvents({ ...window, countryCode: where.countryCode }));
+  const geoPoint = geohash(where.lat, where.lng);
+  const events = collect(await ticketmasterEvents({ ...window, geoPoint, radius: "100", unit: "km" }));
+  return events.length >= 8 ? events : collect(await ticketmasterEvents({ ...window, geoPoint, radius: "400", unit: "km" }));
+}
+
 /**
- * What's on near a place over the next ~3 months: soonest first, one card per
- * run. Around a point it starts at 100 km and widens to 400 km when that's
- * quiet (a small city next to a big one).
+ * What's on near a place over the next ~3 months, from every source at once
+ * (Ticketmaster, Fienta, Skiddle, SeatGeek): soonest first, one card per run,
+ * each source getting its turn. Around a point Ticketmaster starts at 100 km
+ * and widens to 400 km when that's quiet (a small city next to a big one).
  */
 export async function nearbyEvents(where: NearbyWhere, limit = 24): Promise<NearbyEvent[]> {
-  if (!nearbyConfigured()) throw new Error("not_configured");
   // Whole days, so everyone asking today shares one cached answer.
   const today = new Date().toISOString().slice(0, 10);
   const until = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
   const window = { startDateTime: `${today}T00:00:00Z`, endDateTime: `${until}T23:59:59Z` };
+  const w = { from: today, until };
+  const area = "lat" in where ? where : { countryCode: where.countryCode };
 
-  const collect = (raw: TicketmasterEvent[]) =>
-    collapseRuns(raw.map(nearbyFromTicketmaster).filter((e): e is NearbyEvent => e !== null && e.date >= today));
-
-  let events: NearbyEvent[];
-  if ("countryCode" in where) {
-    events = collect(await ticketmasterEvents({ ...window, countryCode: where.countryCode }));
-  } else {
-    const geoPoint = geohash(where.lat, where.lng);
-    events = collect(await ticketmasterEvents({ ...window, geoPoint, radius: "100", unit: "km" }));
-    if (events.length < 8) events = collect(await ticketmasterEvents({ ...window, geoPoint, radius: "400", unit: "km" }));
-  }
-  return events.slice(0, limit);
+  const lists = await Promise.all([
+    ticketmasterNearby(where, window, today).catch(() => []),
+    fientaNearby(area, w).catch(() => []),
+    skiddleNearby(area, w).catch(() => []),
+    seatgeekNearby(area, w).catch(() => []),
+  ]);
+  return weave(lists.map(collapseRuns), limit);
 }

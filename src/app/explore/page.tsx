@@ -14,6 +14,7 @@ import { eventTypeMeta } from "@/lib/events";
 import { flagGradientColors } from "@/lib/flagColors";
 import { nearbyConfigured, nearbyEvents } from "@/lib/concerts";
 import { nearbyCards } from "@/lib/nearbyCards";
+import { sourcesCredit } from "@/lib/eventSources";
 import { whereAmI, type Here } from "@/lib/location";
 import { loadExplore, LIVE_TYPES, type ExplorePerson } from "@/lib/exploreData";
 import { trendingLive, type LiveRow, type Trending } from "@/lib/explore";
@@ -119,7 +120,7 @@ function PlaceCard({ code, travellers }: { code: string; travellers: number }) {
   );
 }
 
-/** "Happening near …": the same Ticketmaster events as the feed, for the Explore city. */
+/** "Happening near …": the same events as the feed, for the Explore city. */
 async function NearbyRow({ here }: { here: Here }) {
   if (!nearbyConfigured()) return null;
   const events = await nearbyEvents(here.where).catch(() => []);
@@ -130,7 +131,7 @@ async function NearbyRow({ here }: { here: Here }) {
       <div className="mt-4">
         <EventCarousel cards={nearbyCards(events, [])} filter label={`Events near ${here.place}`} />
       </div>
-      <p className="mt-2 text-[11px] text-muted">Events from Ticketmaster</p>
+      <p className="mt-2 text-[11px] text-muted">{sourcesCredit(events.map((e) => e.source))}</p>
     </section>
   );
 }

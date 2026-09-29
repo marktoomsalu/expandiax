@@ -20,5 +20,6 @@ export function nearbyCards(events: NearbyEvent[], seenArtists: SeenArtist[]): C
     priceFrom: e.priceFrom,
     moreDates: e.moreDates,
     badge: seenLive(e) ? "You’ve seen them live" : null,
+    source: e.source,
   }));
 }

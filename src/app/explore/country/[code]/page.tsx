@@ -7,6 +7,7 @@ import { countryByCode } from "@/lib/countries";
 import { flagGradientColors } from "@/lib/flagColors";
 import { nearbyConfigured, nearbyEvents } from "@/lib/concerts";
 import { nearbyCards } from "@/lib/nearbyCards";
+import { sourcesCredit } from "@/lib/eventSources";
 import { slugify, trendingLive, type LiveRow } from "@/lib/explore";
 import { loadTravellers, networkRows, travellerCounts } from "@/lib/experienceNetworkData";
 import { NetworkRows } from "@/components/network/NetworkRows";
@@ -34,7 +35,7 @@ async function UpcomingHere({ code, name }: { code: string; name: string }) {
       <div className="mt-4">
         <EventCarousel cards={nearbyCards(events, [])} filter label={`Events in ${name}`} />
       </div>
-      <p className="mt-2 text-[11px] text-muted">Events from Ticketmaster</p>
+      <p className="mt-2 text-[11px] text-muted">{sourcesCredit(events.map((e) => e.source))}</p>
     </section>
   );
 }

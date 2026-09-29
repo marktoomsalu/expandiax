@@ -249,6 +249,7 @@ describe("happening near you (Ticketmaster)", () => {
       performers: ["Sting"],
       priceFrom: { amount: 49, currency: "EUR" },
       moreDates: 0,
+      source: "ticketmaster",
     });
   });
 
@@ -285,8 +286,11 @@ describe("happening near you (Ticketmaster)", () => {
       delete process.env.TICKETMASTER_API_KEY;
     });
 
-    it("needs a Ticketmaster key", async () => {
-      await expect(nearbyEvents({ countryCode: "EE" })).rejects.toThrow("not_configured");
+    it("works without a Ticketmaster key — Fienta needs none", async () => {
+      fetchMock.mockResolvedValueOnce(json({ events: [] }));
+      expect(await nearbyEvents({ countryCode: "EE" })).toEqual([]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(new URL(fetchMock.mock.calls[0][0]).hostname).toBe("fienta.com");
     });
 
     it("searches around the point, all languages, next 3 months — and widens when it's quiet", async () => {
@@ -307,9 +311,12 @@ describe("happening near you (Ticketmaster)", () => {
     it("falls back to the whole home country", async () => {
       process.env.TICKETMASTER_API_KEY = "tm";
       fetchMock.mockResolvedValueOnce(json({}));
+      fetchMock.mockResolvedValueOnce(json({ events: [] }));
       expect(await nearbyEvents({ countryCode: "EE" })).toEqual([]);
       expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("countryCode")).toBe("EE");
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      // …and Fienta for the same country.
+      expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get("country")).toBe("EE");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
   });
 });

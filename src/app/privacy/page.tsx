@@ -127,9 +127,9 @@ export default function PrivacyPage() {
             policy. Song previews come from Apple’s public music search, and only the song and artist name are sent.
           </li>
           <li>
-            <Strong>Ticketmaster</Strong>, <Strong>setlist.fm</Strong> and <Strong>Bandsintown</Strong> - to find
-            concerts and events: the name of an artist you log or have seen, and for events near you the rough area
-            described above. Nothing that identifies you is sent. Ticket links open their websites, which have their
+            <Strong>Ticketmaster</Strong>, <Strong>Fienta</Strong>, <Strong>Skiddle</Strong>, <Strong>SeatGeek</Strong>,{" "}
+            <Strong>setlist.fm</Strong> and <Strong>Bandsintown</Strong> - to find concerts and events: the name of an
+            artist you log or have seen, and for events near you the town or rough area described above. Nothing that identifies you is sent. Ticket links open their websites, which have their
             own privacy policies.
           </li>
           <li>
