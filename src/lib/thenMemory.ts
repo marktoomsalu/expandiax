@@ -27,7 +27,8 @@ function agoLabel(date: Date, now: Date): string {
 
 /** Everything the THEN card shows, for the one memory pickResurfacedMemory chose. */
 export async function loadThenMemory(supabase: ReturnType<typeof createClient>, picked: ResurfacedMemory, now: Date): Promise<ThenMemory | null> {
-  const eyebrow = (date: Date | null) => (picked.isAnniversary ? picked.subtitle : date ? `One to remember · ${agoLabel(date, now)}` : "One to remember");
+  // The section is already called "One to remember" — the card just says when.
+  const eyebrow = (date: Date | null) => (picked.isAnniversary ? picked.subtitle : date ? agoLabel(date, now) : "");
 
   if (picked.kind === "event") {
     const { data } = await signMedia(await supabase

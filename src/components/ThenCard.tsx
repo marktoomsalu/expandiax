@@ -27,8 +27,9 @@ export type ThenMemory = {
 
 const EXTRA_THUMBS = 3;
 
-// Your own memory, brought back: the photo carries it, your words sit on
-// top, and a small fan of the other photos hints there's more inside.
+// Your own memory, brought back: the photo carries it — with nothing laid
+// over it, so no one's face is hidden — your words sit just below, and a
+// small fan of the other photos in the corner hints there's more inside.
 export function ThenCard({ m }: { m: ThenMemory }) {
   const hero = m.photos[0] ?? null;
   const extras = m.photos.slice(1, 1 + EXTRA_THUMBS);
@@ -65,55 +66,57 @@ export function ThenCard({ m }: { m: ThenMemory }) {
         )}
 
         {extras.length > 0 && <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent" aria-hidden />}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" aria-hidden />
 
         {extras.length > 0 && (
           <div className="absolute right-4 top-4 flex -space-x-3" aria-hidden>
             {extras.map((p, i) => (
               <span
                 key={p.id}
-                className="relative h-11 w-11 overflow-hidden rounded-lg ring-2 ring-white/85 shadow-md"
+                className="relative h-10 w-10 overflow-hidden rounded-lg ring-2 ring-white/85 shadow-md"
                 style={{ transform: `rotate(${(i - (extras.length - 1) / 2) * 6}deg)` }}
               >
                 <Image src={p.url} alt="" fill sizes="44px" className="object-cover" />
               </span>
             ))}
             {more > 0 && (
-              <span className="relative flex h-11 w-11 items-center justify-center rounded-lg bg-black/55 text-xs font-semibold text-white ring-2 ring-white/85 backdrop-blur-sm">
+              <span className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-black/55 text-xs font-semibold text-white ring-2 ring-white/85 backdrop-blur-sm">
                 +{more}
               </span>
             )}
           </div>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6">
-          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium ring-1 ring-white/25 backdrop-blur-md">
+      </div>
+
+      <div className="px-5 py-4 sm:px-6">
+        {m.eyebrow && (
+          <p className="flex items-center gap-1.5 text-xs font-medium text-accent">
             <History size={13} aria-hidden /> {m.eyebrow}
-          </span>
-          <h3 className="font-serif text-2xl leading-tight drop-shadow-md sm:text-3xl">
-            {m.flag && (
-              <span className="mr-2 text-[0.8em]" aria-hidden>
-                {m.flag}
+          </p>
+        )}
+        <h3 className="mt-1 font-serif text-2xl leading-tight group-hover:text-accent sm:text-3xl">
+          {m.flag && (
+            <span className="mr-2 text-[0.8em]" aria-hidden>
+              {m.flag}
+            </span>
+          )}
+          {m.title}
+        </h3>
+        {m.words && <p className="mt-1.5 line-clamp-2 max-w-lg font-serif text-base italic leading-snug text-muted">&ldquo;{m.words}&rdquo;</p>}
+        {(m.dateLabel || m.place) && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+            {m.dateLabel && (
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays size={14} aria-hidden /> {m.dateLabel}
               </span>
             )}
-            {m.title}
-          </h3>
-          {m.words && <p className="mt-2 line-clamp-2 max-w-lg font-serif text-base italic leading-snug text-white/90">&ldquo;{m.words}&rdquo;</p>}
-          {(m.dateLabel || m.place) && (
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/80">
-              {m.dateLabel && (
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarDays size={14} aria-hidden /> {m.dateLabel}
-                </span>
-              )}
-              {m.place && (
-                <span className="inline-flex items-center gap-1.5">
-                  <MapPin size={14} aria-hidden /> {m.place}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+            {m.place && (
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin size={14} aria-hidden /> {m.place}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </Link>
   );
