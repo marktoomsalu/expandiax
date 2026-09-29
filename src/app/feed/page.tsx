@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import Image from "next/image";
-import { CheckCircle2, Clock, Globe2, Ticket } from "lucide-react";
+import { CheckCircle2, Clock } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
-import { GreetingHeader } from "@/components/GreetingHeader";
 import { LikeButton } from "@/components/LikeButton";
-import { Discover } from "@/components/network/Discover";
-import { FeedSearch } from "@/components/network/FeedSearch";
+import { FeedExplore } from "@/components/network/FeedExplore";
+import { DreamButton } from "@/components/network/DreamButton";
+import { FeedTabs, SearchBox } from "@/components/feed/FeedTabs";
+import { liveKey } from "@/lib/explore";
 import { CommentSection } from "@/components/CommentSection";
 import { FeedMemoryCard, type FeedMediaItem } from "@/components/FeedMemoryCard";
 import { countryByCode } from "@/lib/countries";
@@ -41,12 +41,15 @@ const PAGE_SIZE = 30;
 type RawMedia = FeedMediaItem & { displayOrder: number };
 
 
-export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string } }) {
+export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string; tab?: string; q?: string } }) {
   const supabase = createClient();
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const limit = Math.min(Math.max(Number(searchParams?.limit) || PAGE_SIZE, PAGE_SIZE), 300);
+  const tab = searchParams?.tab === "explore" ? "explore" : "friends";
+  // Safe inside a PostgREST filter: no commas, brackets or wildcards of its own.
+  const q = (searchParams?.q ?? "").replace(/[%,()*\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
 
   const { data: followingRows } = await supabase.from("follows").select("followee_id").eq("follower_id", user.id);
   const followeeIds = (followingRows ?? []).map((r) => r.followee_id);
@@ -84,6 +87,47 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const liveArtists = artistsSeenLive(ownEventsRaw ?? []);
   const nearby = whereAmI(viewerProfile?.home_country_code ?? null);
 
+  // EXPLORE — its own view, so discovery never interrupts your friends' posts
+  // (and looking around doesn't count as having caught up on them).
+  if (tab === "explore") {
+    return (
+      <div className="mx-auto max-w-2xl px-5 py-6">
+        <FeedTabs tab="explore" />
+        <SearchBox action="/explore" placeholder="Search places, people, or interests…" />
+        <Suspense fallback={<p className="mt-10 text-center text-sm text-muted">Finding places and people…</p>}>
+          <FeedExplore viewerId={user.id}>
+            <section className="space-y-8" aria-labelledby="next-h">
+              <h2 id="next-h" className="font-serif text-2xl">
+                Coming up
+              </h2>
+              <Suspense fallback={null}>
+                <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />
+              </Suspense>
+              <Suspense fallback={null}>
+                <NearbyEventsRow where={nearby?.where ?? null} place={nearby?.place ?? null} seenArtists={artistsSeenLive(ownEventsRaw ?? [], 50)} />
+              </Suspense>
+            </section>
+          </FeedExplore>
+        </Suspense>
+      </div>
+    );
+  }
+
+  // Your dreams, so each post's Dream it shows whether it's already one.
+  const [{ data: dreamPlaces }, { data: dreamEvents }] = await Promise.all([
+    supabase.from("want_to_go").select("country_code, place_name"),
+    supabase.from("dream_events").select("name"),
+  ]);
+  const dreamedPlaces = new Set((dreamPlaces ?? []).map((d) => `${d.country_code}:${d.place_name.toLowerCase()}`));
+  const dreamedEvents = new Set((dreamEvents ?? []).map((d) => liveKey(d.name)));
+
+  // Searching your friends' posts: by place, title, words, or who.
+  let searchActors: string[] = [];
+  if (q && followeeIds.length) {
+    const { data: who } = await supabase.from("profiles").select("id").in("id", followeeIds).or(`display_name.ilike.%${q}%,username.ilike.%${q}%`);
+    searchActors = (who ?? []).map((p) => p.id);
+  }
+
 
   let items: FeedEvent[] = [];
   let actors = new Map<string, Pick<Profile, "id" | "username" | "display_name" | "avatar_url" | "created_at">>();
@@ -96,8 +140,16 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       .from("feed_events")
       .select("*")
       .in("actor_id", followeeIds)
+      .or(
+        q
+          ? [
+              ...["title", "country_name", "city", "venue", "body", "subtitle"].map((f) => `${f}.ilike.%${q}%`),
+              ...(searchActors.length ? [`actor_id.in.(${searchActors.join(",")})`] : []),
+            ].join(",")
+          : "actor_id.not.is.null"
+      )
       .order("created_at", { ascending: false })
-      .limit(limit));
+      .limit(q ? 100 : limit));
     items = (feedData ?? []) as FeedEvent[];
 
     if (items.length > 0) {
@@ -144,7 +196,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
 
 
-  await supabase.from("profiles").update({ feed_last_seen_at: new Date().toISOString() }).eq("id", user.id);
+  if (!q) await supabase.from("profiles").update({ feed_last_seen_at: new Date().toISOString() }).eq("id", user.id);
 
   // A country post with nothing but the country in it — part of a burst if several come at once.
   const isBareCountry = (item: FeedEvent) =>
@@ -225,7 +277,26 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           actor={actor}
           actionLabel={item.kind === "country" ? "added a country" :`logged a ${typeLabel}`}
           when={formatRelative(item.created_at)}
-          actions={<LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={likedByMe.has(key)} />}
+          actions={
+            <>
+              <LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={likedByMe.has(key)} />
+              {item.kind === "event" ? (
+                <DreamButton
+                  variant="small"
+                  target={{ kind: "event", name: item.title, eventType: item.event_type ?? "other" }}
+                  initial={dreamedEvents.has(liveKey(item.title))}
+                  label={item.title}
+                />
+              ) : (
+                <DreamButton
+                  variant="small"
+                  target={{ kind: "place", countryCode: item.country_code, placeName: item.city ?? "" }}
+                  initial={dreamedPlaces.has(`${item.country_code}:${(item.city ?? "").toLowerCase()}`)}
+                  label={item.city || meta?.name || item.country_name || "this place"}
+                />
+              )}
+            </>
+          }
         />
         <div className="border-t border-line px-4 py-3 sm:px-5">
           <CommentSection
@@ -240,50 +311,35 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">Home</p>
-          <GreetingHeader firstName={(viewerProfile?.display_name || "there").split(" ")[0]} />
-        </div>
-        <div className="flex items-center gap-3">
-          {viewerProfile?.username && (
-            <Link
-              href={`/u/${viewerProfile.username}`}
-              aria-label="Your profile"
-              className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-raised font-serif text-sm text-muted"
-            >
-              {viewerProfile.avatar_url ? (
-                <Image src={viewerProfile.avatar_url} alt="" width={40} height={40} className="h-full w-full object-cover" />
-              ) : (
-                (viewerProfile.display_name || "?").charAt(0)
-              )}
+    <div className="mx-auto max-w-2xl px-5 py-6">
+      <FeedTabs tab="friends" />
+      <SearchBox action="/feed" placeholder="Search your friends' trips, places or moments…" defaultValue={q} />
+
+      {q ? (
+        <section className="mt-8" aria-labelledby="results-h">
+          <div className="flex items-end justify-between gap-4">
+            <h2 id="results-h" className="font-serif text-2xl">
+              Results for &ldquo;{q}&rdquo;
+            </h2>
+            <Link href="/feed" className="shrink-0 text-sm font-medium text-accent hover:underline">
+              Clear
             </Link>
+          </div>
+          {items.length === 0 ? (
+            <p className="mt-4 text-sm text-muted">Nothing from people you follow matches &ldquo;{q}&rdquo;.</p>
+          ) : (
+            <ul className="mt-4 space-y-8">{items.map((item, i) => renderPost(item, i))}</ul>
           )}
-        </div>
-      </div>
-
-      <FeedSearch />
-
-      <div className="card mt-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
-        <p className="font-serif text-lg">What&rsquo;s worth remembering?</p>
-        <div className="flex gap-2">
-          <Link href="/my-world#country-search" className="btn-ghost !px-3.5 !py-2 text-sm">
-            <Globe2 size={15} /> A place
-          </Link>
-          <Link href="/events/new" className="btn-accent !px-3.5 !py-2 text-sm">
-            <Ticket size={15} /> An event
-          </Link>
-        </div>
-      </div>
-
+        </section>
+      ) : (
+        <>
       {followeeIds.length === 0 ? (
         <div className="mt-6">
           <EmptyState
             title="Your feed is quiet."
             body="Follow other travellers to see the countries they pin and the events they log, right here."
-            actionLabel="Explore travellers"
-            actionHref="/explore"
+            actionLabel="Find people in Explore"
+            actionHref="/feed?tab=explore"
           />
         </div>
       ) : items.length === 0 ? (
@@ -292,24 +348,15 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         </div>
       ) : null}
 
-      {/* DISCOVER — the experience network; first when there's nothing new */}
-      {fresh.length === 0 && (
-        <div className="mt-8">
-          <Suspense fallback={null}>
-            <Discover viewerId={user.id} />
-          </Suspense>
-        </div>
-      )}
-
       {/* NEW — added by people you follow since your last visit */}
       {fresh.length > 0 && (
-        <section className="mt-6" aria-labelledby="new-h">
-          <h2 id="new-h" className="text-sm font-medium text-muted">New</h2>
+        <section className="mt-8" aria-labelledby="new-h">
+          <h2 id="new-h" className="font-serif text-2xl">Latest from friends</h2>
           <ul className="mt-4 space-y-8">{fresh.map((entry, i) => renderEntry(entry, i))}</ul>
         </section>
       )}
 
-      {/* The caught-up point: your own memory and what's next come before older posts. */}
+      {/* The caught-up point: your own memory comes before older posts. */}
       {items.length > 0 && (
         <div className="mt-10 flex items-center gap-3" role="status">
           <span className="h-px flex-1 bg-line" aria-hidden />
@@ -326,19 +373,11 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         </div>
       )}
 
-      {fresh.length > 0 && (
-        <div className="mt-10">
-          <Suspense fallback={null}>
-            <Discover viewerId={user.id} />
-          </Suspense>
-        </div>
-      )}
-
       {/* THEN — a memory resurfaced from your own past */}
       {then && (
         <section className="mt-10" aria-labelledby="then-h">
           <h2 id="then-h" className="flex items-center gap-1.5 text-sm font-medium text-muted">
-            <Clock size={14} aria-hidden /> Then
+            <Clock size={14} aria-hidden /> One to remember
           </h2>
           <ThenCard m={then} />
         </section>
@@ -356,21 +395,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         </Suspense>
       )}
 
-      {/* NEXT — experiences that could become future memories */}
-      <section className="mt-10 space-y-8" aria-labelledby="next-h">
-        <h2 id="next-h" className="flex items-center gap-1.5 text-sm font-medium text-muted">
-          <Globe2 size={14} aria-hidden /> Next
-        </h2>
-
-        <Suspense fallback={null}>
-          <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />
-        </Suspense>
-
-        <Suspense fallback={null}>
-          <NearbyEventsRow where={nearby?.where ?? null} place={nearby?.place ?? null} seenArtists={artistsSeenLive(ownEventsRaw ?? [], 50)} />
-        </Suspense>
-      </section>
-
       {/* EARLIER — posts from before your last visit */}
       {earlier.length > 0 && (
         <section className="mt-12" aria-labelledby="earlier-h">
@@ -385,7 +409,8 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           )}
         </section>
       )}
-
+        </>
+      )}
     </div>
   );
 }

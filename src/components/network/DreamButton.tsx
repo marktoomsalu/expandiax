@@ -88,7 +88,7 @@ export function DreamButton({
         on ? "border-violet-500 bg-violet-500 text-white" : "border-violet-500/60 text-violet-600 hover:bg-violet-500/10 dark:text-violet-300"
       )}
     >
-      <Sparkles size={variant === "small" ? 13 : 15} className={cn(on && "fill-white")} /> {on ? "Dreaming" : "Dream"}
+      <Sparkles size={variant === "small" ? 13 : 15} className={cn(on && "fill-white")} /> {on ? "Dreaming" : variant === "small" ? "Dream it" : "Dream"}
     </button>
   );
 }
