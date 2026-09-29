@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Next's cache only runs inside Next; here every request goes straight through.
+vi.mock("next/cache", () => ({ unstable_cache: <T,>(fn: T) => fn }));
 import {
   artistsSeenLive,
   collapseRuns,

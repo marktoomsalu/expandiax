@@ -252,7 +252,7 @@ export async function loadNetworkHome(supabase: Supabase, viewerId: string): Pro
   for (const m of (theirPhotos ?? []) as { public_url: string; visited_countries: unknown }[]) {
     const uid = one<{ user_id: string }>(m.visited_countries)?.user_id;
     const person = topPeople.find((p) => p.id === uid);
-    if (person && person.photos.length < 2) person.photos.push(m.public_url);
+    if (person && person.photos.length < 3) person.photos.push(m.public_url);
   }
   const ideas: TripIdea[] = ideaRows.map((i) => ({
     country: i.country,

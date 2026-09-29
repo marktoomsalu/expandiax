@@ -1,13 +1,17 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ChevronRight, Compass } from "lucide-react";
+import { ArrowRight, ChevronRight, Compass, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { slugify } from "@/lib/explore";
 import { placeKey } from "@/lib/photoPlaces";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { loadNetworkHome, type PersonCard, type PlaceCard, type TripIdea } from "@/lib/experienceNetworkData";
+import type { NearbyWhere } from "@/lib/concerts";
+import { sourcesCredit } from "@/lib/eventSources";
+import { loadNetworkEvents, type NetworkEventCard } from "@/lib/networkEvents";
 import { FollowButton } from "../FollowButton";
+import { InterestButton } from "./InterestButton";
 import { StockImage } from "../StockImage";
 import { DreamButton } from "./DreamButton";
 import { FaceStack } from "./FaceStack";
@@ -18,14 +22,14 @@ function Head({ id, title, sub, href }: { id: string; title: string; sub: string
   return (
     <div className="flex items-end justify-between gap-4">
       <div className="min-w-0">
-        <h2 id={id} className="font-serif text-2xl leading-tight">
+        <h2 id={id} className="font-serif text-xl leading-tight">
           {title}
         </h2>
-        <p className="mt-0.5 text-sm text-muted">{sub}</p>
+        <p className="mt-0.5 text-xs text-muted">{sub}</p>
       </div>
       {href && (
-        <Link href={href} className="inline-flex shrink-0 items-center gap-1 pb-0.5 text-sm font-medium text-accent hover:underline">
-          See all <ArrowRight size={14} aria-hidden />
+        <Link href={href} className="inline-flex shrink-0 items-center gap-1 pb-0.5 text-xs font-medium text-accent hover:underline">
+          See all <ArrowRight size={13} aria-hidden />
         </Link>
       )}
     </div>
@@ -40,30 +44,30 @@ export function PlaceCardBig({ p, dreaming }: { p: PlaceCard; dreaming: boolean 
   const stock = p.photo ? null : stockPhotoFor(p.country, p.key);
   const friends = p.network.length > 0;
   return (
-    <li className="relative w-64 shrink-0 snap-start sm:w-72">
+    <li className="relative w-60 shrink-0 snap-start sm:w-64">
       <Link
         href={`/explore/place/${p.country.toLowerCase()}/${slugify(p.name)}`}
-        className="group relative block aspect-[4/5] overflow-hidden rounded-2xl bg-[#14110d] shadow-lg ring-1 ring-black/5"
+        className="group relative block aspect-[5/4] overflow-hidden rounded-2xl bg-[#14110d] shadow-md ring-1 ring-black/5"
       >
         {p.photo ? (
-          <Image src={p.photo} alt="" fill sizes="288px" className="object-cover transition-transform duration-700 group-hover:scale-[1.04]" />
+          <Image src={p.photo} alt="" fill sizes="256px" className="object-cover transition-transform duration-700 group-hover:scale-[1.04]" />
         ) : stock ? (
-          <StockImage photo={stock} aspect="4:5" sizes="288px" className="transition-transform duration-700 group-hover:scale-[1.04]" />
+          <StockImage photo={stock} aspect="5:4" sizes="256px" className="transition-transform duration-700 group-hover:scale-[1.04]" />
         ) : null}
-        <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" aria-hidden />
-        <span className="absolute inset-x-0 bottom-0 p-4 pr-16 text-white">
-          <FaceStack people={p.faces} size={30} className="[&>span]:ring-black/40" />
-          <span className="mt-1.5 block text-xs text-white/85">{been(friends ? p.network.length : p.people.length, friends)}</span>
-          <span className="mt-1 block truncate font-serif text-3xl leading-none">{p.name}</span>
-          <span className="mt-1 block text-sm text-white/85">
+        <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" aria-hidden />
+        <span className="absolute inset-x-0 bottom-0 p-3 pr-14 text-white">
+          <FaceStack people={p.faces} size={26} className="[&>span]:ring-black/40" />
+          <span className="mt-1 block text-[11px] text-white/85">{been(friends ? p.network.length : p.people.length, friends)}</span>
+          <span className="mt-0.5 block truncate font-serif text-2xl leading-tight">{p.name}</span>
+          <span className="block text-xs text-white/85">
             {country?.flag} {country?.name}
           </span>
         </span>
-        <span className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink shadow-lg transition-transform group-hover:translate-x-0.5">
-          <ChevronRight size={20} aria-hidden />
+        <span className="absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-ink shadow-lg transition-transform group-hover:translate-x-0.5">
+          <ChevronRight size={17} aria-hidden />
         </span>
       </Link>
-      <span className="absolute right-3 top-3">
+      <span className="absolute right-2.5 top-2.5">
         <DreamButton variant="icon" target={{ kind: "place", countryCode: p.country, placeName: p.name, lat: p.lat, lng: p.lng }} initial={dreaming} label={p.name} />
       </span>
     </li>
@@ -78,26 +82,76 @@ export function PersonCardWide({ p }: { p: PersonCard }) {
     .map((r) => r!.text)
     .join(" · ");
   return (
-    <li className="flex w-72 shrink-0 snap-start flex-col rounded-2xl border border-line bg-surface p-3.5 shadow-sm">
+    <li className="flex w-[17rem] shrink-0 snap-start flex-col rounded-2xl border border-line bg-surface p-3 shadow-sm">
       <Link href={`/u/${p.username}`} className="group flex items-center gap-3">
-        <span className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-serif text-xl text-accent">
-          {p.avatar_url ? <Image src={p.avatar_url} alt="" fill sizes="56px" className="object-cover" /> : p.display_name.charAt(0)}
+        <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-serif text-lg text-accent">
+          {p.avatar_url ? <Image src={p.avatar_url} alt="" fill sizes="48px" className="object-cover" /> : p.display_name.charAt(0)}
         </span>
         <span className="min-w-0">
-          <span className="block truncate font-serif text-lg leading-tight group-hover:text-accent">{p.display_name}</span>
-          <span className="line-clamp-2 text-xs leading-snug text-muted">{line}</span>
+          <span className="block truncate font-serif text-base leading-tight group-hover:text-accent">{p.display_name}</span>
+          <span className="line-clamp-2 text-[11px] leading-snug text-muted">{line}</span>
         </span>
       </Link>
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-2.5 flex items-center gap-1.5">
         {p.photos.map((url) => (
-          <span key={url} className="relative h-11 w-14 shrink-0 overflow-hidden rounded-lg bg-raised">
-            <Image src={url} alt="" fill sizes="56px" className="object-cover" />
+          <span key={url} className="relative h-9 w-11 shrink-0 overflow-hidden rounded-md bg-raised">
+            <Image src={url} alt="" fill sizes="44px" className="object-cover" />
           </span>
         ))}
         <span className="ml-auto">
           <FollowButton targetId={p.id} visibility={p.visibility} initialFollowing={false} />
         </span>
       </div>
+    </li>
+  );
+}
+
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+/** "Coldplay · Milan — 4 friends interested": an upcoming event, with its date and a ♥. */
+export function EventCardSmall({ e }: { e: NetworkEventCard }) {
+  const n = e.friendIds.length;
+  const where = [e.venue, e.city].filter(Boolean).join(", ");
+  const card = (
+    <>
+      <span className="relative block aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-accent/60 to-brand-purple">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {e.image && <img src={e.image} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />}
+        <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" aria-hidden />
+        <span className="absolute left-2 top-2 flex flex-col items-center rounded-lg bg-black/70 px-2 py-1 leading-none text-white backdrop-blur">
+          <span className="text-[9px] font-bold tracking-wider text-accent">{MONTHS[Number(e.date.slice(5, 7)) - 1]}</span>
+          <span className="mt-0.5 text-base font-semibold">{Number(e.date.slice(8, 10))}</span>
+        </span>
+      </span>
+      <span className="block p-2.5">
+        <span className="line-clamp-1 font-serif text-base leading-tight">{e.name}</span>
+        {where && (
+          <span className="mt-0.5 flex items-center gap-1 text-[11px] text-muted">
+            <MapPin size={11} className="shrink-0" aria-hidden />
+            <span className="truncate">{where}</span>
+          </span>
+        )}
+        {(n > 0 || e.mine) && (
+          <span className="mt-1.5 flex items-center gap-1.5">
+            <FaceStack people={e.friends} size={22} />
+            <span className="text-[11px] leading-tight text-muted">{n > 0 ? `${n} ${n === 1 ? "friend" : "friends"} interested` : "You're interested"}</span>
+          </span>
+        )}
+      </span>
+    </>
+  );
+  return (
+    <li className="relative w-44 shrink-0 snap-start overflow-hidden rounded-2xl border border-line bg-surface shadow-sm sm:w-48">
+      {e.url ? (
+        <a href={e.url} target="_blank" rel="noopener noreferrer" className="group block">
+          {card}
+        </a>
+      ) : (
+        <div className="group block">{card}</div>
+      )}
+      <span className="absolute right-2 top-2">
+        <InterestButton event={e} />
+      </span>
     </li>
   );
 }
@@ -109,18 +163,18 @@ export function IdeaCard({ i }: { i: TripIdea }) {
   const stock = stockPhotoFor(i.country, "idea");
   const n = i.network || i.people;
   return (
-    <li className="w-36 shrink-0 snap-start sm:w-40">
-      <Link href={`/explore/country/${i.country.toLowerCase()}`} className="group relative block aspect-[3/4] overflow-hidden rounded-2xl bg-[#14110d] ring-1 ring-black/5">
-        {stock && <StockImage photo={stock} aspect="3:4" sizes="160px" className="transition-transform duration-500 group-hover:scale-105" />}
+    <li className="w-40 shrink-0 snap-start sm:w-44">
+      <Link href={`/explore/country/${i.country.toLowerCase()}`} className="group relative block aspect-[4/3] overflow-hidden rounded-2xl bg-[#14110d] ring-1 ring-black/5">
+        {stock && <StockImage photo={stock} aspect="4:3" sizes="176px" className="transition-transform duration-500 group-hover:scale-105" />}
         <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" aria-hidden />
-        <span className="absolute inset-x-0 bottom-0 p-3 text-white">
-          <span className="block truncate font-serif text-lg leading-tight">
+        <span className="absolute inset-x-0 bottom-0 p-2.5 text-white">
+          <span className="block truncate font-serif text-base leading-tight">
             {country.flag} {country.name}
           </span>
-          <span className="block text-xs text-white/85">
-            {n} {i.network ? (n === 1 ? "friend" : "friends") : n === 1 ? "traveller" : "travellers"}
+          <span className="block text-[11px] text-white/85">
+            {n} {i.network ? (n === 1 ? "friend has" : "friends have") : n === 1 ? "traveller has" : "travellers have"} been here
           </span>
-          <FaceStack people={i.friends} size={24} className="mt-1.5 [&>span]:ring-black/40" />
+          <FaceStack people={i.friends} size={22} className="mt-1 [&>span]:ring-black/40" />
         </span>
       </Link>
     </li>
@@ -128,14 +182,15 @@ export function IdeaCard({ i }: { i: TripIdea }) {
 }
 
 /**
- * The Explore side of the feed: places your friends know, people a step
- * ahead of you, and ideas for your next trip — then what's coming up.
+ * The Explore side of the feed: places your friends know, events your
+ * network is into (or what's on near you), people a step ahead of you, and
+ * ideas for your next trip.
  */
-export async function FeedExplore({ viewerId, children }: { viewerId: string; children?: React.ReactNode }) {
+export async function FeedExplore({ viewerId, where, place, children }: { viewerId: string; where: NearbyWhere | null; place: string | null; children?: React.ReactNode }) {
   const supabase = createClient();
-  const { places, people, ideas, dreams } = await loadNetworkHome(supabase, viewerId);
+  const [{ places, people, ideas, dreams }, events] = await Promise.all([loadNetworkHome(supabase, viewerId), loadNetworkEvents(supabase, viewerId, where)]);
   const dreamed = new Set(dreams.map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
-  const empty = !places.length && !people.length && !ideas.length;
+  const empty = !places.length && !people.length && !ideas.length && !events.length;
 
   return (
     <div className="mt-8 space-y-10">
@@ -147,6 +202,26 @@ export async function FeedExplore({ viewerId, children }: { viewerId: string; ch
               <PlaceCardBig key={p.key} p={p} dreaming={dreamed.has(`${p.country}:${placeKey(p.name)}`)} />
             ))}
           </ul>
+        </section>
+      )}
+
+      {events.length > 0 && (
+        <section aria-labelledby="evn-h">
+          <Head id="evn-h" title="Events your network is into" sub="Concerts, sport, meetups and more." href="/explore#near-h" />
+          {place && (
+            <p className="mt-1 flex items-center gap-1 text-[11px] text-muted">
+              <MapPin size={11} aria-hidden /> Near {place} ·{" "}
+              <Link href="/explore" className="font-medium text-accent hover:underline">
+                Change
+              </Link>
+            </p>
+          )}
+          <ul className={rail}>
+            {events.map((e) => (
+              <EventCardSmall key={e.key} e={e} />
+            ))}
+          </ul>
+          {events.some((e) => e.source) && <p className="mt-1 text-[11px] text-muted">{sourcesCredit(events.map((e) => e.source))}</p>}
         </section>
       )}
 

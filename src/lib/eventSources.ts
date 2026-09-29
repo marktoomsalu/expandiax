@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { countryByCode } from "@/lib/countries";
 import type { NearbyCategory, NearbyEvent } from "@/lib/concerts";
 
@@ -10,12 +11,23 @@ import type { NearbyCategory, NearbyEvent } from "@/lib/concerts";
 export type EventWindow = { from: string; until: string }; // yyyy-mm-dd
 export type EventArea = { lat?: number; lng?: number; countryCode?: string | null; city?: string | null };
 
-const SIX_HOURS = 60 * 60 * 6;
+const TWELVE_HOURS = 60 * 60 * 12;
 
+// A good answer is kept for 12 hours and shared by everyone asking about the
+// same place (listings change slowly, and Fienta limits how often it can be
+// asked). A failed one — "too many requests", a timeout — is never kept, so
+// it can't hide a country's events for hours; the next visitor tries again.
 async function getJson<T>(url: string): Promise<T | null> {
   try {
-    const res = await fetch(url, { next: { revalidate: SIX_HOURS } });
-    return res.ok ? ((await res.json()) as T) : null;
+    return await unstable_cache(
+      async () => {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error(`${res.status}`);
+        return (await res.json()) as T;
+      },
+      ["event-source", url],
+      { revalidate: TWELVE_HOURS }
+    )();
   } catch {
     return null;
   }

@@ -24,7 +24,7 @@ import {
 } from "@/lib/feedSections";
 import { loadThenMemory } from "@/lib/thenMemory";
 import { ThenCard } from "@/components/ThenCard";
-import { ArtistsOnTour, NearbyEventsRow } from "@/components/UpcomingShows";
+import { ArtistsOnTour } from "@/components/UpcomingShows";
 import { TogetherSection } from "@/components/TogetherSection";
 import { CountryBurstCard } from "@/components/CountryBurstCard";
 import { stockPhotoFor } from "@/lib/stockPhotos";
@@ -95,18 +95,11 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         <FeedTabs tab="explore" />
         <SearchBox action="/explore" placeholder="Search places, people, or interests…" />
         <Suspense fallback={<p className="mt-10 text-center text-sm text-muted">Finding places and people…</p>}>
-          <FeedExplore viewerId={user.id}>
-            <section className="space-y-8" aria-labelledby="next-h">
-              <h2 id="next-h" className="font-serif text-2xl">
-                Coming up
-              </h2>
-              <Suspense fallback={null}>
-                <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />
-              </Suspense>
-              <Suspense fallback={null}>
-                <NearbyEventsRow where={nearby?.where ?? null} place={nearby?.place ?? null} seenArtists={artistsSeenLive(ownEventsRaw ?? [], 50)} />
-              </Suspense>
-            </section>
+          <FeedExplore viewerId={user.id} where={nearby?.where ?? null} place={nearby?.place ?? null}>
+            {/* Artists you've seen live, touring again — the rest of what's on is in the events row above. */}
+            <Suspense fallback={null}>
+              <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />
+            </Suspense>
           </FeedExplore>
         </Suspense>
       </div>
