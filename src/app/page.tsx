@@ -56,17 +56,9 @@ const NEON_NIGHT = unsplash(
   "group-of-people-enjoying-concert-r3XvSBEQQLo"
 );
 
-// TEMPORARY — Travelpayouts only lets a new partner continue once it finds
-// its script in the site's <head>. It lives on this public front page alone
-// (signed-in people are sent to their feed and never load it, so it never
-// sees anyone's memories); React places an async script like this in <head>.
-// Remove it as soon as the Travelpayouts account is verified.
-const TRAVELPAYOUTS_VERIFY = "https://emrldtp.cc/NTc5Mzgw.js?t=579380";
-
 export default function LandingPage() {
   return (
     <div>
-      <script async src={TRAVELPAYOUTS_VERIFY} data-cmp-ab="2" />
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div
