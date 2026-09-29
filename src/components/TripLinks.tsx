@@ -1,5 +1,6 @@
 import { BedDouble, Ticket } from "lucide-react";
 import { tripLinks } from "@/lib/partners";
+import { flightsConfigured } from "@/lib/flights";
 import { cn } from "@/lib/utils";
 
 const ICON = { stays: BedDouble, things: Ticket } as const;
@@ -36,10 +37,10 @@ export function TripLinks({ place, size = "small", className }: { place: string;
 }
 
 /** Whether any partner links are on — to show the disclosure only when they are. */
-export const hasTripLinks = () => tripLinks("x").length > 0;
+export const hasTripLinks = () => tripLinks("x").length > 0 || flightsConfigured();
 
 /** The honest line under partner links. */
 export function PartnerNote({ className }: { className?: string }) {
   if (!hasTripLinks()) return null;
-  return <p className={cn("text-[11px] text-muted", className)}>Stays and things to do are partner links - ExpandiaX may earn a small commission, at no cost to you.</p>;
+  return <p className={cn("text-[11px] text-muted", className)}>Flights, stays and things to do are partner links - ExpandiaX may earn a small commission, at no cost to you.</p>;
 }

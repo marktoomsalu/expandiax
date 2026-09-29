@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ChevronRight, Compass, MapPin } from "lucide-react";
+import { ArrowRight, ChevronRight, Compass, MapPin, Plane } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { slugify } from "@/lib/explore";
@@ -10,6 +10,7 @@ import { loadNetworkHome, type PersonCard, type PlaceCard, type TripIdea } from 
 import type { NearbyWhere } from "@/lib/concerts";
 import { sourcesCredit } from "@/lib/eventSources";
 import { loadNetworkEvents, type NetworkEventCard } from "@/lib/networkEvents";
+import { flightTo, originFor, type Flight } from "@/lib/flights";
 import { FollowButton } from "../FollowButton";
 import { PartnerNote, TripLinks } from "../TripLinks";
 import { InterestButton } from "./InterestButton";
@@ -158,7 +159,7 @@ export function EventCardSmall({ e }: { e: NetworkEventCard }) {
 }
 
 /** "Barcelona · 4 friends": smaller cards, for the next trip. */
-export function IdeaCard({ i }: { i: TripIdea }) {
+export function IdeaCard({ i, flight }: { i: TripIdea; flight?: Flight | null }) {
   const country = countryByCode(i.country);
   if (!country) return null;
   const stock = stockPhotoFor(i.country, "idea");
@@ -178,6 +179,18 @@ export function IdeaCard({ i }: { i: TripIdea }) {
           <FaceStack people={i.friends} size={22} className="mt-1 [&>span]:ring-black/40" />
         </span>
       </Link>
+      {flight && (
+        <a
+          href={flight.url}
+          target="_blank"
+          rel="sponsored noopener noreferrer"
+          aria-label={`Return flights to ${country.name} from ${flight.currency === "EUR" ? "€" : ""}${flight.price} (partner link)`}
+          className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+        >
+          <Plane size={12} aria-hidden /> from {flight.currency === "EUR" ? "€" : `${flight.currency} `}
+          {Math.round(flight.price)}
+        </a>
+      )}
       <TripLinks place={country.name} className="mt-1.5" />
     </li>
   );
@@ -188,9 +201,24 @@ export function IdeaCard({ i }: { i: TripIdea }) {
  * network is into (or what's on near you), people a step ahead of you, and
  * ideas for your next trip.
  */
-export async function FeedExplore({ viewerId, where, place, children }: { viewerId: string; where: NearbyWhere | null; place: string | null; children?: React.ReactNode }) {
+export async function FeedExplore({
+  viewerId,
+  where,
+  place,
+  homeCountry,
+  children,
+}: {
+  viewerId: string;
+  where: NearbyWhere | null;
+  place: string | null;
+  homeCountry: string | null;
+  children?: React.ReactNode;
+}) {
   const supabase = createClient();
   const [{ places, people, ideas, dreams }, events] = await Promise.all([loadNetworkHome(supabase, viewerId), loadNetworkEvents(supabase, viewerId, where)]);
+  // The cheapest return flight from the nearest airport to each idea (only city codes are sent).
+  const origin = originFor(where, homeCountry);
+  const flights = await Promise.all(ideas.map((i) => flightTo(origin, i.country)));
   const dreamed = new Set(dreams.map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
   const empty = !places.length && !people.length && !ideas.length && !events.length;
 
@@ -243,7 +271,7 @@ export async function FeedExplore({ viewerId, where, place, children }: { viewer
           <Head id="idea-h" title="Ideas for your next trip" sub="Countries your network knows - and you don't, yet." href="/explore#pl-h" />
           <ul className={rail}>
             {ideas.map((i) => (
-              <IdeaCard key={i.country} i={i} />
+              <IdeaCard key={i.country} i={i} flight={flights[ideas.indexOf(i)]} />
             ))}
           </ul>
           <PartnerNote className="mt-1" />

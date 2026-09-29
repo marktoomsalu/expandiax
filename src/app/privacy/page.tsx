@@ -147,6 +147,11 @@ export default function PrivacyPage() {
             you book. Nothing about you is sent; their own privacy policies apply on their sites.
           </li>
           <li>
+            <Strong>Travelpayouts</Strong> and <Strong>Aviasales</Strong> - to show a flight price, we look up the two
+            airport cities (the one nearest the rough area described above, and your destination&rsquo;s). If you tap
+            it, Aviasales opens with our partner ID. Nothing else about you is sent.
+          </li>
+          <li>
             <Strong>OpenFreeMap</Strong> - maps of your trips load from OpenFreeMap&rsquo;s servers, which see your IP
             address and which part of the map you&rsquo;re looking at, the way any website you load an image from does.
             Nothing else about you is shared.

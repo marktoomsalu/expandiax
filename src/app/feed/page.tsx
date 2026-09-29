@@ -95,7 +95,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         <FeedTabs tab="explore" />
         <SearchBox action="/explore" placeholder="Search places, people, or interests…" />
         <Suspense fallback={<p className="mt-10 text-center text-sm text-muted">Finding places and people…</p>}>
-          <FeedExplore viewerId={user.id} where={nearby?.where ?? null} place={nearby?.place ?? null}>
+          <FeedExplore viewerId={user.id} where={nearby?.where ?? null} place={nearby?.place ?? null} homeCountry={viewerProfile?.home_country_code ?? null}>
             {/* Artists you've seen live, touring again — the rest of what's on is in the events row above. */}
             <Suspense fallback={null}>
               <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />
