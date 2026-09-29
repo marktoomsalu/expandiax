@@ -142,6 +142,11 @@ export default function PrivacyPage() {
             a trip, what you type is looked up there to find it on the map. Nothing else is sent.
           </li>
           <li>
+            <Strong>Booking.com</Strong> and <Strong>GetYourGuide</Strong> - if you tap Stays or Things to do, their
+            website opens with the place&rsquo;s name and our partner ID, so ExpandiaX may earn a small commission if
+            you book. Nothing about you is sent; their own privacy policies apply on their sites.
+          </li>
+          <li>
             <Strong>OpenFreeMap</Strong> - maps of your trips load from OpenFreeMap&rsquo;s servers, which see your IP
             address and which part of the map you&rsquo;re looking at, the way any website you load an image from does.
             Nothing else about you is shared.

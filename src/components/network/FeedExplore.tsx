@@ -11,6 +11,7 @@ import type { NearbyWhere } from "@/lib/concerts";
 import { sourcesCredit } from "@/lib/eventSources";
 import { loadNetworkEvents, type NetworkEventCard } from "@/lib/networkEvents";
 import { FollowButton } from "../FollowButton";
+import { PartnerNote, TripLinks } from "../TripLinks";
 import { InterestButton } from "./InterestButton";
 import { StockImage } from "../StockImage";
 import { DreamButton } from "./DreamButton";
@@ -177,6 +178,7 @@ export function IdeaCard({ i }: { i: TripIdea }) {
           <FaceStack people={i.friends} size={22} className="mt-1 [&>span]:ring-black/40" />
         </span>
       </Link>
+      <TripLinks place={country.name} className="mt-1.5" />
     </li>
   );
 }
@@ -244,6 +246,7 @@ export async function FeedExplore({ viewerId, where, place, children }: { viewer
               <IdeaCard key={i.country} i={i} />
             ))}
           </ul>
+          <PartnerNote className="mt-1" />
         </section>
       )}
 

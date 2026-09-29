@@ -12,6 +12,7 @@ import { slugify, trendingLive, type LiveRow } from "@/lib/explore";
 import { loadTravellers, networkRows, travellerCounts } from "@/lib/experienceNetworkData";
 import { NetworkRows } from "@/components/network/NetworkRows";
 import { DreamButton } from "@/components/network/DreamButton";
+import { PartnerNote, TripLinks } from "@/components/TripLinks";
 import { LIVE_TYPES } from "@/lib/exploreData";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { EventCarousel } from "@/components/EventCarousel";
@@ -114,6 +115,8 @@ export default async function CountryHubPage({ params }: { params: { code: strin
             </div>
           )}
         </div>
+        <TripLinks place={country.name} size="large" className="mt-4" />
+        <PartnerNote className="mt-1.5" />
 
         {travellers.length > 0 && (
           <section className="mt-10" aria-labelledby="tv-h">

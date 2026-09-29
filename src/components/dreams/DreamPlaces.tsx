@@ -8,6 +8,7 @@ import { DreamButton } from "../network/DreamButton";
 import { FaceStack } from "../network/FaceStack";
 import { StockImage } from "../StockImage";
 import { AddDream } from "./AddDream";
+import { PartnerNote, TripLinks } from "../TripLinks";
 
 function who(d: DreamPlaceCard): string {
   const n = d.friends.length;
@@ -58,11 +59,13 @@ export function DreamPlaces({ dreams }: { dreams: DreamPlaceCard[] }) {
                 <span className="absolute right-2 top-2">
                   <DreamButton variant="icon" target={{ kind: "place", countryCode: d.country_code, placeName: d.place_name }} initial label={name} />
                 </span>
+                <TripLinks place={d.place_name ? `${d.place_name}, ${country?.name ?? ""}`.replace(/, $/, "") : name} className="mt-1.5" />
               </li>
             );
           })}
         </ul>
       )}
+      {dreams.length > 0 && <PartnerNote className="mt-1" />}
     </section>
   );
 }

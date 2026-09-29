@@ -12,6 +12,7 @@ import { DreamButton } from "@/components/network/DreamButton";
 import { StockImage } from "@/components/StockImage";
 import { StockCredit } from "@/components/StockCredit";
 import { MembersOnly } from "@/components/MembersOnly";
+import { PartnerNote, TripLinks } from "@/components/TripLinks";
 
 type Params = { code: string; town: string };
 
@@ -76,6 +77,8 @@ export default async function TownPage({ params }: { params: Params }) {
           </Link>
           {viewer && <DreamButton target={{ kind: "place", countryCode: country.code, placeName: name }} label={name} initial={dreaming} />}
         </div>
+        <TripLinks place={`${name}, ${country.name}`} size="large" className="mt-4" />
+        <PartnerNote className="mt-1.5" />
 
         <section className="mt-10" aria-labelledby="tv-h">
           <h2 id="tv-h" className="flex items-center gap-2 text-2xl">
