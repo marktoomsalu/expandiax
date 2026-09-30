@@ -6,17 +6,13 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SiteNav } from "@/components/SiteNav";
 import { SiteChrome } from "@/components/SiteChrome";
-import { PremiumUpsellModal } from "@/components/PremiumUpsellModal";
 import { NativeStatusBar } from "@/components/NativeStatusBar";
 import { NativeBackButton } from "@/components/NativeBackButton";
 import { NativeDeepLinks } from "@/components/NativeDeepLinks";
 import { NativeKeyboard } from "@/components/NativeKeyboard";
 import { NativeFirstRunRedirect } from "@/components/NativeFirstRunRedirect";
 import { PushRegistration } from "@/components/PushRegistration";
-import { NativePurchases } from "@/components/NativePurchases";
-import { PurchaseAvailabilityProvider } from "@/components/PurchaseAvailability";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { canSellPremium } from "@/lib/nativeAppServer";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://expandiax.com"),
@@ -47,21 +43,17 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  let navUser: { id: string; username: string; plan: "free" | "premium" } | null = null;
+  let navUser: { id: string; username: string } | null = null;
   let unreadNotifications = 0;
-  const canSell = canSellPremium();
   try {
     const supabase = createClient();
     const user = await getAuthUser();
     if (user) {
-      let unread = supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false);
-      // Upsell notifications are hidden in the app, so they mustn't light up the bell either.
-      if (!canSell) unread = unread.neq("kind", "premium_upsell");
       const [{ data: profile }, { count }] = await Promise.all([
-        supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
-        unread,
+        supabase.from("profiles").select("username").eq("id", user.id).single(),
+        supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false),
       ]);
-      if (profile) navUser = { id: user.id, username: profile.username, plan: profile.plan };
+      if (profile) navUser = { id: user.id, username: profile.username };
       unreadNotifications = count ?? 0;
     }
   } catch {
@@ -72,19 +64,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen">
         <ThemeProvider>
-          <PurchaseAvailabilityProvider canSell={canSell}>
-            <NativeStatusBar />
-            <NativeBackButton />
-            <NativeDeepLinks />
-            <NativeKeyboard />
-            <NativeFirstRunRedirect isLoggedIn={!!navUser} />
-            {navUser && <PushRegistration userId={navUser.id} />}
-            {navUser && <UploadQueueWatcher userId={navUser.id} />}
-            {navUser && <NativePurchases userId={navUser.id} />}
-            <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
-            <SiteChrome>{children}</SiteChrome>
-            {navUser && canSell && <PremiumUpsellModal plan={navUser.plan} />}
-          </PurchaseAvailabilityProvider>
+          <NativeStatusBar />
+          <NativeBackButton />
+          <NativeDeepLinks />
+          <NativeKeyboard />
+          <NativeFirstRunRedirect isLoggedIn={!!navUser} />
+          {navUser && <PushRegistration userId={navUser.id} />}
+          {navUser && <UploadQueueWatcher userId={navUser.id} />}
+          <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
+          <SiteChrome>{children}</SiteChrome>
         </ThemeProvider>
         <Analytics />
         <SpeedInsights />

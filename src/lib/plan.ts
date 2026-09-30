@@ -1,6 +1,5 @@
-import type { Plan } from "./types";
-
-export const PHOTO_CAP: Record<Plan, number> = { free: 5, premium: 15 };
-export const VIDEO_CAP: Record<Plan, number> = { free: 3, premium: 8 };
-export const COUNTRY_CAP: Record<Plan, number | null> = { free: 40, premium: null };
-export const EVENT_CAP: Record<Plan, number | null> = { free: 20, premium: null };
+// ExpandiaX is free for everyone — no plans, no tiers. The one limit left is
+// fair use of storage: photos and videos per trip or event (the database
+// holds the same numbers, in migration 053_free_for_everyone).
+export const PHOTO_CAP = 15;
+export const VIDEO_CAP = 8;

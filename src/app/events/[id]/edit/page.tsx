@@ -5,7 +5,7 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EventForm } from "@/components/EventForm";
 import { DeleteEventButton } from "@/components/DeleteEventButton";
 import { dedupeRecentArtists } from "@/lib/events";
-import type { EventFull, Plan } from "@/lib/types";
+import type { EventFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 
 export const metadata = { title: "Edit event" };
@@ -22,7 +22,7 @@ export default async function EditEventPage({
   if (!user) redirect("/sign-in");
 
   const [{ data: profile }, { data }, { data: artistRows }] = await Promise.all([
-    supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
+    supabase.from("profiles").select("username").eq("id", user.id).single(),
     supabase
       .from("events")
       .select("*, event_media!event_media_event_id_fkey(*)")
@@ -43,7 +43,6 @@ export default async function EditEventPage({
   if (!event) notFound();
 
   const recentArtists = dedupeRecentArtists(artistRows ?? []);
-  const plan = (profile?.plan ?? "free") as Plan;
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-10">
@@ -73,7 +72,7 @@ export default async function EditEventPage({
       </div>
 
       <div className="mt-8">
-        <EventForm event={event} recentArtists={recentArtists} userId={user.id} plan={plan} />
+        <EventForm event={event} recentArtists={recentArtists} userId={user.id} />
       </div>
 
       <div className="mt-12 border-t border-line pt-6">

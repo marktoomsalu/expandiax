@@ -3,7 +3,6 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
-import { COUNTRY_CAP, EVENT_CAP } from "@/lib/plan";
 import type { OnboardingMemory } from "@/lib/onboardingDraft";
 
 const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), {
@@ -32,7 +31,7 @@ export function RevealStep(props: Props) {
       </Link>
 
       <p className="mt-5 text-xs text-muted">
-        Free forever up to {COUNTRY_CAP.free} countries and {EVENT_CAP.free} events.
+        Free forever - every country, every event, everything.
       </p>
     </div>
   );

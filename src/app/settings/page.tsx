@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { canSellPremium } from "@/lib/nativeAppServer";
 import { ProfileForm } from "@/components/ProfileForm";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ExportDataButton, DeleteAccountButton } from "@/components/AccountActions";
@@ -16,8 +15,6 @@ export default async function SettingsPage() {
   if (!user) redirect("/sign-in");
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   if (!profile) redirect("/sign-in");
-  const { data: billing } = await supabase.from("billing").select("plan, source").eq("user_id", user.id).maybeSingle();
-  const subscription = billing?.plan === "premium" ? { source: billing.source as "stripe" | "apple" } : null;
 
   return (
     <div className="mx-auto max-w-md px-5 py-12">
@@ -36,17 +33,6 @@ export default async function SettingsPage() {
       </div>
 
       <div className="mt-8 space-y-4 border-t border-line pt-6">
-        <div>
-          <p className="text-sm font-medium">Plan</p>
-          <p className="mt-1 text-xs text-muted">
-            {profile.plan === "premium" ? "You're on Premium." : "You're on the free plan."}
-          </p>
-          {canSellPremium() && (
-            <Link href="/settings/billing" className="btn-ghost mt-3 !py-2 text-sm">
-              {profile.plan === "premium" ? "Manage plan" : "Upgrade to Premium"}
-            </Link>
-          )}
-        </div>
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium">Weekly digest email</p>
@@ -67,7 +53,7 @@ export default async function SettingsPage() {
         <div>
           <p className="text-sm font-medium text-red-800 dark:text-red-400">Danger zone</p>
           <p className="mt-1 text-xs text-muted">Permanently delete your account and everything in it.</p>
-          <div className="mt-3"><DeleteAccountButton userId={user.id} subscription={subscription} /></div>
+          <div className="mt-3"><DeleteAccountButton userId={user.id} /></div>
         </div>
       </div>
 

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFirebaseMessaging } from "@/lib/firebase";
-import { NATIVE_IAP_LIVE } from "@/lib/nativeApp";
 import type { NotificationKind } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +20,6 @@ const TITLES: Record<NotificationKind, string> = {
   follow: "New follower",
   follow_request: "Follow request",
   follow_accepted: "Follow request accepted",
-  premium_upsell: "Go Premium",
 };
 
 export async function POST(request: NextRequest) {
@@ -32,11 +30,8 @@ export async function POST(request: NextRequest) {
 
   const { record } = (await request.json()) as { record: NotificationRow };
 
-  // Push only ever reaches the native app, where Premium can't be bought
-  // until its in-app subscription ships — an upsell there would point at the
-  // web checkout (App Review 3.1.1). The in-app notification row still
-  // exists for the website.
-  if (record.kind === "premium_upsell" && !NATIVE_IAP_LIVE) return NextResponse.json({ ok: true, sent: 0, reason: "iap_not_live" });
+  // Only the kinds people get pushed about (old rows of retired kinds are skipped).
+  if (!(record.kind in TITLES)) return NextResponse.json({ ok: true, sent: 0, reason: "not_pushed" });
 
   let messaging: ReturnType<typeof getFirebaseMessaging>;
   try {
@@ -63,8 +58,6 @@ export async function POST(request: NextRequest) {
         return `${actorName} wants to follow you`;
       case "follow_accepted":
         return `${actorName} accepted your follow request`;
-      case "premium_upsell":
-        return "Unlimited countries & events, more photos and videos, and US States tracking.";
       default:
         return `${actorName} commented: "${record.comment_body ?? ""}"`;
     }

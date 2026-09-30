@@ -1,9 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Home, Image as ImageIcon, Lock, MapPin } from "lucide-react";
+import { ArrowLeft, Home, Image as ImageIcon, MapPin } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { canSellPremium } from "@/lib/nativeAppServer";
 import { countryByCode } from "@/lib/countries";
 import { territoryByCode, territoryToMeta } from "@/lib/territories";
 import { CountryEditor, AddCountryForm } from "@/components/CountryEditor";
@@ -14,8 +13,7 @@ import { countrySummary, orderStops, placesInCountry, stayLength, stayMonth, sta
 import { PlacesMap } from "@/components/PlacesMap";
 import { StockImage } from "@/components/StockImage";
 import type { StayView } from "@/components/StayRow";
-import { COUNTRY_CAP } from "@/lib/plan";
-import type { Plan, VisitedCountryFull } from "@/lib/types";
+import type { VisitedCountryFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 
 /** "Kotor", "Kotor & Budva", "Kotor, Budva & Perast", "Kotor, Budva & 3 more". */
@@ -36,23 +34,17 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const [{ data: profile }, { data }, { count: countryCount }] = await Promise.all([
-    supabase.from("profiles").select("username, plan").eq("id", user.id).single(),
+  const [{ data: profile }, { data }] = await Promise.all([
+    supabase.from("profiles").select("username").eq("id", user.id).single(),
     supabase
       .from("visited_countries")
       .select("*, country_visits(*), country_cities(*), country_media!country_media_visited_country_id_fkey(*)")
       .eq("user_id", user.id)
       .eq("country_code", meta.code)
       .maybeSingle(),
-    supabase.from("visited_countries").select("id", { count: "exact", head: true }).eq("user_id", user.id),
   ]).then((r) => signMedia(r));
 
   const visited = data as VisitedCountryFull | null;
-  const plan = (profile?.plan ?? "free") as Plan;
-  const countryCap = COUNTRY_CAP[plan];
-  const atCountryCap = countryCap !== null && (countryCount ?? 0) >= countryCap;
-  const needsPremiumForTerritory = isTerritory && plan !== "premium";
-  const canSell = canSellPremium();
   if (visited && profile) {
     const visits = [...visited.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
     const images = visited.country_media.filter((m) => m.media_type === "image").sort((a, b) => a.display_order - b.display_order);
@@ -113,7 +105,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
           initialFavourite={visited.is_favourite}
         />
         <div className="mx-auto max-w-3xl space-y-8 px-5 pb-16 pt-8">
-          {meta.code === "US" && (plan === "premium" || canSell) && (
+          {meta.code === "US" && (
             <div className="card flex flex-wrap items-center justify-between gap-4 border-accent/30 bg-accent-soft/40 px-5 py-4">
               <div>
                 <p className="flex items-center gap-1.5 text-sm font-medium">
@@ -174,7 +166,7 @@ export default async function ManageCountryPage({ params }: { params: { code: st
               )}
             </section>
           )}
-          <CountryEditor data={visited} meta={meta} plan={plan} trips={trips} />
+          <CountryEditor data={visited} meta={meta} trips={trips} />
         </div>
       </div>
     );
@@ -207,46 +199,12 @@ export default async function ManageCountryPage({ params }: { params: { code: st
       <div className="mt-10">
         <div className="card px-6 py-10 text-center">
           <h2 className="font-serif text-2xl">Not on your map yet.</h2>
-          {needsPremiumForTerritory ? (
-            <>
-              <Lock size={22} className="mx-auto mt-3 text-muted" aria-hidden />
-              {canSell ? (
-                <>
-                  <p className="mx-auto mt-3 max-w-sm text-sm text-muted">
-                    {meta.name} is a special territory - tracking those is a Premium feature, separate from your 195-country limit.
-                  </p>
-                  <Link href="/settings/billing" className="btn-accent mt-5">Upgrade to Premium</Link>
-                </>
-              ) : (
-                <p className="mx-auto mt-3 max-w-sm text-sm text-muted">
-                  {meta.name} is a special territory - tracking those isn&rsquo;t available on your account.
-                </p>
-              )}
-            </>
-          ) : atCountryCap ? (
-            <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-              {canSell ? (
-                <>
-                  You&rsquo;ve reached the free plan&rsquo;s {countryCap}-country limit.{" "}
-                  <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
-                    Upgrade to Premium
-                  </Link>{" "}
-                  to keep adding countries.
-                </>
-              ) : (
-                <>You&rsquo;ve reached your {countryCap}-country limit.</>
-              )}
-            </p>
-          ) : (
-            <>
-              <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                Add your first trip - photos and a soundtrack live with it, right after.
-              </p>
-              <div className="mt-6">
-                <AddCountryForm meta={meta} plan={plan} />
-              </div>
-            </>
-          )}
+          <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+            Add your first trip - photos and a soundtrack live with it, right after.
+          </p>
+          <div className="mt-6">
+            <AddCountryForm meta={meta} />
+          </div>
         </div>
       </div>
     </div>

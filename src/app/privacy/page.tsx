@@ -65,12 +65,6 @@ export default function PrivacyPage() {
             your consent for push notifications, which you can withdraw in your device’s settings at any time.
           </li>
           <li>
-            <Strong>Payments</Strong> - if you subscribe to Premium on our website, Stripe takes the payment (we never
-            see your card number) and tells us your plan, renewal date and Stripe customer and subscription IDs. In the
-            app, Apple handles the purchase and RevenueCat tells us whether you’re Premium. <em>Legal basis:</em>{" "}
-            contract, and our legal duty to keep accounting records.
-          </li>
-          <li>
             <Strong>Reports and moderation</Strong> - reports you send us (who sent it, what it’s about, what you wrote)
             and what we decide. <em>Why:</em> to keep ExpandiaX safe and meet our legal duties. <em>Legal basis:</em>{" "}
             legitimate interest and legal obligation.
@@ -109,10 +103,6 @@ export default function PrivacyPage() {
           </li>
           <li>
             <Strong>Resend</Strong> - to send our emails.
-          </li>
-          <li>
-            <Strong>Stripe</Strong> - website payments. <Strong>Apple</Strong> and <Strong>RevenueCat</Strong> - in-app
-            purchases.
           </li>
           <li>
             <Strong>Apple</Strong> and <Strong>Google</Strong> - if you choose to sign in with them.
@@ -197,8 +187,8 @@ export default function PrivacyPage() {
         <p>
           We only use what the app needs to work: a cookie that keeps you signed in, and a small setting on your device
           that remembers your light/dark theme. We don’t use advertising or tracking cookies, and our analytics don’t
-          use cookies, so there’s no cookie banner. The one exception is if you tap play on a Spotify song (see above),
-          and Stripe’s checkout page, which is Stripe’s own site.
+          use cookies, so there’s no cookie banner. The exceptions are if you tap play on a Spotify song (see above), or
+          open a partner&rsquo;s site from a partner link - those are their own sites, with their own cookies.
         </p>
       </LegalSection>
 
@@ -208,10 +198,6 @@ export default function PrivacyPage() {
             <Strong>Your account and everything you added:</Strong> as long as your account exists. When you delete it,
             your profile, content and uploaded files are removed straight away from our live systems, and copies in
             backups are overwritten within 30 days.
-          </li>
-          <li>
-            <Strong>Billing records</Strong> (invoices and payment records held by Stripe and us): kept for 7 years
-            because accounting law requires it, even after you delete your account.
           </li>
           <li>
             <Strong>Reports and moderation records:</Strong> kept for up to 12 months after the case is closed, or

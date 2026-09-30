@@ -23,7 +23,7 @@ export type Territory = {
 // on purpose rather than us deciding that for the user.
 //
 // Kept in sync by hand with the `territories` reference table in
-// supabase/schema.sql, which Premium-gates adding one via visited_countries.
+// supabase/schema.sql.
 export const TERRITORIES: Territory[] = [
   { numeric: "010", code: "AQ", name: "Antarctica", continent: "Antarctica" },
   { numeric: "304", code: "GL", name: "Greenland", continent: "North America" },

@@ -1,10 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
 /**
- * Bypasses RLS entirely via the service-role key. Server-only, and only for
- * the Stripe webhook — it writes billing status outside of any user's
- * session, which no anon-key client can do (by design: regular users have
- * no insert/update policy on `billing`).
+ * Bypasses RLS entirely via the service-role key. Server-only, for the few
+ * jobs no signed-in session can do: signing private media links for rows the
+ * viewer's own session already fetched, scheduled jobs, and push delivery.
  */
 export function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

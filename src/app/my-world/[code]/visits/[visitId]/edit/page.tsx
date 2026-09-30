@@ -13,7 +13,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { tripTitle } from "@/lib/tripTitle";
 import { orderStops } from "@/lib/tripPlaces";
-import type { CountryCity, CountryMedia, CountryVisit, Plan } from "@/lib/types";
+import type { CountryCity, CountryMedia, CountryVisit } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 
 type VisitRow = CountryVisit & {
@@ -36,20 +36,18 @@ export default async function EditVisitPage({
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const [{ data }, { data: profile }] = await Promise.all([
-    supabase
+  const { data } = await signMedia(
+    await supabase
       .from("country_visits")
       .select("*, visited_countries!inner(id, user_id, country_code, is_public, share_to_feed), country_media!country_media_country_visit_id_fkey(*), country_cities(*)")
       .eq("id", params.visitId)
       .eq("visited_countries.user_id", user.id)
       .eq("visited_countries.country_code", meta.code)
-      .maybeSingle(),
-    supabase.from("profiles").select("plan").eq("id", user.id).single(),
-  ]).then((r) => signMedia(r));
+      .maybeSingle()
+  );
 
   if (!data) notFound();
   const visit = data as VisitRow;
-  const plan = (profile?.plan ?? "free") as Plan;
   const images = visit.country_media.filter((m) => m.media_type === "image").sort((a, b) => a.display_order - b.display_order);
   const cover = images.find((m) => m.id === visit.cover_media_id) ?? images[0];
   const stock = cover ? null : stockPhotoFor(meta.code, visit.id);
@@ -98,7 +96,7 @@ export default async function EditVisitPage({
               <span aria-hidden>{meta.flag}</span> {cities.length ? cities.slice(0, 3).join(", ") : `${meta.name} trip`}
             </p>
             <p className="mt-1 text-sm text-white/80">
-              {photos} {photos === 1 ? "photo" : "photos"} · {videos}/{VIDEO_CAP[plan]} videos
+              {photos} {photos === 1 ? "photo" : "photos"} · {videos}/{VIDEO_CAP} videos
             </p>
           </div>
           <a
@@ -118,14 +116,13 @@ export default async function EditVisitPage({
           table="country_media"
           fkColumn="country_visit_id"
           extraFields={{ visited_country_id: visit.visited_country_id }}
-          photoCap={PHOTO_CAP[plan]}
-          videoCap={VIDEO_CAP[plan]}
+          photoCap={PHOTO_CAP}
+          videoCap={VIDEO_CAP}
           items={visit.country_media}
           coverId={visit.cover_media_id}
           coverTable="country_visits"
           captions
           label="Your photos & videos"
-          showUpgradeHint={plan === "free"}
           tiles
           places={stops.map((c) => ({ id: c.id, name: c.city_name, lat: c.lat, lng: c.lng, position: c.position, arrived: c.arrived, departed: c.departed }))}
           countryCode={visit.visited_countries.country_code}

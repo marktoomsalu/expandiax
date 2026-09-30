@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Search } from "lucide-react";
 import { COUNTRIES, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
-import { COUNTRY_CAP } from "@/lib/plan";
 import { tapLight } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { OdometerCounter } from "./OdometerCounter";
@@ -19,7 +18,6 @@ const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").the
 // cap, the whole batch would fail at the DB trigger, losing everything
 // rather than just the excess. Capping selection here avoids that outcome
 // entirely instead of trying to recover from a partial/failed bulk insert.
-const FREE_COUNTRY_CAP = COUNTRY_CAP.free ?? 40;
 
 export function CountryGridStep({ homeCode, onDone }: { homeCode: string; onDone: (codes: string[]) => void }) {
   const [query, setQuery] = useState("");
@@ -46,14 +44,11 @@ export function CountryGridStep({ homeCode, onDone }: { homeCode: string; onDone
   }, [ordered, query]);
 
   const allCodes = [homeCode, ...selected];
-  const atCap = allCodes.length >= FREE_COUNTRY_CAP;
 
   function toggle(code: string) {
     if (code === homeCode) return; // home is fixed, not part of the toggle set
     setSelected((prev) => {
       const isSelected = prev.includes(code);
-      // Home already occupies one of the cap's slots.
-      if (!isSelected && prev.length >= FREE_COUNTRY_CAP - 1) return prev;
       tapLight();
       return isSelected ? prev.filter((c) => c !== code) : [...prev, code];
     });
@@ -74,11 +69,6 @@ export function CountryGridStep({ homeCode, onDone }: { homeCode: string; onDone
         <p className="mt-1 text-sm text-muted">
           {pct}% of the world · {continents} continent{continents === 1 ? "" : "s"}
         </p>
-        {atCap && (
-          <p className="mt-1 text-xs text-muted">
-            That&rsquo;s the free plan&rsquo;s {FREE_COUNTRY_CAP}-country limit — upgrade anytime after signing up for more.
-          </p>
-        )}
       </div>
 
       <div className="mt-4 w-full">

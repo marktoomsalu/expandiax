@@ -52,7 +52,6 @@ export function ExportDataButton({ userId }: { userId: string }) {
       { data: followRequests },
       { data: blocks },
       { data: notifications },
-      { data: billing },
     ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).single(),
       supabase
@@ -70,7 +69,6 @@ export function ExportDataButton({ userId }: { userId: string }) {
       supabase.from("follow_requests").select("requester_id, target_id, created_at").or(`requester_id.eq.${userId},target_id.eq.${userId}`),
       supabase.rpc("my_blocked_profiles"),
       supabase.from("notifications").select("kind, target_kind, target_id, comment_body, read, created_at").eq("user_id", userId),
-      supabase.from("billing").select("plan, source, current_period_end, updated_at").eq("user_id", userId).maybeSingle(),
     ]);
     setBusy(false);
     if (!profile) {
@@ -101,7 +99,6 @@ export function ExportDataButton({ userId }: { userId: string }) {
       follow_requests: followRequests,
       accounts_you_blocked: blocks,
       notifications,
-      subscription: billing,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -122,20 +119,9 @@ export function ExportDataButton({ userId }: { userId: string }) {
   );
 }
 
-export type DeletableSubscription = { source: "stripe" | "apple" } | null;
+const DELETE_WARNING = "Everything goes - your profile, countries, events, photos and videos. This cannot be undone. Consider exporting your data first.";
 
-function deletionWarning(subscription: DeletableSubscription): string {
-  const base = "Everything goes - your profile, countries, events, photos and videos. This cannot be undone. Consider exporting your data first.";
-  if (subscription?.source === "stripe") {
-    return `${base} Your Premium subscription will be cancelled immediately, with no refund for the rest of the period.`;
-  }
-  if (subscription?.source === "apple") {
-    return `${base} Your Premium subscription is managed by Apple, so deleting your account does NOT cancel it - cancel it first on your iPhone under Settings > your name > Subscriptions, or Apple will keep charging you.`;
-  }
-  return base;
-}
-
-export function DeleteAccountButton({ userId, subscription = null }: { userId: string; subscription?: DeletableSubscription }) {
+export function DeleteAccountButton({ userId }: { userId: string }) {
   const router = useRouter();
   const supabase = createClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -145,17 +131,6 @@ export function DeleteAccountButton({ userId, subscription = null }: { userId: s
   async function deleteAccount() {
     setBusy(true);
     setError(null);
-    // First stop any subscription, so deleting the account can never leave
-    // it billing. If that fails, nothing is deleted.
-    try {
-      const res = await fetch("/api/account/cancel-subscription", { method: "POST" });
-      if (!res.ok) throw new Error("cancel failed");
-    } catch {
-      setError("We couldn't cancel your subscription, so your account has NOT been deleted. Try again, or contact support.");
-      setBusy(false);
-      setConfirmOpen(false);
-      return;
-    }
     const paths = await listUserFiles(supabase, userId);
     if (paths.length) await supabase.storage.from("media").remove(paths);
     const avatarPaths = await listUserFiles(supabase, userId, "avatars");
@@ -180,7 +155,7 @@ export function DeleteAccountButton({ userId, subscription = null }: { userId: s
       <ConfirmDialog
         open={confirmOpen}
         title="Delete your account?"
-        body={deletionWarning(subscription)}
+        body={DELETE_WARNING}
         confirmLabel="Delete everything"
         busy={busy}
         onConfirm={deleteAccount}

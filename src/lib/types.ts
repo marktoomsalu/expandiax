@@ -19,20 +19,6 @@ export type Profile = {
   updated_at: string;
 };
 
-export type BillingSource = "stripe" | "apple";
-
-export type Billing = {
-  user_id: string;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
-  plan: Plan;
-  current_period_end: string | null;
-  updated_at: string;
-  source: BillingSource;
-  revenuecat_app_user_id: string | null;
-  apple_original_transaction_id: string | null;
-};
-
 export type VisitedUSState = {
   id: string;
   user_id: string;
@@ -158,7 +144,7 @@ export type CommentWithAuthor = Comment & {
   profiles: Pick<Profile, "username" | "display_name" | "avatar_url"> | null;
 };
 
-export type NotificationKind = "like" | "comment" | "follow" | "follow_request" | "follow_accepted" | "premium_upsell";
+export type NotificationKind = "like" | "comment" | "follow" | "follow_request" | "follow_accepted";
 
 export type Notification = {
   id: string;

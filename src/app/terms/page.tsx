@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CompanyDetails, Ext, LegalList, LegalPage, LegalSection, Mail, Strong } from "@/components/LegalPage";
 import { company } from "@/lib/company";
 import { MIN_AGE } from "@/lib/legal";
-import { COUNTRY_CAP, EVENT_CAP, PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
+import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 
 export const metadata = {
   title: "Terms of Service",
@@ -109,48 +109,22 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="Premium">
+      <LegalSection title="Free for everyone">
         <p>
-          ExpandiaX is free to use with limits ({COUNTRY_CAP.free} countries, {EVENT_CAP.free} events, and up to{" "}
-          {PHOTO_CAP.free} photos and {VIDEO_CAP.free} videos per trip or event). <Strong>Premium</Strong> is an
-          optional monthly subscription that raises those limits (unlimited countries and events; up to{" "}
-          {PHOTO_CAP.premium} photos and {VIDEO_CAP.premium} videos), adds US States tracking and special territories,
-          and lets you choose an accent colour for your public profile. What’s included is always shown where you
-          subscribe.
+          ExpandiaX is free. Everything in it is available to everyone - there are no subscriptions, no paid plans and
+          no ads. The one limit is fair use of storage: up to {PHOTO_CAP} photos and {VIDEO_CAP} videos per trip or
+          event. If we ever need to change a limit to keep ExpandiaX running, we&rsquo;ll tell you beforehand, and
+          anything you&rsquo;ve already added stays.
         </p>
         <LegalList>
           <li>
-            <Strong>Price and billing.</Strong> The monthly price is shown at checkout, including any taxes that apply
-            to you. It’s charged when you subscribe and then every month until you cancel. Payments on our website are
-            handled by Stripe.
+            <Strong>How we&rsquo;re paid.</Strong> Some links - flights, stays, tours and things to do - are partner
+            links: if you book through one, that partner may pay us a small commission, at no extra cost to you. They&rsquo;re
+            marked as partner links, and what you book is between you and that partner, on their terms.
           </li>
           <li>
-            <Strong>Renewal and cancelling.</Strong> The subscription renews automatically each month. Cancel any time
-            under Settings → Plan → Manage subscription; it then stays active until the end of the period you’ve paid
-            for, and won’t renew.
-          </li>
-          <li>
-            <Strong>Price changes.</Strong> If we change the price we’ll tell you at least 30 days beforehand, and you
-            can cancel before it applies.
-          </li>
-          <li>
-            <Strong>Your right to change your mind.</Strong> If you’re a consumer in the EU, you have 14 days from
-            subscribing to withdraw without giving a reason. Because Premium starts right away - which you ask for when
-            you subscribe - if you withdraw you’ll pay a proportionate part of the monthly price for the time you’ve
-            already had it, and we refund the rest within 14 days. To withdraw, email{" "}
-            <Mail address={company.supportEmail} /> with a clear statement that you’re withdrawing.
-          </li>
-          <li>
-            <Strong>Refunds.</Strong> Outside that 14-day window, subscription fees for a period that has started aren’t
-            refunded, except where the law requires it or we got something wrong (for example a double charge).
-          </li>
-          <li>
-            <Strong>Deleting your account</Strong> cancels your subscription immediately, without a refund for the rest
-            of the period.
-          </li>
-          <li>
-            <Strong>In the mobile app.</Strong> Where Premium is bought inside the app, the purchase is made with Apple:
-            Apple’s terms apply, you manage or cancel it in your Apple account, and refund requests go to Apple.
+            <Strong>Sponsors.</Strong> We may also work with sponsors. Anything sponsored will always be clearly labelled
+            as sponsored. We don&rsquo;t show ads and we don&rsquo;t sell your data.
           </li>
         </LegalList>
       </LegalSection>
@@ -159,8 +133,8 @@ export default function TermsPage() {
         <p>
           You can export a full copy of your data at any time and delete your account permanently from your account
           settings. Deleting your account removes your profile, countries, events, and all uploaded photos and videos
-          from our storage, and cancels any Premium subscription bought on our website. This can’t be undone, so export
-          first if you want to keep a copy. Some records (such as invoices) have to be kept for legal reasons - see the{" "}
+          from our storage. This can’t be undone, so export first if you want to keep a copy. Some records have to be
+          kept for legal reasons - see the{" "}
           <Link href="/privacy" className="text-accent underline-offset-4 hover:underline">Privacy Policy</Link>.
         </p>
       </LegalSection>
@@ -170,7 +144,7 @@ export default function TermsPage() {
           You can stop using ExpandiaX and delete your account whenever you like. We may suspend or end your access if
           you seriously or repeatedly break these terms or the law, following the steps in “Reporting and moderation”
           above. If we decide to stop running ExpandiaX we’ll give you at least 30 days’ notice and a chance to export
-          your data, and refund any Premium period you’ve paid for but won’t get.
+          your data.
         </p>
       </LegalSection>
 

@@ -2,16 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Calendar, ChevronRight, Lock, MapPinPlus, MessageSquareText, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { enqueueUploads } from "@/lib/uploadQueue";
 import { suggestTripName } from "@/lib/tripPlaces";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
-import { useCanSellPremium } from "./PurchaseAvailability";
-import { withoutUpgradePrompt } from "@/lib/nativeApp";
-import type { DatePrecision, Plan, TripKind, VisitedCountryFull } from "@/lib/types";
+import type { DatePrecision, TripKind, VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { StayRow, type StayView } from "./StayRow";
 import { TripKindToggle } from "./TripKindToggle";
@@ -61,10 +58,9 @@ function queuePendingMedia(opts: {
 
 /** First trip to a new country — bundles marking it visited with its first
  *  visit (dates + memory + photos/video) in one step. */
-export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
+export function AddCountryForm({ meta }: { meta: Meta }) {
   const router = useRouter();
   const supabase = createClient();
-  const canSell = useCanSellPremium();
   const [precision, setPrecision] = useState<DatePrecision>("year");
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("");
@@ -126,8 +122,6 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
     if (countryErr || !country) {
       if (countryErr?.code === "23505") {
         setError(`${meta.name} is already on your map.`);
-      } else if (countryErr?.message.includes("capped at")) {
-        setError(countryErr.message);
       } else {
         setError("Could not add this country. Try again.");
       }
@@ -208,7 +202,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
       </div>
       <div className="border-t border-line pt-5">
         <p className="eyebrow mb-3">Photos & videos</p>
-        <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
+        <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP} videoCap={VIDEO_CAP} />
         {pendingMedia.some((p) => p.kind === "video") && (
           <div className="mt-2 flex items-center gap-2">
             <span className="text-xs text-muted">Video upload quality</span>
@@ -267,16 +261,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
       </button>
       {error && (
         <p role="alert" className="text-sm text-red-800 dark:text-red-400">
-          {canSell || !error.includes("capped at") ? error : withoutUpgradePrompt(error)}
-          {canSell && error.includes("capped at") && (
-            <>
-              {" "}
-              <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
-                Upgrade to Premium
-              </Link>
-              .
-            </>
-          )}
+          {error}
         </p>
       )}
     </form>
@@ -284,7 +269,7 @@ export function AddCountryForm({ meta, plan }: { meta: Meta; plan: Plan }) {
 }
 
 
-export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountryFull; meta: Meta; plan: Plan; trips: StayView[] }) {
+export function CountryEditor({ data, meta, trips }: { data: VisitedCountryFull; meta: Meta; trips: StayView[] }) {
   const router = useRouter();
   const supabase = createClient();
   const [precision, setPrecision] = useState<DatePrecision>("year");
@@ -491,7 +476,7 @@ export function CountryEditor({ data, meta, plan, trips }: { data: VisitedCountr
             </div>
             <div className="border-t border-line pt-5">
               <p className="eyebrow mb-3">Photos & videos</p>
-              <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP[plan]} videoCap={VIDEO_CAP[plan]} />
+              <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP} videoCap={VIDEO_CAP} />
               {pendingMedia.some((p) => p.kind === "video") && (
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-xs text-muted">Video upload quality</span>

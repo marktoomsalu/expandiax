@@ -22,12 +22,10 @@ create table public.profiles (
   visibility text not null default 'private' check (visibility in ('public', 'friends', 'private')),
   -- false = left out of search and suggestions (followers still see you as usual).
   discoverable boolean not null default true,
-  -- Denormalized from billing.plan by sync_profile_plan() below — safe to
-  -- read publicly (it's just the plan name, no Stripe identifiers), unlike
-  -- the billing table itself which is locked to owner-only reads.
+  -- Left from paid plans, which ExpandiaX no longer has (everything is free —
+  -- see 053_free_for_everyone); nothing reads it any more.
   plan text not null default 'free' check (plan in ('free', 'premium')),
-  -- Premium: a custom accent color for the public profile page. Cleared
-  -- automatically on downgrade by enforce_premium_accent_color() below.
+  -- The accent color someone chose for their public profile page.
   accent_color text,
   -- Opt-out for the weekly digest email (cron job) — on by default.
   weekly_digest_enabled boolean not null default true,
@@ -179,8 +177,7 @@ alter table public.country_visits
   foreign key (cover_media_id) references public.country_media (id) on delete set null;
 
 -- US States tracking — a lighter, separate map alongside the world map
--- (50 states + DC). Premium-only, enforced at the insert policy below,
--- not just in the UI. Deliberately simple for v1: visited + an optional
+-- (50 states + DC), for everyone. Deliberately simple for v1: visited + an optional
 -- note, no visits/photos/soundtrack like countries have.
 create table public.visited_us_states (
   id uuid primary key default gen_random_uuid(),
@@ -200,7 +197,7 @@ create table public.visited_us_states (
 -- embedding the list directly in SQL. Kept in sync by hand with
 -- src/lib/territories.ts. Territories are tracked as ordinary
 -- visited_countries rows (reusing all its photo/note/visit
--- infrastructure), Premium-gated there, and excluded from
+-- infrastructure), and excluded from
 -- TOTAL_COUNTRIES-based stats in app code — never at the database level.
 create table public.territories (
   -- Same shape as visited_countries.country_code above — plain alpha-2,
@@ -442,21 +439,6 @@ $$;
 create trigger billing_sync_plan after insert or update on public.billing
   for each row execute function public.sync_profile_plan();
 
--- Silently clears accent_color if the row's plan isn't premium — also
--- self-clears on downgrade, since sync_profile_plan()'s update to
--- profiles.plan re-fires this trigger.
-create or replace function public.enforce_premium_accent_color()
-returns trigger language plpgsql as $$
-begin
-  if new.accent_color is not null and new.plan != 'premium' then
-    new.accent_color := null;
-  end if;
-  return new;
-end;
-$$;
-
-create trigger profiles_accent_color_gate before insert or update on public.profiles
-  for each row execute function public.enforce_premium_accent_color();
 
 -- profiles' update RLS policy is row-level, not column-level, so nothing
 -- stops a client from PATCHing signup_number directly without this.
@@ -475,34 +457,22 @@ create trigger profiles_signup_number_lock before update on public.profiles
 
 -- ---------- Media caps enforced in the database ----------
 
--- Each visit gets its own photo cap, rather than every trip to a
--- country sharing one pool total. Premium raises 5 -> 15 photos,
--- 3 -> 8 videos, looked up via profiles.plan.
+-- Each trip (and each event) holds up to 15 photos and 8 videos — the same
+-- for everyone: ExpandiaX is free, and this is its one fair-use limit.
 create or replace function public.enforce_country_media_cap()
 returns trigger language plpgsql as $$
 declare
-  user_plan text;
-  photo_cap int;
-  video_cap int;
   n int;
 begin
-  select p.plan into user_plan
-  from public.visited_countries vc
-  join public.profiles p on p.id = vc.user_id
-  where vc.id = new.visited_country_id;
-
-  photo_cap := case when user_plan = 'premium' then 15 else 5 end;
-  video_cap := case when user_plan = 'premium' then 8 else 3 end;
-
   select count(*) into n from public.country_media
   where visited_country_id = new.visited_country_id
     and country_visit_id is not distinct from new.country_visit_id
     and media_type = new.media_type;
 
-  if new.media_type = 'image' and n >= photo_cap then
-    raise exception 'A trip can have at most % photos.', photo_cap;
-  elsif new.media_type = 'video' and n >= video_cap then
-    raise exception 'A trip can have at most % videos.', video_cap;
+  if new.media_type = 'image' and n >= 15 then
+    raise exception 'A trip can have at most 15 photos.';
+  elsif new.media_type = 'video' and n >= 8 then
+    raise exception 'A trip can have at most 8 videos.';
   end if;
   return new;
 end;
@@ -514,27 +484,15 @@ create trigger country_media_cap before insert on public.country_media
 create or replace function public.enforce_event_media_cap()
 returns trigger language plpgsql as $$
 declare
-  user_plan text;
-  photo_cap int;
-  video_cap int;
   n int;
 begin
-  select p.plan into user_plan
-  from public.events e
-  join public.profiles p on p.id = e.user_id
-  where e.id = new.event_id;
-
-  photo_cap := case when user_plan = 'premium' then 15 else 5 end;
-  video_cap := case when user_plan = 'premium' then 8 else 3 end;
-
   select count(*) into n from public.event_media
   where event_id = new.event_id and media_type = new.media_type;
 
-  if new.media_type = 'image' and n >= photo_cap then
-    raise exception 'An event can have at most % photos.', photo_cap;
-  end if;
-  if new.media_type = 'video' and n >= video_cap then
-    raise exception 'An event can have at most % videos.', video_cap;
+  if new.media_type = 'image' and n >= 15 then
+    raise exception 'An event can have at most 15 photos.';
+  elsif new.media_type = 'video' and n >= 8 then
+    raise exception 'An event can have at most 8 videos.';
   end if;
   return new;
 end;
@@ -543,45 +501,6 @@ $$;
 create trigger event_media_cap before insert on public.event_media
   for each row execute function public.enforce_event_media_cap();
 
--- ---------- Entry caps enforced in the database ----------
-
--- Free plan caps total countries at 40 and total events at 20; Premium is
--- unlimited. Existing data is never touched — a free user already over the
--- cap keeps everything they have and can still edit/delete it; they just
--- can't add more until they upgrade or drop back under the cap.
-create or replace function public.enforce_country_entry_cap()
-returns trigger language plpgsql as $$
-declare
-  user_plan text;
-begin
-  select plan into user_plan from public.profiles where id = new.user_id;
-  if user_plan != 'premium'
-     and (select count(*) from public.visited_countries where user_id = new.user_id) >= 40 then
-    raise exception 'Free plan is capped at 40 countries — upgrade to Premium for unlimited.';
-  end if;
-  return new;
-end;
-$$;
-
-create trigger visited_countries_entry_cap before insert on public.visited_countries
-  for each row execute function public.enforce_country_entry_cap();
-
-create or replace function public.enforce_event_entry_cap()
-returns trigger language plpgsql as $$
-declare
-  user_plan text;
-begin
-  select plan into user_plan from public.profiles where id = new.user_id;
-  if user_plan != 'premium'
-     and (select count(*) from public.events where user_id = new.user_id) >= 20 then
-    raise exception 'Free plan is capped at 20 events — upgrade to Premium for unlimited.';
-  end if;
-  return new;
-end;
-$$;
-
-create trigger events_entry_cap before insert on public.events
-  for each row execute function public.enforce_event_entry_cap();
 
 -- ---------- Row Level Security ----------
 
@@ -632,35 +551,24 @@ create policy "visited countries readable when owner or profile public"
   using (user_id = auth.uid() or (is_public and public.is_profile_public(user_id)));
 
 -- Territories (Greenland, Gibraltar, etc.) go through this same insert
--- policy as ordinary countries — Premium is only required when the code
--- being inserted is a territory; the `not exists` branch short-circuits
--- true for any regular country code, leaving that path unaffected.
+-- policy as ordinary countries — open to everyone.
 create policy "owner manages visited countries insert"
   on public.visited_countries for insert
-  with check (
-    user_id = auth.uid()
-    and (
-      not exists (select 1 from public.territories where code = country_code)
-      or exists (select 1 from public.profiles where id = auth.uid() and plan = 'premium')
-    )
-  );
+  with check (user_id = auth.uid());
 create policy "owner manages visited countries update"
   on public.visited_countries for update
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "owner manages visited countries delete"
   on public.visited_countries for delete using (user_id = auth.uid());
 
--- visited_us_states — insert is Premium-gated here, not just in the UI.
+-- visited_us_states — anyone can add their own.
 create policy "us states readable when owner or profile public"
   on public.visited_us_states for select
   using (user_id = auth.uid() or public.is_profile_public(user_id));
 
-create policy "premium owner inserts us states"
+create policy "owner inserts us states"
   on public.visited_us_states for insert
-  with check (
-    user_id = auth.uid()
-    and exists (select 1 from public.profiles where id = auth.uid() and plan = 'premium')
-  );
+  with check (user_id = auth.uid());
 
 create policy "owner updates us states"
   on public.visited_us_states for update

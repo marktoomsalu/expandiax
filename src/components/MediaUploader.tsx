@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
 import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, MapPin, Move, Star, Trash2, X } from "lucide-react";
 import { Camera } from "@capacitor/camera";
@@ -13,7 +12,6 @@ import { QueuedMedia } from "./UploadQueue";
 import type { MediaItem } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RepositionPhotoDialog } from "./RepositionPhotoDialog";
-import { useCanSellPremium } from "./PurchaseAvailability";
 import { cn } from "@/lib/utils";
 import { isNativePlatform } from "@/lib/capacitor";
 import { tapSuccess } from "@/lib/haptics";
@@ -36,8 +34,6 @@ type Props = {
   label: string;
   /** Extra fixed columns to set on every inserted row — e.g. a per-visit photo also needs its parent country's id. */
   extraFields?: Record<string, string>;
-  /** Shows a link to /settings/billing once either cap is hit — pass true when the current user is on the free plan. */
-  showUpgradeHint?: boolean;
   /** Big "Take photo" / "Add photos or videos" tiles on top instead of small buttons below. */
   tiles?: boolean;
   /** A trip's places: each photo can belong to one (matched by where it was taken, on the device). */
@@ -59,8 +55,7 @@ type Pending = {
 export type UploaderPlace = { id: string; name: string; lat: number | null; lng: number | null; position: number; arrived: string | null; departed: string | null };
 
 export function MediaUploader(props: Props) {
-  const canSell = useCanSellPremium();
-  const { userId, scope, parentId, table, fkColumn, photoCap, videoCap, items, coverId, coverTable, captions, label, extraFields, showUpgradeHint, tiles = false } = props;
+  const { userId, scope, parentId, table, fkColumn, photoCap, videoCap, items, coverId, coverTable, captions, label, extraFields, tiles = false } = props;
   const places = table === "country_media" ? props.places ?? [] : [];
   // With two or more places, each photo shows (and can change) which one it's from.
   const choosePlace = places.length >= 2;
@@ -552,15 +547,6 @@ export function MediaUploader(props: Props) {
           </div>
         )}
         <span className={cn("text-xs text-muted", !tiles && "ml-3")}>JPEG/PNG/WebP up to 10 MB, or MP4/WebM/MOV up to 300 MB</span>
-        {(photoRemaining <= 0 || videoRemaining <= 0) && showUpgradeHint && canSell && (
-          <p className="mt-2 text-xs text-muted">
-            That&rsquo;s the free plan&rsquo;s limit -{" "}
-            <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
-              upgrade to Premium
-            </Link>{" "}
-            for more.
-          </p>
-        )}
       </div>
 
       {error && (

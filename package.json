@@ -48,7 +48,6 @@
     "react-globe.gl": "^2.38.0",
     "react-simple-maps": "^3.0.0",
     "resend": "^6.18.0",
-    "stripe": "^22.3.2",
     "three": "^0.185.1",
     "topojson-client": "^3.1.0",
     "tus-js-client": "^4.3.1",

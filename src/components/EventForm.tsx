@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { Music2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { CountrySearch } from "./CountrySearch";
@@ -20,11 +19,9 @@ import { EventSuggestions } from "./EventSuggestions";
 import { PastShowPicker } from "./PastShowPicker";
 import { MediaUploader } from "./MediaUploader";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
-import { useCanSellPremium } from "./PurchaseAvailability";
-import { withoutUpgradePrompt } from "@/lib/nativeApp";
 import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
-import type { EventFull, EventType, Plan } from "@/lib/types";
+import type { EventFull, EventType } from "@/lib/types";
 import type { PastShow } from "@/lib/concerts";
 import { localDay, photoDay } from "@/lib/photoDates";
 
@@ -40,16 +37,13 @@ export function EventForm({
   event,
   recentArtists = [],
   userId,
-  plan,
 }: {
   event?: EventFull;
   recentArtists?: RecentArtist[];
   userId: string;
-  plan: Plan;
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const canSell = useCanSellPremium();
   const [f, setF] = useState({
     event_type: event?.event_type ?? ("concert" as EventType),
     title: event?.title ?? "",
@@ -79,8 +73,8 @@ export function EventForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const photoCap = PHOTO_CAP[plan];
-  const videoCap = VIDEO_CAP[plan];
+  const photoCap = PHOTO_CAP;
+  const videoCap = VIDEO_CAP;
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const coverIndex = useBestCover(pendingMedia.filter((p) => p.kind === "image").map((p) => p.file));
@@ -181,7 +175,7 @@ export function EventForm({
       .select("id")
       .single();
     if (err || !data) {
-      setError(err?.message.includes("capped at") ? err.message : "Could not create the event. Try again.");
+      setError("Could not create the event. Try again.");
       setBusy(false);
       return;
     }
@@ -224,13 +218,12 @@ export function EventForm({
             table="event_media"
             fkColumn="event_id"
             photoCap={photoCap}
-            videoCap={VIDEO_CAP[plan]}
+            videoCap={videoCap}
             items={event.event_media}
             coverId={event.cover_media_id}
             coverTable="events"
             captions
             label="Photos & videos"
-            showUpgradeHint={plan === "free"}
           />
         ) : (
           <div>
@@ -476,16 +469,7 @@ export function EventForm({
 
       {error && (
         <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">
-          {canSell || !error.includes("capped at") ? error : withoutUpgradePrompt(error)}
-          {canSell && error.includes("capped at") && (
-            <>
-              {" "}
-              <Link href="/settings/billing" className="text-accent underline-offset-4 hover:underline">
-                Upgrade to Premium
-              </Link>
-              .
-            </>
-          )}
+          {error}
         </p>
       )}
       {saved && <p role="status" className="rounded-lg border border-accent/40 bg-accent-soft/50 px-3 py-2 text-sm">Event saved.</p>}

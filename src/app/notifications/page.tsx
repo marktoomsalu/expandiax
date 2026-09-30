@@ -1,9 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { Clock, Heart, MessageCircle, Sparkles, UserCheck, UserPlus } from "lucide-react";
+import { Clock, Heart, MessageCircle, UserCheck, UserPlus } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { canSellPremium } from "@/lib/nativeAppServer";
 import { EmptyState } from "@/components/EmptyState";
 import { FollowRequestActions } from "@/components/FollowRequestActions";
 import { countryByCode } from "@/lib/countries";
@@ -18,7 +17,6 @@ const ICONS = {
   follow: UserPlus,
   follow_request: Clock,
   follow_accepted: UserCheck,
-  premium_upsell: Sparkles,
 };
 
 export default async function NotificationsPage() {
@@ -30,12 +28,12 @@ export default async function NotificationsPage() {
   if (!profile) redirect("/sign-in");
   const username = profile.username;
 
-  let query = supabase
+  const { data: rows } = await supabase
     .from("notifications")
     .select("*, actor:profiles!notifications_actor_id_fkey(username, display_name, avatar_url)")
-    .eq("user_id", user.id);
-  if (!canSellPremium()) query = query.neq("kind", "premium_upsell");
-  const { data: rows } = await query.order("created_at", { ascending: false }).limit(50);
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
   const notifications = (rows ?? []) as NotificationWithActor[];
 
   const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
@@ -92,27 +90,6 @@ export default async function NotificationsPage() {
       ) : (
         <ul className="mt-8 divide-y divide-line">
           {notifications.map((n) => {
-            // No real actor for this kind (actor_id self-references the
-            // notified user to satisfy the not-null FK) — a distinct
-            // layout instead of forcing it through the actor-based one
-            // below, which would otherwise show the viewer's own name/
-            // avatar back at them.
-            if (n.kind === "premium_upsell") {
-              return (
-                <li key={n.id} className={`flex items-start gap-3 py-4 ${!n.read ? "bg-accent-soft/40" : ""}`}>
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent-soft text-accent">
-                    <Sparkles size={18} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <Link href="/settings/billing" className="text-sm leading-relaxed hover:text-accent">
-                      <span className="font-medium">Your world shouldn&rsquo;t have a limit.</span> Go Premium for unlimited countries &amp; events, more photos and videos, and US States tracking.
-                    </Link>
-                    <p className="mt-1 text-xs text-muted">{formatRelative(n.created_at)}</p>
-                  </div>
-                </li>
-              );
-            }
-
             const Icon = ICONS[n.kind];
             const t = target(n);
             const actor = n.actor;
