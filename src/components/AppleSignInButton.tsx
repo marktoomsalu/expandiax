@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Browser } from "@capacitor/browser";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { createClient } from "@/lib/supabase/client";
 import { isNativePlatform, NATIVE_APP_SCHEME } from "@/lib/capacitor";
@@ -33,9 +34,24 @@ export function AppleSignInButton({ next = "/my-world", disabled = false }: { ne
           nonce: rawNonce,
         });
         window.location.href = error ? "/sign-in" : next;
-      } catch {
-        // User cancelled the sheet — just reset, no error toast needed.
-        setBusy(false);
+      } catch (e) {
+        // User cancelled the sheet (AuthorizationError 1001) — just reset.
+        if (String(e).includes("1001")) {
+          setBusy(false);
+          return;
+        }
+        // Anything else means the native sheet can't run on this device, so
+        // never leave a dead button: use Apple's web sign-in in the in-app
+        // browser and come back through the app's URL scheme instead.
+        const { data } = await supabase.auth.signInWithOAuth({
+          provider: "apple",
+          options: {
+            redirectTo: `${NATIVE_APP_SCHEME}://auth/callback?next=${encodeURIComponent(next)}`,
+            skipBrowserRedirect: true,
+          },
+        });
+        if (data.url) await Browser.open({ url: data.url });
+        else setBusy(false);
       }
       return;
     }
