@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { cache } from "react";
+import type { User } from "@supabase/supabase-js";
 
 export function createClient() {
   const cookieStore = cookies();
@@ -29,16 +30,24 @@ export function createClient() {
   );
 }
 
-// auth.getUser() makes a real network round trip to Supabase to revalidate
-// the JWT — every protected route calls it once in the root layout and
-// again in the page itself, which used to mean two sequential round trips
-// (three counting middleware's own check) before any real data fetching
-// even started. cache() dedupes repeat calls within a single request/render
-// pass down to one.
-export const getAuthUser = cache(async () => {
+// Who's signed in, checked from the session's signed token (getClaims). With
+// the project's asymmetric JWT signing keys that's verified right here — no
+// round trip to Supabase before a page can start on its data; with the older
+// shared secret it falls back to asking Supabase, as getUser() always did.
+// cache() dedupes repeat calls within a single request/render pass to one.
+// Pages only use the id and email; the database's own rules still check the
+// token on every query.
+export const getAuthUser = cache(async (): Promise<User | null> => {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  const { data } = await supabase.auth.getClaims();
+  const c = data?.claims;
+  if (!c?.sub) return null;
+  return {
+    id: c.sub,
+    email: c.email ?? undefined,
+    app_metadata: c.app_metadata ?? {},
+    user_metadata: c.user_metadata ?? {},
+    aud: String(c.aud ?? "authenticated"),
+    created_at: "",
+  } as User;
 });

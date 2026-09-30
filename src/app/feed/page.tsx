@@ -51,10 +51,9 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   // Safe inside a PostgREST filter: no commas, brackets or wildcards of its own.
   const q = (searchParams?.q ?? "").replace(/[%,()*\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
 
-  const { data: followingRows } = await supabase.from("follows").select("followee_id").eq("follower_id", user.id);
-  const followeeIds = (followingRows ?? []).map((r) => r.followee_id);
-
-  const [{ data: viewerProfile }, { data: ownEventsRaw }, { data: ownCountriesRaw }] = await Promise.all([
+  // Everything that only needs who you are, in one round trip's time.
+  const [{ data: followingRows }, { data: viewerProfile }, { data: ownEventsRaw }, { data: ownCountriesRaw }, { data: dreamPlaces }, { data: dreamEvents }] = await Promise.all([
+    supabase.from("follows").select("followee_id").eq("follower_id", user.id),
     supabase.from("profiles").select("feed_last_seen_at, username, display_name, avatar_url, home_country_code").eq("id", user.id).single(),
     supabase
       .from("events")
@@ -66,7 +65,11 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         "id, country_code, country_name, cover_media_id, is_favourite, country_media!country_media_visited_country_id_fkey(count), country_visits(year, visited_from, visited_to, date_precision)"
       )
       .eq("user_id", user.id),
+    // Your dreams, so each post's Dream it shows whether it's already one.
+    supabase.from("want_to_go").select("country_code, place_name"),
+    supabase.from("dream_events").select("name"),
   ]);
+  const followeeIds = (followingRows ?? []).map((r) => r.followee_id);
   // Captured before the update below overwrites it — "new since your last
   // visit" has to compare against where you last left off, not against
   // the value this same page load is about to set.
@@ -79,10 +82,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     ...(c as unknown as Omit<OwnCountryLite, "media_count">),
     media_count: (country_media as unknown as { count: number }[])[0]?.count ?? 0,
   }));
-
-  const now = new Date();
-  const picked = viewerProfile?.username ? pickResurfacedMemory(ownEvents, ownCountries, user.id, now, viewerProfile.username) : null;
-  const then = picked ? await loadThenMemory(supabase, picked, now) : null;
 
   const liveArtists = artistsSeenLive(ownEventsRaw ?? []);
   const nearby = whereAmI(viewerProfile?.home_country_code ?? null);
@@ -106,11 +105,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     );
   }
 
-  // Your dreams, so each post's Dream it shows whether it's already one.
-  const [{ data: dreamPlaces }, { data: dreamEvents }] = await Promise.all([
-    supabase.from("want_to_go").select("country_code, place_name"),
-    supabase.from("dream_events").select("name"),
-  ]);
   const dreamedPlaces = new Set((dreamPlaces ?? []).map((d) => `${d.country_code}:${d.place_name.toLowerCase()}`));
   const dreamedEvents = new Set((dreamEvents ?? []).map((d) => liveKey(d.name)));
 
@@ -127,6 +121,11 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const likedByMe = new Set<string>();
   const commentsByKey = new Map<string, CommentWithAuthor[]>();
   const mediaByKey = new Map<string, RawMedia[]>();
+
+  // The resurfaced memory loads alongside the posts, not after them.
+  const now = new Date();
+  const picked = viewerProfile?.username ? pickResurfacedMemory(ownEvents, ownCountries, user.id, now, viewerProfile.username) : null;
+  const thenPending = picked ? loadThenMemory(supabase, picked, now) : Promise.resolve(null);
 
   if (followeeIds.length > 0) {
     const { data: feedData } = await signMedia(await supabase
@@ -189,7 +188,11 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
 
 
-  if (!q) await supabase.from("profiles").update({ feed_last_seen_at: new Date().toISOString() }).eq("id", user.id);
+  // The memory (already on its way) and "seen up to now" finish together.
+  const [then] = await Promise.all([
+    thenPending,
+    q ? Promise.resolve(null) : supabase.from("profiles").update({ feed_last_seen_at: new Date().toISOString() }).eq("id", user.id).then(() => null),
+  ]);
 
   // A country post with nothing but the country in it — part of a burst if several come at once.
   const isBareCountry = (item: FeedEvent) =>

@@ -13,23 +13,23 @@ export type EventArea = { lat?: number; lng?: number; countryCode?: string | nul
 
 const TWELVE_HOURS = 60 * 60 * 12;
 
-// A good answer is kept for 12 hours and shared by everyone asking about the
-// same place (listings change slowly, and Fienta limits how often it can be
-// asked). A failed one — "too many requests", a timeout — is never kept, so
-// it can't hide a country's events for hours; the next visitor tries again.
-async function getJson<T>(url: string): Promise<T | null> {
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return (await res.json()) as T;
+}
+
+// The finished list of events (a few kB — not the source's raw answer, which
+// for Fienta is ~1 MB) is kept for 12 hours and shared by everyone asking
+// about the same place: listings change slowly, and Fienta limits how often
+// it can be asked. A failure — "too many requests", a timeout — is never
+// kept, so it can't hide a country's events for hours; the next visitor tries
+// again. Keys never include API keys.
+async function cachedEvents(key: string[], work: () => Promise<NearbyEvent[]>): Promise<NearbyEvent[]> {
   try {
-    return await unstable_cache(
-      async () => {
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) throw new Error(`${res.status}`);
-        return (await res.json()) as T;
-      },
-      ["event-source", url],
-      { revalidate: TWELVE_HOURS }
-    )();
+    return await unstable_cache(work, ["event-list", ...key], { revalidate: TWELVE_HOURS })();
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -106,23 +106,27 @@ export function nearbyFromFienta(e: FientaEvent, place: { countryCode: string | 
 }
 
 async function fientaQuery(params: Record<string, string>, place: { countryCode: string | null; city: string | null }, w: EventWindow): Promise<NearbyEvent[]> {
-  const qs = new URLSearchParams({ starts_from: `${w.from} 00:00:00`, page: "1", per_page: "300", locale: "en", ...params });
-  const data = await getJson<{ events?: FientaEvent[] }>(`https://fienta.com/api/v1/public/events?${qs}`);
-  return (data?.events ?? [])
-    .map((e) => nearbyFromFienta(e, place))
-    .filter((e): e is NearbyEvent => !!e && e.date >= w.from && e.date <= w.until);
+  // Soonest first; the rows only ever show the next couple of dozen.
+  const qs = new URLSearchParams({ starts_from: `${w.from} 00:00:00`, page: "1", per_page: "150", locale: "en", ...params });
+  return cachedEvents(["fienta", qs.toString(), w.until], async () => {
+    const data = await getJson<{ events?: FientaEvent[] }>(`https://fienta.com/api/v1/public/events?${qs}`);
+    return (data?.events ?? [])
+      .map((e) => nearbyFromFienta(e, place))
+      .filter((e): e is NearbyEvent => !!e && e.date >= w.from && e.date <= w.until);
+  });
 }
 
 /** Fienta by town when we know it (falling back to the whole country when the town is quiet). */
 export async function fientaNearby(area: EventArea, w: EventWindow): Promise<NearbyEvent[]> {
   const cc = countryByCode(area.countryCode)?.code ?? null;
-  let events: NearbyEvent[] = [];
-  if (area.city) events = await fientaQuery({ city: area.city, ...(cc ? { country: cc } : {}) }, { countryCode: cc, city: area.city }, w);
-  if (events.length < 8 && cc) {
-    const seen = new Set(events.map((e) => e.id));
-    events = [...events, ...(await fientaQuery({ country: cc }, { countryCode: cc, city: null }, w)).filter((e) => !seen.has(e.id))];
-  }
-  return events;
+  // Town and country at once (both cached), rather than one after the other.
+  const [town, country] = await Promise.all([
+    area.city ? fientaQuery({ city: area.city, ...(cc ? { country: cc } : {}) }, { countryCode: cc, city: area.city }, w) : Promise.resolve([] as NearbyEvent[]),
+    cc ? fientaQuery({ country: cc }, { countryCode: cc, city: null }, w) : Promise.resolve([] as NearbyEvent[]),
+  ]);
+  if (town.length >= 8 || !cc) return town;
+  const seen = new Set(town.map((e) => e.id));
+  return [...town, ...country.filter((e) => !seen.has(e.id))];
 }
 
 // ---------------------------------------------------------------- Skiddle (UK)
@@ -195,8 +199,11 @@ export async function skiddleNearby(area: EventArea, w: EventWindow): Promise<Ne
   } else if (area.countryCode) {
     qs.set("country", area.countryCode);
   }
-  const data = await getJson<{ results?: SkiddleEvent[] }>(`https://www.skiddle.com/api/v1/events/search/?${qs}`);
-  return (data?.results ?? []).map(nearbyFromSkiddle).filter((e): e is NearbyEvent => !!e && e.date >= w.from && e.date <= w.until && e.category !== "other");
+  const key = ["skiddle", [...qs.entries()].filter(([k]) => k !== "api_key").map((kv) => kv.join("=")).join("&")];
+  return cachedEvents(key, async () => {
+    const data = await getJson<{ results?: SkiddleEvent[] }>(`https://www.skiddle.com/api/v1/events/search/?${qs}`);
+    return (data?.results ?? []).map(nearbyFromSkiddle).filter((e): e is NearbyEvent => !!e && e.date >= w.from && e.date <= w.until && e.category !== "other");
+  });
 }
 
 // ---------------------------------------------------------------- SeatGeek (US & Canada)
@@ -272,8 +279,11 @@ export async function seatgeekNearby(area: EventArea, w: EventWindow): Promise<N
   } else if (area.countryCode) {
     qs.set("venue.country", area.countryCode);
   }
-  const data = await getJson<{ events?: SeatGeekEvent[] }>(`https://api.seatgeek.com/2/events?${qs}`);
-  return (data?.events ?? []).map(nearbyFromSeatGeek).filter((e): e is NearbyEvent => !!e && e.date >= w.from && e.date <= w.until);
+  const key = ["seatgeek", [...qs.entries()].filter(([k]) => k !== "client_id").map((kv) => kv.join("=")).join("&")];
+  return cachedEvents(key, async () => {
+    const data = await getJson<{ events?: SeatGeekEvent[] }>(`https://api.seatgeek.com/2/events?${qs}`);
+    return (data?.events ?? []).map(nearbyFromSeatGeek).filter((e): e is NearbyEvent => !!e && e.date >= w.from && e.date <= w.until);
+  });
 }
 
 // ---------------------------------------------------------------- together

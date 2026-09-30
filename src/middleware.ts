@@ -26,9 +26,12 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Checked from the session's signed token (and refreshed when it's about to
+  // expire) — with asymmetric JWT signing keys that's no round trip to Supabase
+  // on every page and navigation. This only decides redirects; the database's
+  // own rules still check the token on every query.
+  const { data: claims } = await supabase.auth.getClaims();
+  const user = claims?.claims?.sub ? { id: claims.claims.sub } : null;
 
   const path = request.nextUrl.pathname;
   const isProtected = PROTECTED.some((p) => path === p || path.startsWith(p + "/"));

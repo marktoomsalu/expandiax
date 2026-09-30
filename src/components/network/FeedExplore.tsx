@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ChevronRight, Compass, MapPin, Plane } from "lucide-react";
@@ -159,7 +160,7 @@ export function EventCardSmall({ e }: { e: NetworkEventCard }) {
 }
 
 /** "Barcelona · 4 friends": smaller cards, for the next trip. */
-export function IdeaCard({ i, flight }: { i: TripIdea; flight?: Flight | null }) {
+export function IdeaCard({ i, flight }: { i: TripIdea; flight?: React.ReactNode }) {
   const country = countryByCode(i.country);
   if (!country) return null;
   const stock = stockPhotoFor(i.country, "idea");
@@ -179,18 +180,7 @@ export function IdeaCard({ i, flight }: { i: TripIdea; flight?: Flight | null })
           <FaceStack people={i.friends} size={22} className="mt-1 [&>span]:ring-black/40" />
         </span>
       </Link>
-      {flight && (
-        <a
-          href={flight.url}
-          target="_blank"
-          rel="sponsored noopener noreferrer"
-          aria-label={`Return flights to ${country.name} from ${flight.currency === "EUR" ? "€" : ""}${flight.price} (partner link)`}
-          className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
-        >
-          <Plane size={12} aria-hidden /> from {flight.currency === "EUR" ? "€" : `${flight.currency} `}
-          {Math.round(flight.price)}
-        </a>
-      )}
+      {flight}
       <TripLinks place={country.name} className="mt-1.5" />
     </li>
   );
@@ -201,7 +191,7 @@ export function IdeaCard({ i, flight }: { i: TripIdea; flight?: Flight | null })
  * network is into (or what's on near you), people a step ahead of you, and
  * ideas for your next trip.
  */
-export async function FeedExplore({
+export function FeedExplore({
   viewerId,
   where,
   place,
@@ -215,46 +205,90 @@ export async function FeedExplore({
   children?: React.ReactNode;
 }) {
   const supabase = createClient();
-  const [{ places, people, ideas, dreams }, events] = await Promise.all([loadNetworkHome(supabase, viewerId), loadNetworkEvents(supabase, viewerId, where)]);
-  // The cheapest return flight from the nearest airport to each idea (only city codes are sent).
+  // Both start at once; each section shows as soon as its own data is in.
+  const home = loadNetworkHome(supabase, viewerId);
+  const events = loadNetworkEvents(supabase, viewerId, where);
   const origin = originFor(where, homeCountry);
-  const flights = await Promise.all(ideas.map((i) => flightTo(origin, i.country)));
-  const dreamed = new Set(dreams.map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
-  const empty = !places.length && !people.length && !ideas.length && !events.length;
 
   return (
     <div className="mt-8 space-y-10">
-      {places.length > 0 && (
-        <section aria-labelledby="pk-h">
-          <Head id="pk-h" title="Places your friends know" sub="Get inspired by places your friends have been to." href="/explore#pl-h" />
-          <ul className={rail}>
-            {places.map((p) => (
-              <PlaceCardBig key={p.key} p={p} dreaming={dreamed.has(`${p.country}:${placeKey(p.name)}`)} />
-            ))}
-          </ul>
-        </section>
-      )}
+      <Suspense fallback={<RowSkeleton title="Places your friends know" tall />}>
+        <PlacesSection home={home} />
+      </Suspense>
+      <Suspense fallback={<RowSkeleton title="Events your network is into" />}>
+        <EventsSection events={events} place={place} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <PeopleAndIdeas home={home} origin={origin} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <EmptyNote home={home} events={events} />
+      </Suspense>
+      {children}
+    </div>
+  );
+}
 
-      {events.length > 0 && (
-        <section aria-labelledby="evn-h">
-          <Head id="evn-h" title="Events your network is into" sub="Concerts, sport, meetups and more." href="/explore#near-h" />
-          {place && (
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-muted">
-              <MapPin size={11} aria-hidden /> Near {place} ·{" "}
-              <Link href="/explore" className="font-medium text-accent hover:underline">
-                Change
-              </Link>
-            </p>
-          )}
-          <ul className={rail}>
-            {events.map((e) => (
-              <EventCardSmall key={e.key} e={e} />
-            ))}
-          </ul>
-          {events.some((e) => e.source) && <p className="mt-1 text-[11px] text-muted">{sourcesCredit(events.map((e) => e.source))}</p>}
-        </section>
-      )}
+type Home = Awaited<ReturnType<typeof loadNetworkHome>>;
 
+/** A quiet stand-in while a row loads, the same size as the real one. */
+function RowSkeleton({ title, tall }: { title: string; tall?: boolean }) {
+  return (
+    <section aria-busy="true" aria-label={`${title}, loading`}>
+      <p className="font-serif text-xl leading-tight text-muted">{title}</p>
+      <div className="-mx-5 mt-4 flex gap-3 overflow-hidden px-5 pb-2">
+        {[0, 1, 2].map((i) => (
+          <span key={i} className={`block shrink-0 animate-pulse rounded-2xl bg-raised ${tall ? "h-48 w-60" : "h-52 w-44"}`} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+async function PlacesSection({ home }: { home: Promise<Home> }) {
+  const { places, dreams } = await home;
+  if (!places.length) return null;
+  const dreamed = new Set(dreams.map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
+  return (
+    <section aria-labelledby="pk-h">
+      <Head id="pk-h" title="Places your friends know" sub="Get inspired by places your friends have been to." href="/explore#pl-h" />
+      <ul className={rail}>
+        {places.map((p) => (
+          <PlaceCardBig key={p.key} p={p} dreaming={dreamed.has(`${p.country}:${placeKey(p.name)}`)} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+async function EventsSection({ events: pending, place }: { events: Promise<NetworkEventCard[]>; place: string | null }) {
+  const events = await pending;
+  if (!events.length) return null;
+  return (
+    <section aria-labelledby="evn-h">
+      <Head id="evn-h" title="Events your network is into" sub="Concerts, sport, meetups and more." href="/explore#near-h" />
+      {place && (
+        <p className="mt-1 flex items-center gap-1 text-[11px] text-muted">
+          <MapPin size={11} aria-hidden /> Near {place} ·{" "}
+          <Link href="/explore" className="font-medium text-accent hover:underline">
+            Change
+          </Link>
+        </p>
+      )}
+      <ul className={rail}>
+        {events.map((e) => (
+          <EventCardSmall key={e.key} e={e} />
+        ))}
+      </ul>
+      {events.some((e) => e.source) && <p className="mt-1 text-[11px] text-muted">{sourcesCredit(events.map((e) => e.source))}</p>}
+    </section>
+  );
+}
+
+async function PeopleAndIdeas({ home, origin }: { home: Promise<Home>; origin: string | null }) {
+  const { people, ideas } = await home;
+  return (
+    <>
       {people.length > 0 && (
         <section aria-labelledby="osa-h">
           <Head id="osa-h" title="People one step ahead" sub="Meet people with similar travel interests." href="/explore#cw-h" />
@@ -265,33 +299,62 @@ export async function FeedExplore({
           </ul>
         </section>
       )}
-
       {ideas.length > 0 && (
         <section aria-labelledby="idea-h">
           <Head id="idea-h" title="Ideas for your next trip" sub="Countries your network knows - and you don't, yet." href="/explore#pl-h" />
           <ul className={rail}>
             {ideas.map((i) => (
-              <IdeaCard key={i.country} i={i} flight={flights[ideas.indexOf(i)]} />
+              <IdeaCard
+                key={i.country}
+                i={i}
+                flight={
+                  // Each price arrives on its own, so a slow one never holds up the cards.
+                  <Suspense fallback={null}>
+                    <FlightPill origin={origin} country={i.country} />
+                  </Suspense>
+                }
+              />
             ))}
           </ul>
           <PartnerNote className="mt-1" />
         </section>
       )}
+    </>
+  );
+}
 
-      {empty && (
-        <Link href="/explore" className="card flex items-center gap-3 px-4 py-4 transition-shadow hover:shadow-md">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
-            <Compass size={18} aria-hidden />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium">This fills up as people you follow add trips</span>
-            <span className="block text-xs text-muted">Meanwhile, see where travellers on ExpandiaX have been.</span>
-          </span>
-          <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
-        </Link>
-      )}
+/** "✈︎ from €90" — the cheapest return flight from the nearest airport (only city codes are sent). */
+async function FlightPill({ origin, country: code }: { origin: string | null; country: string }) {
+  const flight: Flight | null = await flightTo(origin, code);
+  const country = countryByCode(code);
+  if (!flight || !country) return null;
+  return (
+    <a
+      href={flight.url}
+      target="_blank"
+      rel="sponsored noopener noreferrer"
+      aria-label={`Return flights to ${country.name} from ${flight.currency === "EUR" ? "€" : ""}${flight.price} (partner link)`}
+      className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+    >
+      <Plane size={12} aria-hidden /> from {flight.currency === "EUR" ? "€" : `${flight.currency} `}
+      {Math.round(flight.price)}
+    </a>
+  );
+}
 
-      {children}
-    </div>
+async function EmptyNote({ home, events }: { home: Promise<Home>; events: Promise<NetworkEventCard[]> }) {
+  const [{ places, people, ideas }, list] = await Promise.all([home, events]);
+  if (places.length || people.length || ideas.length || list.length) return null;
+  return (
+    <Link href="/explore" className="card flex items-center gap-3 px-4 py-4 transition-shadow hover:shadow-md">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+        <Compass size={18} aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">This fills up as people you follow add trips</span>
+        <span className="block text-xs text-muted">Meanwhile, see where travellers on ExpandiaX have been.</span>
+      </span>
+      <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
+    </Link>
   );
 }
