@@ -14,9 +14,14 @@ type OpenMeteoPlace = {
   population?: number;
 };
 
+// Populated-place kinds that aren't a city or town you'd go to: a section
+// of a city ("Tallinna Eeslinn"), and historical, abandoned or destroyed places.
+const NOT_A_TOWN = new Set(["PPLX", "PPLH", "PPLQ", "PPLW", "PPLCH"]);
+
 export function placeFromOpenMeteo(r: OpenMeteoPlace): Place | null {
   // Populated places only (cities, towns), not rivers, airports or regions.
-  if (!r.feature_code?.startsWith("PPL") || !Number.isFinite(r.latitude) || !Number.isFinite(r.longitude)) return null;
+  if (!r.feature_code?.startsWith("PPL") || NOT_A_TOWN.has(r.feature_code)) return null;
+  if (!Number.isFinite(r.latitude) || !Number.isFinite(r.longitude)) return null;
   return {
     id: r.id,
     name: r.name,

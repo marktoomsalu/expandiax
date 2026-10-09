@@ -89,7 +89,7 @@ export default async function LiveHubPage({ params }: { params: { slug: string }
           <p className="eyebrow">{eventTypeMeta(type).label}</p>
           <h1 className="mt-1 text-4xl md:text-5xl">{name}</h1>
           <p className="mt-1 text-sm text-muted">
-            {rows.length} {rows.length === 1 ? "memory" : "memories"} · {people} {people === 1 ? "person" : "people"} · {nights.size} {nights.size === 1 ? "night" : "nights"}
+            {rows.length} {rows.length === 1 ? "memory" : "memories"} · {people} {people === 1 ? "person" : "people"} · {nights.size} {nights.size === 1 ? "date" : "dates"}
           </p>
           {viewer && (
             <div className="mt-3">

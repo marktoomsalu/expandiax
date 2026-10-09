@@ -5,7 +5,6 @@ import { ArrowRight, ChevronRight, Compass, MapPin, Plane } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { slugify } from "@/lib/explore";
-import { placeKey } from "@/lib/photoPlaces";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { loadNetworkHome, type PersonCard, type PlaceCard, type TripIdea } from "@/lib/experienceNetworkData";
 import type { NearbyWhere } from "@/lib/concerts";
@@ -16,7 +15,6 @@ import { FollowButton } from "../FollowButton";
 import { PartnerNote, TripLinks } from "../TripLinks";
 import { InterestButton } from "./InterestButton";
 import { StockImage } from "../StockImage";
-import { DreamButton } from "./DreamButton";
 import { FaceStack } from "./FaceStack";
 
 const rail = "no-scrollbar -mx-5 mt-4 flex snap-x gap-3 overflow-x-auto px-5 pb-2";
@@ -39,28 +37,31 @@ function Head({ id, title, sub, href }: { id: string; title: string; sub: string
   );
 }
 
-const been = (n: number, friends: boolean) => `${n} ${friends ? (n === 1 ? "friend has" : "friends have") : n === 1 ? "traveller has" : "travellers have"} been here`;
+/** "5 friends have been here" / "2 people you follow have been here". */
+export function placeBeen(p: PlaceCard) {
+  if (p.circle === "friends") return `${p.friends.length} ${p.friends.length === 1 ? "friend has" : "friends have"} been here`;
+  return `${p.network.length} ${p.network.length === 1 ? "person you follow has" : "people you follow have"} been here`;
+}
 
-/** "Prague — 5 friends have been here": big, photo-first. */
-export function PlaceCardBig({ p, dreaming }: { p: PlaceCard; dreaming: boolean }) {
+/** "Prague — 5 friends have been here": big, photo-first. `wide` fills its column, for the full list. */
+export function PlaceCardBig({ p, wide = false }: { p: PlaceCard; wide?: boolean }) {
   const country = countryByCode(p.country);
   const stock = p.photo ? null : stockPhotoFor(p.country, p.key);
-  const friends = p.network.length > 0;
   return (
-    <li className="relative w-60 shrink-0 snap-start sm:w-64">
+    <li className={wide ? "relative" : "relative w-60 shrink-0 snap-start sm:w-64"}>
       <Link
         href={`/explore/place/${p.country.toLowerCase()}/${slugify(p.name)}`}
-        className="group relative block aspect-[5/4] overflow-hidden rounded-2xl bg-[#14110d] shadow-md ring-1 ring-black/5"
+        className={`group relative block overflow-hidden rounded-2xl bg-[#14110d] shadow-md ring-1 ring-black/5 ${wide ? "aspect-[16/10]" : "aspect-[5/4]"}`}
       >
         {p.photo ? (
-          <Image src={p.photo} alt="" fill sizes="256px" className="object-cover transition-transform duration-700 group-hover:scale-[1.04]" />
+          <Image src={p.photo} alt="" fill sizes={wide ? "(min-width: 640px) 336px, 100vw" : "256px"} className="object-cover transition-transform duration-700 group-hover:scale-[1.04]" />
         ) : stock ? (
-          <StockImage photo={stock} aspect="5:4" sizes="256px" className="transition-transform duration-700 group-hover:scale-[1.04]" />
+          <StockImage photo={stock} aspect={wide ? "16:10" : "5:4"} sizes={wide ? "(min-width: 640px) 336px, 100vw" : "256px"} className="transition-transform duration-700 group-hover:scale-[1.04]" />
         ) : null}
         <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" aria-hidden />
         <span className="absolute inset-x-0 bottom-0 p-3 pr-14 text-white">
           <FaceStack people={p.faces} size={26} className="[&>span]:ring-black/40" />
-          <span className="mt-1 block text-[11px] text-white/85">{been(friends ? p.network.length : p.people.length, friends)}</span>
+          <span className="mt-1 block text-[11px] text-white/85">{placeBeen(p)}</span>
           <span className="mt-0.5 block truncate font-serif text-2xl leading-tight">{p.name}</span>
           <span className="block text-xs text-white/85">
             {country?.flag} {country?.name}
@@ -70,9 +71,6 @@ export function PlaceCardBig({ p, dreaming }: { p: PlaceCard; dreaming: boolean 
           <ChevronRight size={17} aria-hidden />
         </span>
       </Link>
-      <span className="absolute right-2.5 top-2.5">
-        <DreamButton variant="icon" target={{ kind: "place", countryCode: p.country, placeName: p.name, lat: p.lat, lng: p.lng }} initial={dreaming} label={p.name} />
-      </span>
     </li>
   );
 }
@@ -213,10 +211,13 @@ export function FeedExplore({
   return (
     <div className="mt-8 space-y-10">
       <Suspense fallback={<RowSkeleton title="Places your friends know" tall />}>
-        <PlacesSection home={home} />
+        <PlacesSection home={home} circle="friends" />
       </Suspense>
       <Suspense fallback={<RowSkeleton title="Events your network is into" />}>
         <EventsSection events={events} place={place} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <PlacesSection home={home} circle="network" />
       </Suspense>
       <Suspense fallback={null}>
         <PeopleAndIdeas home={home} origin={origin} />
@@ -245,16 +246,23 @@ function RowSkeleton({ title, tall }: { title: string; tall?: boolean }) {
   );
 }
 
-async function PlacesSection({ home }: { home: Promise<Home> }) {
-  const { places, dreams } = await home;
+const PLACE_ROWS = {
+  friends: { title: "Places your friends know", sub: "Where friends - people you follow who follow you back - have been." },
+  network: { title: "Places your network has been to", sub: "Where others you follow have been." },
+};
+
+/** Friends' places, or the wider network's — each town in one row only. */
+async function PlacesSection({ home, circle }: { home: Promise<Home>; circle: "friends" | "network" }) {
+  const data = await home;
+  const places = circle === "friends" ? data.friendPlaces : data.networkPlaces;
   if (!places.length) return null;
-  const dreamed = new Set(dreams.map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
+  const id = `pk-${circle}-h`;
   return (
-    <section aria-labelledby="pk-h">
-      <Head id="pk-h" title="Places your friends know" sub="Get inspired by places your friends have been to." href="/explore#pl-h" />
+    <section aria-labelledby={id}>
+      <Head id={id} title={PLACE_ROWS[circle].title} sub={PLACE_ROWS[circle].sub} href={`/explore/places?circle=${circle}`} />
       <ul className={rail}>
         {places.map((p) => (
-          <PlaceCardBig key={p.key} p={p} dreaming={dreamed.has(`${p.country}:${placeKey(p.name)}`)} />
+          <PlaceCardBig key={p.key} p={p} />
         ))}
       </ul>
     </section>
@@ -343,8 +351,8 @@ async function FlightPill({ origin, country: code }: { origin: string | null; co
 }
 
 async function EmptyNote({ home, events }: { home: Promise<Home>; events: Promise<NetworkEventCard[]> }) {
-  const [{ places, people, ideas }, list] = await Promise.all([home, events]);
-  if (places.length || people.length || ideas.length || list.length) return null;
+  const [{ friendPlaces, networkPlaces, people, ideas }, list] = await Promise.all([home, events]);
+  if (friendPlaces.length || networkPlaces.length || people.length || ideas.length || list.length) return null;
   return (
     <Link href="/explore" className="card flex items-center gap-3 px-4 py-4 transition-shadow hover:shadow-md">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">

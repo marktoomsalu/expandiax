@@ -11,6 +11,8 @@ describe("city search", () => {
       id: 1, name: "Bologna", region: "Emilia-Romagna", countryCode: "IT", lat: 44.49, lng: 11.34,
     });
     expect(placeFromOpenMeteo({ id: 2, name: "Bologna Airport", latitude: 44.5, longitude: 11.3, feature_code: "AIRP" })).toBeNull();
+    // A section of a city, not a town of its own (searching "tallinn" found one in Ida-Virumaa).
+    expect(placeFromOpenMeteo({ id: 3, name: "Tallinna Eeslinn", latitude: 59.4, longitude: 27.3, feature_code: "PPLX" })).toBeNull();
   });
 
   it("only sends the typed text, and ignores one-letter searches", async () => {

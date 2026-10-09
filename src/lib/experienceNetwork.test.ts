@@ -62,6 +62,13 @@ describe("placesForYou", () => {
       ["Rome", 0, 3],
     ]);
   });
+  it("tells friends (following each other) apart from others you follow", () => {
+    const out = placesForYou([row("f1", "SI", "Bled"), row("f2", "IT", "Rome"), row("f2", "SI", "Bled")], { ...viewer, friends: new Set(["f1"]) });
+    expect(out.map((p) => [p.name, p.friends, p.network])).toEqual([
+      ["Bled", ["f1"], ["f1", "f2"]],
+      ["Rome", [], ["f2"]],
+    ]);
+  });
   it("lifts places you dream of", () => {
     const out = placesForYou([row("x1", "IT", "Rome"), row("x2", "IT", "Rome"), row("x3", "PT", "Porto")], { ...viewer, dreamCountries: new Set(["PT"]) });
     expect(out[0].name).toBe("Porto");

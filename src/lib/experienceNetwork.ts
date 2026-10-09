@@ -81,18 +81,20 @@ export type PlaceForYou = {
   name: string;
   lat: number | null;
   lng: number | null;
-  network: string[]; // people you follow who've been
+  friends: string[]; // friends (you follow each other) who've been
+  network: string[]; // everyone you follow who's been, friends included
   people: string[]; // everyone you can see who's been
   cityIds: string[];
 };
 
 /**
- * Towns worth a look: where people you follow have been, then where many
- * people have — and a boost for countries and towns you dream of. Towns you've been to yourself are left out.
+ * Towns worth a look: where friends have been, then others you follow, then
+ * where many people have — and a boost for countries and towns you dream
+ * of. Towns you've been to yourself are left out.
  */
 export function placesForYou(
   rows: TownRow[],
-  viewer: { id: string; following: Set<string>; dreamCountries: Set<string>; dreamTowns: Set<string> },
+  viewer: { id: string; following: Set<string>; friends?: Set<string>; dreamCountries: Set<string>; dreamTowns: Set<string> },
   limit = 10
 ): PlaceForYou[] {
   const mine = new Set(rows.filter((r) => r.userId === viewer.id).map((r) => `${r.country}:${placeKey(r.town)}`));
@@ -101,9 +103,10 @@ export function placesForYou(
     if (r.userId === viewer.id) continue;
     const key = `${r.country}:${placeKey(r.town)}`;
     if (!placeKey(r.town) || mine.has(key)) continue;
-    const p = places.get(key) ?? places.set(key, { key, country: r.country, name: r.town.trim(), lat: null, lng: null, network: [], people: [], cityIds: [] }).get(key)!;
+    const p = places.get(key) ?? places.set(key, { key, country: r.country, name: r.town.trim(), lat: null, lng: null, friends: [], network: [], people: [], cityIds: [] }).get(key)!;
     if (!p.people.includes(r.userId)) p.people.push(r.userId);
     if (viewer.following.has(r.userId) && !p.network.includes(r.userId)) p.network.push(r.userId);
+    if (viewer.friends?.has(r.userId) && !p.friends.includes(r.userId)) p.friends.push(r.userId);
     p.cityIds.push(r.cityId);
     if (p.lat == null && r.lat != null && r.lng != null) {
       p.lat = r.lat;
@@ -111,7 +114,7 @@ export function placesForYou(
     }
   }
   const score = (p: PlaceForYou) =>
-    p.network.length * 3 + p.people.length + (viewer.dreamTowns.has(p.key) ? 8 : 0) + (viewer.dreamCountries.has(p.country) ? 4 : 0);
+    p.friends.length * 2 + p.network.length * 3 + p.people.length + (viewer.dreamTowns.has(p.key) ? 8 : 0) + (viewer.dreamCountries.has(p.country) ? 4 : 0);
   return [...places.values()].sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name)).slice(0, limit);
 }
 

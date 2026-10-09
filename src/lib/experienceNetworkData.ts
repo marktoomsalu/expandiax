@@ -35,14 +35,18 @@ export type DreamPlace = { country_code: string; place_name: string };
 type VisitRow = { id: string; title: string; kind: "trip" | "lived"; year: number; visited_from: string | null; visited_to: string | null; date_precision: DatePrecision };
 type CityRow = { city_name: string; country_visit_id: string; position: number; arrived: string | null };
 
+/** Who you follow, and your friends among them: people who follow you back. */
 async function viewerCircle(supabase: Supabase, viewerId: string | null) {
-  if (!viewerId) return { following: new Set<string>(), home: null as string | null, dreams: [] as DreamPlace[] };
-  const [{ data: f }, { data: me }, { data: dreams }] = await Promise.all([
+  if (!viewerId) return { following: new Set<string>(), friends: new Set<string>(), home: null as string | null, dreams: [] as DreamPlace[] };
+  const [{ data: f }, { data: back }, { data: me }, { data: dreams }] = await Promise.all([
     supabase.from("follows").select("followee_id").eq("follower_id", viewerId),
+    supabase.from("follows").select("follower_id").eq("followee_id", viewerId),
     supabase.from("profiles").select("home_country_code").eq("id", viewerId).single(),
     supabase.from("want_to_go").select("country_code, place_name").order("created_at", { ascending: false }),
   ]);
-  return { following: new Set((f ?? []).map((r) => r.followee_id)), home: me?.home_country_code ?? null, dreams: (dreams ?? []) as DreamPlace[] };
+  const following = new Set((f ?? []).map((r) => r.followee_id));
+  const friends = new Set((back ?? []).map((r) => r.follower_id).filter((id) => following.has(id)));
+  return { following, friends, home: me?.home_country_code ?? null, dreams: (dreams ?? []) as DreamPlace[] };
 }
 
 /** The anonymous counts for a country: total, and per town (lower-cased key). */
@@ -118,37 +122,106 @@ export async function loadTravellers(
 
 // ---------- For the feed: places for you, a place to start, people to meet ----------
 
-export type PlaceCard = PlaceForYou & { faces: Person[]; photo: string | null };
+/** A town to show: whose it is ("friends" or the wider "network" you follow), their faces, and a photo. */
+export type PlaceCard = PlaceForYou & { circle: "friends" | "network"; faces: Person[]; photo: string | null };
 export type PersonCard = Person & { visibility: ProfileVisibility; headline: Reason | null; reasons: Reason[]; photos: string[] };
 /** A country for your next trip: where people you follow (or, early on, anyone) have been and you haven't. */
 export type TripIdea = { country: string; friends: Person[]; network: number; people: number };
-export type NetworkHome = { places: PlaceCard[]; people: PersonCard[]; ideas: TripIdea[]; dreams: DreamPlace[] };
+export type NetworkHome = { friendPlaces: PlaceCard[]; networkPlaces: PlaceCard[]; people: PersonCard[]; ideas: TripIdea[]; dreams: DreamPlace[] };
+
+const TOWNS_QUERY = "id, city_name, lat, lng, visited_countries!inner(user_id, country_code, is_public), country_visits(kind)";
+const one = <T,>(x: unknown) => (Array.isArray(x) ? x[0] : x) as T | undefined;
+
+/** Every town anyone you can see has logged (public ones, and your own), minus people you've blocked. */
+function parseTowns(rows: unknown[] | null, blockedIds: Set<string>, viewerId: string) {
+  type Raw = { id: string; city_name: string; lat: number | null; lng: number | null; visited_countries: unknown; country_visits: unknown };
+  const towns: (TownRow & { lived: boolean })[] = [];
+  for (const r of (rows ?? []) as Raw[]) {
+    const vc = one<{ user_id: string; country_code: string; is_public: boolean }>(r.visited_countries);
+    if (!vc || blockedIds.has(vc.user_id) || (!vc.is_public && vc.user_id !== viewerId)) continue;
+    towns.push({ userId: vc.user_id, country: vc.country_code, town: r.city_name, lat: r.lat, lng: r.lng, cityId: r.id, lived: one<{ kind: string }>(r.country_visits)?.kind === "lived" });
+  }
+  return towns;
+}
+
+/**
+ * Splits ranked towns into friends' places and the wider network's (people
+ * you follow who don't follow you back, or friends' places past the first
+ * `limit`), each town in one list only.
+ */
+function splitPlaces(ranked: PlaceForYou[], limit: number) {
+  const friends = ranked.filter((p) => p.friends.length > 0).sort((a, b) => b.friends.length - a.friends.length);
+  const shown = new Set(friends.slice(0, limit).map((p) => p.key));
+  const network = ranked.filter((p) => p.network.length > 0 && !shown.has(p.key));
+  return { friends: friends.slice(0, limit), network: network.slice(0, limit) };
+}
+
+/** Faces (of friends, or of people you follow) and a trip photo for each town. */
+async function decoratePlaces(supabase: Supabase, groups: { circle: "friends" | "network"; places: PlaceForYou[] }[], known = new Map<string, Person>()) {
+  const who = (p: PlaceForYou, circle: "friends" | "network") => (circle === "friends" ? p.friends : p.network);
+  const faceIds = [...new Set(groups.flatMap((g) => g.places.flatMap((p) => who(p, g.circle).slice(0, 3))))].filter((id) => !known.has(id));
+  const cityIds = groups.flatMap((g) => g.places.flatMap((p) => p.cityIds.slice(0, 20)));
+  const [{ data: faces }, { data: photos }] = await Promise.all([
+    faceIds.length ? supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", faceIds) : Promise.resolve({ data: [] as Person[] }),
+    cityIds.length
+      ? signMedia(await supabase.from("country_media").select("city_id, public_url").in("city_id", cityIds.slice(0, 1000)).eq("media_type", "image").limit(400))
+      : Promise.resolve({ data: [] as { city_id: string; public_url: string }[] }),
+  ]);
+  for (const f of faces ?? []) known.set(f.id, f as Person);
+  const photoByCity = new Map<string, string>();
+  for (const m of (photos ?? []) as { city_id: string; public_url: string }[]) if (!photoByCity.has(m.city_id)) photoByCity.set(m.city_id, m.public_url);
+  const cards = groups.map((g) =>
+    g.places.map(
+      (p): PlaceCard => ({
+        ...p,
+        circle: g.circle,
+        faces: who(p, g.circle)
+          .slice(0, 3)
+          .map((id) => known.get(id))
+          .filter((x): x is Person => !!x),
+        photo: p.cityIds.map((id) => photoByCity.get(id)).find(Boolean) ?? null,
+      })
+    )
+  );
+  return { cards, faceById: known };
+}
+
+/** All the towns your friends, and the wider network you follow, have been to — for "See all". */
+export async function loadNetworkPlaces(supabase: Supabase, viewerId: string): Promise<{ friends: PlaceCard[]; network: PlaceCard[] }> {
+  const circle = await viewerCircle(supabase, viewerId);
+  if (circle.following.size === 0) return { friends: [], network: [] };
+  const [{ data: townRows }, { data: blocked }] = await Promise.all([
+    supabase.from("country_cities").select(TOWNS_QUERY).limit(5000),
+    supabase.from("blocks").select("blocked_id").eq("blocker_id", viewerId),
+  ]);
+  const towns = parseTowns(townRows, new Set((blocked ?? []).map((b) => b.blocked_id)), viewerId);
+  const dreamCountries = new Set(circle.dreams.map((w) => w.country_code));
+  const dreamTowns = new Set(circle.dreams.filter((w) => w.place_name).map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
+  const ranked = placesForYou(towns, { id: viewerId, following: circle.following, friends: circle.friends, dreamCountries, dreamTowns }, Infinity);
+  const { friends, network } = splitPlaces(ranked, 120);
+  const { cards } = await decoratePlaces(supabase, [
+    { circle: "friends", places: friends },
+    { circle: "network", places: network },
+  ]);
+  return { friends: cards[0], network: cards[1] };
+}
 
 export async function loadNetworkHome(supabase: Supabase, viewerId: string): Promise<NetworkHome> {
   const circle = await viewerCircle(supabase, viewerId);
   const [{ data: townRows }, { data: countryRows }, { data: liveData }, { data: blocked }] = await Promise.all([
-    supabase
-      .from("country_cities")
-      .select("id, city_name, lat, lng, visited_countries!inner(user_id, country_code, is_public), country_visits(kind)")
-      .limit(5000),
+    supabase.from("country_cities").select(TOWNS_QUERY).limit(5000),
     supabase.from("visited_countries").select("user_id, country_code").limit(5000),
     supabase.from("events").select("id, user_id, event_type, title, spotify_artist_name, spotify_artist_image, event_date").in("event_type", [...LIVE_TYPES]).limit(3000),
     supabase.from("blocks").select("blocked_id").eq("blocker_id", viewerId),
   ]);
   const blockedIds = new Set((blocked ?? []).map((b) => b.blocked_id));
 
-  type Raw = { id: string; city_name: string; lat: number | null; lng: number | null; visited_countries: unknown; country_visits: unknown };
-  const one = <T,>(x: unknown) => (Array.isArray(x) ? x[0] : x) as T | undefined;
-  const towns: (TownRow & { lived: boolean })[] = [];
-  for (const r of (townRows ?? []) as Raw[]) {
-    const vc = one<{ user_id: string; country_code: string; is_public: boolean }>(r.visited_countries);
-    if (!vc || blockedIds.has(vc.user_id) || (!vc.is_public && vc.user_id !== viewerId)) continue;
-    towns.push({ userId: vc.user_id, country: vc.country_code, town: r.city_name, lat: r.lat, lng: r.lng, cityId: r.id, lived: one<{ kind: string }>(r.country_visits)?.kind === "lived" });
-  }
+  const towns = parseTowns(townRows, blockedIds, viewerId);
 
   const dreamCountries = new Set(circle.dreams.map((w) => w.country_code));
   const dreamTowns = new Set(circle.dreams.filter((w) => w.place_name).map((w) => `${w.country_code}:${placeKey(w.place_name)}`));
-  const places = placesForYou(towns, { id: viewerId, following: circle.following, dreamCountries, dreamTowns }, 10);
+  const ranked = placesForYou(towns, { id: viewerId, following: circle.following, friends: circle.friends, dreamCountries, dreamTowns }, Infinity);
+  const split = splitPlaces(ranked, 10);
 
   // ---- People you may want to meet
   const countriesOf = new Map<string, Set<string>>();
@@ -194,25 +267,13 @@ export async function loadNetworkHome(supabase: Supabase, viewerId: string): Pro
   people.sort((a, b) => b.score - a.score);
 
   // ---- Faces and photos for the place cards
-  const faceIds = [...new Set(places.flatMap((p) => (p.network.length ? p.network : p.people).slice(0, 3)))];
-  const cityIds = places.flatMap((p) => p.cityIds.slice(0, 20));
-  const [{ data: faces }, { data: photos }] = await Promise.all([
-    faceIds.length ? supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", faceIds) : Promise.resolve({ data: [] as Person[] }),
-    cityIds.length
-      ? signMedia(await supabase.from("country_media").select("city_id, public_url").in("city_id", cityIds).eq("media_type", "image").limit(200))
-      : Promise.resolve({ data: [] as { city_id: string; public_url: string }[] }),
+  const {
+    cards: [friendPlaces, networkPlaces],
+    faceById,
+  } = await decoratePlaces(supabase, [
+    { circle: "friends", places: split.friends },
+    { circle: "network", places: split.network },
   ]);
-  const faceById = new Map((faces ?? []).map((f) => [f.id, f as Person]));
-  const photoByCity = new Map<string, string>();
-  for (const m of (photos ?? []) as { city_id: string; public_url: string }[]) if (!photoByCity.has(m.city_id)) photoByCity.set(m.city_id, m.public_url);
-  const cards: PlaceCard[] = places.map((p) => ({
-    ...p,
-    faces: (p.network.length ? p.network : p.people)
-      .slice(0, 3)
-      .map((id) => faceById.get(id))
-      .filter((x): x is Person => !!x),
-    photo: p.cityIds.map((id) => photoByCity.get(id)).find(Boolean) ?? null,
-  }));
 
   // ---- Ideas for your next trip: countries your network knows and you don't
   const mineCountries = countriesOf.get(viewerId) ?? new Set<string>();
@@ -264,7 +325,7 @@ export async function loadNetworkHome(supabase: Supabase, viewerId: string): Pro
       .filter((x): x is Person => !!x),
   }));
 
-  return { places: cards, people: topPeople, ideas, dreams: circle.dreams };
+  return { friendPlaces, networkPlaces, people: topPeople, ideas, dreams: circle.dreams };
 }
 
 /** The rows for a country's or town's page: circles first, then everyone you can see. */

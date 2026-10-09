@@ -210,16 +210,17 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
     <div className="mx-auto max-w-shell px-5 py-10 md:py-12">
       <p className="eyebrow">Explore</p>
       <h1 className="mt-2 text-4xl md:text-5xl">Explore your next memory.</h1>
-      <p className="mt-3 max-w-xl text-muted">What&rsquo;s on around you, the people whose world overlaps yours, and the nights everyone is logging.</p>
+      <p className="mt-3 max-w-xl text-muted">What&rsquo;s on around you, the people whose world overlaps yours, and the events everyone is logging.</p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <ExploreCity place={here?.place ?? null} picked={picked} />
-        <form action="/explore" method="GET" className="min-w-[16rem] flex-1 sm:max-w-md">
-          <div className="relative">
-            <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
-            <input type="search" name="q" defaultValue={q} placeholder="Search people, places or artists…" aria-label="Search" className="field !pl-10" />
-          </div>
-        </form>
+        <ExploreCity place={here?.place ?? null} picked={picked}>
+          <form action="/explore" method="GET" className="min-w-[16rem] flex-1 sm:max-w-md">
+            <div className="relative">
+              <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+              <input type="search" name="q" defaultValue={q} placeholder="Search people, places or artists…" aria-label="Search" className="field !pl-10" />
+            </div>
+          </form>
+        </ExploreCity>
       </div>
 
       {q ? (
@@ -295,7 +296,7 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
 
           {data.clickWith.length > 0 ? (
             <section className="mt-12" aria-labelledby="cw-h">
-              <SectionHead id="cw-h" icon={Users} title="People you may click with" sub="Their map and nights out overlap yours the most." />
+              <SectionHead id="cw-h" icon={Users} title="People you may click with" sub="Their map and events overlap yours the most." />
               <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {data.clickWith.map((p, i) => (
                   <li key={p.id} className="card flex items-start gap-4 px-4 py-4">

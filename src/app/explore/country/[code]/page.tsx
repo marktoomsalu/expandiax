@@ -154,7 +154,7 @@ export default async function CountryHubPage({ params }: { params: { code: strin
         {live.length > 0 && (
           <section className="mt-12" aria-labelledby="lv-h">
             <h2 id="lv-h" className="flex items-center gap-2 text-2xl">
-              <Flame size={20} className="text-accent" aria-hidden /> Nights people logged here
+              <Flame size={20} className="text-accent" aria-hidden /> Events people logged here
             </h2>
             <ul className="mt-4 flex flex-wrap gap-2.5">
               {live.map((t) => (
