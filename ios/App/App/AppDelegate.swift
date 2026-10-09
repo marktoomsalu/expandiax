@@ -68,7 +68,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 /// Capacitor's web view controller, plus iOS's own swipe from the left edge
 /// to go back, like in Safari. It walks the web view's history, which holds
 /// every in-app page change, so it returns to wherever you just were.
-@objc(MainViewController)
 class MainViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         webView?.allowsBackForwardNavigationGestures = true
