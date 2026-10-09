@@ -221,7 +221,7 @@ export default async function PublicCountryPage({
                     {visitPhotos.length > 0 && (
                       <div className="mt-3">
                         <PhotoGallery
-                          photos={visitPhotos.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || `Photo from this trip to ${meta.name}` }))}
+                          photos={visitPhotos.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || `Photo from this trip to ${meta.name}`, type: m.media_type }))}
                           gridClassName="grid grid-cols-3 gap-2"
                           itemClassName="relative aspect-square w-full overflow-hidden rounded-lg border border-line"
                           sizes="33vw"

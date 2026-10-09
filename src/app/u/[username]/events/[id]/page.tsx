@@ -14,6 +14,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { CommentSection } from "@/components/CommentSection";
 import { IWasThereButton } from "@/components/IWasThereButton";
+import { PhotoGallery } from "@/components/PhotoGallery";
 import { ArtistUpcomingShows } from "@/components/UpcomingShows";
 import { formatDate } from "@/lib/utils";
 import { focalPosition } from "@/lib/media";
@@ -100,9 +101,8 @@ export default async function PublicEventPage({
 
   const media = [...event.event_media].sort((a, b) => a.display_order - b.display_order);
   const images = media.filter((m) => m.media_type === "image");
-  const videos = media.filter((m) => m.media_type === "video");
   const cover = media.find((m) => m.id === event.cover_media_id) ?? images[0];
-  const galleryImages = images.filter((m) => m.id !== cover?.id);
+  const gallery = media.filter((m) => m.id !== cover?.id);
   const meta = countryByCode(event.country_code);
   const typeMeta = eventTypeMeta(event.event_type);
   const TypeIcon = typeMeta.icon;
@@ -163,6 +163,7 @@ export default async function PublicEventPage({
                   spotify_artist_id: event.spotify_artist_id,
                   spotify_artist_name: event.spotify_artist_name,
                   spotify_artist_image: event.spotify_artist_image,
+                  from: profile.display_name.split(" ")[0],
                 }}
               />
             )
@@ -195,35 +196,17 @@ export default async function PublicEventPage({
           )}
         </dl>
 
-        {galleryImages.length > 0 && (
-          <section className="mt-10" aria-label="Photo gallery">
-            <div className="grid grid-cols-2 gap-3">
-              {galleryImages.map((m) => (
-                <div key={m.id} className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-line">
-                  <Image
-                    src={m.public_url}
-                    alt={m.caption || event.title}
-                    fill
-                    sizes="50vw"
-                    loading="lazy"
-                    className="object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {videos.length > 0 && (
-          <section className="mt-10" aria-label="Videos">
-            <div className="space-y-5">
-              {videos.map((m) => (
-                <figure key={m.id}>
-                  <video src={m.public_url} controls preload="metadata" className="w-full rounded-lg border border-line bg-black" />
-                  {m.caption && <figcaption className="mt-1.5 text-xs text-muted">{m.caption}</figcaption>}
-                </figure>
-              ))}
-            </div>
+        {gallery.length > 0 && (
+          <section className="mt-10" aria-label="Photos and videos">
+            {/* Photos and videos together, in the order they were added, as
+                even tiles — a full-width video in a column of small photos
+                read as a mismatch. */}
+            <PhotoGallery
+              photos={gallery.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || event.title, type: m.media_type }))}
+              gridClassName={`grid gap-1.5 ${gallery.length === 1 ? "grid-cols-1" : gallery.length === 2 || gallery.length === 4 ? "grid-cols-2" : "grid-cols-3"}`}
+              itemClassName={`relative w-full overflow-hidden rounded-lg bg-raised ${gallery.length === 1 ? "aspect-[4/3]" : "aspect-square"}`}
+              sizes={gallery.length === 1 ? "(min-width: 768px) 720px, 100vw" : "(min-width: 768px) 240px, 33vw"}
+            />
           </section>
         )}
 

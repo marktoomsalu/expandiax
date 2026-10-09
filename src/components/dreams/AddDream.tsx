@@ -78,7 +78,7 @@ export function AddDream() {
       <label htmlFor="dream-search" className="sr-only">Add a dream place</label>
       <input
         id="dream-search"
-        className="field !rounded-full !py-2.5 !pl-10 !pr-10 text-sm"
+        className="field !rounded-full !py-2.5 !pl-10 !pr-10"
         placeholder="Add a dream - a town or a country"
         value={query}
         onChange={(e) => setQuery(e.target.value)}

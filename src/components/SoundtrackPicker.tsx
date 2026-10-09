@@ -102,7 +102,7 @@ export function SoundtrackPicker({ table, recordId, initialTrackId }: Props) {
         <input
           type="text"
           placeholder="Search for a song or artist…"
-          className="field !py-1.5 pl-8 text-sm"
+          className="field !py-1.5 pl-8"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

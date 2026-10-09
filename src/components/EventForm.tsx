@@ -78,6 +78,8 @@ export function EventForm({
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const coverIndex = useBestCover(pendingMedia.filter((p) => p.kind === "image").map((p) => p.file));
+  // Set when the details came from someone else's memory ("I was there").
+  const [prefilledFrom, setPrefilledFrom] = useState<string | null>(null);
 
   // "I was there" hands off shared facts from someone else's event via
   // sessionStorage (src/lib/eventPrefill.ts) — only relevant the moment a
@@ -86,6 +88,7 @@ export function EventForm({
     if (event) return;
     const prefill = loadAndClearPrefill();
     if (!prefill) return;
+    setPrefilledFrom(prefill.from ?? "");
     setF((cur) => ({
       ...cur,
       event_type: prefill.event_type,
@@ -119,6 +122,8 @@ export function EventForm({
   // Best-effort date prefill from the first photo's EXIF — never blocks adding.
   // The photo's local day (not UTC, which could shift it to the day before).
   async function prefillDateFromPhoto(file: File) {
+    // A date taken from the event itself beats a photo's.
+    if (prefilledFrom !== null) return;
     const day = await photoDay(file);
     if (day) set("event_date", day);
   }
@@ -208,6 +213,11 @@ export function EventForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-8">
+      {prefilledFrom !== null && (
+        <p className="rounded-xl border border-accent/30 bg-accent-soft/50 px-4 py-3 text-sm">
+          The details are filled in{prefilledFrom ? ` from ${prefilledFrom}’s memory` : ""} - add your own photos and rating.
+        </p>
+      )}
       <section>
         <p className="eyebrow mb-3">Photos & videos</p>
         {event ? (

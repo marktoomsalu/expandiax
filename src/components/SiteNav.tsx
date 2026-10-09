@@ -52,12 +52,13 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
       <header className="sticky top-0 z-40 border-b border-white/10 bg-brand-purple/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex h-14 max-w-shell items-center justify-between px-5">
           <Wordmark linked={!signingUp} />
-          <div className="flex items-center gap-3">
+          {/* 44pt tap targets (Apple's minimum) — the icons stay small. */}
+          <div className="-mr-1.5 flex items-center gap-1.5">
             {user && (
-              <Link href="/notifications" aria-label="Notifications" className="relative text-white/70 hover:text-white">
-                <Bell size={19} />
+              <Link href="/notifications" aria-label="Notifications" className="relative flex h-11 w-11 items-center justify-center text-white/70 hover:text-white">
+                <Bell size={21} />
                 {unreadNotifications > 0 && (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-semibold text-white">
+                  <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-semibold text-white">
                     {unreadNotifications > 9 ? "9+" : unreadNotifications}
                   </span>
                 )}
@@ -66,7 +67,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
             <ThemeToggle variant="onPurple" />
             {!user && (
               <>
-                <Link href="/sign-in" className="font-sans text-sm text-white/70 hover:text-white">
+                <Link href="/sign-in" className="px-2 py-3 font-sans text-sm text-white/70 hover:text-white">
                   Sign in
                 </Link>
                 {!signingUp && (

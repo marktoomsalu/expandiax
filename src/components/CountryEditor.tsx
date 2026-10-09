@@ -189,7 +189,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
         <input
           id="first-title"
           type="text"
-          className="field mt-2 !py-1.5 w-full text-sm"
+          className="field mt-2 !py-1.5 w-full"
           maxLength={80}
           placeholder={kind === "lived" ? "Name - optional, e.g. My Ljubljana years" : `Name - optional, e.g. ${meta.name} Road Trip`}
           value={shownTitle}
@@ -249,7 +249,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
           id="first-highlight"
           type="text"
           placeholder="Optional - add more after"
-          className="field !py-1.5 w-full text-sm"
+          className="field !py-1.5 w-full"
           maxLength={1000}
           value={highlight}
           onChange={(e) => setHighlight(e.target.value)}
@@ -463,7 +463,7 @@ export function CountryEditor({ data, meta, trips }: { data: VisitedCountryFull;
               <input
                 id="add-title"
                 type="text"
-                className="field mt-2 !py-1.5 w-full text-sm"
+                className="field mt-2 !py-1.5 w-full"
                 maxLength={80}
                 placeholder={kind === "lived" ? "Name - optional, e.g. My Ljubljana years" : `Name - optional, e.g. ${meta.name} Road Trip`}
                 value={shownTitle}
@@ -523,7 +523,7 @@ export function CountryEditor({ data, meta, trips }: { data: VisitedCountryFull;
                 id="highlight-input"
                 type="text"
                 placeholder="Optional - add more on its page after"
-                className="field !py-1.5 w-full text-sm"
+                className="field !py-1.5 w-full"
                 maxLength={1000}
                 value={highlight}
                 onChange={(e) => setHighlight(e.target.value)}

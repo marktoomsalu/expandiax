@@ -86,7 +86,7 @@ function PlaceSearch({
         <label htmlFor={id} className="sr-only">{placeholder}</label>
         <input
           id={id}
-          className="field min-w-0 flex-1 !py-2 !pl-9 text-sm"
+          className="field min-w-0 flex-1 !py-2 !pl-9"
           placeholder={placeholder}
           value={query}
           autoFocus={autoFocus}
@@ -270,7 +270,7 @@ export function TripPlacesEditor({
                   type="date"
                   aria-label={`Arrived in ${p.city_name}`}
                   title="Arrived"
-                  className="field min-w-[9rem] flex-1 !py-2 text-sm"
+                  className="field min-w-[9rem] flex-1 !py-2"
                   value={p.arrived ?? ""}
                   onChange={(e) => setDates(p.id, "arrived", e.target.value)}
                 />
@@ -278,7 +278,7 @@ export function TripPlacesEditor({
                   type="date"
                   aria-label={`Left ${p.city_name}`}
                   title="Left"
-                  className="field min-w-[9rem] flex-1 !py-2 text-sm"
+                  className="field min-w-[9rem] flex-1 !py-2"
                   value={p.departed ?? ""}
                   onChange={(e) => setDates(p.id, "departed", e.target.value)}
                 />

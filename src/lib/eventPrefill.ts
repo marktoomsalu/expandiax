@@ -15,6 +15,8 @@ export type EventPrefill = {
   spotify_artist_id: string | null;
   spotify_artist_name: string | null;
   spotify_artist_image: string | null;
+  /** Whose memory it came from ("Mark"), to say so on the form. */
+  from?: string;
 };
 
 const STORAGE_KEY = "expandiax:event-prefill";

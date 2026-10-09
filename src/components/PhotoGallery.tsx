@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Play } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MediaViewer, type ViewerItem } from "./MediaViewer";
 
-export type GalleryPhoto = { id: string; url: string; alt: string };
+export type GalleryPhoto = ViewerItem;
 
+/** A grid of photos and videos; tapping one opens it full screen (MediaViewer). */
 export function PhotoGallery({
   photos,
   gridClassName,
@@ -23,17 +25,6 @@ export function PhotoGallery({
 }) {
   const [index, setIndex] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (index === null) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setIndex(null);
-      if (e.key === "ArrowLeft") setIndex((i) => (i === null ? null : (i - 1 + photos.length) % photos.length));
-      if (e.key === "ArrowRight") setIndex((i) => (i === null ? null : (i + 1) % photos.length));
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [index, photos.length]);
-
   if (photos.length === 0) return null;
 
   return (
@@ -45,9 +36,21 @@ export function PhotoGallery({
             type="button"
             onClick={() => setIndex(i)}
             className={cn(itemClassName, "group cursor-zoom-in")}
-            aria-label={`View photo ${i + 1} of ${photos.length}`}
+            aria-label={`View ${p.type === "video" ? "video" : "photo"} ${i + 1} of ${photos.length}`}
           >
-            <Image src={p.url} alt={p.alt} fill sizes={sizes} loading="lazy" className="object-cover transition-opacity group-hover:opacity-90" />
+            {p.type === "video" ? (
+              <>
+                {/* The first frame stands in for a poster. */}
+                <video src={`${p.url}#t=0.1`} preload="metadata" muted playsInline className="pointer-events-none h-full w-full bg-black object-cover" />
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/35 text-white ring-1 ring-white/40 backdrop-blur">
+                    <Play size={17} className="translate-x-px fill-white" aria-hidden />
+                  </span>
+                </span>
+              </>
+            ) : (
+              <Image src={p.url} alt={p.alt} fill sizes={sizes} loading="lazy" className="object-cover transition-opacity group-hover:opacity-90" />
+            )}
             {coverId === p.id && (
               <span className="absolute left-1.5 top-1.5 rounded-full bg-canvas/90 px-2 py-0.5 text-[0.5625rem] font-semibold uppercase tracking-wide text-accent">
                 Cover
@@ -57,53 +60,7 @@ export function PhotoGallery({
         ))}
       </div>
 
-      {index !== null && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Photo viewer"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setIndex(null)}
-        >
-          <button
-            type="button"
-            aria-label="Close"
-            className="absolute right-4 top-4 z-10 text-white/80 hover:text-white"
-            onClick={() => setIndex(null)}
-          >
-            <X size={28} />
-          </button>
-          {photos.length > 1 && (
-            <>
-              <button
-                type="button"
-                aria-label="Previous photo"
-                className="absolute left-2 top-1/2 z-10 -translate-y-1/2 p-2 text-white/80 hover:text-white sm:left-4"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIndex((i) => (i === null ? null : (i - 1 + photos.length) % photos.length));
-                }}
-              >
-                <ChevronLeft size={32} />
-              </button>
-              <button
-                type="button"
-                aria-label="Next photo"
-                className="absolute right-2 top-1/2 z-10 -translate-y-1/2 p-2 text-white/80 hover:text-white sm:right-4"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIndex((i) => (i === null ? null : (i + 1) % photos.length));
-                }}
-              >
-                <ChevronRight size={32} />
-              </button>
-            </>
-          )}
-          <div className="relative h-full max-h-[85vh] w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
-            <Image src={photos[index].url} alt={photos[index].alt} fill sizes="100vw" className="object-contain" />
-          </div>
-        </div>
-      )}
+      {index !== null && <MediaViewer items={photos} start={index} onClose={() => setIndex(null)} />}
     </>
   );
 }

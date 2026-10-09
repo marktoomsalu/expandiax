@@ -68,7 +68,7 @@ export function VisitDateFields({
         {precision === "month" && (
           <>
             <label htmlFor="month-input" className="sr-only">Month</label>
-            <select id="month-input" className="field !w-36 !py-2 text-sm" value={month} onChange={(e) => onMonthChange(e.target.value)}>
+            <select id="month-input" className="field !w-36 !py-2" value={month} onChange={(e) => onMonthChange(e.target.value)}>
               <option value="">Month</option>
               {MONTH_NAMES.map((name, i) => (
                 <option key={name} value={String(i + 1).padStart(2, "0")}>{name}</option>
@@ -84,7 +84,7 @@ export function VisitDateFields({
               id="date-from-input"
               type="date"
               title="From date"
-              className="field min-w-[9rem] flex-1 !py-2 text-sm"
+              className="field min-w-[9rem] flex-1 !py-2"
               value={visitedFrom}
               onChange={(e) => {
                 onVisitedFromChange(e.target.value);
@@ -96,7 +96,7 @@ export function VisitDateFields({
               id="date-to-input"
               type="date"
               title="To date (optional)"
-              className="field min-w-[9rem] flex-1 !py-2 text-sm"
+              className="field min-w-[9rem] flex-1 !py-2"
               value={visitedTo}
               onChange={(e) => onVisitedToChange(e.target.value)}
             />

@@ -89,7 +89,7 @@ export function AddDreamEvent() {
         <label htmlFor="dream-event" className="sr-only">Add a dream event</label>
         <input
           id="dream-event"
-          className="field !rounded-full !py-2.5 !pl-10 !pr-10 text-sm"
+          className="field !rounded-full !py-2.5 !pl-10 !pr-10"
           placeholder={type === "concert" ? "An artist you dream of seeing live" : type === "sport" ? "e.g. Ironman Hawaii, the World Cup final" : type === "festival" ? "e.g. Tomorrowland, Glastonbury" : "Name it"}
           value={query}
           onChange={(e) => setQuery(e.target.value)}

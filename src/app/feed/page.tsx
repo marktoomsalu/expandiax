@@ -6,9 +6,7 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
 import { FeedExplore } from "@/components/network/FeedExplore";
-import { DreamButton } from "@/components/network/DreamButton";
 import { FeedTabs, SearchBox } from "@/components/feed/FeedTabs";
-import { liveKey } from "@/lib/explore";
 import { CommentSection } from "@/components/CommentSection";
 import { FeedMemoryCard, type FeedMediaItem } from "@/components/FeedMemoryCard";
 import { countryByCode } from "@/lib/countries";
@@ -52,7 +50,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const q = (searchParams?.q ?? "").replace(/[%,()*\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
 
   // Everything that only needs who you are, in one round trip's time.
-  const [{ data: followingRows }, { data: viewerProfile }, { data: ownEventsRaw }, { data: ownCountriesRaw }, { data: dreamPlaces }, { data: dreamEvents }] = await Promise.all([
+  const [{ data: followingRows }, { data: viewerProfile }, { data: ownEventsRaw }, { data: ownCountriesRaw }] = await Promise.all([
     supabase.from("follows").select("followee_id").eq("follower_id", user.id),
     supabase.from("profiles").select("feed_last_seen_at, username, display_name, avatar_url, home_country_code").eq("id", user.id).single(),
     supabase
@@ -65,9 +63,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         "id, country_code, country_name, cover_media_id, is_favourite, country_media!country_media_visited_country_id_fkey(count), country_visits(year, visited_from, visited_to, date_precision)"
       )
       .eq("user_id", user.id),
-    // Your dreams, so each post's Dream it shows whether it's already one.
-    supabase.from("want_to_go").select("country_code, place_name"),
-    supabase.from("dream_events").select("name"),
   ]);
   const followeeIds = (followingRows ?? []).map((r) => r.followee_id);
   // Captured before the update below overwrites it — "new since your last
@@ -105,8 +100,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     );
   }
 
-  const dreamedPlaces = new Set((dreamPlaces ?? []).map((d) => `${d.country_code}:${d.place_name.toLowerCase()}`));
-  const dreamedEvents = new Set((dreamEvents ?? []).map((d) => liveKey(d.name)));
 
   // Searching your friends' posts: by place, title, words, or who.
   let searchActors: string[] = [];
@@ -273,26 +266,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           actor={actor}
           actionLabel={item.kind === "country" ? "added a country" :`logged a ${typeLabel}`}
           when={formatRelative(item.created_at)}
-          actions={
-            <>
-              <LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={likedByMe.has(key)} />
-              {item.kind === "event" ? (
-                <DreamButton
-                  variant="small"
-                  target={{ kind: "event", name: item.title, eventType: item.event_type ?? "other" }}
-                  initial={dreamedEvents.has(liveKey(item.title))}
-                  label={item.title}
-                />
-              ) : (
-                <DreamButton
-                  variant="small"
-                  target={{ kind: "place", countryCode: item.country_code, placeName: item.city ?? "" }}
-                  initial={dreamedPlaces.has(`${item.country_code}:${(item.city ?? "").toLowerCase()}`)}
-                  label={item.city || meta?.name || item.country_name || "this place"}
-                />
-              )}
-            </>
-          }
+          actions={<LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={likedByMe.has(key)} />}
         />
         <div className="border-t border-line px-4 py-3 sm:px-5">
           <CommentSection
@@ -309,7 +283,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   return (
     <div className="mx-auto max-w-2xl px-5 py-6">
       <FeedTabs tab="friends" />
-      <SearchBox action="/feed" placeholder="Search your friends' trips, places or moments…" defaultValue={q} />
+      <SearchBox action="/feed" placeholder="Search your friends' experiences…" defaultValue={q} />
 
       {q ? (
         <section className="mt-8" aria-labelledby="results-h">
@@ -362,7 +336,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
             </span>
             <span className="mt-2 font-serif text-lg">You&rsquo;re all caught up</span>
             <span className="text-xs text-muted">
-              {fresh.length > 0 ? "That's everything new from people you follow." : "Nothing new since your last visit."}
+              {fresh.length > 0 ? "That's everything new from people you follow." : "More memories are being made."}
             </span>
           </span>
           <span className="h-px flex-1 bg-line" aria-hidden />

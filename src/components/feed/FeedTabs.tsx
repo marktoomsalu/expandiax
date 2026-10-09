@@ -32,7 +32,7 @@ export function SearchBox({ action, placeholder, defaultValue, hidden }: { actio
       <label htmlFor={`search-${action}`} className="sr-only">
         {placeholder}
       </label>
-      <input id={`search-${action}`} name="q" type="search" defaultValue={defaultValue} placeholder={placeholder} className="field !rounded-full !py-2.5 !pl-11 text-sm" />
+      <input id={`search-${action}`} name="q" type="search" defaultValue={defaultValue} placeholder={placeholder} className="field !rounded-full !py-2.5 !pl-11" />
     </form>
   );
 }

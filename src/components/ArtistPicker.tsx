@@ -62,7 +62,7 @@ export function ArtistPicker({ value, onChange }: { value: SpotifyArtist | null;
         <input
           type="text"
           placeholder="Search for the artist on Spotify…"
-          className="field !py-1.5 pl-8 text-sm"
+          className="field !py-1.5 pl-8"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
