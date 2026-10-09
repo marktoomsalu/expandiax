@@ -2,12 +2,16 @@ import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ChevronRight, Compass, MapPin, Plane } from "lucide-react";
+import { RatingStars } from "../Rating";
+import { LocalCard, PopularCountryCard, TrendingCard } from "./ExploreCards";
+import { loadExplore } from "@/lib/exploreData";
+import type { Here } from "@/lib/location";
+import { formatDate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { slugify } from "@/lib/explore";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { loadNetworkHome, type PersonCard, type PlaceCard, type TripIdea } from "@/lib/experienceNetworkData";
-import type { NearbyWhere } from "@/lib/concerts";
 import { sourcesCredit } from "@/lib/eventSources";
 import { loadNetworkEvents, type NetworkEventCard } from "@/lib/networkEvents";
 import { flightTo, originFor, type Flight } from "@/lib/flights";
@@ -76,14 +80,14 @@ export function PlaceCardBig({ p, wide = false }: { p: PlaceCard; wide?: boolean
 }
 
 /** Someone a step ahead of you: where they've been, a glimpse of it, and a follow. */
-export function PersonCardWide({ p }: { p: PersonCard }) {
+export function PersonCardWide({ p, wide = false }: { p: PersonCard; wide?: boolean }) {
   const line = [p.headline, ...p.reasons]
     .filter(Boolean)
     .slice(0, 2)
     .map((r) => r!.text)
     .join(" · ");
   return (
-    <li className="flex w-[17rem] shrink-0 snap-start flex-col rounded-2xl border border-line bg-surface p-3 shadow-sm">
+    <li className={`flex flex-col rounded-2xl border border-line bg-surface p-3 shadow-sm ${wide ? "" : "w-[17rem] shrink-0 snap-start"}`}>
       <Link href={`/u/${p.username}`} className="group flex items-center gap-3">
         <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-serif text-lg text-accent">
           {p.avatar_url ? <Image src={p.avatar_url} alt="" fill sizes="48px" className="object-cover" /> : p.display_name.charAt(0)}
@@ -110,7 +114,7 @@ export function PersonCardWide({ p }: { p: PersonCard }) {
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
 /** "Coldplay · Milan — 4 friends interested": an upcoming event, with its date and a ♥. */
-export function EventCardSmall({ e }: { e: NetworkEventCard }) {
+export function EventCardSmall({ e, wide = false }: { e: NetworkEventCard; wide?: boolean }) {
   const n = e.friendIds.length;
   const where = [e.venue, e.city].filter(Boolean).join(", ");
   const card = (
@@ -142,7 +146,7 @@ export function EventCardSmall({ e }: { e: NetworkEventCard }) {
     </>
   );
   return (
-    <li className="relative w-44 shrink-0 snap-start overflow-hidden rounded-2xl border border-line bg-surface shadow-sm sm:w-48">
+    <li className={`relative overflow-hidden rounded-2xl border border-line bg-surface shadow-sm ${wide ? "" : "w-44 shrink-0 snap-start sm:w-48"}`}>
       {e.url ? (
         <a href={e.url} target="_blank" rel="noopener noreferrer" className="group block">
           {card}
@@ -158,13 +162,13 @@ export function EventCardSmall({ e }: { e: NetworkEventCard }) {
 }
 
 /** "Barcelona · 4 friends": smaller cards, for the next trip. */
-export function IdeaCard({ i, flight }: { i: TripIdea; flight?: React.ReactNode }) {
+export function IdeaCard({ i, flight, wide = false }: { i: TripIdea; flight?: React.ReactNode; wide?: boolean }) {
   const country = countryByCode(i.country);
   if (!country) return null;
   const stock = stockPhotoFor(i.country, "idea");
   const n = i.network || i.people;
   return (
-    <li className="w-40 shrink-0 snap-start sm:w-44">
+    <li className={wide ? "" : "w-40 shrink-0 snap-start sm:w-44"}>
       <Link href={`/explore/country/${i.country.toLowerCase()}`} className="group relative block aspect-[4/3] overflow-hidden rounded-2xl bg-[#14110d] ring-1 ring-black/5">
         {stock && <StockImage photo={stock} aspect="4:3" sizes="176px" className="transition-transform duration-500 group-hover:scale-105" />}
         <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" aria-hidden />
@@ -184,53 +188,86 @@ export function IdeaCard({ i, flight }: { i: TripIdea; flight?: React.ReactNode 
   );
 }
 
+/** "✈︎ from €90" for an idea card, arriving on its own so a slow price never holds up the cards. */
+export function IdeaFlight({ origin, country }: { origin: string | null; country: string }) {
+  return (
+    <Suspense fallback={null}>
+      <FlightPill origin={origin} country={country} />
+    </Suspense>
+  );
+}
+
+/** Keeps a city picked on Explore when following a "See all". */
+export function cityQuery(here: Here | null) {
+  if (here?.source !== "picked" || !("lat" in here.where)) return "";
+  const qs = new URLSearchParams({ city: here.place, lat: String(here.where.lat), lng: String(here.where.lng), ...(here.countryCode ? { cc: here.countryCode } : {}) });
+  return `?${qs}`;
+}
+
 /**
- * The Explore side of the feed: places your friends know, events your
- * network is into (or what's on near you), people a step ahead of you, and
- * ideas for your next trip.
+ * The Explore tab — all of Explore on one page: places your friends and
+ * your wider network know, what's on near you, people to meet, ideas for
+ * your next trip and what everyone's logging. Each row's "See all" opens
+ * the full list on a page of its own.
  */
 export function FeedExplore({
   viewerId,
-  where,
-  place,
+  here,
   homeCountry,
   children,
 }: {
   viewerId: string;
-  where: NearbyWhere | null;
-  place: string | null;
+  here: Here | null;
   homeCountry: string | null;
   children?: React.ReactNode;
 }) {
   const supabase = createClient();
-  // Both start at once; each section shows as soon as its own data is in.
+  // Everything starts at once; each section shows as soon as its own data is in.
   const home = loadNetworkHome(supabase, viewerId);
-  const events = loadNetworkEvents(supabase, viewerId, where);
-  const origin = originFor(where, homeCountry);
+  const events = loadNetworkEvents(supabase, viewerId, here?.where ?? null);
+  const explore = loadExplore(supabase, viewerId, here);
+  const origin = originFor(here?.where ?? null, homeCountry);
+  const city = cityQuery(here);
 
   return (
     <div className="mt-8 space-y-10">
       <Suspense fallback={<RowSkeleton title="Places your friends know" tall />}>
         <PlacesSection home={home} circle="friends" />
       </Suspense>
-      <Suspense fallback={<RowSkeleton title="Events your network is into" />}>
-        <EventsSection events={events} place={place} />
-      </Suspense>
       <Suspense fallback={null}>
         <PlacesSection home={home} circle="network" />
       </Suspense>
+      <Suspense fallback={<RowSkeleton title={here ? `What's on near ${here.place}` : "What's on"} />}>
+        <EventsSection events={events} here={here} city={city} />
+      </Suspense>
+      {children}
       <Suspense fallback={null}>
-        <PeopleAndIdeas home={home} origin={origin} />
+        <LocalsSection explore={explore} here={here} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <PeopleSection home={home} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <IdeasSection home={home} origin={origin} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <TrendingSection explore={explore} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <PopularSection explore={explore} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <FreshMemories viewerId={viewerId} />
       </Suspense>
       <Suspense fallback={null}>
         <EmptyNote home={home} events={events} />
       </Suspense>
-      {children}
     </div>
   );
 }
 
 type Home = Awaited<ReturnType<typeof loadNetworkHome>>;
+type Explore = Awaited<ReturnType<typeof loadExplore>>;
 
 /** A quiet stand-in while a row loads, the same size as the real one. */
 function RowSkeleton({ title, tall }: { title: string; tall?: boolean }) {
@@ -246,7 +283,7 @@ function RowSkeleton({ title, tall }: { title: string; tall?: boolean }) {
   );
 }
 
-const PLACE_ROWS = {
+export const PLACE_ROWS = {
   friends: { title: "Places your friends know", sub: "Where friends - people you follow who follow you back - have been." },
   network: { title: "Places your network has been to", sub: "Where others you follow have been." },
 };
@@ -259,7 +296,7 @@ async function PlacesSection({ home, circle }: { home: Promise<Home>; circle: "f
   const id = `pk-${circle}-h`;
   return (
     <section aria-labelledby={id}>
-      <Head id={id} title={PLACE_ROWS[circle].title} sub={PLACE_ROWS[circle].sub} href={`/explore/places?circle=${circle}`} />
+      <Head id={id} title={PLACE_ROWS[circle].title} sub={PLACE_ROWS[circle].sub} href={`/explore/places${circle === "network" ? "?circle=network" : ""}`} />
       <ul className={rail}>
         {places.map((p) => (
           <PlaceCardBig key={p.key} p={p} />
@@ -269,22 +306,19 @@ async function PlacesSection({ home, circle }: { home: Promise<Home>; circle: "f
   );
 }
 
-async function EventsSection({ events: pending, place }: { events: Promise<NetworkEventCard[]>; place: string | null }) {
+async function EventsSection({ events: pending, here, city }: { events: Promise<NetworkEventCard[]>; here: Here | null; city: string }) {
   const events = await pending;
   if (!events.length) return null;
   return (
     <section aria-labelledby="evn-h">
-      <Head id="evn-h" title="Events your network is into" sub="Concerts, sport, meetups and more." href="/explore#near-h" />
-      {place && (
-        <p className="mt-1 flex items-center gap-1 text-[11px] text-muted">
-          <MapPin size={11} aria-hidden /> Near {place} ·{" "}
-          <Link href="/explore" className="font-medium text-accent hover:underline">
-            Change
-          </Link>
-        </p>
-      )}
+      <Head
+        id="evn-h"
+        title={here ? `What's on near ${here.place}` : "What's on"}
+        sub="Concerts, sport and shows - and what people you follow are going to."
+        href={`/explore/events${city}`}
+      />
       <ul className={rail}>
-        {events.map((e) => (
+        {events.slice(0, 12).map((e) => (
           <EventCardSmall key={e.key} e={e} />
         ))}
       </ul>
@@ -293,41 +327,117 @@ async function EventsSection({ events: pending, place }: { events: Promise<Netwo
   );
 }
 
-async function PeopleAndIdeas({ home, origin }: { home: Promise<Home>; origin: string | null }) {
-  const { people, ideas } = await home;
+async function LocalsSection({ explore, here }: { explore: Promise<Explore>; here: Here | null }) {
+  const { locals } = await explore;
+  if (!here || locals.length === 0) return null;
   return (
-    <>
-      {people.length > 0 && (
-        <section aria-labelledby="osa-h">
-          <Head id="osa-h" title="People one step ahead" sub="Meet people with similar travel interests." href="/explore#cw-h" />
-          <ul className={rail}>
-            {people.map((p) => (
-              <PersonCardWide key={p.id} p={p} />
-            ))}
-          </ul>
-        </section>
-      )}
-      {ideas.length > 0 && (
-        <section aria-labelledby="idea-h">
-          <Head id="idea-h" title="Ideas for your next trip" sub="Countries your network knows - and you don't, yet." href="/explore#pl-h" />
-          <ul className={rail}>
-            {ideas.map((i) => (
-              <IdeaCard
-                key={i.country}
-                i={i}
-                flight={
-                  // Each price arrives on its own, so a slow one never holds up the cards.
-                  <Suspense fallback={null}>
-                    <FlightPill origin={origin} country={i.country} />
-                  </Suspense>
-                }
-              />
-            ))}
-          </ul>
-          <PartnerNote className="mt-1" />
-        </section>
-      )}
-    </>
+    <section aria-labelledby="lo-h">
+      <Head id="lo-h" title={`Travellers who know ${here.city ?? here.place}`} sub="People who've been here - ask them where to go." />
+      <div className={rail}>
+        {locals.map((p) => (
+          <LocalCard key={p.id} p={p} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+async function PeopleSection({ home }: { home: Promise<Home> }) {
+  const { people } = await home;
+  if (!people.length) return null;
+  return (
+    <section aria-labelledby="osa-h">
+      <Head id="osa-h" title="People you may click with" sub="Travellers whose places and events overlap yours." href="/explore/people" />
+      <ul className={rail}>
+        {people.map((p) => (
+          <PersonCardWide key={p.id} p={p} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+async function IdeasSection({ home, origin }: { home: Promise<Home>; origin: string | null }) {
+  const { ideas } = await home;
+  if (!ideas.length) return null;
+  return (
+    <section aria-labelledby="idea-h">
+      <Head id="idea-h" title="Ideas for your next trip" sub="Countries your network knows - and you don't, yet." href="/explore/ideas" />
+      <ul className={rail}>
+        {ideas.map((i) => (
+          <IdeaCard key={i.country} i={i} flight={<IdeaFlight origin={origin} country={i.country} />} />
+        ))}
+      </ul>
+      <PartnerNote className="mt-1" />
+    </section>
+  );
+}
+
+async function TrendingSection({ explore }: { explore: Promise<Explore> }) {
+  const { trending } = await explore;
+  if (!trending.length) return null;
+  return (
+    <section aria-labelledby="tr-h">
+      <Head id="tr-h" title="Trending memories" sub="The artists and events people are logging most." href="/explore/trending" />
+      <div className={rail}>
+        {trending.map((t) => (
+          <TrendingCard key={t.key} t={t} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+async function PopularSection({ explore }: { explore: Promise<Explore> }) {
+  const { places } = await explore;
+  if (!places.length) return null;
+  return (
+    <section aria-labelledby="pl-h">
+      <Head id="pl-h" title="Popular places" sub="Where travellers on ExpandiaX have been." />
+      <div className={rail}>
+        {places.map((p) => (
+          <PopularCountryCard key={p.code} code={p.code} travellers={p.travellers} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+type FreshEvent = { id: string; title: string; subtitle: string; event_date: string; city: string; country_name: string; rating: number | null; profiles: unknown };
+
+/** The newest public event memories from anyone. */
+async function FreshMemories({ viewerId }: { viewerId: string }) {
+  const { data } = await createClient()
+    .from("events")
+    .select("id, title, subtitle, event_date, city, country_name, rating, profiles(username, display_name)")
+    .eq("is_public", true)
+    .neq("user_id", viewerId)
+    .order("created_at", { ascending: false })
+    .limit(6);
+  const rows = ((data ?? []) as FreshEvent[])
+    .map((e) => ({ e, p: (Array.isArray(e.profiles) ? e.profiles[0] : e.profiles) as { username: string; display_name: string } | null }))
+    .filter((r) => r.p);
+  if (!rows.length) return null;
+  return (
+    <section aria-labelledby="cc-h">
+      <Head id="cc-h" title="Fresh event memories" sub="What people have just added." />
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        {rows.map(({ e, p }) => (
+          <li key={e.id}>
+            <Link href={`/u/${p!.username}/events/${e.id}`} className="card group block px-4 py-4">
+              <p className="font-serif text-lg group-hover:text-accent">{e.title}</p>
+              {e.subtitle && <p className="text-sm italic text-muted">{e.subtitle}</p>}
+              <p className="mt-1.5 text-xs text-muted">
+                {formatDate(e.event_date)} · {[e.city, e.country_name].filter(Boolean).join(", ")} · by {p!.display_name}
+              </p>
+              <div className="mt-2">
+                <RatingStars value={e.rating} size={13} />
+              </div>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -354,15 +464,14 @@ async function EmptyNote({ home, events }: { home: Promise<Home>; events: Promis
   const [{ friendPlaces, networkPlaces, people, ideas }, list] = await Promise.all([home, events]);
   if (friendPlaces.length || networkPlaces.length || people.length || ideas.length || list.length) return null;
   return (
-    <Link href="/explore" className="card flex items-center gap-3 px-4 py-4 transition-shadow hover:shadow-md">
+    <div className="card flex items-center gap-3 px-4 py-4">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
         <Compass size={18} aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium">This fills up as people you follow add trips</span>
-        <span className="block text-xs text-muted">Meanwhile, see where travellers on ExpandiaX have been.</span>
+        <span className="block text-xs text-muted">Meanwhile, search for people and places above.</span>
       </span>
-      <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
-    </Link>
+    </div>
   );
 }

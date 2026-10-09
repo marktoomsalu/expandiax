@@ -21,10 +21,10 @@ export function FeedTabs({ tab }: { tab: "friends" | "explore" }) {
   );
 }
 
-/** A rounded search field that sends its query to `action`. */
-export function SearchBox({ action, placeholder, defaultValue, hidden }: { action: string; placeholder: string; defaultValue?: string; hidden?: Record<string, string> }) {
+/** A rounded search field that sends its query to `action` — `flush` drops its top margin, for sitting in a row. */
+export function SearchBox({ action, placeholder, defaultValue, hidden, flush = false }: { action: string; placeholder: string; defaultValue?: string; hidden?: Record<string, string>; flush?: boolean }) {
   return (
-    <form action={action} role="search" className="relative mt-3">
+    <form action={action} role="search" className={flush ? "relative" : "relative mt-3"}>
       {Object.entries(hidden ?? {}).map(([k, v]) => (
         <input key={k} type="hidden" name={k} value={v} />
       ))}

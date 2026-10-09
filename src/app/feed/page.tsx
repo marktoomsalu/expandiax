@@ -28,6 +28,7 @@ import { CountryBurstCard } from "@/components/CountryBurstCard";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { artistsSeenLive } from "@/lib/concerts";
 import { whereAmI } from "@/lib/location";
+import { ExploreCity } from "@/components/ExploreCity";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
@@ -39,7 +40,7 @@ const PAGE_SIZE = 30;
 type RawMedia = FeedMediaItem & { displayOrder: number };
 
 
-export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string; tab?: string; q?: string } }) {
+export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string; tab?: string; q?: string; city?: string; cc?: string; lat?: string; lng?: string } }) {
   const supabase = createClient();
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
@@ -79,7 +80,8 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   }));
 
   const liveArtists = artistsSeenLive(ownEventsRaw ?? []);
-  const nearby = whereAmI(viewerProfile?.home_country_code ?? null);
+  // A city picked on the Explore tab rides along in the address.
+  const here = whereAmI(viewerProfile?.home_country_code ?? null, searchParams);
 
   // EXPLORE — its own view, so discovery never interrupts your friends' posts
   // (and looking around doesn't count as having caught up on them).
@@ -87,9 +89,15 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     return (
       <div className="mx-auto max-w-2xl px-5 py-6">
         <FeedTabs tab="explore" />
-        <SearchBox action="/explore" placeholder="Search places, people, or interests…" />
+        <div className="mt-3 flex flex-wrap items-center gap-2.5">
+          <ExploreCity place={here?.place ?? null} picked={here?.source === "picked"} basePath="/feed?tab=explore">
+            <div className="min-w-[14rem] flex-1">
+              <SearchBox action="/explore" placeholder="Search people, places or artists…" flush />
+            </div>
+          </ExploreCity>
+        </div>
         <Suspense fallback={<p className="mt-10 text-center text-sm text-muted">Finding places and people…</p>}>
-          <FeedExplore viewerId={user.id} where={nearby?.where ?? null} place={nearby?.place ?? null} homeCountry={viewerProfile?.home_country_code ?? null}>
+          <FeedExplore viewerId={user.id} here={here} homeCountry={viewerProfile?.home_country_code ?? null}>
             {/* Artists you've seen live, touring again — the rest of what's on is in the events row above. */}
             <Suspense fallback={null}>
               <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />

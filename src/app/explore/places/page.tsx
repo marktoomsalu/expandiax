@@ -1,18 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { CONTINENTS, countryByCode } from "@/lib/countries";
 import { loadNetworkPlaces } from "@/lib/experienceNetworkData";
-import { PlaceCardBig } from "@/components/network/FeedExplore";
+import { PLACE_ROWS, PlaceCardBig } from "@/components/network/FeedExplore";
+import { ExploreListShell } from "@/components/network/ExploreCards";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Places" };
-
-const COPY = {
-  friends: { title: "Places your friends know", sub: "Where friends - people you follow who follow you back - have been." },
-  network: { title: "Places your network has been to", sub: "Where others you follow have been." },
-};
 
 type Params = { circle?: string; q?: string; continent?: string };
 
@@ -52,12 +48,7 @@ export default async function NetworkPlacesPage({ searchParams }: { searchParams
     );
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-6">
-      <Link href="/feed?tab=explore" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-        <ArrowLeft size={15} aria-hidden /> Explore
-      </Link>
-      <h1 className="mt-4 text-3xl md:text-4xl">{COPY[circle].title}</h1>
-      <p className="mt-1.5 text-sm text-muted">{COPY[circle].sub}</p>
+    <ExploreListShell title={PLACE_ROWS[circle].title} sub={PLACE_ROWS[circle].sub}>
 
       <nav aria-label="Whose places" className="mt-5 flex rounded-full border border-line bg-surface p-1">
         {(["friends", "network"] as const).map((c) => (
@@ -111,6 +102,6 @@ export default async function NetworkPlacesPage({ searchParams }: { searchParams
             : `Nothing matches${q ? ` “${q}”` : ""}${continent ? ` in ${continent}` : ""}.`}
         </p>
       )}
-    </div>
+    </ExploreListShell>
   );
 }

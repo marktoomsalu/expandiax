@@ -206,7 +206,8 @@ export async function loadNetworkPlaces(supabase: Supabase, viewerId: string): P
   return { friends: cards[0], network: cards[1] };
 }
 
-export async function loadNetworkHome(supabase: Supabase, viewerId: string): Promise<NetworkHome> {
+/** The Explore tab's network rows — `limits` lift the row sizes for a "See all" page. */
+export async function loadNetworkHome(supabase: Supabase, viewerId: string, limits: { people?: number; ideas?: number } = {}): Promise<NetworkHome> {
   const circle = await viewerCircle(supabase, viewerId);
   const [{ data: townRows }, { data: countryRows }, { data: liveData }, { data: blocked }] = await Promise.all([
     supabase.from("country_cities").select(TOWNS_QUERY).limit(5000),
@@ -291,10 +292,10 @@ export async function loadNetworkHome(supabase: Supabase, viewerId: string): Pro
   const ideaRows = [...byCountry.entries()]
     .map(([country, e]) => ({ country, network: [...e.network], people: e.people.size }))
     .sort((a, b) => ideaScore(b) - ideaScore(a))
-    .slice(0, 9);
+    .slice(0, limits.ideas ?? 9);
 
   // ---- Faces for ideas, and a couple of trip photos for each person
-  const topPeople = people.slice(0, 8);
+  const topPeople = people.slice(0, limits.people ?? 8);
   const ideaFaceIds = [...new Set(ideaRows.flatMap((i) => i.network.slice(0, 3)))].filter((id) => !faceById.has(id));
   const [{ data: ideaFaces }, { data: theirPhotos }] = await Promise.all([
     ideaFaceIds.length ? supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", ideaFaceIds) : Promise.resolve({ data: [] as Person[] }),

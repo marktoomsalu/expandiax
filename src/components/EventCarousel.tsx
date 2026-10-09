@@ -7,6 +7,7 @@ import { Drama, Music, Presentation, Sparkles, Tent, Trophy, type LucideIcon } f
 import { countryByCode } from "@/lib/countries";
 import { flagGradientColors } from "@/lib/flagColors";
 import type { NearbyCategory } from "@/lib/concerts";
+import { NEARBY_CATEGORY_LABEL } from "@/lib/eventCategories";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "./ExternalLink";
 
@@ -28,12 +29,12 @@ export type CarouselCard = {
 };
 
 const CATEGORY: Record<NearbyCategory, { label: string; icon: LucideIcon }> = {
-  music: { label: "Concerts", icon: Music },
-  festival: { label: "Festivals", icon: Tent },
-  sport: { label: "Sport", icon: Trophy },
-  conference: { label: "Conferences", icon: Presentation },
-  arts: { label: "Theatre & arts", icon: Drama },
-  other: { label: "More", icon: Sparkles },
+  music: { label: NEARBY_CATEGORY_LABEL.music, icon: Music },
+  festival: { label: NEARBY_CATEGORY_LABEL.festival, icon: Tent },
+  sport: { label: NEARBY_CATEGORY_LABEL.sport, icon: Trophy },
+  conference: { label: NEARBY_CATEGORY_LABEL.conference, icon: Presentation },
+  arts: { label: NEARBY_CATEGORY_LABEL.arts, icon: Drama },
+  other: { label: NEARBY_CATEGORY_LABEL.other, icon: Sparkles },
 };
 
 const day = (iso: string, opts: Intl.DateTimeFormatOptions) =>

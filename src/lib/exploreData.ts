@@ -33,7 +33,7 @@ const LIVE_FIELDS = "id, user_id, event_type, title, spotify_artist_name, spotif
  * block rules decide what's included — private accounts only count for
  * people allowed to see them.
  */
-export async function loadExplore(supabase: Supabase, viewerId: string | null, here: Here | null): Promise<ExploreData> {
+export async function loadExplore(supabase: Supabase, viewerId: string | null, here: Here | null, { trendingLimit = 10 } = {}): Promise<ExploreData> {
   const [{ data: liveData }, { data: placeData }, { data: counts }, following, blocked, viewerProfile] = await Promise.all([
     supabase.from("events").select(LIVE_FIELDS).eq("is_public", true).in("event_type", [...LIVE_TYPES]).order("created_at", { ascending: false }).limit(2000),
     supabase.from("visited_countries").select("user_id, country_code").limit(5000),
@@ -109,7 +109,7 @@ export async function loadExplore(supabase: Supabase, viewerId: string | null, h
   const byId = new Map((profiles ?? []).map((p) => [p.id, { ...(p as Omit<ExplorePerson, "countries">), countries: countryCount.get(p.id) ?? 0 }]));
 
   return {
-    trending: trendingLive(live),
+    trending: trendingLive(live, { limit: trendingLimit }),
     places: popularPlaces(placeRows),
     locals: [...localIds.entries()]
       .map(([id, knows]) => (byId.get(id) ? { ...byId.get(id)!, knows } : null))

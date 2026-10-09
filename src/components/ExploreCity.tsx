@@ -9,10 +9,21 @@ import type { Place } from "@/lib/places";
 /**
  * "📍 Bologna ▾" — the city Explore is about, followed by `children` (the
  * search field) until it's tapped. Picking another city only
- * changes this page's address; nothing is saved, so next time it's back to
+ * changes the page's address; nothing is saved, so next time it's back to
  * where you are.
  */
-export function ExploreCity({ place, picked, children }: { place: string | null; picked: boolean; children?: React.ReactNode }) {
+export function ExploreCity({
+  place,
+  picked,
+  basePath = "/explore",
+  children,
+}: {
+  place: string | null;
+  picked: boolean;
+  /** The page to stay on: the city is added to its address ("/feed?tab=explore" works too). */
+  basePath?: string;
+  children?: React.ReactNode;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -44,7 +55,7 @@ export function ExploreCity({ place, picked, children }: { place: string | null;
   function go(p: Place) {
     const qs = new URLSearchParams({ city: p.name, lat: String(p.lat), lng: String(p.lng), ...(p.countryCode ? { cc: p.countryCode } : {}) });
     close();
-    router.push(`/explore?${qs}`);
+    router.push(`${basePath}${basePath.includes("?") ? "&" : "?"}${qs}`);
   }
 
   function close() {
@@ -103,7 +114,7 @@ export function ExploreCity({ place, picked, children }: { place: string | null;
                   type="button"
                   onClick={() => {
                     close();
-                    router.push("/explore");
+                    router.push(basePath);
                   }}
                   className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-accent hover:bg-raised"
                 >
