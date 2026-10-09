@@ -4,6 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import type { OnboardingMemory } from "@/lib/onboardingDraft";
+import { formatDateOrdinal } from "@/lib/utils";
 
 const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), {
   ssr: false,
@@ -27,7 +28,7 @@ export function RevealStep(props: Props) {
           up here just authenticates; FlushOnboardingDraft (mounted on
           /onboarding) picks it up right after and writes it for real. */}
       <Link href="/sign-up" className="btn-accent mt-10 w-full">
-        {props.kind === "country" ? "Keep my map" : "Keep this memory"}
+        {props.kind === "country" ? "Save my map" : "Save my memory"}
       </Link>
 
       <p className="mt-5 text-xs text-muted">
@@ -64,7 +65,9 @@ function MemoryReveal({ memory, photoPreviewUrl }: { memory: OnboardingMemory; p
   const country = countryByCode(memory.countryCode);
   return (
     <>
-      <h1 className="mt-2 text-3xl md:text-4xl">Your first memory, kept.</h1>
+      <h1 className="mt-2 text-3xl md:text-4xl">
+        Your first <span className="italic text-accent">memory.</span>
+      </h1>
       <div className="mt-8 w-full overflow-hidden rounded-card border border-line bg-surface">
         {photoPreviewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -77,7 +80,7 @@ function MemoryReveal({ memory, photoPreviewUrl }: { memory: OnboardingMemory; p
         <div className="px-5 py-4 text-left">
           <p className="font-serif text-lg">{memory.title}</p>
           <p className="mt-1 text-sm text-muted">
-            {country ? `${country.flag} ${country.name}` : null} · {memory.eventDate}
+            {country ? `${country.flag} ${country.name}` : null} · {formatDateOrdinal(memory.eventDate)}
           </p>
         </div>
       </div>

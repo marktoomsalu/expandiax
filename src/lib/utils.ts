@@ -23,6 +23,14 @@ export function formatDate(iso: string) {
   });
 }
 
+/** "October 1st, 2026" — a warmer, spelled-out form for single moments. */
+export function formatDateOrdinal(iso: string) {
+  const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
+  const day = d.getDate();
+  const suffix = day % 100 >= 11 && day % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][day % 10] ?? "th";
+  return `${MONTH_NAMES[d.getMonth()]} ${day}${suffix}, ${d.getFullYear()}`;
+}
+
 type VisitLike = {
   year: number;
   visited_from: string | null;

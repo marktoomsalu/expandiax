@@ -102,6 +102,14 @@
     @apply w-full rounded-xl border border-line bg-surface px-3.5 py-3 text-base sm:text-sm text-ink
       placeholder:text-muted/70 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
   }
+  /* iOS gives date inputs an intrinsic width that ignores w-full, so they
+     stuck out past the other fields (and off the right of the screen). */
+  input[type="date"].field {
+    @apply block min-w-0 appearance-none;
+  }
+  input[type="date"].field::-webkit-date-and-time-value {
+    text-align: left;
+  }
   .card {
     @apply rounded-card border border-line bg-surface;
   }
