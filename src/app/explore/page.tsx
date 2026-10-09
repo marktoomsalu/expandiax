@@ -150,7 +150,7 @@ export default async function ExplorePage({ searchParams }: { searchParams?: { q
   // places, but never real people — and how to get in.
   if (!viewer) {
     const preview = await loadExplore(supabase, null, null);
-    return <ExploreTeaser trending={preview.trending} places={preview.places} place={here?.source === "connection" ? here.city : null} />;
+    return <ExploreTeaser trending={preview.trending} places={preview.places} />;
   }
 
   const [data, { data: recentEvents }, { data: newest }, { data: countRows }, { data: followRows }] = await Promise.all([

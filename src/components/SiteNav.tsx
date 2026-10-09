@@ -11,10 +11,12 @@ import { tapLight } from "@/lib/haptics";
 
 type NavUser = { username: string } | null;
 
-function Wordmark() {
+function Wordmark({ linked }: { linked: boolean }) {
+  const image = <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} priority className="h-6 w-auto" />;
+  if (!linked) return <span className="flex items-center">{image}</span>;
   return (
     <Link href="/" className="flex items-center">
-      <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} priority className="h-6 w-auto" />
+      {image}
     </Link>
   );
 }
@@ -30,6 +32,11 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
   // SiteChrome.tsx, which hides the page-end footer the same way.
   if (path === "/start") return null;
 
+  // Creating an account is the end of the start flow: nothing in the chrome
+  // should lead away from it by accident — no tab bar, no logo link, no
+  // "back to start" (Home and the logo would restart the flow from zero).
+  const signingUp = path === "/sign-up";
+
   const leftLinks = [
     { href: "/feed", label: "Feed", icon: Rss },
     { href: "/my-world", label: "My World", icon: Globe2 },
@@ -44,7 +51,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
     <>
       <header className="sticky top-0 z-40 border-b border-white/10 bg-brand-purple/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex h-14 max-w-shell items-center justify-between px-5">
-          <Wordmark />
+          <Wordmark linked={!signingUp} />
           <div className="flex items-center gap-3">
             {user && (
               <Link href="/notifications" aria-label="Notifications" className="relative text-white/70 hover:text-white">
@@ -62,9 +69,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
                 <Link href="/sign-in" className="font-sans text-sm text-white/70 hover:text-white">
                   Sign in
                 </Link>
-                {/* Not while creating an account — that's where the start flow
-                    ends, and going "back to start" from there only confuses. */}
-                {path !== "/sign-up" && (
+                {!signingUp && (
                   <Link href="/start" className="btn-accent !py-2 !px-4 text-sm font-semibold">
                     <span className="sm:hidden">Start</span>
                     <span className="hidden sm:inline">Start my journey</span>
@@ -89,6 +94,8 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
           bar, never bleeding into content above it. pointer-events-none:
           purely decorative, must never block taps on the real content
           showing through it. */}
+      {!signingUp && (
+        <>
       <div
         aria-hidden
         className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[calc(4rem+env(safe-area-inset-bottom))] backdrop-blur-sm [background:linear-gradient(to_top,rgb(var(--canvas)/0.45)_0%,rgb(var(--canvas)/0.32)_25%,rgb(var(--canvas)/0.18)_50%,rgb(var(--canvas)/0.07)_75%,transparent_100%)]"
@@ -162,6 +169,8 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
           </div>
         )}
       </nav>
+        </>
+      )}
     </>
   );
 }

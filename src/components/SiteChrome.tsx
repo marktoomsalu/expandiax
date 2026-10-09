@@ -14,9 +14,11 @@ import { cn } from "@/lib/utils";
 export function SiteChrome({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const immersive = path === "/start";
+  // No tab bar while signing up either (see SiteNav.tsx), so no room for one.
+  const hasTabBar = !immersive && path !== "/sign-up";
 
   return (
-    <div className={cn(!immersive && "pb-[calc(5.25rem+env(safe-area-inset-bottom))]")}>
+    <div className={cn(hasTabBar && "pb-[calc(5.25rem+env(safe-area-inset-bottom))]")}>
       <main>
         <PageTransition>{children}</PageTransition>
       </main>

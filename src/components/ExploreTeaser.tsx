@@ -50,11 +50,12 @@ function Feature({ icon: Icon, title, body, children }: { icon: typeof Users; ti
 
 /**
  * Explore for signed-out visitors: what's inside and why it's worth an
- * account — with real artists and places, but never real members.
+ * account — with real artists and places, but never real members. It never
+ * names where the visitor is: without an account that reads as being
+ * watched, not as a feature.
  */
-export function ExploreTeaser({ trending, places, place }: { trending: Trending[]; places: PopularPlace[]; place: string | null }) {
+export function ExploreTeaser({ trending, places }: { trending: Trending[]; places: PopularPlace[] }) {
   const artist = trending.find((t) => t.image) ?? trending[0];
-  const city = place ?? "your city";
   return (
     <div className="mx-auto max-w-shell px-5 py-10 md:py-14">
       <div className="relative overflow-hidden rounded-card border border-line bg-surface px-6 py-10 text-center md:px-12 md:py-14">
@@ -64,10 +65,10 @@ export function ExploreTeaser({ trending, places, place }: { trending: Trending[
           Where your world <span className="italic text-accent">meets theirs.</span>
         </h1>
         <p className="relative mx-auto mt-4 max-w-xl text-muted">
-          Find the people who were in the same crowd, whose travels overlap yours, and what&rsquo;s on in {city} tonight. Free with an account.
+          Find the people who were in the same crowd, whose travels overlap yours, and what&rsquo;s happening near you tonight. Free with an account.
         </p>
         <div className="relative mt-7 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/start" className="btn-accent !px-8 !py-3.5 text-base font-semibold shadow-lg shadow-accent/25">
+          <Link href="/sign-up" className="btn-accent !px-8 !py-3.5 text-base font-semibold shadow-lg shadow-accent/25">
             Create my free account
           </Link>
           <Link href="/sign-in?next=/explore" className="btn-ghost !px-6 !py-3">
@@ -78,7 +79,7 @@ export function ExploreTeaser({ trending, places, place }: { trending: Trending[
 
       <h2 className="mt-14 text-2xl md:text-3xl">What&rsquo;s inside Explore</h2>
       <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <Feature icon={Users} title="Your travel twin" body="The member whose map and nights out overlap yours the most - and why.">
+        <Feature icon={Users} title="Your travel twin" body="The member whose map and events overlap yours the most - and why.">
           <div className="flex w-full max-w-xs items-center gap-3 rounded-xl border border-line bg-surface p-3 shadow-sm">
             <MockFaces n={1} size={48} />
             <div className="min-w-0 text-left">
@@ -91,7 +92,7 @@ export function ExploreTeaser({ trending, places, place }: { trending: Trending[
           </div>
         </Feature>
 
-        <Feature icon={Ticket} title="Who was there" body="Open any concert, festival or race and see everyone who logged the same night.">
+        <Feature icon={Ticket} title="Who was there" body="Open any concert, festival or race and see everyone else who was there.">
           <div className="flex w-full max-w-xs items-center gap-3 rounded-xl border border-line bg-surface p-3 shadow-sm">
             <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-accent to-orange-500">
               {artist?.image && <Image src={artist.image} alt="" fill sizes="56px" className="object-cover" />}
@@ -106,7 +107,7 @@ export function ExploreTeaser({ trending, places, place }: { trending: Trending[
           </div>
         </Feature>
 
-        <Feature icon={Sparkles} title={`Happening near ${place ?? "you"}`} body="Concerts, sport and shows in your city for the next three months - with tickets.">
+        <Feature icon={Sparkles} title="Happening near you" body="Concerts, sport and shows in your city for the next three months - with tickets.">
           <div className="grid w-full max-w-xs grid-cols-2 gap-2">
             {["Tonight · 20:00", "Sat · 18:30"].map((t, i) => (
               <div key={t} className="overflow-hidden rounded-lg border border-line bg-surface shadow-sm">
@@ -120,10 +121,10 @@ export function ExploreTeaser({ trending, places, place }: { trending: Trending[
           </div>
         </Feature>
 
-        <Feature icon={MapPin} title={`Travellers who know ${place ?? "your city"}`} body="Members who've been where you are - so you know who to ask where to go.">
+        <Feature icon={MapPin} title="Travellers who know your city" body="Members who've been to your city - so you know who to ask where to go.">
           <div className="flex flex-col items-center gap-2">
             <MockFaces n={5} size={40} />
-            <span className="rounded-full bg-surface px-3 py-1 text-xs text-muted shadow-sm">Has been to {place ?? "your city"}</span>
+            <span className="rounded-full bg-surface px-3 py-1 text-xs text-muted shadow-sm">Has been to your city</span>
           </div>
         </Feature>
 
@@ -139,7 +140,7 @@ export function ExploreTeaser({ trending, places, place }: { trending: Trending[
           </div>
         </Feature>
 
-        <Feature icon={Globe2} title="Popular places" body="Where members have been, with everyone's nights and trips from each country.">
+        <Feature icon={Globe2} title="Popular places" body="The countries members visit most - and the trips and events they've shared from each.">
           <div className="flex gap-2">
             {(places.length ? places.map((p) => p.code) : ["IT", "JP", "PT"]).slice(0, 3).map((code) => {
               const photo = stockPhotoFor(code, "explore");
@@ -157,12 +158,16 @@ export function ExploreTeaser({ trending, places, place }: { trending: Trending[
         </Feature>
       </ul>
 
-      <div className="mt-12 flex flex-col items-center gap-3 text-center">
-        <p className="flex items-center gap-2 text-sm text-muted">
-          <Lock size={14} aria-hidden /> Members only see what others choose to share.
+      <div className="mt-12 flex flex-col items-center gap-4 text-center">
+        <p className="flex max-w-md items-start gap-2.5 text-left text-sm leading-relaxed text-muted">
+          <Lock size={14} className="mt-1 shrink-0" aria-hidden />
+          <span>
+            You only see what other members have chosen to make public - and they only see what you make public. Anything
+            you keep private stays yours alone.
+          </span>
         </p>
-        <Link href="/start" className="btn-accent !px-8 !py-3.5 text-base font-semibold">
-          Start my journey - it&rsquo;s free
+        <Link href="/sign-up" className="btn-accent !px-8 !py-3.5 text-base font-semibold">
+          Start collecting memories - it&rsquo;s free
         </Link>
       </div>
     </div>
