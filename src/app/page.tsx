@@ -70,7 +70,7 @@ export default function LandingPage() {
           <FadeIn className="text-center">
             <p className="eyebrow">ExpandiaX</p>
             <h1 className="mx-auto mt-4 max-w-3xl text-5xl leading-[1.02] md:text-7xl">
-              Your world, <span className="italic text-accent">remembered.</span>
+              Your life, <span className="italic text-accent">remembered.</span>
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted">
               Track the countries you have explored, preserve the moments that mattered and build a
@@ -78,7 +78,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <Link href="/start" className="btn-accent !px-10 !py-4 !text-lg font-semibold shadow-lg shadow-accent/25">
-                Start my world
+                Start my journey
               </Link>
               <Link href="/explore" className="btn-ghost !px-7 !py-3">Explore travellers</Link>
             </div>
@@ -250,7 +250,7 @@ export default function LandingPage() {
               ))}
             </ul>
             <Link href="/start" className="btn-accent mt-7 inline-flex !px-8 !py-2.5">
-              Start my world
+              Start my journey
             </Link>
           </div>
         </FadeIn>
@@ -263,7 +263,7 @@ export default function LandingPage() {
             Your world deserves more than a camera roll.
           </h2>
           <div className="mt-9">
-            <Link href="/start" className="btn-accent !px-8 !py-3.5 !text-base">Start my world</Link>
+            <Link href="/start" className="btn-accent !px-8 !py-3.5 !text-base">Start my journey</Link>
           </div>
         </FadeIn>
       </section>

@@ -162,7 +162,7 @@ export function ExploreTeaser({ trending, places, place }: { trending: Trending[
           <Lock size={14} aria-hidden /> Members only see what others choose to share.
         </p>
         <Link href="/start" className="btn-accent !px-8 !py-3.5 text-base font-semibold">
-          Start my world - it&rsquo;s free
+          Start my journey - it&rsquo;s free
         </Link>
       </div>
     </div>

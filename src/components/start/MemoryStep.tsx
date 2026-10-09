@@ -8,12 +8,20 @@ import { localDay, photoDay } from "@/lib/photoDates";
 
 const TODAY = localDay(new Date());
 
-export function MemoryStep({ onDone }: { onDone: (memory: OnboardingMemory, photo: File | null) => void }) {
-  const [countryCode, setCountryCode] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [eventDate, setEventDate] = useState(TODAY);
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+export function MemoryStep({
+  initial,
+  initialPhoto = null,
+  onDone,
+}: {
+  initial?: OnboardingMemory | null;
+  initialPhoto?: File | null;
+  onDone: (memory: OnboardingMemory, photo: File | null) => void;
+}) {
+  const [countryCode, setCountryCode] = useState<string | null>(initial?.countryCode ?? null);
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [eventDate, setEventDate] = useState(initial?.eventDate ?? TODAY);
+  const [photo, setPhoto] = useState<File | null>(initialPhoto);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(() => (initialPhoto ? URL.createObjectURL(initialPhoto) : null));
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {

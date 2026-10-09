@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PasswordField } from "@/components/PasswordField";
+import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, passwordProblem } from "@/lib/password";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -15,8 +16,9 @@ export default function ResetPasswordPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < 8) {
-      setError("Choose a password with at least 8 characters.");
+    const weak = passwordProblem(password);
+    if (weak) {
+      setError(weak);
       return;
     }
     setBusy(true);
@@ -38,8 +40,8 @@ export default function ResetPasswordPage() {
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <div>
           <label htmlFor="password" className="mb-1.5 block text-sm font-medium">New password</label>
-          <PasswordField id="password" value={password} onChange={setPassword} required minLength={8} autoComplete="new-password" aria-describedby="password-hint" />
-          <p id="password-hint" className="mt-1 text-xs text-muted">At least 8 characters.</p>
+          <PasswordField id="password" value={password} onChange={setPassword} required minLength={PASSWORD_MIN_LENGTH} autoComplete="new-password" aria-describedby="password-hint" />
+          <p id="password-hint" className="mt-1 text-xs text-muted">{PASSWORD_HINT}</p>
         </div>
         {error && <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
         <button type="submit" className="btn-accent w-full" disabled={busy}>

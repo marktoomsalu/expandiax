@@ -27,7 +27,7 @@ export function RevealStep(props: Props) {
           up here just authenticates; FlushOnboardingDraft (mounted on
           /onboarding) picks it up right after and writes it for real. */}
       <Link href="/sign-up" className="btn-accent mt-10 w-full">
-        Save my world
+        {props.kind === "country" ? "Keep my map" : "Keep this memory"}
       </Link>
 
       <p className="mt-5 text-xs text-muted">
@@ -44,7 +44,9 @@ function CountryReveal({ homeCode, countryCodes }: { homeCode: string; countryCo
 
   return (
     <>
-      <h1 className="mt-2 text-3xl md:text-4xl">Your world, pinned.</h1>
+      <h1 className="mt-2 text-3xl md:text-4xl">
+        Your world, <span className="italic text-accent">remembered.</span>
+      </h1>
       <div className="mt-8 w-full">
         <WorldGlobeInner visitedCodes={allCodes} homeCode={homeCode} interactive={false} />
       </div>

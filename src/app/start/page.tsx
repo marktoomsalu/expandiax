@@ -7,7 +7,9 @@ import { HomeCountryStep } from "@/components/start/HomeCountryStep";
 import { CountryGridStep } from "@/components/start/CountryGridStep";
 import { MemoryStep } from "@/components/start/MemoryStep";
 import { RevealStep } from "@/components/start/RevealStep";
+import { BackButton, StepTransition } from "@/components/start/StepTransition";
 import {
+  clearPendingPhoto,
   loadDraft,
   saveDraft,
   savePendingPhoto,
@@ -29,6 +31,7 @@ export default function StartPage() {
   // Path B's photo never touches sessionStorage (see savePendingPhoto) —
   // this is just a local object URL for the reveal card's own preview.
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
 
   useEffect(() => {
     const loaded = loadDraft();
@@ -52,49 +55,76 @@ export default function StartPage() {
 
   if (!hydrated) return null;
 
+  // Every step after the first can go back one — choices made so far are
+  // kept when going back from the reveal, dropped when going back further.
+  let screen: React.ReactNode = null;
+  let back: (() => void) | null = null;
+
   if (finished) {
+    back = () => setFinished(false);
     if (draft.kind === "country" && draft.homeCode) {
-      return <RevealStep kind="country" homeCode={draft.homeCode} countryCodes={draft.countryCodes} />;
+      screen = <RevealStep kind="country" homeCode={draft.homeCode} countryCodes={draft.countryCodes} />;
+    } else if (draft.kind === "event" && draft.memory) {
+      screen = <RevealStep kind="event" memory={draft.memory} photoPreviewUrl={photoPreviewUrl} />;
     }
-    if (draft.kind === "event" && draft.memory) {
-      return <RevealStep kind="event" memory={draft.memory} photoPreviewUrl={photoPreviewUrl} />;
+  } else {
+    switch (step) {
+      case "cold-open":
+        screen = <ColdOpenStep onStart={() => setStep("fork")} />;
+        break;
+      case "fork":
+        back = () => setStep("cold-open");
+        screen = <ForkStep onChoose={(kind) => update({ kind }, kind === "country" ? "home-country" : "memory")} />;
+        break;
+      case "home-country":
+        back = () => update({ kind: null, homeCode: null }, "fork");
+        screen = <HomeCountryStep onDone={(code) => update({ homeCode: code }, "countries")} />;
+        break;
+      case "countries":
+        if (!draft.homeCode) break;
+        back = () => update({ homeCode: null, countryCodes: [] }, "home-country");
+        screen = (
+          <CountryGridStep
+            homeCode={draft.homeCode}
+            initialSelected={draft.countryCodes}
+            onDone={(codes) => {
+              update({ countryCodes: codes }, "countries");
+              setFinished(true);
+            }}
+          />
+        );
+        break;
+      case "memory":
+        back = () => update({ kind: null, memory: null }, "fork");
+        screen = (
+          <MemoryStep
+            initial={draft.memory}
+            initialPhoto={photo}
+            onDone={(memory, picked) => {
+              update({ memory }, "memory");
+              setPhoto(picked);
+              if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+              setPhotoPreviewUrl(picked ? URL.createObjectURL(picked) : null);
+              if (picked) {
+                savePendingPhoto(picked).catch(() => {
+                  // Falls back to no photo on save — the memory itself (title/
+                  // date/country) still saves fine without one.
+                });
+              } else {
+                clearPendingPhoto().catch(() => {});
+              }
+              setFinished(true);
+            }}
+          />
+        );
+        break;
     }
-    return null;
   }
 
-  switch (step) {
-    case "cold-open":
-      return <ColdOpenStep onStart={() => setStep("fork")} />;
-    case "fork":
-      return <ForkStep onChoose={(kind) => update({ kind }, kind === "country" ? "home-country" : "memory")} />;
-    case "home-country":
-      return <HomeCountryStep onDone={(code) => update({ homeCode: code }, "countries")} />;
-    case "countries":
-      if (!draft.homeCode) return null;
-      return (
-        <CountryGridStep
-          homeCode={draft.homeCode}
-          onDone={(codes) => {
-            update({ countryCodes: codes }, "countries");
-            setFinished(true);
-          }}
-        />
-      );
-    case "memory":
-      return (
-        <MemoryStep
-          onDone={(memory, photo) => {
-            update({ memory }, "memory");
-            if (photo) {
-              setPhotoPreviewUrl(URL.createObjectURL(photo));
-              savePendingPhoto(photo).catch(() => {
-                // Falls back to no photo on save — the memory itself (title/
-                // date/country) still saves fine without one.
-              });
-            }
-            setFinished(true);
-          }}
-        />
-      );
-  }
+  return (
+    <StepTransition stepKey={finished ? "reveal" : step}>
+      {back && <BackButton onClick={back} />}
+      {screen}
+    </StepTransition>
+  );
 }

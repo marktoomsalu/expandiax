@@ -170,7 +170,7 @@ export function ProfileForm({
           aria-describedby="pf-username-hint"
         />
         <p id="pf-username-hint" className="mt-1 text-xs text-muted">
-          Your public address: expandiax.example/u/{username.trim().toLowerCase() || "username"}
+          Your public address: expandiax.com/u/{username.trim().toLowerCase() || "username"}
         </p>
       </div>
 

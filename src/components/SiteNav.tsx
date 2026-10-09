@@ -62,10 +62,14 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
                 <Link href="/sign-in" className="font-sans text-sm text-white/70 hover:text-white">
                   Sign in
                 </Link>
-                <Link href="/start" className="btn-accent !py-2 !px-4 text-sm font-semibold">
-                  <span className="sm:hidden">Start</span>
-                  <span className="hidden sm:inline">Start my world</span>
-                </Link>
+                {/* Not while creating an account — that's where the start flow
+                    ends, and going "back to start" from there only confuses. */}
+                {path !== "/sign-up" && (
+                  <Link href="/start" className="btn-accent !py-2 !px-4 text-sm font-semibold">
+                    <span className="sm:hidden">Start</span>
+                    <span className="hidden sm:inline">Start my journey</span>
+                  </Link>
+                )}
               </>
             )}
           </div>

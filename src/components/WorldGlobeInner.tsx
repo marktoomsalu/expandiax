@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { Minus, Plus } from "lucide-react";
 import Globe, { type GlobeMethods } from "react-globe.gl";
@@ -109,11 +109,6 @@ function visitedColor(count: number, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-export type WorldGlobeHandle = {
-  /** Animates the camera to roughly the given country's location. No-op if the country's shape hasn't loaded (or doesn't exist) at this map's resolution. */
-  flyTo: (code: string) => void;
-};
-
 type Props = {
   // Territories (Greenland, New Caledonia, Puerto Rico — whichever ones
   // happen to have their own shape at this map's resolution) share the
@@ -131,12 +126,29 @@ type Props = {
   // anywhere else in the app today. Off (and unforced) by default;
   // honours prefers-reduced-motion regardless of this prop.
   autoRotate?: boolean;
+  /** Country name + flag on hover/tap. Off for purely decorative globes. */
+  labels?: boolean;
+  /**
+   * Turns the camera to roughly this country whenever it changes. A prop
+   * rather than a ref method because the globe is always loaded through
+   * next/dynamic, which doesn't pass refs on. No-op if the country has no
+   * shape at this map's resolution.
+   */
+  focusCode?: string | null;
 };
 
-export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function WorldGlobeInner(
-  { visitedCodes, visitCounts, homeCode, dreamCodes, onSelect, interactive = true, className, autoRotate = false },
-  ref
-) {
+export function WorldGlobeInner({
+  visitedCodes,
+  visitCounts,
+  homeCode,
+  dreamCodes,
+  onSelect,
+  interactive = true,
+  className,
+  autoRotate = false,
+  labels = true,
+  focusCode,
+}: Props) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
@@ -148,21 +160,15 @@ export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function Worl
   const visited = useMemo(() => new Set(visitedCodes), [visitedCodes]);
   const dreams = useMemo(() => new Set(dreamCodes ?? []), [dreamCodes]);
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      flyTo(code: string) {
-        const g = globeRef.current;
-        const country = countryByCode(code);
-        if (!g || !country) return;
-        const target = features.find((f) => f.id === country.numeric);
-        const center = target && centroidOf(target.geometry);
-        if (!center) return;
-        g.pointOfView({ lat: center.lat, lng: center.lng, altitude: 1.5 }, 1200);
-      },
-    }),
-    [features]
-  );
+  useEffect(() => {
+    const g = globeRef.current;
+    const country = focusCode ? countryByCode(focusCode) : null;
+    if (!g || !country) return;
+    const target = features.find((f) => f.id === country.numeric);
+    const center = target && centroidOf(target.geometry);
+    if (!center) return;
+    g.pointOfView({ lat: center.lat, lng: center.lng, altitude: 1.5 }, 1200);
+  }, [focusCode, features]);
 
   useEffect(() => {
     let alive = true;
@@ -213,6 +219,15 @@ export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function Worl
     controls.autoRotateSpeed = 0.6;
     controls.enableZoom = interactive;
     controls.enableRotate = true;
+    // Country borders are drawn a hair (0.01 units) above the country
+    // shapes. With the library's 0.05 near plane the depth buffer can't tell
+    // the two apart at normal viewing distance, so the borders flicker as
+    // the globe turns (worst where they're dense, like Africa). A near plane
+    // of 10 fixes that and still clears the closest zoom.
+    const camera = g.camera() as unknown as { near: number; updateProjectionMatrix: () => void };
+    camera.near = 10;
+    camera.updateProjectionMatrix();
+    controls.minDistance = 100 + camera.near * 1.1;
     g.pointOfView({ lat: 18, lng: 14, altitude: 1.8 });
   }, [interactive, autoRotate]);
 
@@ -267,6 +282,7 @@ export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function Worl
           polygonAltitude={(f) => ((f as GeoFeature).id === hoverId ? 0.02 : 0.006)}
           polygonsTransitionDuration={200}
           polygonLabel={(f) => {
+            if (!labels) return "";
             const p = placeOf(f as GeoFeature);
             if (!p) return "";
             const isHome = !p.isTerritory && homeCode && p.code === homeCode;
@@ -275,7 +291,7 @@ export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function Worl
             const dream = !visited.has(p.code) && dreams.has(p.code) ? " · Dreaming" : "";
             return `${p.flag} ${p.name}${isHome ? " · Home" : p.isTerritory ? " · Territory" : ""}${suffix}${dream}`;
           }}
-          onPolygonHover={(f) => setHoverId(f ? (f as GeoFeature).id : null)}
+          onPolygonHover={(f) => labels && setHoverId(f ? (f as GeoFeature).id : null)}
           onPolygonClick={(f) => {
             if (!interactive || !onSelect) return;
             const p = placeOf(f as GeoFeature);
@@ -287,7 +303,7 @@ export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function Worl
           pointRadius={0.45}
           pointAltitude={0.012}
           pointColor={() => (visited.has("AQ") ? visitedColor(visitCounts?.["AQ"] ?? 1, 0.95) : isDark ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.45)")}
-          pointLabel={() => `🇦🇶 Antarctica${visited.has("AQ") ? " · visited" : ""}`}
+          pointLabel={() => !labels ? "" : `🇦🇶 Antarctica${visited.has("AQ") ? " · visited" : ""}`}
           onPointClick={() => {
             if (interactive && onSelect) onSelect("AQ");
           }}
@@ -317,4 +333,4 @@ export const WorldGlobeInner = forwardRef<WorldGlobeHandle, Props>(function Worl
       </div>
     </div>
   );
-});
+}

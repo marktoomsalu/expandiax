@@ -17,12 +17,13 @@ export function welcomeFilmSeen(): boolean {
 
 /**
  * The 15-second film, full screen, as the very first thing on /start —
- * silent to begin with (browsers only autoplay muted), with Sound on and
- * Skip. If the phone won't play it by itself it simply steps aside — and
+ * with Sound on/off and Skip. It starts with sound when someone has just
+ * tapped to watch it (falling back to silent where the browser still
+ * says no), otherwise silent, since browsers only autoplay muted. If the phone won't play it by itself it simply steps aside — and
  * tries again next time, because it only counts as seen once it has ended
  * or been skipped.
  */
-export function WelcomeFilm({ onDone }: { onDone: () => void }) {
+export function WelcomeFilm({ onDone, withSound = false }: { onDone: () => void; withSound?: boolean }) {
   const video = useRef<HTMLVideoElement>(null);
   // The version that fits the screen: iPhone-shaped (9:19.5) on iPhone X and
   // newer, 9:16 on shorter phones like the SE, wide on computers and sideways
@@ -44,7 +45,7 @@ export function WelcomeFilm({ onDone }: { onDone: () => void }) {
       ? { src: "/film/expandiax-welcome-wide.mp4", poster: "/film/poster-welcome-wide.jpg" }
       : { src: "/film/expandiax-wide-15s.mp4", poster: "/film/poster-wide.jpg" };
   });
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(!withSound);
   const [leaving, setLeaving] = useState(false);
 
   function close(seen: boolean) {
@@ -63,9 +64,25 @@ export function WelcomeFilm({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     // Blocked, or not started after a moment (some phones neither play nor
     // say no): step aside without counting it as seen.
-    video.current?.play().catch(() => close(false));
+    const v = video.current;
+    let cancelled = false;
+    const start = (): Promise<void> | undefined =>
+      v?.play().catch(() => {
+        if (cancelled) return;
+        if (!v.muted) {
+          // Not allowed with sound here: play it silently instead.
+          v.muted = true;
+          setMuted(true);
+          return start();
+        }
+        close(false);
+      });
+    start();
     const t = setTimeout(() => !started.current && close(false), 2500);
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -81,7 +98,6 @@ export function WelcomeFilm({ onDone }: { onDone: () => void }) {
         poster={film.poster}
         muted={muted}
         playsInline
-        autoPlay
         preload="auto"
         onPlaying={() => {
           started.current = true;

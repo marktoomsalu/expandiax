@@ -9,6 +9,7 @@ import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { PasswordField } from "@/components/PasswordField";
 import { ConsentCheckbox } from "@/components/LegalConsent";
 import { PRIVACY_VERSION, TERMS_VERSION } from "@/lib/legal";
+import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, passwordProblem } from "@/lib/password";
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
@@ -37,8 +38,9 @@ export default function SignUpPage() {
       setError("Usernames are 3–24 characters: lowercase letters, numbers and underscores.");
       return;
     }
-    if (password.length < 8) {
-      setError("Choose a password with at least 8 characters.");
+    const weak = passwordProblem(password);
+    if (weak) {
+      setError(weak);
       return;
     }
     if (password !== confirmPassword) {
@@ -117,7 +119,7 @@ export default function SignUpPage() {
         <div>
           <label htmlFor="username" className="mb-1.5 block text-sm font-medium">Username</label>
           <input id="username" className="field" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="mayalaurent" required autoComplete="username" aria-describedby="username-hint" />
-          <p id="username-hint" className="mt-1 text-xs text-muted">Your public address: expandiax.example/u/{username.trim().toLowerCase() || "username"}</p>
+          <p id="username-hint" className="mt-1 text-xs text-muted">Friends find you as @{username.trim().toLowerCase() || "username"}</p>
         </div>
         <div>
           <label htmlFor="email" className="mb-1.5 block text-sm font-medium">Email</label>
@@ -125,8 +127,8 @@ export default function SignUpPage() {
         </div>
         <div>
           <label htmlFor="password" className="mb-1.5 block text-sm font-medium">Password</label>
-          <PasswordField id="password" value={password} onChange={setPassword} required minLength={8} autoComplete="new-password" aria-describedby="password-hint" />
-          <p id="password-hint" className="mt-1 text-xs text-muted">At least 8 characters.</p>
+          <PasswordField id="password" value={password} onChange={setPassword} required minLength={PASSWORD_MIN_LENGTH} autoComplete="new-password" aria-describedby="password-hint" />
+          <p id="password-hint" className="mt-1 text-xs text-muted">{PASSWORD_HINT}</p>
         </div>
         <div>
           <label htmlFor="confirm_password" className="mb-1.5 block text-sm font-medium">Confirm password</label>
@@ -135,7 +137,7 @@ export default function SignUpPage() {
             value={confirmPassword}
             onChange={setConfirmPassword}
             required
-            minLength={8}
+            minLength={PASSWORD_MIN_LENGTH}
             autoComplete="new-password"
           />
         </div>
