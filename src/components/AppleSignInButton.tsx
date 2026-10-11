@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { createClient } from "@/lib/supabase/client";
@@ -13,6 +14,22 @@ export function AppleSignInButton({ next = "/my-world", disabled = false }: { ne
 
   async function signIn() {
     setBusy(true);
+
+    // Android: the Apple sign-in plugin has no Android implementation (it's
+    // an empty stub), so use Apple's web sign-in in a Custom Tab and come
+    // back through the app's URL scheme - the same flow Google sign-in uses.
+    if (isNativePlatform() && Capacitor.getPlatform() === "android") {
+      const { data } = await supabase.auth.signInWithOAuth({
+        provider: "apple",
+        options: {
+          redirectTo: `${NATIVE_APP_SCHEME}://auth/callback?next=${encodeURIComponent(next)}`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (data.url) await Browser.open({ url: data.url });
+      else setBusy(false);
+      return;
+    }
 
     if (isNativePlatform()) {
       // Real ASAuthorizationController sheet (Face ID/passcode) instead of
