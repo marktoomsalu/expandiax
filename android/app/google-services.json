@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1041933036939",
+    "project_id": "expandiax-6f6fb",
+    "storage_bucket": "expandiax-6f6fb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1041933036939:android:c1e51820bb4c61255c938e",
+        "android_client_info": {
+          "package_name": "com.expandiax.travelapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCT-3PurQBDd2Pdu4C9aUFNju4VUUQ79LU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
