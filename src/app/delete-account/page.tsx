@@ -13,7 +13,7 @@ export default function DeleteAccountPage() {
   return (
     <LegalPage title="Delete your ExpandiaX account">
       <p>
-        You can delete your ExpandiaX account and everything in it at any time. There are two ways to do it.
+        You can delete your ExpandiaX account and everything in it at any time - or just some of your data. Here&rsquo;s how.
       </p>
 
       <LegalSection title="In the app or on the website (instant)">
@@ -39,6 +39,30 @@ export default function DeleteAccountPage() {
           Email <Mail address={company.privacyEmail} /> from the address you signed up with, with the subject
           &ldquo;Delete my account&rdquo; and your username. We may ask you to confirm it&rsquo;s you, and we&rsquo;ll
           delete the account within 30 days (usually much sooner) and let you know when it&rsquo;s done.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Delete only some of your data">
+        <p>You don&rsquo;t have to delete your account to remove things. Everything you add can be deleted on its own, straight away:</p>
+        <LegalList>
+          <li>
+            <Strong>A photo or video:</Strong> open the trip or event, tap <Strong>Edit</Strong>, and remove it.
+          </li>
+          <li>
+            <Strong>A country, trip or event:</Strong> open it, tap <Strong>Edit</Strong>, then <Strong>Delete</Strong>.
+          </li>
+          <li>
+            <Strong>A comment, question or answer:</Strong> tap <Strong>Delete</Strong> under it.
+          </li>
+          <li>
+            <Strong>Your profile photo, bio or dream places:</Strong> change or remove them in <Strong>Settings</Strong>{" "}
+            and on the place&rsquo;s page.
+          </li>
+        </LegalList>
+        <p>
+          Can&rsquo;t find something, or want us to delete a particular kind of data for you? Email{" "}
+          <Mail address={company.privacyEmail} /> from the address you signed up with and tell us what to remove - we&rsquo;ll
+          do it within 30 days and let you know.
         </p>
       </LegalSection>
 
