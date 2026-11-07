@@ -1,4 +1,5 @@
 import { distanceKm } from "@/lib/tripPlaces";
+import { looksLikeHeic, metadataSource } from "@/lib/heic";
 
 // When photos were taken, read on the person's own device from the photo
 // file (EXIF), to suggest a trip's or event's dates. Nothing is stored or
@@ -16,8 +17,10 @@ export function rangeOf(days: string[], today = localDay(new Date())): { from: s
 }
 
 /** The day a photo was taken, or null (no EXIF, not a photo, etc.). */
-export async function photoDay(file: File): Promise<string | null> {
-  if (!file.type.startsWith("image/")) return null;
+export async function photoDay(picked: File): Promise<string | null> {
+  // A HEIC photo converted to JPEG on picking keeps its EXIF in the original.
+  const file = metadataSource(picked);
+  if (!file.type.startsWith("image/") && !looksLikeHeic(file)) return null;
   try {
     const exifr = await import("exifr");
     // Raw bytes rather than the File itself: works in every browser and web view.
@@ -51,8 +54,9 @@ export function describeDays(from: string, to: string): string {
 // ---------- Where a photo was taken — only to match it to a place in the trip ----------
 
 /** A photo's location from its EXIF, read on the device. Never stored or sent. */
-export async function photoSpot(file: File): Promise<{ lat: number; lng: number } | null> {
-  if (!file.type.startsWith("image/")) return null;
+export async function photoSpot(picked: File): Promise<{ lat: number; lng: number } | null> {
+  const file = metadataSource(picked);
+  if (!file.type.startsWith("image/") && !looksLikeHeic(file)) return null;
   try {
     const exifr = await import("exifr");
     const gps = await exifr.gps(await file.arrayBuffer());

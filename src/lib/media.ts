@@ -25,7 +25,7 @@ export function focalPosition(item: { focal_x: number | null; focal_y: number | 
 export function validateFile(file: File, kind: "image" | "video"): string | null {
   if (kind === "image") {
     if (!IMAGE_TYPES.includes(file.type))
-      return `“${file.name}” is not a supported image. Use JPEG, PNG, WebP, AVIF or GIF.`;
+      return `“${file.name}” is not a supported image. Use JPEG, PNG, WebP, AVIF, GIF or HEIC.`;
     if (file.size > MAX_IMAGE_BYTES)
       return `“${file.name}” is ${(file.size / 1048576).toFixed(1)} MB. Images can be up to 10 MB.`;
   } else {

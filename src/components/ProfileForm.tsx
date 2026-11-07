@@ -6,6 +6,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES } from "@/lib/countries";
 import { validateFile } from "@/lib/media";
+import { convertHeic } from "@/lib/heic";
 import { AvatarCropper } from "./AvatarCropper";
 import { cn } from "@/lib/utils";
 import type { Profile, ProfileVisibility } from "@/lib/types";
@@ -43,8 +44,17 @@ export function ProfileForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function pickAvatar(file: File | undefined) {
-    if (!file) return;
+  async function pickAvatar(picked: File | undefined) {
+    if (!picked) return;
+    // iPhone (HEIC) photos become JPEGs first — see lib/heic.ts.
+    const {
+      files: [file],
+      failed,
+    } = await convertHeic([picked]);
+    if (!file || failed.length) {
+      setError(`Couldn't read “${picked.name}”. Try exporting it from Photos as JPEG.`);
+      return;
+    }
     const problem = validateFile(file, "image");
     if (problem) {
       setError(problem);
@@ -149,10 +159,10 @@ export function ProfileForm({
           <input
             id="avatar"
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             className="sr-only"
             onChange={(e) => {
-              pickAvatar(e.target.files?.[0]);
+              void pickAvatar(e.target.files?.[0]);
               e.target.value = "";
             }}
           />

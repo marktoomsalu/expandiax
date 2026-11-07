@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { X } from "lucide-react";
 import { classifyFile, validateFile } from "@/lib/media";
+import { convertHeic } from "@/lib/heic";
 
 export type PendingItem = { file: File; previewUrl: string; kind: "image" | "video" };
 
@@ -29,14 +30,23 @@ export function PendingMediaPicker({
   onFirstAdd?: (file: File) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [converting, setConverting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const photoCount = items.filter((i) => i.kind === "image").length;
   const videoCount = items.filter((i) => i.kind === "video").length;
   const atCap = photoCount >= photoCap && videoCount >= videoCap;
 
-  function addFiles(files: File[]) {
+  // iPhone (HEIC) photos become JPEGs first — see lib/heic.ts.
+  async function pickFiles(picked: File[]) {
     setError(null);
+    setConverting(true);
+    const { files, failed } = await convertHeic(picked).finally(() => setConverting(false));
+    addFiles(files);
+    if (failed.length) setError(`Couldn't read “${failed[0]}”. Try exporting it from Photos as JPEG.`);
+  }
+
+  function addFiles(files: File[]) {
     const wasEmpty = items.length === 0;
     const next: PendingItem[] = [];
     let addedPhotos = 0;
@@ -108,14 +118,15 @@ export function PendingMediaPicker({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*,.heic,.heif,video/*"
         multiple
         className="sr-only"
         onChange={(e) => {
-          if (e.target.files) addFiles(Array.from(e.target.files));
+          if (e.target.files) void pickFiles(Array.from(e.target.files));
           if (inputRef.current) inputRef.current.value = "";
         }}
       />
+      {converting && <p className="mt-2 text-xs text-muted">Preparing iPhone photos…</p>}
       {error && <p role="alert" className="mt-2 text-xs text-red-800 dark:text-red-400">{error}</p>}
     </div>
   );

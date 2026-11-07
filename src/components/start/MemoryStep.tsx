@@ -5,6 +5,7 @@ import { CountrySearch } from "@/components/CountrySearch";
 import { countryByCode } from "@/lib/countries";
 import type { OnboardingMemory } from "@/lib/onboardingDraft";
 import { localDay, photoDay } from "@/lib/photoDates";
+import { convertHeic } from "@/lib/heic";
 
 const TODAY = localDay(new Date());
 
@@ -30,7 +31,12 @@ export function MemoryStep({
     };
   }, [previewUrl]);
 
-  async function handlePhoto(file: File) {
+  async function handlePhoto(picked: File) {
+    // iPhone (HEIC) photos become JPEGs first — see lib/heic.ts.
+    const {
+      files: [file],
+    } = await convertHeic([picked]);
+    if (!file) return;
     setPhoto(file);
     setPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -70,7 +76,7 @@ export function MemoryStep({
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           className="sr-only"
           onChange={(e) => {
             const file = e.target.files?.[0];

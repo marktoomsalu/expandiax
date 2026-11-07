@@ -7,6 +7,7 @@ import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, MapPin, Move, Star
 import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
 import { classifyFile, focalPosition, validateFile } from "@/lib/media";
+import { convertHeic } from "@/lib/heic";
 import { enqueueUploads } from "@/lib/uploadQueue";
 import { QueuedMedia } from "./UploadQueue";
 import type { MediaItem } from "@/lib/types";
@@ -66,6 +67,7 @@ export function MediaUploader(props: Props) {
   const [pending, setPending] = useState<Pending[]>([]);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [error, setError] = useState<string | null>(null);
+  const [converting, setConverting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toDelete, setToDelete] = useState<MediaItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -189,13 +191,19 @@ export function MediaUploader(props: Props) {
     router.refresh();
   }
 
-  function pickFiles(list: FileList | null) {
+  async function pickFiles(list: FileList | null) {
     if (!list) return;
+    const picked = Array.from(list);
+    if (inputRef.current) inputRef.current.value = "";
     // Lets the page offer the dates these photos were taken (read on the device,
     // before their metadata is stripped for upload).
-    window.dispatchEvent(new CustomEvent<File[]>("expandiax:photos-picked", { detail: Array.from(list) }));
-    addFiles(Array.from(list));
-    if (inputRef.current) inputRef.current.value = "";
+    window.dispatchEvent(new CustomEvent<File[]>("expandiax:photos-picked", { detail: picked }));
+    // iPhone (HEIC) photos become JPEGs first — see lib/heic.ts.
+    setError(null);
+    setConverting(true);
+    const { files, failed } = await convertHeic(picked).finally(() => setConverting(false));
+    addFiles(files);
+    if (failed.length) setError(`Couldn't read “${failed[0]}”. Try exporting it from Photos as JPEG.`);
   }
 
   async function mediaResultToFile(webPath: string | undefined, format: string | undefined): Promise<File | null> {
@@ -322,10 +330,10 @@ export function MediaUploader(props: Props) {
                 ref={cameraRef}
                 id={`${table}-camera-input`}
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 capture="environment"
                 className="sr-only"
-                onChange={(e) => pickFiles(e.target.files)}
+                onChange={(e) => void pickFiles(e.target.files)}
               />
               <label htmlFor={`${table}-camera-input`} className={cn(tile, "cursor-pointer", photoRemaining <= 0 && "pointer-events-none opacity-40")}>
                 <CameraIcon size={24} className="shrink-0 text-accent" aria-hidden />
@@ -508,10 +516,10 @@ export function MediaUploader(props: Props) {
           ref={inputRef}
           id={`${table}-media-input`}
           type="file"
-          accept="image/*,video/*"
+          accept="image/*,.heic,.heif,video/*"
           multiple
           className="sr-only"
-          onChange={(e) => pickFiles(e.target.files)}
+          onChange={(e) => void pickFiles(e.target.files)}
         />
         {!tiles && (
           <div className="flex flex-wrap items-center gap-2">
@@ -549,6 +557,7 @@ export function MediaUploader(props: Props) {
         <span className={cn("text-xs text-muted", !tiles && "ml-3")}>JPEG/PNG/WebP up to 10 MB, or MP4/WebM/MOV up to 300 MB</span>
       </div>
 
+      {converting && <p className="mt-2 text-xs text-muted">Preparing iPhone photos…</p>}
       {error && (
         <p role="alert" className="mt-3 rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">
           {error}
