@@ -49,7 +49,11 @@ export default function DeleteAccountPage() {
             <Strong>A photo or video:</Strong> open the trip or event, tap <Strong>Edit</Strong>, and remove it.
           </li>
           <li>
-            <Strong>A country, trip or event:</Strong> open it, tap <Strong>Edit</Strong>, then <Strong>Delete</Strong>.
+            <Strong>A country and its trips:</Strong> open it in <Strong>My World</Strong> and tap{" "}
+            <Strong>Remove [country] from my map</Strong>.
+          </li>
+          <li>
+            <Strong>An event:</Strong> open it, tap <Strong>Edit</Strong>, then <Strong>Delete</Strong>.
           </li>
           <li>
             <Strong>A comment, question or answer:</Strong> tap <Strong>Delete</Strong> under it.
