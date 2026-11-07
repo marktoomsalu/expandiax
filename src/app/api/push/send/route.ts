@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFirebaseMessaging } from "@/lib/firebase";
 import type { NotificationKind } from "@/lib/types";
+import { countryByCode } from "@/lib/countries";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,8 @@ type NotificationRow = {
   user_id: string;
   actor_id: string;
   kind: NotificationKind;
-  target_kind: "country" | "event" | null;
+  target_kind: "country" | "event" | "question" | null;
+  target_id: string | null;
   comment_body: string | null;
 };
 
@@ -20,6 +22,8 @@ const TITLES: Record<NotificationKind, string> = {
   follow: "New follower",
   follow_request: "Follow request",
   follow_accepted: "Follow request accepted",
+  question: "A question for you",
+  answer: "New answer",
 };
 
 export async function POST(request: NextRequest) {
@@ -41,9 +45,12 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const [{ data: actor }, { data: tokens }] = await Promise.all([
+  const [{ data: actor }, { data: tokens }, { data: question }] = await Promise.all([
     admin.from("profiles").select("display_name").eq("id", record.actor_id).single(),
     admin.from("device_tokens").select("token").eq("user_id", record.user_id),
+    record.target_kind === "question" && record.target_id
+      ? admin.from("place_questions").select("country_code").eq("id", record.target_id).maybeSingle()
+      : Promise.resolve({ data: null as { country_code: string } | null }),
   ]);
   if (!tokens || tokens.length === 0) return NextResponse.json({ ok: true, sent: 0 });
 
@@ -58,6 +65,10 @@ export async function POST(request: NextRequest) {
         return `${actorName} wants to follow you`;
       case "follow_accepted":
         return `${actorName} accepted your follow request`;
+      case "question":
+        return `${actorName} asks about ${countryByCode(question?.country_code)?.name ?? "a place you've been"}: "${record.comment_body ?? ""}"`;
+      case "answer":
+        return `${actorName} answered: "${record.comment_body ?? ""}"`;
       default:
         return `${actorName} commented: "${record.comment_body ?? ""}"`;
     }

@@ -22,13 +22,10 @@ import {
 } from "@/lib/feedSections";
 import { loadThenMemory } from "@/lib/thenMemory";
 import { ThenCard } from "@/components/ThenCard";
-import { ArtistsOnTour } from "@/components/UpcomingShows";
 import { TogetherSection } from "@/components/TogetherSection";
 import { CountryBurstCard } from "@/components/CountryBurstCard";
 import { stockPhotoFor } from "@/lib/stockPhotos";
-import { artistsSeenLive } from "@/lib/concerts";
 import { whereAmI } from "@/lib/location";
-import { ExploreCity } from "@/components/ExploreCity";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
@@ -79,7 +76,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     media_count: (country_media as unknown as { count: number }[])[0]?.count ?? 0,
   }));
 
-  const liveArtists = artistsSeenLive(ownEventsRaw ?? []);
   // A city picked on the Explore tab rides along in the address.
   const here = whereAmI(viewerProfile?.home_country_code ?? null, searchParams);
 
@@ -89,20 +85,14 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     return (
       <div className="mx-auto max-w-2xl px-5 py-6">
         <FeedTabs tab="explore" />
-        <div className="mt-3 flex flex-wrap items-center gap-2.5">
-          <ExploreCity place={here?.place ?? null} picked={here?.source === "picked"} basePath="/feed?tab=explore">
-            <div className="min-w-[14rem] flex-1">
-              <SearchBox action="/explore" placeholder="Search people, places or artists…" flush />
-            </div>
-          </ExploreCity>
-        </div>
+        <SearchBox action="/explore" placeholder="Search people, places or artists…" />
         <Suspense fallback={<p className="mt-10 text-center text-sm text-muted">Finding places and people…</p>}>
-          <FeedExplore viewerId={user.id} here={here} homeCountry={viewerProfile?.home_country_code ?? null}>
-            {/* Artists you've seen live, touring again — the rest of what's on is in the events row above. */}
-            <Suspense fallback={null}>
-              <ArtistsOnTour artists={liveArtists} homeCountry={viewerProfile?.home_country_code ?? null} />
-            </Suspense>
-          </FeedExplore>
+          <FeedExplore
+            viewerId={user.id}
+            here={here}
+            homeCountry={viewerProfile?.home_country_code ?? null}
+            me={{ username: viewerProfile?.username ?? "", display_name: viewerProfile?.display_name ?? "You", avatar_url: viewerProfile?.avatar_url ?? null }}
+          />
         </Suspense>
       </div>
     );

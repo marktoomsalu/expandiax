@@ -35,6 +35,8 @@ export type DreamPlace = { country_code: string; place_name: string };
 type VisitRow = { id: string; title: string; kind: "trip" | "lived"; year: number; visited_from: string | null; visited_to: string | null; date_precision: DatePrecision };
 type CityRow = { city_name: string; country_visit_id: string; position: number; arrived: string | null };
 
+type Circle = Awaited<ReturnType<typeof viewerCircle>>;
+
 /** Who you follow, and your friends among them: people who follow you back. */
 async function viewerCircle(supabase: Supabase, viewerId: string | null) {
   if (!viewerId) return { following: new Set<string>(), friends: new Set<string>(), home: null as string | null, dreams: [] as DreamPlace[] };
@@ -71,11 +73,13 @@ export async function loadTravellers(
   viewerId: string | null,
   countryCode: string,
   /** A town, as its web address slug ("novo-mesto"). */
-  townSlug?: string
+  townSlug?: string,
+  /** Who the viewer follows, when the caller already has it. */
+  knownCircle?: Circle
 ): Promise<{ travellers: Traveller[]; home: string | null; dreams: DreamPlace[]; townName: string | null }> {
   const country = countryByCode(countryCode);
   const [circle, { data }] = await Promise.all([
-    viewerCircle(supabase, viewerId),
+    knownCircle ?? viewerCircle(supabase, viewerId),
     supabase
       .from("visited_countries")
       .select(
@@ -118,6 +122,30 @@ export async function loadTravellers(
     travellers.push({ id: p.id, username: p.username, display_name: p.display_name, avatar_url: p.avatar_url, home: p.home_country_code, following, stays });
   }
   return { travellers, home: circle.home, dreams: circle.dreams, townName };
+}
+
+/** A destination on your dream list, and everyone you can see who's been — people you follow first. */
+export type DreamBoardRow = { code: string; place: string; travellers: Traveller[]; network: number };
+
+/** Explore's departures board: your dream destinations (newest first, one per country) and who's been. */
+export async function loadDreamBoard(supabase: Supabase, viewerId: string, limit = 5): Promise<DreamBoardRow[]> {
+  const circle = await viewerCircle(supabase, viewerId);
+  const seen = new Set<string>();
+  const wanted: { code: string; place: string }[] = [];
+  for (const d of circle.dreams) {
+    const code = d.country_code.slice(0, 2);
+    if (seen.has(code) || !countryByCode(code)) continue;
+    seen.add(code);
+    wanted.push({ code, place: d.place_name });
+    if (wanted.length === limit) break;
+  }
+  return Promise.all(
+    wanted.map(async (w) => {
+      const { travellers } = await loadTravellers(supabase, viewerId, w.code, undefined, circle);
+      travellers.sort(byCloseness);
+      return { ...w, travellers, network: travellers.filter((t) => t.following).length };
+    })
+  );
 }
 
 // ---------- For the feed: places for you, a place to start, people to meet ----------

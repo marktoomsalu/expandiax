@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { Clock, Heart, MessageCircle, UserCheck, UserPlus } from "lucide-react";
+import { Clock, Heart, HelpCircle, MessageCircle, MessagesSquare, UserCheck, UserPlus } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { FollowRequestActions } from "@/components/FollowRequestActions";
@@ -17,6 +17,8 @@ const ICONS = {
   follow: UserPlus,
   follow_request: Clock,
   follow_accepted: UserCheck,
+  question: HelpCircle,
+  answer: MessagesSquare,
 };
 
 export default async function NotificationsPage() {
@@ -43,14 +45,19 @@ export default async function NotificationsPage() {
 
   const countryIds = notifications.filter((n) => n.target_kind === "country" && n.target_id).map((n) => n.target_id!);
   const eventIds = notifications.filter((n) => n.target_kind === "event" && n.target_id).map((n) => n.target_id!);
-  const [{ data: countryRows }, { data: eventRows }] = await Promise.all([
+  const questionIds = notifications.filter((n) => n.target_kind === "question" && n.target_id).map((n) => n.target_id!);
+  const [{ data: countryRows }, { data: eventRows }, { data: questionRows }] = await Promise.all([
     countryIds.length
       ? supabase.from("visited_countries").select("id, country_code, country_name").in("id", countryIds)
       : Promise.resolve({ data: [] as { id: string; country_code: string; country_name: string }[] }),
     eventIds.length
       ? supabase.from("events").select("id, title").in("id", eventIds)
       : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+    questionIds.length
+      ? supabase.from("place_questions").select("id, country_code").in("id", questionIds)
+      : Promise.resolve({ data: [] as { id: string; country_code: string }[] }),
   ]);
+  const questionById = new Map((questionRows ?? []).map((r) => [r.id, r]));
   const countryById = new Map((countryRows ?? []).map((r) => [r.id, r]));
   const eventById = new Map((eventRows ?? []).map((r) => [r.id, r]));
 
@@ -71,6 +78,12 @@ export default async function NotificationsPage() {
       const e = eventById.get(n.target_id);
       if (!e) return null;
       return { label: e.title, href: `/u/${username}/events/${n.target_id}` };
+    }
+    if (n.target_kind === "question" && n.target_id) {
+      const q = questionById.get(n.target_id);
+      const meta = q ? countryByCode(q.country_code) : null;
+      if (!meta) return null;
+      return { label: `${meta.flag} ${meta.name}`, href: `/explore/country/${meta.code.toLowerCase()}#q-${n.target_id}` };
     }
     return null;
   }
@@ -103,6 +116,14 @@ export default async function NotificationsPage() {
               text = <>wants to follow you</>;
             } else if (n.kind === "follow_accepted") {
               text = <>accepted your follow request</>;
+            } else if (n.kind === "question" || n.kind === "answer") {
+              text = (
+                <>
+                  {n.kind === "question" ? "asks about" : "answered your question about"}{" "}
+                  {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : "a place"}
+                  {n.comment_body && <span className="block italic text-muted">&ldquo;{n.comment_body}&rdquo;</span>}
+                </>
+              );
             } else if (n.kind === "like") {
               text = t ? (
                 <>

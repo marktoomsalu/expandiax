@@ -5,7 +5,7 @@ import { Flag } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Props = {
-  targetType: "profile" | "event" | "country";
+  targetType: "profile" | "event" | "country" | "question" | "answer";
   targetId: string;
   targetUrl: string;
 };

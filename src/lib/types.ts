@@ -144,14 +144,15 @@ export type CommentWithAuthor = Comment & {
   profiles: Pick<Profile, "username" | "display_name" | "avatar_url"> | null;
 };
 
-export type NotificationKind = "like" | "comment" | "follow" | "follow_request" | "follow_accepted";
+/** "question": someone you follow asked about a place you've been; "answer": someone answered your question. */
+export type NotificationKind = "like" | "comment" | "follow" | "follow_request" | "follow_accepted" | "question" | "answer";
 
 export type Notification = {
   id: string;
   user_id: string;
   actor_id: string;
   kind: NotificationKind;
-  target_kind: "country" | "event" | null;
+  target_kind: "country" | "event" | "question" | null;
   target_id: string | null;
   comment_body: string | null;
   read: boolean;

@@ -19,6 +19,9 @@ import { EventCarousel } from "@/components/EventCarousel";
 import { StockImage } from "@/components/StockImage";
 import { StockCredit } from "@/components/StockCredit";
 import { MembersOnly } from "@/components/MembersOnly";
+import { PlaceQuestions, type QAQuestion } from "@/components/PlaceQuestions";
+import { PartnerCard, PlaceInsights } from "@/components/explore/PlaceInsights";
+import { placeSponsor } from "@/lib/sponsors";
 
 export function generateMetadata({ params }: { params: { code: string } }) {
   return { title: countryByCode(params.code)?.name ?? "Explore" };
@@ -41,6 +44,26 @@ async function UpcomingHere({ code, name }: { code: string; name: string }) {
   );
 }
 
+const QA_FIELDS =
+  "id, user_id, body, created_at, author:profiles!place_questions_user_id_fkey(username, display_name, avatar_url), place_answers(id, user_id, body, created_at, author:profiles!place_answers_user_id_fkey(username, display_name, avatar_url))";
+
+/** The latest questions about a country with their answers — null when they can't be read (members only). */
+async function loadQuestions(supabase: ReturnType<typeof createClient>, code: string): Promise<QAQuestion[] | null> {
+  const { data, error } = await supabase.from("place_questions").select(QA_FIELDS).eq("country_code", code).order("created_at", { ascending: false }).limit(30);
+  if (error) return null;
+  const one = <T,>(x: unknown) => (Array.isArray(x) ? x[0] : x) as T | null;
+  return (data ?? []).map((q) => ({
+    id: q.id,
+    user_id: q.user_id,
+    body: q.body,
+    created_at: q.created_at,
+    author: one(q.author),
+    answers: ((q.place_answers ?? []) as { id: string; user_id: string; body: string; created_at: string; author: unknown }[])
+      .map((a) => ({ ...a, author: one(a.author) }))
+      .sort((x, y) => x.created_at.localeCompare(y.created_at)),
+  })) as QAQuestion[];
+}
+
 /** A country as ExpandiaX knows it: who's been, what they went to, and what's coming up. */
 export default async function CountryHubPage({ params }: { params: { code: string } }) {
   const country = countryByCode(params.code);
@@ -48,7 +71,7 @@ export default async function CountryHubPage({ params }: { params: { code: strin
   const supabase = createClient();
   const viewer = await getAuthUser();
 
-  const [{ travellers, home, dreams }, counts, { data: liveRows }, { data: mine }] = await Promise.all([
+  const [{ travellers, home, dreams }, counts, { data: liveRows }, { data: mine }, questions, me] = await Promise.all([
     loadTravellers(supabase, viewer?.id ?? null, country.code),
     travellerCounts(supabase, country.code),
     supabase
@@ -59,6 +82,8 @@ export default async function CountryHubPage({ params }: { params: { code: strin
       .in("event_type", [...LIVE_TYPES])
       .limit(1000),
     viewer ? supabase.from("visited_countries").select("id").eq("user_id", viewer.id).eq("country_code", country.code).maybeSingle() : Promise.resolve({ data: null }),
+    viewer ? loadQuestions(supabase, country.code) : Promise.resolve([] as QAQuestion[]),
+    viewer ? supabase.from("profiles").select("id, username, display_name, avatar_url").eq("id", viewer.id).single().then((r) => r.data) : Promise.resolve(null),
   ]);
 
   // Everyone who's been (a number only) — never fewer than the people you can see.
@@ -70,6 +95,7 @@ export default async function CountryHubPage({ params }: { params: { code: strin
   const live = trendingLive((liveRows ?? []) as LiveRow[], { min: 1, limit: 12 });
   const photo = stockPhotoFor(country.code, "explore");
   const [a, b] = flagGradientColors(country.code);
+  const sponsor = placeSponsor(country.code);
 
   return (
     <div>
@@ -117,6 +143,12 @@ export default async function CountryHubPage({ params }: { params: { code: strin
         </div>
         <TripLinks place={country.name} size="large" className="mt-4" />
         <PartnerNote className="mt-1.5" />
+
+        <Suspense fallback={null}>
+          <PlaceInsights code={country.code} />
+        </Suspense>
+
+        {sponsor && <PartnerCard s={sponsor} />}
 
         {travellers.length > 0 && (
           <section className="mt-10" aria-labelledby="tv-h">
@@ -169,6 +201,16 @@ export default async function CountryHubPage({ params }: { params: { code: strin
               ))}
             </ul>
           </section>
+        )}
+
+        {questions !== null && (
+          <PlaceQuestions
+            countryCode={country.code}
+            countryName={country.name}
+            viewer={me}
+            initial={questions}
+            beenIds={[...travellers.map((t) => t.id), ...(mine && viewer ? [viewer.id] : [])]}
+          />
         )}
 
         <Suspense fallback={null}>

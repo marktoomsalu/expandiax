@@ -46,7 +46,7 @@ export default function DeleteAccountPage() {
         <LegalList>
           <li>
             <Strong>Deleted immediately:</Strong> your profile, countries, trips, events, photos, videos, notes,
-            comments, likes, follows, blocks, notifications and device tokens.
+            comments, questions and answers about places, likes, follows, blocks, notifications and device tokens.
           </li>
           <li>
             <Strong>Kept for a limited time:</Strong> copies in backups are overwritten within 30 days. Reports about

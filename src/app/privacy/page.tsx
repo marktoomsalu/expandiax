@@ -34,7 +34,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <Strong>What you add</Strong> - the countries and events you log, photos, videos, notes, ratings, home
-            country, songs you pick, and your comments, likes, follows and blocks. <em>Why:</em> that is the app.{" "}
+            country, songs you pick, places you dream of going, questions and answers you post about places (visible to
+            all members), and your comments, likes, follows and blocks. <em>Why:</em> that is the app.{" "}
             <em>Legal basis:</em> contract.
           </li>
           <li>
@@ -60,7 +61,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             <Strong>Notifications</Strong> - if you use the app and allow notifications, a device token so we can send
-            push notifications about likes, comments and new followers; and emails such as “X started following you” and
+            push notifications about likes, comments, new followers and questions or answers about places; and emails such as “X started following you” and
             an optional weekly digest (each digest has a one-click unsubscribe). <em>Legal basis:</em> contract, and
             your consent for push notifications, which you can withdraw in your device’s settings at any time.
           </li>
