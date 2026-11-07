@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CompanyDetails, Ext, LegalList, LegalPage, LegalSection, Mail, Strong } from "@/components/LegalPage";
 import { company } from "@/lib/company";
-import { MIN_AGE } from "@/lib/legal";
+import { MIN_AGE, PRIVACY_UPDATED_LABEL } from "@/lib/legal";
 
 export const metadata = {
   title: "Privacy Policy",
@@ -10,7 +10,7 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy">
+    <LegalPage title="Privacy Policy" updated={PRIVACY_UPDATED_LABEL}>
       <p>
         This explains what ExpandiaX collects about you, why, who else gets to handle it, and how you stay in control.
         We collect only what we need to run the app, we don’t sell your data, and we don’t show ads.
@@ -58,6 +58,12 @@ export default function PrivacyPage() {
             store it). Only a rough area of about 20-40 km is passed on to find events - never your exact position. If
             it isn’t available we use the home country on your profile. <em>Legal basis:</em> our legitimate interest
             in showing you relevant events.
+          </li>
+          <li>
+            <Strong>Usage statistics</Strong> - the days you use ExpandiaX while signed in (only the day, never what you
+            look at), so we can count how many members are active and how many come back. It&rsquo;s recorded on our
+            server without any cookie or tracker, never shared, shown to us only as totals, and deleted after 13
+            months. <em>Legal basis:</em> our legitimate interest in understanding whether ExpandiaX is useful.
           </li>
           <li>
             <Strong>Notifications</Strong> - if you use the app and allow notifications, a device token so we can send

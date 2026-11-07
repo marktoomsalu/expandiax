@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  // Active-day records are kept 13 months (see migration 055), then deleted.
+  const keepFrom = new Date(Date.now() - 396 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  await supabase.from("activity_days").delete().lt("day", keepFrom);
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: profiles } = await supabase

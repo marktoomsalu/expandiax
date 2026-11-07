@@ -1,12 +1,12 @@
 import { company } from "@/lib/company";
 import { LEGAL_UPDATED_LABEL } from "@/lib/legal";
 
-export function LegalPage({ title, children }: { title: string; children: React.ReactNode }) {
+export function LegalPage({ title, updated = LEGAL_UPDATED_LABEL, children }: { title: string; updated?: string; children: React.ReactNode }) {
   return (
     <div className="mx-auto max-w-2xl px-5 py-12">
       <p className="eyebrow">Legal</p>
       <h1 className="mt-2 text-3xl md:text-4xl">{title}</h1>
-      <p className="mt-3 text-sm text-muted">Last updated {LEGAL_UPDATED_LABEL}.</p>
+      <p className="mt-3 text-sm text-muted">Last updated {updated}.</p>
       <div className="mt-10 space-y-8 text-sm leading-relaxed text-muted">{children}</div>
     </div>
   );

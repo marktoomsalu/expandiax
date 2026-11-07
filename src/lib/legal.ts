@@ -3,6 +3,7 @@
 // shown on the pages and stored with each new email sign-up as proof of what
 // they agreed to.
 export const TERMS_VERSION = "2026-09-30";
-export const PRIVACY_VERSION = "2026-09-30";
+export const PRIVACY_VERSION = "2026-11-07";
 export const LEGAL_UPDATED_LABEL = "September 30, 2026";
+export const PRIVACY_UPDATED_LABEL = "November 7, 2026";
 export const MIN_AGE = 16;

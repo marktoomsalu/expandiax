@@ -6,6 +6,9 @@ const PROTECTED = ["/my-world", "/events", "/stats", "/settings", "/onboarding",
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
+  // Set when Supabase renews the session's cookies (about hourly while
+  // someone's using ExpandiaX) — the moment the day gets counted, below.
+  let renewed = false;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +19,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          renewed = true;
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
@@ -32,6 +36,15 @@ export async function middleware(request: NextRequest) {
   // own rules still check the token on every query.
   const { data: claims } = await supabase.auth.getClaims();
   const user = claims?.claims?.sub ? { id: claims.claims.sub } : null;
+
+  // "Active today", for the founder's dashboard: the day only (never the
+  // page), written when the session renews rather than on every page, with
+  // no cookie or device storage of its own. A second write on the same day
+  // is simply ignored.
+  if (renewed && user) {
+    const day = new Date().toISOString().slice(0, 10);
+    await supabase.from("activity_days").upsert({ user_id: user.id, day }, { onConflict: "user_id,day", ignoreDuplicates: true });
+  }
 
   const path = request.nextUrl.pathname;
   const isProtected = PROTECTED.some((p) => path === p || path.startsWith(p + "/"));
