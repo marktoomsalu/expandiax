@@ -237,6 +237,9 @@ export function FeedExplore({
       <Suspense fallback={null}>
         <PlacesSection home={home} circle="network" />
       </Suspense>
+      <Suspense fallback={null}>
+        <TravelTwin explore={explore} />
+      </Suspense>
       <Suspense fallback={<RowSkeleton title={here ? `What's on near ${here.place}` : "What's on"} />}>
         <EventsSection events={events} here={here} city={city} />
       </Suspense>
@@ -323,6 +326,36 @@ async function EventsSection({ events: pending, here, city }: { events: Promise<
         ))}
       </ul>
       {events.some((e) => e.source) && <p className="mt-1 text-[11px] text-muted">{sourcesCredit(events.map((e) => e.source))}</p>}
+    </section>
+  );
+}
+
+/** The one member whose map and live events overlap yours the most — and why. */
+async function TravelTwin({ explore }: { explore: Promise<Explore> }) {
+  const { clickWith } = await explore;
+  const twin = clickWith[0];
+  if (!twin) return null;
+  return (
+    <section aria-labelledby="twin-h" className="relative overflow-hidden rounded-2xl border border-line bg-surface p-4 shadow-sm">
+      <div aria-hidden className="gradient-travel pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full opacity-[0.16] blur-2xl" />
+      <p id="twin-h" className="relative text-[10px] font-semibold uppercase tracking-wide text-accent">
+        Your travel twin
+      </p>
+      <div className="relative mt-3 flex items-center gap-3.5">
+        <Link href={`/u/${twin.username}`} className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-serif text-2xl text-accent">
+          {twin.avatar_url ? <Image src={twin.avatar_url} alt="" fill sizes="64px" className="object-cover" /> : twin.display_name.charAt(0)}
+        </Link>
+        <div className="min-w-0 flex-1">
+          <Link href={`/u/${twin.username}`} className="block truncate font-serif text-xl leading-tight hover:text-accent">
+            {twin.display_name}
+          </Link>
+          <p className="mt-0.5 text-xs leading-snug text-muted">{twin.reason}</p>
+          <p className="text-[11px] text-muted">
+            {twin.countries} {twin.countries === 1 ? "country" : "countries"}
+          </p>
+        </div>
+        <FollowButton targetId={twin.id} visibility={twin.visibility} initialFollowing={false} />
+      </div>
     </section>
   );
 }
