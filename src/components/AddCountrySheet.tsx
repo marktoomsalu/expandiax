@@ -49,13 +49,12 @@ export const AddCountrySheet = forwardRef<AddCountrySheetHandle>(function AddCou
       style={{ marginTop: "calc(env(safe-area-inset-top) + 72px)", marginBottom: "auto" }}
       className="w-[min(94vw,32rem)] overflow-visible rounded-[28px] border border-line bg-surface p-5 text-ink shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
     >
-      <div className="mb-1 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <h2 id="add-country-h" className="font-serif text-2xl">Add a country</h2>
         <button type="button" onClick={() => dialog.current?.close()} aria-label="Close" className="-mr-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-ink">
           <X size={18} />
         </button>
       </div>
-      <p className="mb-4 text-sm text-muted">A few letters are enough: &ldquo;Tur&rdquo; finds Türkiye.</p>
       <CountrySearch inputRef={input} onSelect={go} visitedCodes={visited} placeholder="Where have you been?" />
     </dialog>
   );
