@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { FirstFriends } from "@/components/FirstFriends";
+import { hasRealName } from "@/lib/profileName";
 import { BarChart3, ImagePlus, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -40,7 +41,7 @@ export default async function MyWorldPage() {
       .from("visited_countries")
       .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to)")
       .eq("user_id", user.id),
-    supabase.from("profiles").select("home_country_code").eq("id", user.id).single(),
+    supabase.from("profiles").select("home_country_code, display_name").eq("id", user.id).single(),
     loadDreamPlaces(supabase, user.id),
   ]).then((r) => signMedia(r));
   const dreamCodes = [...new Set(dreams.map((d) => d.country_code))];
@@ -90,6 +91,18 @@ export default async function MyWorldPage() {
       <Suspense fallback={null}>
         <FirstFriends userId={user.id} />
       </Suspense>
+      {profile && !hasRealName(profile.display_name) && (
+        <Link
+          href="/settings"
+          className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm text-ink hover:border-accent"
+        >
+          <span>
+            <span className="font-medium">What should friends call you?</span>{" "}
+            <span className="text-muted">Your profile says &ldquo;Traveller&rdquo; for now.</span>
+          </span>
+          <span className="shrink-0 font-medium text-accent">Add your name &rarr;</span>
+        </Link>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">My World</p>

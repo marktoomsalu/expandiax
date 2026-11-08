@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { PLACEHOLDER_NAME } from "@/lib/profileName";
 import { AppleSignInButton } from "@/components/AppleSignInButton";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { PasswordField } from "@/components/PasswordField";
@@ -66,7 +67,7 @@ export default function SignUpPage() {
       options: {
         data: {
           username: uname,
-          display_name: displayName.trim() || "Traveller",
+          display_name: displayName.trim() || PLACEHOLDER_NAME,
           // What they agreed to, and when — kept with the account.
           terms_accepted_at: new Date().toISOString(),
           terms_version: TERMS_VERSION,

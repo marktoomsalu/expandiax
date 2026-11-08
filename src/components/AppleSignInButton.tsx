@@ -7,6 +7,7 @@ import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { createClient } from "@/lib/supabase/client";
 import { isNativePlatform, NATIVE_APP_SCHEME } from "@/lib/capacitor";
 import { generateRawNonce, sha256Hex } from "@/lib/apple-nonce";
+import { nameFromParts, PLACEHOLDER_NAME } from "@/lib/profileName";
 
 export function AppleSignInButton({ next = "/my-world", disabled = false }: { next?: string; disabled?: boolean }) {
   const supabase = createClient();
@@ -45,11 +46,22 @@ export function AppleSignInButton({ next = "/my-world", disabled = false }: { ne
           scopes: "email name",
           nonce: hashedNonce,
         });
-        const { error } = await supabase.auth.signInWithIdToken({
+        const { data: signedIn, error } = await supabase.auth.signInWithIdToken({
           provider: "apple",
           token: result.response.identityToken,
           nonce: rawNonce,
         });
+        // Apple shares the name only on the very first sign-in, and not inside
+        // the token - so save it now, or the profile stays "Traveller".
+        const name = nameFromParts(result.response.givenName, result.response.familyName);
+        if (!error && name && signedIn.user) {
+          try {
+            await supabase.auth.updateUser({ data: { full_name: name } });
+            await supabase.from("profiles").update({ display_name: name }).eq("id", signedIn.user.id).eq("display_name", PLACEHOLDER_NAME);
+          } catch {
+            // The name can still be added during onboarding.
+          }
+        }
         window.location.href = error ? "/sign-in" : next;
       } catch (e) {
         // User cancelled the sheet (AuthorizationError 1001) — just reset.

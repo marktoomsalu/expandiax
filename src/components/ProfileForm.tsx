@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { hasRealName, PLACEHOLDER_NAME } from "@/lib/profileName";
 import { COUNTRIES } from "@/lib/countries";
 import { validateFile } from "@/lib/media";
 import { convertHeic } from "@/lib/heic";
@@ -28,7 +29,8 @@ export function ProfileForm({
   const router = useRouter();
   const supabase = createClient();
   const [username, setUsername] = useState(profile.username);
-  const [displayName, setDisplayName] = useState(profile.display_name);
+  // "Traveller" is only a placeholder: show an empty field so people give their own name.
+  const [displayName, setDisplayName] = useState(hasRealName(profile.display_name) ? profile.display_name : "");
   const [bio, setBio] = useState(profile.bio);
   const [homeCountry, setHomeCountry] = useState(profile.home_country_code ?? "");
   const [visibility, setVisibility] = useState<ProfileVisibility | null>(
@@ -117,7 +119,7 @@ export function ProfileForm({
       .from("profiles")
       .update({
         username: uname,
-        display_name: displayName.trim() || "Traveller",
+        display_name: displayName.trim() || PLACEHOLDER_NAME,
         bio: bio.trim(),
         home_country_code: homeCountry || null,
         visibility,
@@ -186,7 +188,18 @@ export function ProfileForm({
 
       <div>
         <label htmlFor="pf-name" className="mb-1.5 block text-sm font-medium">Display name</label>
-        <input id="pf-name" className="field" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+        <input
+          id="pf-name"
+          className="field"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="Your name"
+          autoComplete="name"
+          maxLength={80}
+          required
+          aria-describedby="pf-name-hint"
+        />
+        <p id="pf-name-hint" className="mt-1 text-xs text-muted">What friends see on your profile and in their feed.</p>
       </div>
 
       <div>

@@ -407,7 +407,8 @@ create trigger events_touch before update on public.events
   for each row execute function public.set_updated_at();
 
 -- Create a profile automatically when a user signs up.
--- Username and display name are passed via auth metadata at sign-up.
+-- Username and display name come from auth metadata: the email form sends
+-- display_name, Google and Apple send full_name / name (migration 057).
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql security definer set search_path = public
@@ -417,7 +418,12 @@ begin
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'username', 'user_' || substr(new.id::text, 1, 8)),
-    coalesce(new.raw_user_meta_data ->> 'display_name', 'Traveller')
+    left(coalesce(
+      nullif(trim(new.raw_user_meta_data ->> 'display_name'), ''),
+      nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''),
+      nullif(trim(new.raw_user_meta_data ->> 'name'), ''),
+      'Traveller'
+    ), 80)
   );
   return new;
 end;
