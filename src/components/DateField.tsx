@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { canShift, monthGrid, shiftMonth, startMonth, type YearMonth } from "@/lib/calendar";
+import { canShift, monthGrid, shiftMonth, startMonth, ymOf, type YearMonth } from "@/lib/calendar";
 import { localDay } from "@/lib/photoDates";
 import { MONTH_NAMES, cn, formatDate } from "@/lib/utils";
 
@@ -10,10 +10,12 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const short = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 /**
- * A date box that opens our own calendar instead of the phone's: one tap on
- * a day picks it, and month and year can be changed without picking a day
- * (the iPhone picker saves today's day number when you jump months). An
- * empty box opens on `openTo` - an end date opens on its start date's month.
+ * A date box that opens our own calendar instead of the phone's: month and
+ * year can be changed without picking a day (the iPhone picker saves today's
+ * day number when you jump months), a tap on a day selects it, and OK - grey
+ * until a day is chosen - saves it, so a wrong tap is fixed with another tap.
+ * An empty box opens on `openTo` (an end date on its start date's month).
+ * Dates go at most a year ahead.
  */
 export function DateField({
   id,
@@ -44,11 +46,16 @@ export function DateField({
   const ref = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<YearMonth>({ y: 2026, m: 1 });
+  const [draft, setDraft] = useState("");
   const today = localDay(new Date());
   const thisYear = Number(today.slice(0, 4));
+  // A year from today at most (28 February when today is the 29th).
+  const yearAhead = `${thisYear + 1}${today.slice(4) === "-02-29" ? "-02-28" : today.slice(4)}`;
+  const latest = max && max < yearAhead ? max : yearAhead;
 
   function show() {
-    setView(startMonth(value, openTo, min, max, today));
+    setDraft(value);
+    setView(startMonth(value, openTo, min, latest, today));
     setOpen(true);
   }
 
@@ -63,17 +70,18 @@ export function DateField({
     if (!open && el.open) el.close();
   }, [open]);
 
-  function pick(iso: string) {
+  function save(iso: string) {
     onChange(iso);
     setOpen(false);
   }
 
-  const allowed = (iso: string) => (!min || iso >= min) && (!max || iso <= max);
+  const allowed = (iso: string) => (!min || iso >= min) && iso <= latest;
+  const changed = !!draft && draft !== value;
   const firstYear = Math.min(min ? Number(min.slice(0, 4)) : 1940, view.y);
-  const lastYear = Math.max(max ? Number(max.slice(0, 4)) : thisYear + 5, view.y);
+  const lastYear = Math.max(Number(latest.slice(0, 4)), view.y);
   const years = Array.from({ length: lastYear - firstYear + 1 }, (_, i) => lastYear - i);
   const weeks = monthGrid(view);
-  const startDay = value && value.slice(0, 7) === `${view.y}-${String(view.m).padStart(2, "0")}` ? value : today;
+  const startDay = draft && draft.slice(0, 7) === `${view.y}-${String(view.m).padStart(2, "0")}` ? draft : today;
 
   return (
     <>
@@ -127,7 +135,7 @@ export function DateField({
               <button
                 type="button"
                 aria-label="Previous month"
-                disabled={!canShift(view, -1, min, max)}
+                disabled={!canShift(view, -1, min, latest)}
                 onClick={() => setView(shiftMonth(view, -1))}
                 className="flex h-10 w-10 items-center justify-center rounded-full text-accent hover:bg-raised disabled:text-muted disabled:opacity-30"
               >
@@ -136,7 +144,7 @@ export function DateField({
               <button
                 type="button"
                 aria-label="Next month"
-                disabled={!canShift(view, 1, min, max)}
+                disabled={!canShift(view, 1, min, latest)}
                 onClick={() => setView(shiftMonth(view, 1))}
                 className="flex h-10 w-10 items-center justify-center rounded-full text-accent hover:bg-raised disabled:text-muted disabled:opacity-30"
               >
@@ -158,13 +166,13 @@ export function DateField({
                         key={iso}
                         type="button"
                         disabled={!allowed(iso)}
-                        onClick={() => pick(iso)}
+                        onClick={() => setDraft(iso)}
                         aria-label={formatDate(iso)}
-                        aria-pressed={iso === value}
+                        aria-pressed={iso === draft}
                         data-start={iso === startDay}
                         className={cn(
                           "mx-auto flex h-11 w-11 items-center justify-center rounded-full text-base tabular-nums transition-colors disabled:opacity-25",
-                          iso === value
+                          iso === draft
                             ? "gradient-travel font-semibold text-white"
                             : iso === today
                               ? "font-semibold text-accent ring-1 ring-inset ring-accent/50 hover:bg-accent-soft"
@@ -183,19 +191,41 @@ export function DateField({
 
             <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
               {clearable && value ? (
-                <button type="button" onClick={() => pick("")} className="rounded-full px-3 py-2 text-sm text-muted hover:text-ink">
+                <button type="button" onClick={() => save("")} className="rounded-full px-3 py-2 text-sm text-muted hover:text-ink">
                   Clear
                 </button>
               ) : allowed(today) ? (
-                <button type="button" onClick={() => pick(today)} className="rounded-full px-3 py-2 text-sm font-medium text-accent hover:bg-accent-soft">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft(today);
+                    setView(ymOf(today));
+                  }}
+                  className="rounded-full px-3 py-2 text-sm font-medium text-accent hover:bg-accent-soft"
+                >
                   Today
                 </button>
               ) : (
                 <span />
               )}
-              <button type="button" onClick={() => setOpen(false)} className="rounded-full px-3 py-2 text-sm text-muted hover:text-ink">
-                Cancel
-              </button>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => setOpen(false)} className="rounded-full px-3 py-2 text-sm text-muted hover:text-ink">
+                  Cancel
+                </button>
+                {/* Grey until a day is chosen, then the brand colours: saving is one deliberate tap. */}
+                <button
+                  type="button"
+                  disabled={!changed}
+                  onClick={() => save(draft)}
+                  aria-label={changed ? `OK, ${formatDate(draft)}` : "OK"}
+                  className={cn(
+                    "min-w-[4.5rem] rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-300",
+                    changed ? "gradient-travel text-white shadow-lg shadow-accent/30" : "bg-raised text-muted/70"
+                  )}
+                >
+                  OK
+                </button>
+              </div>
             </div>
           </>
         )}
