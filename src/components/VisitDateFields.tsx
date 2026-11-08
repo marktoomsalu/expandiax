@@ -2,6 +2,7 @@
 
 import { MONTH_NAMES, cn } from "@/lib/utils";
 import type { DatePrecision } from "@/lib/types";
+import { DateField } from "./DateField";
 
 type Props = {
   precision: DatePrecision;
@@ -79,26 +80,30 @@ export function VisitDateFields({
 
         {precision === "day" && (
           <>
-            <label htmlFor="date-from-input" className="sr-only">From date</label>
-            <input
+            <DateField
               id="date-from-input"
-              type="date"
-              title="From date"
-              className="field min-w-[9rem] flex-1 !py-2"
+              label="Start date"
+              placeholder="Start date"
+              className="min-w-[9rem] flex-1 !py-2"
               value={visitedFrom}
-              onChange={(e) => {
-                onVisitedFromChange(e.target.value);
-                if (e.target.value) onYearChange(e.target.value.slice(0, 4));
+              onChange={(v) => {
+                onVisitedFromChange(v);
+                if (v) onYearChange(v.slice(0, 4));
+                // An end date before the new start no longer makes sense.
+                if (v && visitedTo && visitedTo < v) onVisitedToChange("");
               }}
             />
-            <label htmlFor="date-to-input" className="sr-only">To date (optional)</label>
-            <input
+            {/* Opens on the start date's month, not today's. */}
+            <DateField
               id="date-to-input"
-              type="date"
-              title="To date (optional)"
-              className="field min-w-[9rem] flex-1 !py-2"
+              label="End date (optional)"
+              placeholder="End date"
+              className="min-w-[9rem] flex-1 !py-2"
               value={visitedTo}
-              onChange={(e) => onVisitedToChange(e.target.value)}
+              min={visitedFrom || undefined}
+              openTo={visitedFrom || undefined}
+              clearable
+              onChange={onVisitedToChange}
             />
           </>
         )}

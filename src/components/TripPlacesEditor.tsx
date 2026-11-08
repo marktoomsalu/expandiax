@@ -8,6 +8,7 @@ import { orderStops } from "@/lib/tripPlaces";
 import type { Place } from "@/lib/places";
 import type { CountryCity } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { DateField } from "./DateField";
 
 type Spot = { lat: number; lng: number };
 
@@ -266,21 +267,25 @@ export function TripPlacesEditor({
               )}
               {/* The same date fields as the trip's own. */}
               <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="date"
-                  aria-label={`Arrived in ${p.city_name}`}
-                  title="Arrived"
-                  className="field min-w-[9rem] flex-1 !py-2"
+                {/* Arrival opens where the previous place ended; leaving opens on the arrival. */}
+                <DateField
+                  label={`Arrived in ${p.city_name}`}
+                  placeholder="Arrived"
+                  className="min-w-[9rem] flex-1 !py-2"
                   value={p.arrived ?? ""}
-                  onChange={(e) => setDates(p.id, "arrived", e.target.value)}
+                  openTo={places[i - 1]?.departed ?? places[i - 1]?.arrived ?? undefined}
+                  clearable
+                  onChange={(v) => setDates(p.id, "arrived", v)}
                 />
-                <input
-                  type="date"
-                  aria-label={`Left ${p.city_name}`}
-                  title="Left"
-                  className="field min-w-[9rem] flex-1 !py-2"
+                <DateField
+                  label={`Left ${p.city_name}`}
+                  placeholder="Left"
+                  className="min-w-[9rem] flex-1 !py-2"
                   value={p.departed ?? ""}
-                  onChange={(e) => setDates(p.id, "departed", e.target.value)}
+                  min={p.arrived ?? undefined}
+                  openTo={p.arrived ?? undefined}
+                  clearable
+                  onChange={(v) => setDates(p.id, "departed", v)}
                 />
               </div>
             </li>

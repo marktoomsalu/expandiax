@@ -6,6 +6,7 @@ import { countryByCode } from "@/lib/countries";
 import type { OnboardingMemory } from "@/lib/onboardingDraft";
 import { localDay, photoDay } from "@/lib/photoDates";
 import { convertHeic } from "@/lib/heic";
+import { DateField } from "@/components/DateField";
 
 const TODAY = localDay(new Date());
 
@@ -115,14 +116,7 @@ export function MemoryStep({
 
         <div>
           <label htmlFor="memory-date" className="mb-1.5 block text-sm font-medium">When</label>
-          <input
-            id="memory-date"
-            type="date"
-            className="field"
-            value={eventDate}
-            max={TODAY}
-            onChange={(e) => setEventDate(e.target.value)}
-          />
+          <DateField id="memory-date" label="When" value={eventDate} max={TODAY} onChange={setEventDate} />
         </div>
       </div>
 

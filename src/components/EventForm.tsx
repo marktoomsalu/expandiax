@@ -24,6 +24,7 @@ import { tapSuccess } from "@/lib/haptics";
 import type { EventFull, EventType } from "@/lib/types";
 import type { PastShow } from "@/lib/concerts";
 import { localDay, photoDay } from "@/lib/photoDates";
+import { DateField } from "./DateField";
 
 const TODAY = localDay(new Date());
 
@@ -365,7 +366,7 @@ export function EventForm({
 
         <div>
           <label htmlFor="e-date" className="mb-1.5 block text-sm font-medium">Date *</label>
-          <input id="e-date" type="date" className="field" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} required />
+          <DateField id="e-date" label="Date" placeholder="Choose the date" value={f.event_date} onChange={(v) => set("event_date", v)} required />
         </div>
 
         {!event && (
