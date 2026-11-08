@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { HOME_RGB, rgb, visitedColor } from "@/lib/mapColors";
 import { BarChart3, CalendarDays, Clock, Globe2, MapPin, Plus, Ticket, Users } from "lucide-react";
 import { FeedMemoryCard } from "@/components/FeedMemoryCard";
 import { ThenCard, type ThenMemory } from "@/components/ThenCard";
@@ -107,10 +108,10 @@ export function WorldScreen() {
         <WorldMap visitedCodes={VISITED} visitCounts={{ FI: 4, SE: 3, DE: 3, IT: 2, ES: 2, GR: 2 }} homeCode="EE" interactive={false} />
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line px-2 pb-1 pt-3 text-xs text-muted">
           <span className="flex items-center gap-2">
-            <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-accent" /> Visited
+            <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: visitedColor(1) }} /> Visited
           </span>
           <span className="flex items-center gap-2">
-            <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#f59e0b" }} /> Home
+            <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: rgb(HOME_RGB) }} /> Home
           </span>
         </div>
       </div>

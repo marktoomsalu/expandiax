@@ -8,6 +8,7 @@ import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import { countryByCode, countryByNumeric } from "@/lib/countries";
 import { territoryByNumeric, territoryFlagFor } from "@/lib/territories";
+import { DREAM_RGB, HOME_RGB, visitedColor } from "@/lib/mapColors";
 
 const GEO_URL = "/data/world-110m.json";
 const MIN_ALTITUDE = 0.5;
@@ -83,30 +84,6 @@ function centroidOf(geometry: unknown): { lat: number; lng: number } | null {
     sumLat += lat;
   }
   return { lat: sumLat / points.length, lng: sumLng / points.length };
-}
-
-// Logo-matched palette: home is the logo's pink (#FA51A2), a first-time
-// visit is the logo's orange (#FB7822) — together they read as the same
-// brand gradient rather than two arbitrary map colors. The more times a
-// country's been visited, the further its orange drifts toward home's
-// pink (almost a second home) — but capped well short of actually
-// reaching it, so home always reads as uniquely "home."
-const HOME_RGB = { r: 250, g: 81, b: 162 }; // #FA51A2
-const VISITED_RGB = { r: 251, g: 120, b: 34 }; // #FB7822
-const VISITED_MAX_BLEND = 0.7;
-const VISITED_BLEND_VISITS = 5;
-
-function lerp(a: number, b: number, t: number) {
-  return Math.round(a + (b - a) * t);
-}
-
-function visitedColor(count: number, alpha: number): string {
-  const progress = Math.min(1, Math.max(0, (count - 1) / VISITED_BLEND_VISITS));
-  const t = progress * VISITED_MAX_BLEND;
-  const r = lerp(VISITED_RGB.r, HOME_RGB.r, t);
-  const g = lerp(VISITED_RGB.g, HOME_RGB.g, t);
-  const b = lerp(VISITED_RGB.b, HOME_RGB.b, t);
-  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 type Props = {
@@ -273,7 +250,7 @@ export function WorldGlobeInner({
             const count = p ? visitCounts?.[p.code] ?? 0 : 0;
             if (isHome) return isHover ? `rgba(${HOME_RGB.r},${HOME_RGB.g},${HOME_RGB.b},1)` : `rgba(${HOME_RGB.r},${HOME_RGB.g},${HOME_RGB.b},0.95)`;
             if (isVisited) return visitedColor(count, isHover ? 1 : 0.9);
-            if (p && dreams.has(p.code)) return isHover ? "rgba(139,92,246,0.8)" : "rgba(139,92,246,0.55)";
+            if (p && dreams.has(p.code)) return `rgba(${DREAM_RGB.r},${DREAM_RGB.g},${DREAM_RGB.b},${isHover ? 0.8 : 0.55})`;
             if (isDark) return isHover ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.08)";
             return isHover ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.02)";
           }}
