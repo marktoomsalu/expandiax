@@ -26,6 +26,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
   },
+  // Safari on iPhone offers "Open in the ExpandiaX app" at the top of the site.
+  itunes: { appId: "6799725181" },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

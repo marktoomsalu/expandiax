@@ -3,6 +3,7 @@ import { Camera, Check, Globe2, Ticket } from "lucide-react";
 import { WorldMap } from "@/components/WorldMap";
 import { FadeIn } from "@/components/FadeIn";
 import { WideFilm } from "@/components/film/WatchFilm";
+import { AppStoreBadge } from "@/components/AppStoreBadge";
 import { RatingStars } from "@/components/Rating";
 import { COUNTRIES, TOTAL_COUNTRIES, countryByCode } from "@/lib/countries";
 import type { StockPhoto } from "@/lib/stockPhotos";
@@ -86,6 +87,7 @@ export default function LandingPage() {
               Already have an account?{" "}
               <Link href="/sign-in" className="text-accent underline-offset-4 hover:underline">Sign in</Link>
             </p>
+            <AppStoreBadge className="mt-6" />
           </FadeIn>
 
           <FadeIn delay={0.15} className="mt-14">

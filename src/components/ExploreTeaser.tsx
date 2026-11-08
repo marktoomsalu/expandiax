@@ -7,6 +7,7 @@ import { stockPhotoFor } from "@/lib/stockPhotos";
 import type { PopularPlace } from "@/lib/explore";
 import type { Trending } from "@/lib/explore";
 import { StockImage } from "./StockImage";
+import { AppStoreBadge } from "./AppStoreBadge";
 
 // Made-up faces for the previews — visitors never see real members.
 const MOCK = [
@@ -169,6 +170,7 @@ export function ExploreTeaser({ trending, places }: { trending: Trending[]; plac
         <Link href="/sign-up" className="btn-accent !px-8 !py-3.5 text-base font-semibold">
           Start collecting memories - it&rsquo;s free
         </Link>
+        <AppStoreBadge />
       </div>
     </div>
   );
