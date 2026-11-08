@@ -13,6 +13,9 @@ export function FollowButton({
   initialFollowing,
   initialRequested = false,
   onChange,
+  back = false,
+  compact = false,
+  refresh = true,
 }: {
   targetId: string;
   visibility: ProfileVisibility;
@@ -20,6 +23,12 @@ export function FollowButton({
   initialRequested?: boolean;
   /** Called after each change instead of refreshing the page (for lists that keep their own state). */
   onChange?: (state: "following" | "requested" | "none") => void;
+  /** Someone who follows you: the button says "Follow back". */
+  back?: boolean;
+  /** Smaller, for rows in a list. */
+  compact?: boolean;
+  /** Refresh the page after a change (off where the row should stay as it is). */
+  refresh?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -42,7 +51,7 @@ export function FollowButton({
     }
     await fn(user.id);
     setBusy(false);
-    if (!onChange) router.refresh();
+    if (!onChange && refresh) router.refresh();
   }
 
   async function unfollow() {
@@ -91,11 +100,12 @@ export function FollowButton({
 
   const mode = following ? "following" : visibility === "private" ? (requested ? "requested" : "request") : "follow";
 
+  const size = compact ? "!px-3.5 !py-1.5 text-xs" : "!py-2 text-sm";
   const config = {
-    following: { label: "Following", icon: UserCheck, className: "btn-ghost !py-2 text-sm", onClick: unfollow },
-    follow: { label: "Follow", icon: UserPlus, className: "btn-accent !py-2 text-sm", onClick: follow },
-    request: { label: "Request to follow", icon: UserPlus, className: "btn-accent !py-2 text-sm", onClick: requestToFollow },
-    requested: { label: "Requested", icon: Clock, className: "btn-ghost !py-2 text-sm", onClick: cancelRequest },
+    following: { label: "Following", icon: UserCheck, className: `btn-ghost ${size}`, onClick: unfollow },
+    follow: { label: back ? "Follow back" : "Follow", icon: UserPlus, className: `btn-accent ${size}`, onClick: follow },
+    request: { label: back ? "Follow back" : "Request to follow", icon: UserPlus, className: `btn-accent ${size}`, onClick: requestToFollow },
+    requested: { label: "Requested", icon: Clock, className: `btn-ghost ${size}`, onClick: cancelRequest },
   }[mode];
 
   const Icon = config.icon;
@@ -103,7 +113,7 @@ export function FollowButton({
   return (
     <div>
       <button type="button" onClick={config.onClick} disabled={busy} className={config.className}>
-        <Icon size={16} />
+        <Icon size={compact ? 14 : 16} />
         {config.label}
       </button>
       {error && <p role="alert" className="mt-2 text-xs text-red-800 dark:text-red-400">{error}</p>}

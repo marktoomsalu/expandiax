@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { FollowList } from "@/components/FollowList";
+import { FollowList, type FollowBack } from "@/components/FollowList";
+import type { ProfileVisibility } from "@/lib/types";
 
 export const metadata = { title: "Followers" };
 
@@ -25,13 +26,29 @@ export default async function FollowersPage({ params }: { params: { username: st
 
   const { data } = await supabase
     .from("follows")
-    .select("follower:profiles!follows_follower_id_fkey(id, username, display_name, avatar_url)")
+    .select("follower:profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, visibility)")
     .eq("followee_id", profile.id)
     .order("created_at", { ascending: false });
 
   const viewer = await getAuthUser();
   const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
   const followers = (data ?? []).map((r) => one(r.follower)).filter((p): p is NonNullable<typeof p> => !!p);
+
+  // On your own list: who you already follow back, or have asked to.
+  let followBack: FollowBack | undefined;
+  const viewerId = viewer?.id;
+  if (viewerId && viewerId === profile.id && followers.length > 0) {
+    const ids = followers.map((f) => f.id);
+    const [{ data: mine }, { data: asked }] = await Promise.all([
+      supabase.from("follows").select("followee_id").eq("follower_id", viewerId).in("followee_id", ids),
+      supabase.from("follow_requests").select("target_id").eq("requester_id", viewerId).in("target_id", ids),
+    ]);
+    const following = new Set((mine ?? []).map((r) => r.followee_id));
+    const requested = new Set((asked ?? []).map((r) => r.target_id));
+    followBack = Object.fromEntries(
+      followers.map((f) => [f.id, { visibility: f.visibility as ProfileVisibility, following: following.has(f.id), requested: requested.has(f.id) }])
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-10">
@@ -43,7 +60,7 @@ export default async function FollowersPage({ params }: { params: { username: st
       {viewer?.id === profile.id && followers.length > 0 && (
         <p className="mt-2 text-sm text-muted">Removing someone doesn&rsquo;t tell them or block them - they just stop seeing what only followers can see.</p>
       )}
-      <FollowList profiles={followers} emptyMessage={`${profile.display_name} doesn't have any followers yet.`} removable={viewer?.id === profile.id} />
+      <FollowList profiles={followers} emptyMessage={`${profile.display_name} doesn't have any followers yet.`} removable={viewer?.id === profile.id} followBack={followBack} />
     </div>
   );
 }

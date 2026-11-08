@@ -5,9 +5,10 @@ import { Clock, Heart, HelpCircle, MessageCircle, MessagesSquare, UserCheck, Use
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { FollowRequestActions } from "@/components/FollowRequestActions";
+import { FollowButton } from "@/components/FollowButton";
 import { countryByCode } from "@/lib/countries";
 import { formatRelative } from "@/lib/utils";
-import type { NotificationWithActor } from "@/lib/types";
+import type { NotificationWithActor, ProfileVisibility } from "@/lib/types";
 
 export const metadata = { title: "Notifications" };
 
@@ -32,7 +33,7 @@ export default async function NotificationsPage() {
 
   const { data: rows } = await supabase
     .from("notifications")
-    .select("*, actor:profiles!notifications_actor_id_fkey(username, display_name, avatar_url)")
+    .select("*, actor:profiles!notifications_actor_id_fkey(username, display_name, avatar_url, visibility)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -66,6 +67,28 @@ export default async function NotificationsPage() {
   // Accept/Decline buttons for ones that are still actually pending.
   const { data: pendingRequests } = await supabase.from("follow_requests").select("requester_id").eq("target_id", user.id);
   const pendingRequesterIds = new Set((pendingRequests ?? []).map((r) => r.requester_id));
+
+  // "Follow back" for people who follow you now and you don't follow yet -
+  // on their newest notification only.
+  const followerIds = [...new Set(notifications.filter((n) => n.kind === "follow" || n.kind === "follow_request").map((n) => n.actor_id))];
+  const [{ data: theirs }, { data: mine }, { data: asked }] = followerIds.length
+    ? await Promise.all([
+        supabase.from("follows").select("follower_id").eq("followee_id", user.id).in("follower_id", followerIds),
+        supabase.from("follows").select("followee_id").eq("follower_id", user.id).in("followee_id", followerIds),
+        supabase.from("follow_requests").select("target_id").eq("requester_id", user.id).in("target_id", followerIds),
+      ])
+    : [{ data: [] as { follower_id: string }[] }, { data: [] as { followee_id: string }[] }, { data: [] as { target_id: string }[] }];
+  const followsMe = new Set((theirs ?? []).map((r) => r.follower_id));
+  const iFollow = new Set((mine ?? []).map((r) => r.followee_id));
+  const iAsked = new Set((asked ?? []).map((r) => r.target_id));
+  const offerBack = new Set<string>();
+  const backOn = new Set<string>();
+  for (const n of notifications) {
+    if ((n.kind === "follow" || n.kind === "follow_request") && followsMe.has(n.actor_id) && !iFollow.has(n.actor_id) && !backOn.has(n.actor_id)) {
+      backOn.add(n.actor_id);
+      offerBack.add(n.id);
+    }
+  }
 
   function target(n: NotificationWithActor): { label: string; href: string } | null {
     if (n.target_kind === "country" && n.target_id) {
@@ -171,6 +194,19 @@ export default async function NotificationsPage() {
                   <p className="mt-1 text-xs text-muted">{formatRelative(n.created_at)}</p>
                   {n.kind === "follow_request" && pendingRequesterIds.has(n.actor_id) && (
                     <FollowRequestActions requesterId={n.actor_id} />
+                  )}
+                  {offerBack.has(n.id) && (
+                    <div className="mt-2">
+                      <FollowButton
+                        targetId={n.actor_id}
+                        visibility={((actor as { visibility?: ProfileVisibility } | null)?.visibility ?? "public")}
+                        initialFollowing={false}
+                        initialRequested={iAsked.has(n.actor_id)}
+                        back
+                        compact
+                        refresh={false}
+                      />
+                    </div>
                   )}
                 </div>
               </li>
