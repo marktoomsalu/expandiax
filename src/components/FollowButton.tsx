@@ -12,11 +12,14 @@ export function FollowButton({
   visibility,
   initialFollowing,
   initialRequested = false,
+  onChange,
 }: {
   targetId: string;
   visibility: ProfileVisibility;
   initialFollowing: boolean;
   initialRequested?: boolean;
+  /** Called after each change instead of refreshing the page (for lists that keep their own state). */
+  onChange?: (state: "following" | "requested" | "none") => void;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -39,14 +42,17 @@ export function FollowButton({
     }
     await fn(user.id);
     setBusy(false);
-    router.refresh();
+    if (!onChange) router.refresh();
   }
 
   async function unfollow() {
     await withUser(async (userId) => {
       const { error: err } = await supabase.from("follows").delete().eq("follower_id", userId).eq("followee_id", targetId);
       if (err) setError("Could not unfollow. Try again.");
-      else setFollowing(false);
+      else {
+        setFollowing(false);
+        onChange?.("none");
+      }
     });
   }
 
@@ -54,7 +60,10 @@ export function FollowButton({
     await withUser(async (userId) => {
       const { error: err } = await supabase.from("follows").insert({ follower_id: userId, followee_id: targetId });
       if (err) setError("Could not follow. Try again.");
-      else setFollowing(true);
+      else {
+        setFollowing(true);
+        onChange?.("following");
+      }
     });
   }
 
@@ -62,7 +71,10 @@ export function FollowButton({
     await withUser(async (userId) => {
       const { error: err } = await supabase.from("follow_requests").insert({ requester_id: userId, target_id: targetId });
       if (err) setError("Could not send the request. Try again.");
-      else setRequested(true);
+      else {
+        setRequested(true);
+        onChange?.("requested");
+      }
     });
   }
 
@@ -70,7 +82,10 @@ export function FollowButton({
     await withUser(async (userId) => {
       const { error: err } = await supabase.from("follow_requests").delete().eq("requester_id", userId).eq("target_id", targetId);
       if (err) setError("Could not cancel the request. Try again.");
-      else setRequested(false);
+      else {
+        setRequested(false);
+        onChange?.("none");
+      }
     });
   }
 

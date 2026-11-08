@@ -148,6 +148,40 @@ export async function loadDreamBoard(supabase: Supabase, viewerId: string, limit
   );
 }
 
+/**
+ * First friends for a new member: people whose places and events overlap
+ * theirs (same home country, shared places, the same concerts), topped up
+ * with well-travelled public members — never anyone already followed or
+ * blocked, nor anyone who's opted out of suggestions.
+ */
+export async function loadFriendSuggestions(supabase: Supabase, viewerId: string, limit = 12): Promise<PersonCard[]> {
+  const [{ people }, { data: follows }, { data: blocked }] = await Promise.all([
+    loadNetworkHome(supabase, viewerId, { people: limit }),
+    supabase.from("follows").select("followee_id").eq("follower_id", viewerId),
+    supabase.from("blocks").select("blocked_id").eq("blocker_id", viewerId),
+  ]);
+  if (people.length >= limit) return people;
+  const skip = new Set([viewerId, ...people.map((p) => p.id), ...(follows ?? []).map((f) => f.followee_id), ...(blocked ?? []).map((b) => b.blocked_id)]);
+  const { data: counts } = await supabase.from("public_country_counts").select("user_id, country_count").order("country_count", { ascending: false }).limit(60);
+  const ids = (counts ?? []).map((c) => c.user_id).filter((id) => !skip.has(id));
+  if (!ids.length) return people;
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url, visibility")
+    .in("id", ids)
+    .eq("discoverable", true);
+  const countOf = new Map((counts ?? []).map((c) => [c.user_id, Number(c.country_count)]));
+  const extra: PersonCard[] = (profiles ?? [])
+    .map((p) => ({
+      ...(p as Person & { visibility: ProfileVisibility }),
+      photos: [],
+      headline: { icon: "globe" as const, text: `Visited ${countOf.get(p.id) ?? 0} ${countOf.get(p.id) === 1 ? "country" : "countries"}` },
+      reasons: [],
+    }))
+    .sort((a, b) => (countOf.get(b.id) ?? 0) - (countOf.get(a.id) ?? 0));
+  return [...people, ...extra].slice(0, limit);
+}
+
 // ---------- For the feed: places for you, a place to start, people to meet ----------
 
 /** A town to show: whose it is ("friends" or the wider "network" you follow), their faces, and a photo. */

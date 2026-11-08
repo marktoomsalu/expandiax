@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
 import { FeedExplore } from "@/components/network/FeedExplore";
 import { FeedTabs, SearchBox } from "@/components/feed/FeedTabs";
+import { FirstFriends } from "@/components/FirstFriends";
 import { CommentSection } from "@/components/CommentSection";
 import { FeedMemoryCard, type FeedMediaItem } from "@/components/FeedMemoryCard";
 import { countryByCode } from "@/lib/countries";
@@ -37,7 +38,7 @@ const PAGE_SIZE = 30;
 type RawMedia = FeedMediaItem & { displayOrder: number };
 
 
-export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string; tab?: string; q?: string; city?: string; cc?: string; lat?: string; lng?: string } }) {
+export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string; tab?: string; q?: string; city?: string; cc?: string; lat?: string; lng?: string; friends?: string } }) {
   const supabase = createClient();
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
@@ -281,6 +282,9 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   return (
     <div className="mx-auto max-w-2xl px-5 py-6">
       <FeedTabs tab="friends" />
+      <Suspense fallback={null}>
+        <FirstFriends userId={user.id} force={searchParams?.friends === "1"} />
+      </Suspense>
       <SearchBox action="/feed" placeholder="Search your friends' experiences…" defaultValue={q} />
 
       {q ? (
@@ -306,8 +310,8 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           <EmptyState
             title="Your feed is quiet."
             body="Follow other travellers to see the countries they pin and the events they log, right here."
-            actionLabel="Find people in Explore"
-            actionHref="/feed?tab=explore"
+            actionLabel="Find friends"
+            actionHref="/feed?friends=1"
           />
         </div>
       ) : items.length === 0 ? (

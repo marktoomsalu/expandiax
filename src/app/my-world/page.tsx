@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { FirstFriends } from "@/components/FirstFriends";
 import { BarChart3, ImagePlus, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -84,6 +86,10 @@ export default async function MyWorldPage() {
 
   return (
     <div className="mx-auto max-w-shell px-5 py-10">
+      {/* New members land here after sign-up: "Who's coming with you?" */}
+      <Suspense fallback={null}>
+        <FirstFriends userId={user.id} />
+      </Suspense>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">My World</p>
