@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { FirstFriends } from "@/components/FirstFriends";
+import { AddCountryButton } from "@/components/AddCountrySheet";
 import { hasRealName } from "@/lib/profileName";
 import { BarChart3, ImagePlus, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -117,7 +118,7 @@ export default async function MyWorldPage() {
         )}
         <div className="flex items-center gap-3">
           <Link href="/stats" className="btn-ghost !py-2 text-sm"><BarChart3 size={16} /> Stats</Link>
-          <Link href="#country-search" className="btn-accent"><Plus size={17} /> Add country</Link>
+          <AddCountryButton className="btn-accent"><Plus size={17} /> Add country</AddCountryButton>
         </div>
       </div>
 

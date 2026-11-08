@@ -41,8 +41,8 @@ export function countryByCode(code: string | null | undefined): Country | undefi
   return code ? byCode.get(code.toUpperCase()) : undefined;
 }
 
-// Other names outside services use for the same country.
-const NAME_ALIASES: Record<string, string> = {
+// Other names for the same country: what outside services send, and what people type.
+export const NAME_ALIASES: Record<string, string> = {
   "united states of america": "US",
   usa: "US",
   "united kingdom of great britain and northern ireland": "GB",
@@ -71,6 +71,14 @@ const NAME_ALIASES: Record<string, string> = {
   "cabo verde": "CV",
   "east timor": "TL",
   burma: "MM",
+  "ivory coast": "CI",
+  america: "US",
+  "united states": "US",
+  "south korea": "KR",
+  "north korea": "KP",
+  czechia: "CZ",
+  persia: "IR",
+  ceylon: "LK",
 };
 
 const byName = new Map(COUNTRIES.map((c) => [c.name.toLowerCase(), c]));

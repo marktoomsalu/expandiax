@@ -1,10 +1,12 @@
 "use client";
 
 import { useId, useMemo, useRef, useState } from "react";
+import type React from "react";
 import { Search } from "lucide-react";
 import { COUNTRIES } from "@/lib/countries";
 import { TERRITORIES, territoryFlagFor } from "@/lib/territories";
 import { cn } from "@/lib/utils";
+import { searchPlaces } from "@/lib/countrySearch";
 
 type Result = { code: string; name: string; flag: string; isTerritory: boolean };
 
@@ -18,23 +20,21 @@ type Props = {
   visitedCodes?: string[];
   placeholder?: string;
   className?: string;
+  /** Lets a parent focus the box (the "Add a country" sheet opens with the keyboard up). */
+  inputRef?: React.MutableRefObject<HTMLInputElement | null>;
 };
 
-export function CountrySearch({ onSelect, visitedCodes = [], placeholder = "Search countries & territories…", className }: Props) {
+export function CountrySearch({ onSelect, visitedCodes = [], placeholder = "Search countries & territories…", className, inputRef: outerRef }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const listId = useId();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const ownRef = useRef<HTMLInputElement>(null);
+  const inputRef = outerRef ?? ownRef;
   const visited = useMemo(() => new Set(visitedCodes), [visitedCodes]);
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return ALL_RESULTS.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase() === q
-    ).slice(0, 8);
-  }, [query]);
+  // Accents don't matter ("Tur" finds Türkiye), nor do other names ("Turkey").
+  const results = useMemo(() => searchPlaces(query, ALL_RESULTS), [query]);
 
   function choose(code: string) {
     onSelect(code);

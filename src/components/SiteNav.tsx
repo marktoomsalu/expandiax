@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -8,6 +8,7 @@ import { Bell, Compass, Globe2, Plus, Rss, Ticket, UserRound } from "lucide-reac
 import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 import { tapLight } from "@/lib/haptics";
+import { AddCountrySheet, type AddCountrySheetHandle } from "./AddCountrySheet";
 
 type NavUser = { username: string } | null;
 
@@ -24,6 +25,7 @@ function Wordmark({ linked }: { linked: boolean }) {
 export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unreadNotifications?: number }) {
   const path = usePathname();
   const [addOpen, setAddOpen] = useState(false);
+  const addCountry = useRef<AddCountrySheetHandle>(null);
   const active = (href: string) =>
     href === "/" ? path === "/" : path === href || path.startsWith(href + "/");
 
@@ -49,6 +51,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
 
   return (
     <>
+      {user && <AddCountrySheet ref={addCountry} />}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-brand-purple/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex h-14 max-w-shell items-center justify-between px-5">
           <Wordmark linked={!signingUp} />
@@ -124,14 +127,18 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
                     role="menu"
                     className="absolute bottom-full z-50 mb-4 w-48 overflow-hidden rounded-card border border-line bg-surface shadow-xl"
                   >
-                    <Link
-                      href="/my-world#country-search"
+                    {/* Opens the search right here, keyboard up, rather than scrolling My World. */}
+                    <button
+                      type="button"
                       role="menuitem"
-                      onClick={() => setAddOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-3 text-sm hover:bg-raised"
+                      onClick={() => {
+                        addCountry.current?.open();
+                        setAddOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm hover:bg-raised"
                     >
                       <Globe2 size={16} className="text-accent" /> Add a country
-                    </Link>
+                    </button>
                     <div className="h-px bg-line" aria-hidden />
                     <Link
                       href="/events/new"
