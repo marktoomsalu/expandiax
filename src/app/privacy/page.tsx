@@ -67,8 +67,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <Strong>Notifications</Strong> - if you use the app and allow notifications, a device token so we can send
-            push notifications about likes, comments, new followers and questions or answers about places; and emails such as “X started following you” and
-            an optional weekly digest (each digest has a one-click unsubscribe). <em>Legal basis:</em> contract, and
+            push notifications about likes, comments, new followers and questions or answers about places; and emails when someone starts following you and
+            a weekly digest. You can turn each email off in Settings, and every one has a one-click unsubscribe. <em>Legal basis:</em> contract, and
             your consent for push notifications, which you can withdraw in your device’s settings at any time.
           </li>
           <li>

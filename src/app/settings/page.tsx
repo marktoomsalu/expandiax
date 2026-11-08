@@ -4,7 +4,7 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { ProfileForm } from "@/components/ProfileForm";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ExportDataButton, DeleteAccountButton } from "@/components/AccountActions";
-import { DigestToggle } from "@/components/DigestToggle";
+import { EmailToggle } from "@/components/EmailToggle";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Settings" };
@@ -33,13 +33,28 @@ export default async function SettingsPage() {
       </div>
 
       <div className="mt-8 space-y-4 border-t border-line pt-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium">Weekly digest email</p>
-            <p className="mt-1 text-xs text-muted">A summary of new followers, likes and comments, once a week.</p>
+        <section id="emails" aria-labelledby="emails-h" className="scroll-mt-24">
+          <p id="emails-h" className="text-sm font-medium">Emails</p>
+          <p className="mt-1 text-xs text-muted">
+            Push notifications on your phone are separate - you choose those in your phone&rsquo;s Settings.
+          </p>
+          <div className="mt-3 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm">New followers</p>
+                <p className="mt-0.5 text-xs text-muted">An email when someone starts following you.</p>
+              </div>
+              <EmailToggle userId={user.id} column="follow_email_enabled" label="Emails about new followers" initialEnabled={profile.follow_email_enabled} />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm">Weekly digest</p>
+                <p className="mt-0.5 text-xs text-muted">New followers, likes and comments, once a week.</p>
+              </div>
+              <EmailToggle userId={user.id} column="weekly_digest_enabled" label="Weekly digest email" initialEnabled={profile.weekly_digest_enabled} />
+            </div>
           </div>
-          <DigestToggle userId={user.id} initialEnabled={profile.weekly_digest_enabled} />
-        </div>
+        </section>
         <div>
           <p className="text-sm font-medium">Blocked accounts</p>
           <p className="mt-1 text-xs text-muted">People you&rsquo;ve blocked can&rsquo;t see you, and you can&rsquo;t see them.</p>

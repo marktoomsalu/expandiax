@@ -1,15 +1,28 @@
 import { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { escapeHtml, verifyUnsubscribeToken } from "@/lib/unsubscribe";
+import { EMAIL_LISTS, escapeHtml, isEmailList, verifyUnsubscribeToken, type EmailList } from "@/lib/unsubscribe";
 
 export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function turnOff(userId: string | null, token: string | null): Promise<boolean> {
-  if (!userId || !token || !UUID.test(userId) || !verifyUnsubscribeToken(userId, token)) return false;
-  const { error } = await createAdminClient().from("profiles").update({ weekly_digest_enabled: false }).eq("id", userId);
-  return !error;
+/** Which email the link is for: `l=follows`, or the weekly digest when there's no `l` (older links). */
+function listOf(request: NextRequest): EmailList | null {
+  const l = request.nextUrl.searchParams.get("l");
+  if (l === null) return "digest";
+  return isEmailList(l) ? l : null;
+}
+
+async function turnOff(request: NextRequest): Promise<{ ok: boolean; list: EmailList }> {
+  const list = listOf(request);
+  const userId = request.nextUrl.searchParams.get("u");
+  const token = request.nextUrl.searchParams.get("t");
+  if (!list || !userId || !token || !UUID.test(userId) || !verifyUnsubscribeToken(userId, token, list)) return { ok: false, list: list ?? "digest" };
+  const { error } = await createAdminClient()
+    .from("profiles")
+    .update({ [EMAIL_LISTS[list].column]: false })
+    .eq("id", userId);
+  return { ok: !error, list };
 }
 
 const page = (title: string, body: string, status: number) =>
@@ -23,15 +36,16 @@ const page = (title: string, body: string, status: number) =>
 
 // The link inside the email.
 export async function GET(request: NextRequest) {
-  const ok = await turnOff(request.nextUrl.searchParams.get("u"), request.nextUrl.searchParams.get("t"));
+  const { ok, list } = await turnOff(request);
+  const name = EMAIL_LISTS[list].name;
   return ok
-    ? page("You're unsubscribed", "You won't get the weekly digest any more. You can turn it back on any time in Settings.", 200)
-    : page("That link didn't work", "It may be incomplete or out of date. You can turn the weekly digest off yourself in Settings.", 400);
+    ? page("You're unsubscribed", `You won't get ${name} any more. You can switch this back on any time in Settings.`, 200)
+    : page("That link didn't work", `It may be incomplete or out of date. You can turn off ${name} yourself in Settings.`, 400);
 }
 
 // RFC 8058 one-click unsubscribe: mail apps (Gmail, Apple Mail) POST here
 // straight from their own "Unsubscribe" button.
 export async function POST(request: NextRequest) {
-  const ok = await turnOff(request.nextUrl.searchParams.get("u"), request.nextUrl.searchParams.get("t"));
+  const { ok } = await turnOff(request);
   return new Response(null, { status: ok ? 200 : 400 });
 }

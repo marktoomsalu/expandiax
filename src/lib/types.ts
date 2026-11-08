@@ -13,6 +13,7 @@ export type Profile = {
   plan: Plan;
   accent_color: string | null;
   weekly_digest_enabled: boolean;
+  follow_email_enabled: boolean; // false = no "X started following you" emails
   signup_number: number;
   feed_last_seen_at: string | null;
   created_at: string;
