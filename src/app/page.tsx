@@ -71,7 +71,7 @@ export default function LandingPage() {
           <FadeIn className="text-center">
             <p className="eyebrow">ExpandiaX</p>
             <h1 className="mx-auto mt-4 max-w-3xl text-5xl leading-[1.02] md:text-7xl">
-              Your life, <span className="italic text-accent">remembered.</span>
+              Your world, <span className="italic text-accent">remembered.</span>
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted">
               Track the countries you have explored, preserve the moments that mattered and build a

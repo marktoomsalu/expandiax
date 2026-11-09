@@ -47,7 +47,7 @@ export function ColdOpenStep({ onStart }: { onStart: () => void }) {
         </div>
         <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} priority className="mt-4 h-8 w-auto" />
         <p className="mt-6 font-serif text-2xl leading-snug sm:text-3xl">
-          Your life, <span className="italic">remembered.</span>
+          Your world, <span className="italic">remembered.</span>
         </p>
         <button type="button" onClick={onStart} className="btn-accent mt-10 px-8">
           Start my journey
