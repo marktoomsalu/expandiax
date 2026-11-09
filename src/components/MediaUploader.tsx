@@ -14,7 +14,7 @@ import type { MediaItem } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RepositionPhotoDialog } from "./RepositionPhotoDialog";
 import { cn } from "@/lib/utils";
-import { isNativePlatform } from "@/lib/capacitor";
+import { useIsNative } from "@/lib/useIsNative";
 import { tapSuccess } from "@/lib/haptics";
 import { nearestPlace } from "@/lib/photoDates";
 import { groupByTown, placeKey } from "@/lib/photoPlaces";
@@ -56,6 +56,8 @@ type Pending = {
 export type UploaderPlace = { id: string; name: string; lat: number | null; lng: number | null; position: number; arrived: string | null; departed: string | null };
 
 export function MediaUploader(props: Props) {
+  // In the app: the native camera button. Read safely while drawing (see useIsNative).
+  const native = useIsNative();
   const { userId, scope, parentId, table, fkColumn, photoCap, videoCap, items, coverId, coverTable, captions, label, extraFields, tiles = false } = props;
   const places = table === "country_media" ? props.places ?? [] : [];
   // With two or more places, each photo shows (and can change) which one it's from.
@@ -318,7 +320,7 @@ export function MediaUploader(props: Props) {
     <section>
       {tiles && (
         <div className="mb-5 grid grid-cols-2 gap-2.5 sm:gap-3">
-          {isNativePlatform() ? (
+          {native ? (
             <button type="button" onClick={takeNativePhoto} className={cn(tile, photoRemaining <= 0 && "pointer-events-none opacity-40")}>
               <CameraIcon size={24} className="shrink-0 text-accent" aria-hidden />
               {tileText("Take photo", "Capture a moment from this trip")}
@@ -523,7 +525,7 @@ export function MediaUploader(props: Props) {
         />
         {!tiles && (
           <div className="flex flex-wrap items-center gap-2">
-            {isNativePlatform() && (
+            {native && (
               <button
                 type="button"
                 className={cn("btn-ghost !py-2 text-sm", photoRemaining <= 0 && "pointer-events-none opacity-40")}

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { BadgeCheck, MessagesSquare, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { tapSuccess } from "@/lib/haptics";
-import { formatRelative } from "@/lib/utils";
+import { TimeAgo } from "./TimeAgo";
 import { ReportButton } from "./ReportButton";
 
 export type QAAuthor = { username: string; display_name: string; avatar_url: string | null };
@@ -40,7 +40,7 @@ function Byline({ a, been, at }: { a: QAAuthor | null; been: boolean; at: string
           <BadgeCheck size={12} aria-hidden /> Has been
         </span>
       )}
-      <span>· {formatRelative(at)}</span>
+      <span>· <TimeAgo iso={at} /></span>
     </p>
   );
 }

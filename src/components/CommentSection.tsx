@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageCircle, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { formatRelative } from "@/lib/utils";
+import { TimeAgo } from "./TimeAgo";
 import type { CommentWithAuthor } from "@/lib/types";
 
 type Props = {
@@ -84,7 +84,7 @@ export function CommentSection({ kind, targetId, posterId, initialComments }: Pr
                     </Link>{" "}
                     <span className="break-words text-ink">{c.body}</span>
                   </p>
-                  <p className="mt-0.5 text-xs text-muted">{formatRelative(c.created_at)}</p>
+                  <p className="mt-0.5 text-xs text-muted"><TimeAgo iso={c.created_at} /></p>
                 </div>
                 {canDelete && (
                   <button
