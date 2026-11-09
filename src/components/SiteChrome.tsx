@@ -38,7 +38,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
             <div className="mt-6 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-muted sm:flex-row sm:items-center">
               <p>&copy; {new Date().getFullYear()} ExpandiaX. All rights reserved.</p>
               <div className="flex items-center gap-4">
-                <Link href="/partners" className="hover:text-ink">For businesses</Link>
+                <Link href="/partners" className="hover:text-ink">For partners</Link>
                 <Link href="/terms" className="hover:text-ink">Terms</Link>
                 <Link href="/privacy" className="hover:text-ink">Privacy</Link>
               </div>
