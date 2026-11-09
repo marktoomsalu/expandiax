@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The header's brand purple (#2B0B2E, the site's brand purple). -->
+    <color name="brand_purple">#2B0B2E</color>
+</resources>

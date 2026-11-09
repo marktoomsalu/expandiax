@@ -17,6 +17,9 @@ const config: CapacitorConfig = {
   server: {
     url: "https://expandiax.com",
     cleartext: false,
+    // Shown (from the app itself) when expandiax.com can't be reached,
+    // instead of the system's bare "Webpage not available".
+    errorPath: "offline.html",
   },
   plugins: {
     SplashScreen: {

@@ -4,10 +4,12 @@ import { useState } from "react";
 import { Browser } from "@capacitor/browser";
 import { createClient } from "@/lib/supabase/client";
 import { isNativePlatform, NATIVE_APP_SCHEME } from "@/lib/capacitor";
+import { useOnBrowserReturn } from "@/lib/useOnBrowserReturn";
 
 export function GoogleSignInButton({ next = "/my-world", disabled = false }: { next?: string; disabled?: boolean }) {
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
+  useOnBrowserReturn(() => setBusy(false));
 
   async function signIn() {
     setBusy(true);

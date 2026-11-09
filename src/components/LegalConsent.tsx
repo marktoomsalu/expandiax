@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useIsAndroid } from "@/lib/useIsAndroid";
 import { Browser } from "@capacitor/browser";
 import { isNativePlatform } from "@/lib/capacitor";
 import { MIN_AGE } from "@/lib/legal";
@@ -47,9 +48,11 @@ export function ConsentCheckbox({ checked, onChange }: { checked: boolean; onCha
 
 /** Sign-in: Apple and Google can create an account here too, so say what continuing means. */
 export function ConsentNotice() {
+  // No Apple sign-in on Android, so don't mention it there.
+  const android = useIsAndroid();
   return (
     <p className="mt-3 text-xs leading-relaxed text-muted">
-      New here? By continuing with Apple or Google you agree to the <LegalLink href="/terms">Terms of Service</LegalLink> and{" "}
+      New here? By continuing with {android ? "Google" : "Apple or Google"} you agree to the <LegalLink href="/terms">Terms of Service</LegalLink> and{" "}
       <LegalLink href="/privacy">Privacy Policy</LegalLink>, and confirm you&rsquo;re {MIN_AGE} or older.
     </p>
   );

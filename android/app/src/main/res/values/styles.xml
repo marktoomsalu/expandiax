@@ -13,6 +13,11 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- On Android 15+, the space behind the status and navigation bars
+             shows this when the WebView can't draw there itself (WebView
+             older than 140): brand purple, so it reads as part of the
+             header instead of a cream strip. -->
+        <item name="android:windowBackground">@color/brand_purple</item>
     </style>
 
 
