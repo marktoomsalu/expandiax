@@ -119,7 +119,7 @@ export default async function PartnersPage() {
             {
               icon: Trophy,
               title: "Founding partners",
-              body: "Join in 2026 and keep launch prices for 12 months, with your first featured event free. The first festivals in the app are the ones people remember.",
+              body: "Join in 2026 and keep launch prices for 12 months. The first festivals in the app are the ones people remember.",
             },
             {
               icon: Forever,
@@ -215,7 +215,7 @@ export default async function PartnersPage() {
           ))}
         </ul>
         <p className="mt-5 text-sm text-muted">
-          Launch prices, excluding VAT. Founding partners who join in 2026 keep them for 12 months, and their first featured event is free.
+          Launch prices, excluding VAT. Founding partners who join in 2026 keep them for 12 months.
         </p>
       </section>
 
