@@ -94,6 +94,8 @@ type Props = {
   visitedCodes: string[];
   visitCounts?: Record<string, number>;
   homeCode?: string | null;
+  /** Countries you lived in: pink, like home. */
+  livedCodes?: string[];
   /** Places you dream of going — a soft violet, below visited and home. */
   dreamCodes?: string[];
   onSelect?: (code: string) => void;
@@ -118,6 +120,7 @@ export function WorldGlobeInner({
   visitedCodes,
   visitCounts,
   homeCode,
+  livedCodes,
   dreamCodes,
   onSelect,
   interactive = true,
@@ -136,6 +139,7 @@ export function WorldGlobeInner({
 
   const visited = useMemo(() => new Set(visitedCodes), [visitedCodes]);
   const dreams = useMemo(() => new Set(dreamCodes ?? []), [dreamCodes]);
+  const lived = useMemo(() => new Set(livedCodes ?? []), [livedCodes]);
 
   useEffect(() => {
     const g = globeRef.current;
@@ -244,7 +248,8 @@ export function WorldGlobeInner({
           polygonsData={features}
           polygonCapColor={(f) => {
             const p = placeOf(f as GeoFeature);
-            const isHome = p && !p.isTerritory && homeCode ? p.code === homeCode : false;
+            // Home and places you lived share the pink.
+            const isHome = p ? (!p.isTerritory && !!homeCode && p.code === homeCode) || lived.has(p.code) : false;
             const isVisited = p ? visited.has(p.code) : false;
             const isHover = (f as GeoFeature).id === hoverId;
             const count = p ? visitCounts?.[p.code] ?? 0 : 0;
@@ -263,10 +268,13 @@ export function WorldGlobeInner({
             const p = placeOf(f as GeoFeature);
             if (!p) return "";
             const isHome = !p.isTerritory && homeCode && p.code === homeCode;
+            const livedHere = lived.has(p.code);
+            // Trips only: a place you lived isn't counted as a visit.
             const count = visitCounts?.[p.code] ?? 0;
-            const suffix = count >= 2 ? ` · visited ${count}×` : "";
+            const suffix = livedHere ? (count >= 1 ? ` · visited ${count}×` : "") : count >= 2 ? ` · visited ${count}×` : "";
             const dream = !visited.has(p.code) && dreams.has(p.code) ? " · Dreaming" : "";
-            return `${p.flag} ${p.name}${isHome ? " · Home" : p.isTerritory ? " · Territory" : ""}${suffix}${dream}`;
+            const what = isHome ? " · Home" : livedHere ? " · Lived here" : p.isTerritory ? " · Territory" : "";
+            return `${p.flag} ${p.name}${what}${isHome && livedHere ? " · Lived here" : ""}${suffix}${dream}`;
           }}
           onPolygonHover={(f) => labels && setHoverId(f ? (f as GeoFeature).id : null)}
           onPolygonClick={(f) => {

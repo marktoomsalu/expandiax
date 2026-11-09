@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { FirstFriends } from "@/components/FirstFriends";
 import { AddCountryButton } from "@/components/AddCountrySheet";
 import { hasRealName } from "@/lib/profileName";
+import { mapStays } from "@/lib/stays";
 import { BarChart3, ImagePlus, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -22,7 +23,7 @@ import { DreamPlaces } from "@/components/dreams/DreamPlaces";
 
 export const metadata = { title: "My World" };
 
-type VisitLite = { year: number; visited_from: string | null; visited_to: string | null };
+type VisitLite = { year: number; visited_from: string | null; visited_to: string | null; kind: string | null };
 type Row = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
 
 // When you actually travelled, not when you happened to add it to the app —
@@ -40,7 +41,7 @@ export default async function MyWorldPage() {
   const [{ data }, { data: profile }, dreams] = await Promise.all([
     supabase
       .from("visited_countries")
-      .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to)")
+      .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to, kind)")
       .eq("user_id", user.id),
     supabase.from("profiles").select("home_country_code, display_name").eq("id", user.id).single(),
     loadDreamPlaces(supabase, user.id),
@@ -69,7 +70,8 @@ export default async function MyWorldPage() {
   const territoryCount = countries.length - realCountries.length;
   const codes = countries.map((c) => c.country_code);
   const countryCodes = realCountries.map((c) => c.country_code);
-  const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
+  // Trips count as visits; somewhere you lived shows pink instead.
+  const { visitCounts, livedCodes } = mapStays(countries);
   const pct = Math.round((countryCodes.length / TOTAL_COUNTRIES) * 1000) / 10;
   const continents = continentCounts(countryCodes);
   const visitedContinents = continents.filter((c) => c.visited > 0).length;
@@ -123,7 +125,7 @@ export default async function MyWorldPage() {
       </div>
 
       <div className="mt-8">
-        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} dreamCodes={dreamCodes} />
+        <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} livedCodes={livedCodes} dreamCodes={dreamCodes} />
       </div>
 
       <DreamPlaces dreams={dreams} />

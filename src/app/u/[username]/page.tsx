@@ -24,8 +24,10 @@ import { TOTAL_US_STATES } from "@/lib/usStates";
 import { visitSortKey, formatVisitRange } from "@/lib/utils";
 import type { CountryVisit, Event, EventMedia, CountryMedia, Profile, VisitedCountry, VisitedUSState } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
+import { mapStays } from "@/lib/stays";
+import { MapLegend } from "@/components/MapLegend";
 
-type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight">;
+type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight" | "kind">;
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
 type EventRow = Event & { event_media: EventMedia[] };
 type TripCard = { visit: VisitLite; countryCode: string; countryName: string; cover?: CountryMedia };
@@ -97,7 +99,7 @@ export default async function PublicProfilePage({ params }: { params: { username
   ] = await Promise.all([
       supabase
         .from("visited_countries")
-        .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(id, year, visited_from, visited_to, date_precision, highlight)")
+        .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(id, year, visited_from, visited_to, date_precision, highlight, kind)")
         .eq("user_id", profile.id)
         .order("country_name"),
       supabase
@@ -144,7 +146,8 @@ export default async function PublicProfilePage({ params }: { params: { username
   const usStates = (usStatesData ?? []) as VisitedUSState[];
   const codes = countries.map((c) => c.country_code);
   const countryCodes = realCountries.map((c) => c.country_code);
-  const visitCounts = Object.fromEntries(countries.map((c) => [c.country_code, c.country_visits.length]));
+  // Trips count as visits; somewhere they lived shows pink, like home.
+  const { visitCounts, livedCodes } = mapStays(countries);
   const pct = Math.round((countryCodes.length / TOTAL_COUNTRIES) * 1000) / 10;
   const visitedContinents = continentCounts(countryCodes).filter((c) => c.visited > 0);
   const home = countryByCode(profile.home_country_code);
@@ -295,8 +298,10 @@ export default async function PublicProfilePage({ params }: { params: { username
           visitedCodes={codes}
           visitCounts={visitCounts}
           homeCode={profile.home_country_code}
+          livedCodes={livedCodes}
           username={profile.username}
         />
+        <MapLegend hasHome={!!profile.home_country_code} hasLived={livedCodes.length > 0} />
       </div>
 
       {/* US States */}
