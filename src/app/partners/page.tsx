@@ -85,7 +85,7 @@ export default async function PartnersPage() {
       {/* Facts */}
       <ul className="mt-12 grid gap-px overflow-hidden rounded-2xl bg-[#140d18] text-[#fdf3e3] sm:grid-cols-3">
         {[
-          { icon: Trophy, big: "No. 4", small: "in Lifestyle on the App Store in Estonia, weeks after launch" },
+          { icon: Trophy, big: "No. 4", small: "in Lifestyle on the App Store in Estonia" },
           { icon: Sparkles, big: "Free", small: "for everyone, so nothing stands between your event and its crowd" },
           { icon: Rocket, big: "iPhone + web", small: "with Android on its way" },
         ].map((f) => (
