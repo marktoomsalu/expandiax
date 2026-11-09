@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Check, Infinity as Forever, Rocket, ShieldCheck, Sparkles, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
@@ -28,6 +29,10 @@ const PLANS = [
     price: "Free",
     per: "",
     for: "Any festival, race, concert or tour",
+    slug: "event",
+    value: "",
+    title: "Your event gets its own home.",
+    why: "Start here. It costs nothing, and every \u201cI was there\u201d puts your event on a member\u2019s map for good, where their friends see it too.",
     features: ["An official page with your name on it", "“I was there” for your crowd", "Their photos, videos and memories in one place", "A QR poster for your venue"],
     cta: "Claim your page",
   },
@@ -36,6 +41,10 @@ const PLANS = [
     price: "€149",
     per: "per event",
     for: "When you want more people to come",
+    slug: "featured",
+    value: "Be seen while people are still choosing",
+    title: "Seen by people who decide where to go.",
+    why: "A free page waits to be found. Featured puts you in front of people while they\u2019re still choosing, nearby and dreaming of your country, with a link straight to your tickets. The report shows exactly what it did.",
     features: ["Everything in Event page", "Featured on Explore for people nearby and those dreaming of your country", "Partner label and a link to your tickets", "A report after the event"],
     cta: "Feature an event",
   },
@@ -44,6 +53,11 @@ const PLANS = [
     price: "€490",
     per: "per season",
     for: "Festivals and organisers with a season",
+    slug: "season",
+    value: "\u20ac98 per event: save \u20ac255 on five",
+    title: "A whole season, everywhere it matters.",
+    why: "Five featured events cost \u20ac745 one by one. As a season they\u2019re \u20ac490, about \u20ac98 each, and you also get three months on your city\u2019s page, a verified partner profile and a launch post on our socials. You\u2019re visible all summer, not one weekend at a time.",
+    badge: "Best value",
     features: ["Up to 5 featured events", "Your partner card on your city or country page for 3 months", "A launch post on our social channels", "A season report"],
     cta: "Become a season partner",
     best: true,
@@ -53,6 +67,11 @@ const PLANS = [
     price: "from €990",
     per: "per quarter",
     for: "Tourism boards, hotels and tour operators",
+    slug: "destination",
+    value: "A whole quarter in front of every dreamer",
+    title: "Every traveller dreaming of your country.",
+    why: "Not one event but your whole destination. Your guide sits where travellers plan, and campaigns reach the people who have already said they dream of going: the warmest audience there is. Quarterly insights tell you what they\u2019re looking for.",
+    badge: "Biggest reach",
     features: ["Your partner card on your country’s page", "Campaigns to people with your destination on their dream list", "Quarterly insights on what travellers dream of"],
     cta: "Plan a campaign",
   },
@@ -197,6 +216,7 @@ export default async function PartnersPage() {
                 <span className="font-serif text-4xl">{p.price}</span>
                 {p.per && <span className={cn("ml-1.5 text-sm", p.best ? "text-white/60" : "text-muted")}>{p.per}</span>}
               </p>
+              {p.value && <p className={cn("mt-1.5 text-sm font-semibold", p.best ? "text-[#FB7822]" : "text-accent")}>{p.value}</p>}
               <ul className="mt-5 flex-1 space-y-2.5">
                 {p.features.map((f) => (
                   <li key={f} className="flex gap-2 text-sm leading-snug">
@@ -211,12 +231,53 @@ export default async function PartnersPage() {
               >
                 {p.cta}
               </a>
+              <a href={`#plan-${p.slug}`} className={cn("mt-3 text-center text-xs underline-offset-4 hover:underline", p.best ? "text-white/60" : "text-muted")}>
+                See what you get &darr;
+              </a>
             </li>
           ))}
         </ul>
         <p className="mt-5 text-sm text-muted">
           Launch prices, excluding VAT. Founding partners who join in 2026 keep them for 12 months.
         </p>
+      </section>
+
+      {/* What each package looks like */}
+      <section aria-labelledby="looks-h" className="mt-20">
+        <p className="eyebrow">What you get</p>
+        <h2 id="looks-h" className="mt-2 text-3xl md:text-4xl">
+          Package by package, <span className="italic text-accent">in the app.</span>
+        </h2>
+        <div className="mt-10 space-y-14">
+          {PLANS.map((p, i) => (
+            <article key={p.slug} id={`plan-${p.slug}`} className="scroll-mt-24">
+              <div className={cn("overflow-hidden rounded-3xl shadow-xl", p.best && "ring-2 ring-accent")}>
+                <Image src={`/partners/tier-${p.slug}.webp`} alt={`${p.name}: ${p.title}`} width={1500} height={960} sizes="(min-width: 1024px) 1000px, 100vw" className="h-auto w-full" />
+              </div>
+              <div className="mt-6 grid gap-6 md:grid-cols-[1fr_1.2fr]">
+                <div>
+                  <p className="font-mono text-xs font-semibold tracking-[0.25em] text-muted">
+                    0{i + 1} · {p.name.toUpperCase()}
+                    {p.badge && <span className="gradient-travel ml-2 rounded-full px-2.5 py-1 text-[10px] text-white">{p.badge.toUpperCase()}</span>}
+                  </p>
+                  <h3 className="mt-2 font-serif text-2xl md:text-3xl">{p.title}</h3>
+                  <p className="mt-2">
+                    <span className="font-serif text-3xl">{p.price}</span>
+                    {p.per && <span className="ml-1.5 text-sm text-muted">{p.per}</span>}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Why it&rsquo;s worth it</p>
+                  <p className="mt-1.5 leading-relaxed text-muted">{p.why}</p>
+                  <a href={MAIL(`ExpandiaX: ${p.name}`)} className={cn("mt-4 inline-flex rounded-full px-5 py-2.5 text-sm font-semibold", p.best || p.badge ? "gradient-travel text-white" : "border border-line hover:border-accent hover:text-accent")}>
+                    {p.cta}
+                  </a>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+        <p className="mt-8 text-xs text-muted">Pictures show an example partner, events and numbers.</p>
       </section>
 
       {/* Rules */}
