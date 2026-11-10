@@ -6,11 +6,12 @@ import { StayRow, type StayView } from "./StayRow";
 
 /**
  * Someone's stays and trips in a country, newest first, each opening in
- * place to show its memories (photos, notes, song). The newest starts open;
- * a link to #trip-<id> (from a place card) opens and shows that one.
+ * place to show its memories (photos, notes, song). All start closed; a
+ * link to #trip-<id> (from a place card) opens and shows that one.
  */
 export function StayTimeline({ stays, memories }: { stays: StayView[]; memories: Record<string, React.ReactNode> }) {
-  const [open, setOpen] = useState<Set<string>>(() => new Set(stays[0] ? [stays[0].id] : []));
+  // All closed to begin with: tap one to open it.
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     const fromHash = () => {
