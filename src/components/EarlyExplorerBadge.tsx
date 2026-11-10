@@ -23,9 +23,9 @@ export function EarlyExplorerBadge({ signupNumber, className }: { signupNumber: 
         <div className="min-w-0">
           <p className="text-[0.6875rem] font-sans font-semibold uppercase tracking-[0.18em] text-white/80">Early Explorer</p>
           <p className="mt-0.5 font-serif text-lg leading-snug sm:text-xl">
-            One of ExpandiaX&rsquo;s first {EARLY_EXPLORER_THRESHOLD} travellers.
+            One of ExpandiaX&rsquo;s first {EARLY_EXPLORER_THRESHOLD.toLocaleString("en")} members.
           </p>
-          <p className="mt-1 text-xs text-white/75">Member #{signupNumber}</p>
+          <p className="mt-1 text-xs font-semibold tracking-wide text-white/85">Explorer #{signupNumber}</p>
         </div>
       </div>
     </div>

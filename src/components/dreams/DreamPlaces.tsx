@@ -24,7 +24,7 @@ export function DreamPlaces({ dreams }: { dreams: DreamPlaceCard[] }) {
       <h2 id="dreams-h" className="flex items-center gap-2 text-xl">
         <Sparkles size={18} className="text-violet-500" aria-hidden /> Dream places
       </h2>
-      <p className="mt-1 text-xs text-muted">Where you&rsquo;d love to go - and who you know that&rsquo;s been. Only you see this list.</p>
+      <p className="mt-1 text-xs text-muted">Every adventure starts with a dream. Only you see this list.</p>
       <div className="mt-4 max-w-md">
         <AddDream />
       </div>

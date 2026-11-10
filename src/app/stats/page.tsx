@@ -6,6 +6,7 @@ import { BadgeGrid } from "@/components/BadgeGrid";
 import { EarlyExplorerBadge } from "@/components/EarlyExplorerBadge";
 import { WorldMap } from "@/components/WorldMap";
 import { EmptyState } from "@/components/EmptyState";
+import { YearByYear } from "@/components/YearByYear";
 import { CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts } from "@/lib/countries";
 import { isTerritoryCode } from "@/lib/territories";
 import { EVENT_TYPES } from "@/lib/events";
@@ -90,21 +91,6 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
     video_count: (e.event_media ?? []).filter((m) => m.media_type === "video").length,
   }));
 
-  // Likes are deliberately never shown publicly (see LikeButton.tsx) — this
-  // is the one place the owner can see their own total, across everything
-  // they've posted, regardless of the year filter below.
-  const countryIds = countryRows.map((c) => c.id);
-  const eventIds = eventRows.map((e) => e.id);
-  const [{ count: countryLikes }, { count: eventLikes }] = await Promise.all([
-    countryIds.length
-      ? supabase.from("likes").select("id", { count: "exact", head: true }).eq("kind", "country").in("target_id", countryIds)
-      : Promise.resolve({ count: 0 }),
-    eventIds.length
-      ? supabase.from("likes").select("id", { count: "exact", head: true }).eq("kind", "event").in("target_id", eventIds)
-      : Promise.resolve({ count: 0 }),
-  ]);
-  const totalLikes = (countryLikes ?? 0) + (eventLikes ?? 0);
-
   const hasAnyData = countries.length > 0 || events.length > 0;
   const allTime = buildAllTimeStats(countries, events);
   const years = allTime.yearsActive;
@@ -113,6 +99,20 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
   const requestedYear = searchParams.year;
   const selectedYear =
     requestedYear === "all" ? null : requestedYear ? Number(requestedYear) : years.at(-1) ?? currentYear;
+
+  // Likes are deliberately never shown publicly (see LikeButton.tsx) — this
+  // is the one place the owner can see them: every like on what they've
+  // posted, or with a year picked, the likes they got during that year.
+  const countryIds = countryRows.map((c) => c.id);
+  const eventIds = eventRows.map((e) => e.id);
+  const likesOn = (kind: "country" | "event", ids: string[]) => {
+    if (!ids.length) return Promise.resolve({ count: 0 });
+    let q = supabase.from("likes").select("id", { count: "exact", head: true }).eq("kind", kind).in("target_id", ids);
+    if (selectedYear !== null) q = q.gte("created_at", `${selectedYear}-01-01`).lt("created_at", `${selectedYear + 1}-01-01`);
+    return q;
+  };
+  const [{ count: countryLikes }, { count: eventLikes }] = await Promise.all([likesOn("country", countryIds), likesOn("event", eventIds)]);
+  const totalLikes = (countryLikes ?? 0) + (eventLikes ?? 0);
   const yearStats = selectedYear !== null ? buildYearStats(selectedYear, countries, events) : null;
 
   const badges = evaluateBadges(allTime);
@@ -131,8 +131,6 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
     const ys = buildYearStats(y, countries, events);
     return { year: y, countries: ys.countryCodes.length, events: ys.events.length };
   });
-  const maxYearCountries = Math.max(1, ...yearBreakdown.map((y) => y.countries));
-  const maxYearEvents = Math.max(1, ...yearBreakdown.map((y) => y.events));
 
   return (
     <div className="mx-auto max-w-shell px-5 py-10">
@@ -174,18 +172,13 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
             ))}
           </div>
 
-          <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
             {yearStats ? (
               <>
                 <StatCard label="Countries" value={yearStats.countryCodes.length} detail={`${yearStats.newCountryCodes.length} new to you`} />
                 <StatCard label="Continents" value={`${yearStats.continentsVisited}/6`} detail="touched this year" />
                 <StatCard label="Events logged" value={yearStats.events.length} detail="this year" />
                 <StatCard label="Memories added" value={yearStats.photos + yearStats.videos} detail="photos & videos" />
-                <StatCard
-                  label="Distinct events"
-                  value={new Set(yearStats.events.map((e) => e.title)).size}
-                  detail="unique titles this year"
-                />
               </>
             ) : (
               <>
@@ -193,14 +186,9 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
                 <StatCard label="Continents" value={`${allTime.continentsVisited}/6`} detail="visited" />
                 <StatCard label="Events logged" value={allTime.totalEvents} detail="across every type" />
                 <StatCard label="Memories added" value={allTime.totalPhotos + allTime.totalVideos} detail="photos & videos" />
-                <StatCard
-                  label="Distinct events"
-                  value={new Set(events.map((e) => e.title)).size}
-                  detail="unique titles overall"
-                />
               </>
             )}
-            <StatCard label="Likes received" value={totalLikes} detail="private - never shown publicly" />
+            <StatCard className="col-span-2 lg:col-span-1" label="Likes received" value={totalLikes} detail={selectedYear !== null ? `in ${selectedYear}, only you see this` : "only you see this"} />
           </div>
 
           <div className="mt-8 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">
@@ -283,26 +271,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
           {yearBreakdown.length > 1 && (
             <section className="mt-10">
               <h2 className="text-xl">Year by year</h2>
-              <div className="mt-4 space-y-3">
-                {[...yearBreakdown].reverse().map((y) => (
-                  <div key={y.year} className="flex items-center gap-3 text-sm">
-                    <span className="w-12 shrink-0 text-muted">{y.year}</span>
-                    <div className="flex-1 space-y-1">
-                      <div className="h-2 overflow-hidden rounded-full bg-raised">
-                        <div className="h-full rounded-full bg-accent" style={{ width: `${(y.countries / maxYearCountries) * 100}%` }} />
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-raised">
-                        <div className="h-full rounded-full bg-ink/30" style={{ width: `${(y.events / maxYearEvents) * 100}%` }} />
-                      </div>
-                    </div>
-                    <span className="w-20 shrink-0 text-right text-xs text-muted">{y.countries}c · {y.events}e</span>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 flex items-center gap-4 text-xs text-muted">
-                <span className="flex items-center gap-1.5"><span aria-hidden className="inline-block h-2 w-2 rounded-full bg-accent" /> countries</span>
-                <span className="flex items-center gap-1.5"><span aria-hidden className="inline-block h-2 w-2 rounded-full bg-ink/30" /> events</span>
-              </p>
+              <YearByYear years={yearBreakdown} />
             </section>
           )}
 
