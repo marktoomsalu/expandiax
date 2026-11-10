@@ -3,7 +3,7 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { TouchGlobes, type TouchMe } from "@/components/touch/TouchGlobes";
 import type { GlobeCountry } from "@/lib/globeTouchLogic";
 
-export const metadata = { title: "Touch globes" };
+export const metadata = { title: "World Connect" };
 
 // A sample person, for ?demo (previews and screenshots, signed out too).
 const SAMPLE_ME: TouchMe = { id: "demo-me", username: "you", display_name: "You", avatar_url: null };

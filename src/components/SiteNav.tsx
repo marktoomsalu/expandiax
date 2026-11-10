@@ -9,6 +9,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 import { tapLight } from "@/lib/haptics";
 import { AddCountrySheet, type AddCountrySheetHandle } from "./AddCountrySheet";
+import { WorldConnectButton } from "./touch/WorldConnectButton";
 
 type NavUser = { username: string } | null;
 
@@ -57,6 +58,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
           <Wordmark linked={!signingUp} />
           {/* 44pt tap targets (Apple's minimum) — the icons stay small. */}
           <div className="-mr-1.5 flex items-center gap-1.5">
+            {user && <WorldConnectButton />}
             {user && (
               <Link href="/notifications" aria-label="Notifications" className="relative flex h-11 w-11 items-center justify-center text-white/70 hover:text-white">
                 <Bell size={21} />

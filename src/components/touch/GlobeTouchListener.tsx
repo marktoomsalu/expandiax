@@ -4,18 +4,20 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { App } from "@capacitor/app";
 import { getServerState, getState, hasGlobeTouch, startTouch, stopTouch, subscribe } from "@/lib/globeTouch";
+import { WORLD_CONNECT_BUTTON_ID } from "./WorldConnectButton";
 import { isTouchAsked, isTouchReady, setTouchAsked, setTouchReady } from "@/lib/globeTouchReady";
 
 // Screens where a "turn it on" card would be in the way.
 const QUIET = ["/touch", "/start", "/sign-in", "/sign-up"];
 
 /**
- * Touch globes without a button, like AirDrop: once it's on, the app
+ * World Connect without a button, like AirDrop: once it's on, the app
  * listens while it's open, on every screen, and bringing two phones
- * together opens Touch globes with that touch. The first time, a card
- * asks to turn it on, so the iPhone's permission questions come when
- * you expect them. A touch needs a real approach (see decideTouch), so
- * phones lying side by side never share.
+ * together opens World Connect with that touch. The first time, a card
+ * asks to turn it on (so the iPhone's permission questions come when you
+ * expect them) and shows where its button lives in the header. A touch
+ * needs a real approach (see decideTouch), so phones lying side by side
+ * never share.
  */
 export function GlobeTouchListener() {
   const path = usePathname();
@@ -58,34 +60,85 @@ export function GlobeTouchListener() {
     }
   };
 
+  return <WorldConnectIntro onAnswer={answer} />;
+}
+
+type Spot = { x: number; y: number; size: number };
+
+/** The first-time card: a spotlight on the header button, and Turn on / Not now. */
+export function WorldConnectIntro({ onAnswer }: { onAnswer: (on: boolean) => void }) {
+  const [spot, setSpot] = useState<Spot | null>(null);
+
+  useEffect(() => {
+    const measure = () => {
+      const r = document.getElementById(WORLD_CONNECT_BUTTON_ID)?.getBoundingClientRect();
+      setSpot(r && r.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2, size: Math.max(r.width, r.height) + 8 } : null);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="touch-ask-h">
-      <div
-        className="w-full max-w-md rounded-t-[28px] p-6 text-center text-white"
-        style={{ background: "radial-gradient(120% 90% at 50% 0%, #4a1450 0%, #2b0b2e 55%, #12041a 100%)", paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }}
-      >
-        <div className="mx-auto flex h-20 w-32 items-center justify-center" aria-hidden>
-          <span className="h-16 w-16 rounded-full" style={{ background: "radial-gradient(circle at 35% 30%, #ffe1b8, #fb7822 55%, #8a3a0c)", boxShadow: "0 0 30px rgba(251,120,34,.6)" }} />
-          <span className="-ml-4 h-16 w-16 rounded-full" style={{ background: "radial-gradient(circle at 35% 30%, #d6fff8, #2dd4bf 55%, #0d5c52)", boxShadow: "0 0 30px rgba(45,212,191,.6)" }} />
-        </div>
-        <p className="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/55">New</p>
-        <h2 id="touch-ask-h" className="mt-1 font-serif text-3xl">Touch globes</h2>
-        <p className="mx-auto mt-3 max-w-xs text-white/80">
-          Hold your iPhone against a friend&rsquo;s, wherever you are in ExpandiaX. You&rsquo;ll both see the countries you share, and can follow each other.
-        </p>
-        <button
-          type="button"
-          onClick={() => answer(true)}
-          className="mt-6 w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]"
-          style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}
+    <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-labelledby="world-connect-h">
+      {spot ? (
+        <>
+          {/* Everything dark except a circle around the header button. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute rounded-full"
+            style={{ left: spot.x - spot.size / 2, top: spot.y - spot.size / 2, width: spot.size, height: spot.size, boxShadow: "0 0 0 200vmax rgba(10,2,14,0.74)" }}
+          />
+          <div
+            aria-hidden
+            className="world-connect-pulse pointer-events-none absolute rounded-full border-2 border-[#fa51a2]"
+            style={{ left: spot.x - spot.size / 2, top: spot.y - spot.size / 2, width: spot.size, height: spot.size }}
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute h-0 w-0 border-x-[8px] border-b-[9px] border-x-transparent border-b-white"
+            style={{ left: spot.x - 8, top: spot.y + spot.size / 2 + 6 }}
+          />
+          <p
+            className="pointer-events-none absolute right-3 max-w-[16rem] rounded-2xl bg-white px-3.5 py-2 text-sm font-medium text-[#2b0b2e] shadow-lg"
+            style={{ top: spot.y + spot.size / 2 + 14 }}
+          >
+            World Connect lives here, anytime.
+          </p>
+        </>
+      ) : (
+        <div aria-hidden className="absolute inset-0 bg-[rgba(10,2,14,0.74)]" />
+      )}
+
+      <div className="absolute inset-x-0 bottom-0 flex justify-center">
+        <div
+          className="w-full max-w-md rounded-t-[28px] p-6 text-center text-white"
+          style={{ background: "radial-gradient(120% 90% at 50% 0%, #4a1450 0%, #2b0b2e 55%, #12041a 100%)", paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }}
         >
-          Turn on
-        </button>
-        <button type="button" onClick={() => answer(false)} className="mt-3 w-full rounded-full py-3 text-white/70">
-          Not now
-        </button>
-        <p className="mt-2 text-xs text-white/45">Your iPhone will ask to find devices nearby. Nothing is shared until two phones touch.</p>
+          <div className="mx-auto flex h-20 w-32 items-center justify-center" aria-hidden>
+            <span className="h-16 w-16 rounded-full" style={{ background: "radial-gradient(circle at 35% 30%, #ffd6ea, #fa51a2 55%, #8c1452)", boxShadow: "0 0 30px rgba(250,81,162,.6)" }} />
+            <span className="-ml-4 h-16 w-16 rounded-full" style={{ background: "radial-gradient(circle at 35% 30%, #ffe1b8, #fb7822 55%, #8a3a0c)", boxShadow: "0 0 30px rgba(251,120,34,.6)" }} />
+          </div>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/55">New</p>
+          <h2 id="world-connect-h" className="mt-1 font-serif text-3xl">World Connect</h2>
+          <p className="mx-auto mt-3 max-w-xs text-white/80">
+            Hold your iPhone against a friend&rsquo;s, wherever you are in ExpandiaX. Your worlds connect: the countries you share, and you can follow each other.
+          </p>
+          <button
+            type="button"
+            onClick={() => onAnswer(true)}
+            className="mt-6 w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]"
+            style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}
+          >
+            Turn on
+          </button>
+          <button type="button" onClick={() => onAnswer(false)} className="mt-3 w-full rounded-full py-3 text-white/70">
+            Not now
+          </button>
+          <p className="mt-2 text-xs text-white/45">Your iPhone will ask to find devices nearby. Nothing is shared until two phones touch.</p>
+        </div>
       </div>
+      <style>{`.world-connect-pulse{animation:wc-pulse 1.6s ease-out infinite}@keyframes wc-pulse{from{transform:scale(1);opacity:1}to{transform:scale(1.7);opacity:0}}@media (prefers-reduced-motion:reduce){.world-connect-pulse{animation:none}}`}</style>
     </div>
   );
 }

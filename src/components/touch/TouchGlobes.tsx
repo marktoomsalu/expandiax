@@ -255,17 +255,17 @@ function Intro({ me, myCountries, size, onStart }: { me: TouchMe; myCountries: G
   return (
     <div className="flex flex-1 flex-col items-center text-center">
       <p className="touch-eyebrow mt-2">New</p>
-      <h1 className="mt-2 font-serif text-4xl leading-tight">Touch globes</h1>
+      <h1 className="mt-2 font-serif text-4xl leading-tight">World Connect</h1>
       <div className="relative my-6" style={{ width: size, height: size }}>
         <Rings speed={2.6} strength={0.35} />
         <TouchGlobe size={size} colors={colors} spin={0.7} />
       </div>
       <p className="max-w-xs text-base text-white/80">
-        Hold your iPhone against a friend&rsquo;s. You&rsquo;ll both see your globes side by side, the countries you share, and can follow each other right there.
+        Hold your iPhone against a friend&rsquo;s. Your worlds connect: the countries you share, where each of you has been, and you can follow each other right there.
       </p>
       <ul className="mt-5 space-y-2 text-left text-sm text-white/60">
         <li className="flex gap-2"><Smartphone size={16} className="mt-0.5 shrink-0" /> Your friend opens ExpandiaX too.</li>
-        <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0" /> Only what you both see on your globes is shared, and only when you touch.</li>
+        <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0" /> Only what you show on your globe is shared, and only when your phones touch.</li>
       </ul>
       <button type="button" onClick={onStart} className="touch-cta mt-auto w-full">
         Start
@@ -318,7 +318,7 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
 
   return (
     <div className="flex flex-1 flex-col items-center text-center">
-      <p className="touch-eyebrow mt-2">Touch globes</p>
+      <p className="touch-eyebrow mt-2">World Connect</p>
       <div className="relative mt-10" style={{ width: size, height: size }}>
         <div
           className="touch-orb absolute left-1/2 z-10 rounded-full"
@@ -341,7 +341,7 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
 
       <div className="mt-8 min-h-[7.5rem]" aria-live="polite">
         {touching ? (
-          <p className="touch-pop font-serif text-3xl">Touching globes&hellip;</p>
+          <p className="touch-pop font-serif text-3xl">Connecting worlds&hellip;</p>
         ) : (
           <>
             {linked && meters != null && <p className="font-serif text-6xl tabular-nums">{formatDistance(meters)}</p>}
@@ -377,7 +377,8 @@ function Reveal({ me, result, size, onFollow, onAgain }: { me: TouchMe; result: 
     return m;
   }, [g]);
   const count = useCountUp(g.both.length, 1400, 900);
-  const theirExtra = g.onlyTheirs.slice(0, 14);
+  const groupLabel = (code: string) =>
+    g.both.includes(code) ? "You both" : g.onlyMine.includes(code) ? "Only you" : g.onlyTheirs.includes(code) ? `Only ${name}` : "";
 
   return (
     <div className="flex flex-col items-center pb-6 text-center">
@@ -405,36 +406,21 @@ function Reveal({ me, result, size, onFollow, onAgain }: { me: TouchMe; result: 
       </div>
 
       <div className="touch-rise relative mt-4" style={{ width: size, height: size, animationDelay: "1100ms" }}>
-        <TouchGlobe size={size} colors={colors} spin={1.1} glow="#fde047" />
+        <TouchGlobe size={size} colors={colors} spin={1.1} glow="#fde047" interactive labelOf={groupLabel} />
       </div>
-      <div className="touch-rise flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-white/75" style={{ animationDelay: "1300ms" }}>
-        <Key color={BOTH} label={`Both (${g.both.length})`} />
-        <Key color={MINE} label={`Only you (${g.onlyMine.length})`} />
-        <Key color={THEIRS} label={`Only ${name} (${g.onlyTheirs.length})`} />
-      </div>
+      <p className="touch-rise -mt-1 text-xs text-white/45" style={{ animationDelay: "1200ms" }}>Turn the globe, tap a country</p>
 
-      {g.both.length > 0 && (
-        <ul className="mt-6 flex flex-wrap justify-center gap-2">
-          {g.both.map((code, i) => (
-            <li key={code} className="touch-chip" style={{ animationDelay: `${1500 + i * 70}ms` }}>
-              {countryByCode(code)?.flag} {countryByCode(code)?.name}
-            </li>
-          ))}
-        </ul>
-      )}
+      <Groups
+        groups={[
+          { key: "both", label: "Both", color: BOTH, codes: g.both },
+          { key: "mine", label: "Only you", color: MINE, codes: g.onlyMine },
+          { key: "theirs", label: `Only ${name}`, color: THEIRS, codes: g.onlyTheirs },
+        ]}
+      />
 
       <p className="touch-rise mt-8 font-serif text-2xl" style={{ animationDelay: "1800ms" }}>
         Together you&rsquo;ve seen {g.together} {g.together === 1 ? "country" : "countries"}.
       </p>
-      {theirExtra.length > 0 && (
-        <div className="touch-rise mt-3" style={{ animationDelay: "1950ms" }}>
-          <p className="text-sm text-white/65">{name} has been where you haven&rsquo;t:</p>
-          <p className="mt-2 text-2xl leading-relaxed" aria-label={g.onlyTheirs.map((c) => countryByCode(c)?.name).join(", ")}>
-            {theirExtra.map((c) => countryByCode(c)?.flag).join(" ")}
-            {g.onlyTheirs.length > theirExtra.length && <span className="ml-1 align-middle text-sm text-white/60">+{g.onlyTheirs.length - theirExtra.length}</span>}
-          </p>
-        </div>
-      )}
 
       <FollowCard result={result} name={name} onFollow={onFollow} />
 
@@ -445,7 +431,7 @@ function Reveal({ me, result, size, onFollow, onAgain }: { me: TouchMe; result: 
           </Link>
         )}
         <button type="button" onClick={onAgain} className="touch-ghost">
-          Touch another friend
+          Connect to another friend
         </button>
       </div>
     </div>
@@ -508,12 +494,12 @@ function Unsupported() {
   const android = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <p className="touch-eyebrow">Touch globes</p>
+      <p className="touch-eyebrow">World Connect</p>
       <p className="mt-3 font-serif text-3xl">{android ? "Coming to Android" : "Made for iPhone"}</p>
       <p className="mt-3 max-w-xs text-white/70">
         {android
-          ? "Touching globes works between iPhones for now. Android is on its way."
-          : "Hold two iPhones together in the ExpandiaX app to see the countries you share. Update the app if you don’t see it yet."}
+          ? "World Connect works between iPhones for now. Android is on its way."
+          : "Hold two iPhones together in the ExpandiaX app to connect your worlds. Update the app if you don’t see it yet."}
       </p>
     </div>
   );
@@ -538,12 +524,49 @@ function Face({ person, size, ring }: { person: TouchMe; size: number; ring: str
   );
 }
 
-function Key({ color, label }: { color: string; label: string }) {
+type Group = { key: string; label: string; color: string; codes: string[] };
+
+/** Both / Only you / Only them: tap one to see its countries. */
+function Groups({ groups }: { groups: Group[] }) {
+  const [open, setOpen] = useState(groups.find((x) => x.codes.length > 0)?.key ?? groups[0].key);
+  const shown = groups.find((x) => x.key === open) ?? groups[0];
   return (
-    <span className="flex items-center gap-1.5">
-      <span className="h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
-      {label}
-    </span>
+    <div className="touch-rise mt-5 w-full" style={{ animationDelay: "1300ms" }}>
+      <div role="tablist" aria-label="Countries" className="flex justify-center gap-1.5 rounded-full bg-white/[0.06] p-1">
+        {groups.map((x) => {
+          const on = x.key === open;
+          return (
+            <button
+              key={x.key}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => {
+                buzz(ImpactStyle.Light);
+                setOpen(x.key);
+              }}
+              className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-2 text-xs font-medium transition ${on ? "bg-white/15 text-white" : "text-white/60"}`}
+            >
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: x.color, boxShadow: `0 0 8px ${x.color}` }} />
+              <span className="truncate">{x.label}</span>
+              <span className="tabular-nums text-white/50">{x.codes.length}</span>
+            </button>
+          );
+        })}
+      </div>
+      <ul key={shown.key} role="tabpanel" className="mt-4 flex flex-wrap justify-center gap-2">
+        {shown.codes.length === 0 && <li className="text-sm text-white/55">No countries here.</li>}
+        {shown.codes.map((code, i) => (
+          <li
+            key={code}
+            className="touch-chip"
+            style={{ animationDelay: `${Math.min(i, 30) * 40}ms`, borderColor: `${shown.color}66`, background: `${shown.color}1f` }}
+          >
+            {countryByCode(code)?.flag} {countryByCode(code)?.name}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
