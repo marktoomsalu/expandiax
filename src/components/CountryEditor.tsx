@@ -269,7 +269,8 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
 }
 
 
-export function CountryEditor({ data, meta, trips }: { data: VisitedCountryFull; meta: Meta; trips: StayView[] }) {
+/** `afterTrips`: shown right below "All stays & trips" (the country page puts its places there). */
+export function CountryEditor({ data, meta, trips, afterTrips }: { data: VisitedCountryFull; meta: Meta; trips: StayView[]; afterTrips?: React.ReactNode }) {
   const router = useRouter();
   const supabase = createClient();
   const [precision, setPrecision] = useState<DatePrecision>("year");
@@ -536,6 +537,8 @@ export function CountryEditor({ data, meta, trips }: { data: VisitedCountryFull;
           </form>
         )}
       </section>
+
+      {afterTrips}
 
       {/* Who sees it, and the way out */}
       <section aria-labelledby="settings-h" className="card px-5 py-5">

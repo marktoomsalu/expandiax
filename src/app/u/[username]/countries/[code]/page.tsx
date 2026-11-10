@@ -2,7 +2,7 @@ import { buildCountryView } from "@/lib/countryView";
 import { countrySummary } from "@/lib/tripPlaces";
 import { CountryHero } from "@/components/CountryHero";
 import { CountryPlaces } from "@/components/CountryPlaces";
-import { StayRow } from "@/components/StayRow";
+import { StayTimeline } from "@/components/StayTimeline";
 import Link from "next/link";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { notFound } from "next/navigation";
@@ -18,7 +18,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { CommentSection } from "@/components/CommentSection";
-import { formatDate, formatVisitRange, visitSortKey } from "@/lib/utils";
+import { formatDate, visitSortKey } from "@/lib/utils";
 import type { CommentWithAuthor, Event, VisitedCountryFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 
@@ -126,13 +126,32 @@ export default async function PublicCountryPage({
   const stock = heroPhoto ? null : stockPhotoFor(meta.code, profile.id);
   const tripById = new Map(trips.map((t) => [t.id, t]));
   const visitsNewest = [...country.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
-  const highlightedVisits = visitsNewest.filter(
-    (v) =>
-      v.highlight.trim() ||
-      v.spotify_track_id ||
-      country.country_media.some((m) => m.country_visit_id === v.id) ||
-      cities.some((c) => c.country_visit_id === v.id)
-  );
+  // What opens under each stay in the timeline: its note, photos and song.
+  const memories: Record<string, React.ReactNode> = {};
+  for (const v of visitsNewest) {
+    const photos = country.country_media.filter((m) => m.country_visit_id === v.id).sort((a, b) => a.display_order - b.display_order);
+    const note = v.highlight.trim();
+    const t = tripById.get(v.id);
+    memories[v.id] = (
+      <div className="mt-1.5 space-y-3 rounded-2xl bg-raised/60 p-2.5 sm:p-3">
+        {note && note !== t?.places && <p className="px-1 pt-1 font-serif text-base leading-relaxed">&ldquo;{note}&rdquo;</p>}
+        {photos.length > 0 && (
+          <PhotoGallery
+            photos={photos.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || `Photo from ${t?.name ?? meta.name}`, type: m.media_type }))}
+            // One photo shows large, two side by side, more in threes.
+            gridClassName={`grid gap-1.5 ${photos.length === 1 ? "grid-cols-1" : photos.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}
+            itemClassName={`relative w-full overflow-hidden rounded-xl ${photos.length === 1 ? "aspect-[4/3]" : "aspect-square"}`}
+            sizes={photos.length === 1 ? "(min-width: 768px) 640px, 90vw" : "33vw"}
+            coverId={isOwnProfile ? v.cover_media_id : null}
+          />
+        )}
+        {v.spotify_track_id && <SpotifyEmbed trackId={v.spotify_track_id} compact />}
+        {!note && photos.length === 0 && !v.spotify_track_id && (
+          <p className="px-1 py-1 text-sm text-muted">No photos or notes from this one yet.</p>
+        )}
+      </div>
+    );
+  }
   // A place opens its most recent trip further down the page.
   const placeHref = (cityIds: string[]) => {
     const c = visitsNewest.map((v) => cities.find((x) => x.country_visit_id === v.id && cityIds.includes(x.id))).find(Boolean);
@@ -176,56 +195,17 @@ export default async function PublicCountryPage({
           </Link>
         )}
 
-        <CountryPlaces places={places} countryCode={meta.code} hrefFor={placeHref} />
-
         {trips.length > 0 && (
           <section id="trips" aria-labelledby="trips-h" className="scroll-mt-24">
             <h2 id="trips-h" className="font-serif text-2xl">All stays &amp; trips</h2>
-            <div className="mt-3">
-              {trips.map((t, i) => (
-                <StayRow key={t.id} stay={t} href={`#trip-${t.id}`} first={i === 0} last={i === trips.length - 1} readOnly />
-              ))}
+            <p className="mt-1 text-sm text-muted">Tap one to see its photos and memories.</p>
+            <div className="mt-4">
+              <StayTimeline stays={trips} memories={memories} />
             </div>
           </section>
         )}
 
-        {highlightedVisits.length > 0 && (
-          <section aria-labelledby="memories-h">
-            <h2 id="memories-h" className="font-serif text-2xl">Memories</h2>
-            <ul className="mt-4 space-y-8">
-              {highlightedVisits.map((v) => {
-                const visitPhotos = country.country_media
-                  .filter((m) => m.country_visit_id === v.id)
-                  .sort((a, b) => a.display_order - b.display_order);
-                const t = tripById.get(v.id);
-                return (
-                  <li key={v.id} id={`trip-${v.id}`} className="scroll-mt-24 border-l-2 pl-5" style={{ borderColor: v.kind === "lived" ? "#fa51a2" : "#fb7822" }}>
-                    <p className="eyebrow">{formatVisitRange(v)}</p>
-                    {t && <p className="mt-1 font-serif text-xl">{t.name}</p>}
-                    {t?.places && t.places !== t.name && t.places !== v.highlight.trim() && <p className="mt-0.5 text-sm text-muted">{t.places}</p>}
-                    {v.highlight && <p className="mt-2 text-sm leading-relaxed">{v.highlight}</p>}
-                    {visitPhotos.length > 0 && (
-                      <div className="mt-3">
-                        <PhotoGallery
-                          photos={visitPhotos.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || `Photo from this trip to ${meta.name}`, type: m.media_type }))}
-                          gridClassName="grid grid-cols-3 gap-2"
-                          itemClassName="relative aspect-square w-full overflow-hidden rounded-lg border border-line"
-                          sizes="33vw"
-                          coverId={isOwnProfile ? v.cover_media_id : null}
-                        />
-                      </div>
-                    )}
-                    {v.spotify_track_id && (
-                      <div className="mt-3">
-                        <SpotifyEmbed trackId={v.spotify_track_id} compact />
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
+        <CountryPlaces places={places} countryCode={meta.code} hrefFor={placeHref} />
 
         {events.length > 0 && (
           <section className="mt-12" aria-labelledby="rel-h">

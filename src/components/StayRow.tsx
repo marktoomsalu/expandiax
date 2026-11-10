@@ -26,8 +26,28 @@ export type StayView = {
   mediaPaths: string[];
 };
 
-/** One row of a country's "All stays & trips" timeline. `readOnly`: someone else's, with no Edit or Remove. */
-export function StayRow({ stay, href, first, last, readOnly = false }: { stay: StayView; href: string; first: boolean; last: boolean; readOnly?: boolean }) {
+/**
+ * One row of a country's "All stays & trips" timeline. `readOnly`: someone
+ * else's, with no Edit or Remove. `expand`: the row opens in place to show
+ * its memories (`children`) instead of going to another page.
+ */
+export function StayRow({
+  stay,
+  href,
+  first,
+  last,
+  readOnly = false,
+  expand,
+  children,
+}: {
+  stay: StayView;
+  href: string;
+  first: boolean;
+  last: boolean;
+  readOnly?: boolean;
+  expand?: { open: boolean; onToggle: () => void };
+  children?: React.ReactNode;
+}) {
   const router = useRouter();
   const [menu, setMenu] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -68,7 +88,17 @@ export function StayRow({ stay, href, first, last, readOnly = false }: { stay: S
 
       <div className="relative min-w-0 flex-1 py-1.5">
         <div className="group relative flex items-center gap-3 rounded-2xl border border-line bg-surface p-2 pr-2 shadow-sm transition-colors hover:border-accent">
-          <Link href={href} className="absolute inset-0" aria-label={`Open ${stay.name}`} />
+          {expand ? (
+            <button
+              type="button"
+              onClick={expand.onToggle}
+              aria-expanded={expand.open}
+              aria-label={`${expand.open ? "Close" : "Open"} ${stay.name}`}
+              className="absolute inset-0 rounded-2xl"
+            />
+          ) : (
+            <Link href={href} className="absolute inset-0" aria-label={`Open ${stay.name}`} />
+          )}
           <span className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-raised">
             {stay.photo ? (
               <Image src={stay.photo} alt="" fill sizes="80px" className="object-cover" />
@@ -122,8 +152,13 @@ export function StayRow({ stay, href, first, last, readOnly = false }: { stay: S
             )}
           </div>
           )}
-          <ChevronRight size={16} className="pointer-events-none shrink-0 text-muted" aria-hidden />
+          <ChevronRight
+            size={16}
+            className={cn("pointer-events-none shrink-0 text-muted transition-transform duration-200", expand?.open && "rotate-90 text-accent")}
+            aria-hidden
+          />
         </div>
+        {expand?.open && children}
       </div>
 
       {!readOnly && (

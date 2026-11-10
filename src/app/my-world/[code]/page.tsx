@@ -75,8 +75,13 @@ export default async function ManageCountryPage({ params }: { params: { code: st
               </Link>
             </div>
           )}
-          <CountryPlaces places={places} countryCode={meta.code} hrefFor={placeHref} />
-          <CountryEditor data={visited} meta={meta} trips={trips} />
+          {/* Your stays first, then the places they took you. */}
+          <CountryEditor
+            data={visited}
+            meta={meta}
+            trips={trips}
+            afterTrips={places.length > 0 ? <CountryPlaces places={places} countryCode={meta.code} hrefFor={placeHref} /> : null}
+          />
         </div>
       </div>
     );
