@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Compass, Search, Users } from "lucide-react";
+import { Compass, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Friends | Explore — your friends' feed stays about them; exploring has its own view. */
@@ -22,17 +22,5 @@ export function FeedTabs({ tab }: { tab: "friends" | "explore" }) {
 }
 
 /** A rounded search field that sends its query to `action` — `flush` drops its top margin, for sitting in a row. */
-export function SearchBox({ action, placeholder, defaultValue, hidden, flush = false }: { action: string; placeholder: string; defaultValue?: string; hidden?: Record<string, string>; flush?: boolean }) {
-  return (
-    <form action={action} role="search" className={flush ? "relative" : "relative mt-3"}>
-      {Object.entries(hidden ?? {}).map(([k, v]) => (
-        <input key={k} type="hidden" name={k} value={v} />
-      ))}
-      <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
-      <label htmlFor={`search-${action}`} className="sr-only">
-        {placeholder}
-      </label>
-      <input id={`search-${action}`} name="q" type="search" defaultValue={defaultValue} placeholder={placeholder} className="field !rounded-full !py-2.5 !pl-11" />
-    </form>
-  );
-}
+// Lives in its own file: it shows people as you type (a client component).
+export { SearchBox } from "./SearchBox";

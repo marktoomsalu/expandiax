@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, Search, Share2, X } from "lucide-react";
+import { PeopleSuggest } from "./PeopleSuggest";
 import { FollowButton } from "@/components/FollowButton";
 import { tapSuccess } from "@/lib/haptics";
 import type { PersonCard } from "@/lib/experienceNetworkData";
@@ -180,8 +181,15 @@ export function FirstFriendsSheet({
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Know someone here? Search by name"
                   aria-label="Search people"
+                  autoComplete="off"
                   className="field !rounded-full !py-2.5 !pl-11"
                 />
+                {/* Matches show as you type. */}
+                {query.trim().length >= 2 && (
+                  <div className="mt-2">
+                    <PeopleSuggest query={query} onPick={() => close(LATER_DAYS)} />
+                  </div>
+                )}
               </form>
 
               <p className="mb-2 mt-5 font-mono text-[10px] font-semibold tracking-[0.25em] text-muted">SUGGESTED FOR YOU</p>
