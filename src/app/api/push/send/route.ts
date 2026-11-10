@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
   const link = (() => {
     const me = owner?.username;
     const onComments = record.kind === "comment" ? "#comments" : "";
-    if (record.target_kind === "country" && country && me) return `/u/${me}/countries/${country.country_code.toLowerCase()}${onComments}`;
+    if (record.target_kind === "country" && country && me) return `/u/${me}/countries/${country.country_code.toLowerCase()}`;
     if (record.target_kind === "event" && record.target_id && me) return `/u/${me}/events/${record.target_id}${onComments}`;
     if (record.target_kind === "question" && question && record.target_id) return `/explore/country/${question.country_code.toLowerCase()}#q-${record.target_id}`;
     if (record.kind.startsWith("follow") && actor?.username) return record.kind === "follow_request" ? "/notifications" : `/u/${actor.username}`;

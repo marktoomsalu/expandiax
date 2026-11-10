@@ -17,9 +17,8 @@ import { BlockButton } from "@/components/BlockButton";
 import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { PhotoGallery } from "@/components/PhotoGallery";
-import { CommentSection } from "@/components/CommentSection";
 import { formatDate, visitSortKey } from "@/lib/utils";
-import type { CommentWithAuthor, Event, VisitedCountryFull } from "@/lib/types";
+import type { Event, VisitedCountryFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 
 export async function generateMetadata({
@@ -111,13 +110,6 @@ export default async function PublicCountryPage({
   const country = data as VisitedCountryFull | null;
   if (!country) notFound();
 
-  const { data: commentRows } = await supabase
-    .from("comments")
-    .select("*, profiles(username, display_name, avatar_url)")
-    .eq("kind", "country")
-    .eq("target_id", country.id)
-    .order("created_at", { ascending: true });
-  const comments = (commentRows ?? []) as CommentWithAuthor[];
 
   // The same page the owner sees on My World, read-only: their stays and
   // trips on a timeline, the places, and each trip's photos and notes below.
@@ -226,12 +218,6 @@ export default async function PublicCountryPage({
           </section>
         )}
 
-        <section className="mt-12 border-t border-line pt-8" aria-labelledby="comments-h">
-          <h2 id="comments-h" className="text-xl">Comments</h2>
-          <div className="mt-4">
-            <CommentSection kind="country" targetId={country.id} posterId={profile.id} initialComments={comments} />
-          </div>
-        </section>
 
         <nav aria-label="Other countries" className="mt-14 flex items-center justify-between border-t border-line pt-6 text-sm">
           {prev ? (

@@ -134,7 +134,7 @@ export default async function NotificationsPage() {
             // Where tapping the notification takes you: the post (straight to
             // its comments for a comment), the question, or the person.
             const rowHref =
-              n.kind === "comment" && t ? `${t.href}#comments` : t ? t.href : n.kind.startsWith("follow") && actor ? actorHref : null;
+              n.kind === "comment" && n.target_kind === "event" && t ? `${t.href}#comments` : t ? t.href : n.kind.startsWith("follow") && actor ? actorHref : null;
 
             let text: React.ReactNode;
             if (n.kind === "follow") {
