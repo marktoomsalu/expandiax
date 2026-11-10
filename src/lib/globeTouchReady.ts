@@ -1,20 +1,26 @@
-// Once someone has started Touch globes (and so answered the iPhone's
-// questions about finding devices nearby), the app keeps quietly listening
-// for a touch on every screen. Remembered on this phone only.
+// Whether Touch globes is on for this phone (it then listens on every
+// screen, like AirDrop), and whether we've already asked. Remembered on
+// this phone only.
 const KEY = "expandiax.touchGlobes";
+const ASKED = "expandiax.touchGlobesAsked";
 
-export function isTouchReady(): boolean {
+function read(key: string): boolean {
   try {
-    return localStorage.getItem(KEY) === "1";
+    return localStorage.getItem(key) === "1";
   } catch {
     return false;
   }
 }
 
-export function setTouchReady() {
+function write(key: string) {
   try {
-    localStorage.setItem(KEY, "1");
+    localStorage.setItem(key, "1");
   } catch {
-    // Private mode: the screen still works, just not from everywhere.
+    // Private mode: the Touch globes screen still works, just not from everywhere.
   }
 }
+
+export const isTouchReady = () => read(KEY);
+export const setTouchReady = () => write(KEY);
+export const isTouchAsked = () => read(ASKED);
+export const setTouchAsked = () => write(ASKED);

@@ -166,9 +166,10 @@ export async function startTouch(mode: TouchState["mode"]): Promise<void> {
     ]);
 
     try {
-      // In the background, only phones with the distance chip join in:
-      // knocks are left to the screen, where you meant to do it.
-      const { preciseDistance } = await Native.start({ motion: mode === "screen" });
+      // Knocks count on every screen (for phones without the distance chip),
+      // but away from Touch globes it takes a firmer one, so ordinary
+      // handling doesn't set it off. Both phones still have to knock at once.
+      const { preciseDistance } = await Native.start({ motion: true, bumpThreshold: mode === "screen" ? 1.6 : 2.2 });
       set({ status: "searching", preciseDistance });
     } catch {
       set({ status: "unavailable" });

@@ -23,7 +23,7 @@ import {
   type TouchState,
 } from "@/lib/globeTouch";
 import { compareGlobes, type GlobeCountry } from "@/lib/globeTouchLogic";
-import { setTouchReady, isTouchReady } from "@/lib/globeTouchReady";
+import { setTouchAsked, setTouchReady, isTouchReady } from "@/lib/globeTouchReady";
 
 const TouchGlobe = dynamic(() => import("./TouchGlobeInner").then((m) => m.TouchGlobeInner), { ssr: false });
 
@@ -143,6 +143,7 @@ export function TouchGlobes({
 
   function begin() {
     setTouchReady();
+    setTouchAsked();
     setStarted(true);
     void startTouch("screen");
   }
