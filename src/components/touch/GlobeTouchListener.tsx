@@ -36,12 +36,11 @@ export function GlobeTouchListener() {
   useEffect(() => {
     if (!ready || onScreen) return;
     void startTouch("background");
-    const sub = App.addListener("appStateChange", ({ isActive }) => {
-      if (isActive) void startTouch("background");
-      else void stopTouch();
-    });
+    // Only when the app really leaves the screen: a system sheet on top
+    // (like AirDrop's NameDrop) mustn't switch the radio off.
+    const subs = [App.addListener("pause", () => void stopTouch()), App.addListener("resume", () => void startTouch("background"))];
     return () => {
-      void sub.then((s) => s.remove());
+      subs.forEach((s) => void s.then((l) => l.remove()));
     };
   }, [ready, onScreen]);
 

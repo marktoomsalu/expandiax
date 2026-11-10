@@ -89,7 +89,7 @@ function useDemoState(demo: "approach" | "reveal" | null, fixedCm: number | null
       const t = (Date.now() - start) / 1000;
       if (t < 1.6) return;
       const meters = Math.max(0.05, 1.3 - (t - 1.6) * 0.24);
-      setS((x) => (x.touch ? x : { ...x, peers: peer(meters), touch: meters <= 0.18 ? { ...touch, at: Date.now() } : null }));
+      setS((x) => (x.touch ? x : { ...x, peers: peer(meters), touch: meters <= 0.28 ? { ...touch, at: Date.now() } : null }));
     }, 50);
     return () => clearInterval(id);
   }, [demo, fixedCm, run]);
@@ -140,12 +140,16 @@ export function TouchGlobes({
   useEffect(() => {
     if (demo) return;
     // The radio stops while the app is in the background; pick up again on return.
-    const sub = App.addListener("appStateChange", ({ isActive }) => {
-      if (!isActive) void stopTouch();
-      else if (isTouchReady() && !getState().touch) void startTouch("screen");
-    });
+    // Only when the app really leaves the screen: a system sheet on top
+    // (like AirDrop's NameDrop) mustn't switch the radio off.
+    const subs = [
+      App.addListener("pause", () => void stopTouch()),
+      App.addListener("resume", () => {
+        if (isTouchReady() && !getState().touch) void startTouch("screen");
+      }),
+    ];
     return () => {
-      void sub.then((l) => l.remove());
+      subs.forEach((s) => void s.then((l) => l.remove()));
       clearTouch(30_000);
       if (isTouchReady()) void startTouch("background");
       else void stopTouch();

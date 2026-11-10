@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
-import { APPROACH_METERS, approachProgress, decideTouch, isFreshBumpPair, randomCode, type Reading } from "./globeTouchLogic";
+import { APPROACH_WINDOW_MS, TOUCH_METERS, approachProgress, decideTouch, isFreshBumpPair, randomCode, type Reading } from "./globeTouchLogic";
 
 // Touch globes, the phone side. The native plugin (ios/App/App/
 // GlobeTouchPlugin.swift) links nearby iPhones and measures the distance
@@ -146,7 +146,7 @@ export async function startTouch(mode: TouchState["mode"]): Promise<void> {
         } else if (m.t === "touch") {
           // Only if this phone agrees: it measured them close, or felt the knock too.
           const p = state.peers[peerId];
-          const near = p?.meters != null && p.meters <= APPROACH_METERS;
+          const near = p?.meters != null && p.meters <= TOUCH_METERS + 0.15;
           if (near || isFreshBumpPair(localBumpAt, Date.now())) touched(peerId);
         }
       }),
@@ -155,7 +155,7 @@ export async function startTouch(mode: TouchState["mode"]): Promise<void> {
         setPeer(peerId, (p) => ({
           meters: meters >= 0 ? meters : null,
           direction: direction ?? null,
-          readings: meters >= 0 ? [...p.readings.filter((r) => now - r.at < 4000), { meters, at: now }] : [],
+          readings: meters >= 0 ? [...p.readings.filter((r) => now - r.at < APPROACH_WINDOW_MS), { meters, at: now }] : p.readings,
         }));
         if (decideTouch(state.peers[peerId]?.readings ?? [], now)) touched(peerId);
       }),

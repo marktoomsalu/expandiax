@@ -5,19 +5,23 @@ const at = (pairs: [number, number][]) => pairs.map(([meters, t]) => ({ meters, 
 
 describe("decideTouch", () => {
   it("is a touch when the phones come together", () => {
-    expect(decideTouch(at([[0.7, 0], [0.4, 200], [0.18, 400], [0.15, 450]]), 500)).toBe(true);
+    expect(decideTouch(at([[0.7, 0], [0.4, 200], [0.28, 400], [0.25, 450]]), 500)).toBe(true);
   });
 
   it("is not a touch for phones that were already lying together", () => {
     expect(decideTouch(at([[0.15, 0], [0.12, 200], [0.1, 400], [0.12, 450]]), 500)).toBe(false);
   });
 
+  it("is a touch when they start close and come slowly closer", () => {
+    expect(decideTouch(at([[0.42, 0], [0.38, 2000], [0.33, 4000], [0.26, 6000], [0.24, 6300]]), 6400)).toBe(true);
+  });
+
   it("needs two close readings in a row", () => {
-    expect(decideTouch(at([[0.7, 0], [0.5, 200], [0.3, 400], [0.18, 450]]), 500)).toBe(false);
+    expect(decideTouch(at([[0.7, 0], [0.5, 200], [0.4, 400], [0.28, 450]]), 500)).toBe(false);
   });
 
   it("forgets an approach from long ago", () => {
-    expect(decideTouch(at([[0.7, 0], [0.15, 5000], [0.12, 5200], [0.1, 5300]]), 5400)).toBe(false);
+    expect(decideTouch(at([[0.7, 0], [0.15, 9000], [0.12, 9200], [0.1, 9300]]), 9400)).toBe(false);
   });
 });
 
@@ -32,9 +36,9 @@ describe("bumps", () => {
 describe("approachProgress", () => {
   it("goes from 0 far away to 1 touching", () => {
     expect(approachProgress(2)).toBe(0);
-    expect(approachProgress(0.15)).toBe(1);
+    expect(approachProgress(0.25)).toBe(1);
     expect(approachProgress(0.5)).toBeGreaterThan(0);
-    expect(approachProgress(0.5)).toBeLessThan(approachProgress(0.2));
+    expect(approachProgress(0.5)).toBeLessThan(approachProgress(0.35));
   });
 });
 

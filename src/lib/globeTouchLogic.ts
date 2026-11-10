@@ -6,29 +6,32 @@ import { countryByCode } from "./countries";
 export type Reading = { meters: number; at: number };
 
 /**
- * Closer than this, the phones connect. Deliberately before they touch:
- * iOS's own NameDrop (contact sharing) starts when the tops of two iPhones
- * meet, so World Connect happens a hand's width earlier, side by side.
+ * Closer than this, the phones connect. Deliberately well before they
+ * touch: iOS's own NameDrop (contact sharing) starts when two iPhones are
+ * a few centimetres apart, so World Connect gets there first.
  */
-export const TOUCH_METERS = 0.2;
-/** A connection has to come from further away than this, a moment before. */
-export const APPROACH_METERS = 0.45;
+export const TOUCH_METERS = 0.3;
+/** Brought together: at least this much closer than a moment before. */
+export const APPROACH_METERS = 0.15;
+/** How far back "a moment before" reaches. */
+export const APPROACH_WINDOW_MS = 8000;
 /** Two knocks this close together in time are the same knock. */
 export const BUMP_WINDOW_MS = 700;
 
 /**
- * Touching: the last two readings are both within touching distance, and
- * within the last few seconds the phones were apart. The second part is
- * what keeps two phones that are just lying next to each other on a table
- * from sharing anything: someone has to bring them together.
+ * Connecting: the last two readings are both close enough, and in the last
+ * few seconds the phones came closer by a good hand's width. The second
+ * part keeps two phones that are just lying next to each other on a table
+ * from sharing anything: someone has to bring them together. It doesn't
+ * matter how far apart they started, or how slowly they came.
  */
 export function decideTouch(readings: Reading[], now: number): boolean {
-  const recent = readings.filter((r) => now - r.at < 4000);
+  const recent = readings.filter((r) => now - r.at < APPROACH_WINDOW_MS);
   if (recent.length < 3) return false;
   const [a, b] = recent.slice(-2);
-  const close = a.meters <= TOUCH_METERS && b.meters <= TOUCH_METERS && b.at - a.at < 500;
-  const cameCloser = recent.slice(0, -2).some((r) => r.meters >= APPROACH_METERS);
-  return close && cameCloser;
+  const close = a.meters <= TOUCH_METERS && b.meters <= TOUCH_METERS && b.at - a.at < 600;
+  const farthest = Math.max(...recent.slice(0, -2).map((r) => r.meters));
+  return close && farthest - b.meters >= APPROACH_METERS;
 }
 
 export function isFreshBumpPair(a: number, b: number): boolean {
