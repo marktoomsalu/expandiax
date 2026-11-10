@@ -67,6 +67,13 @@ export function CountryGrid({ countries, stock = {}, username }: { countries: Ro
             );
             const years = [...new Set(c.country_visits.map((v) => v.year))].sort();
             const detail = years.length ? years.join(" · ") : own ? "Add your visit years" : "";
+            // Each photo's year: when it was taken, else its trip's year (the card lights it up).
+            const visitYear = new Map(c.country_visits.flatMap((v) => (v.id ? [[v.id, v.year] as const] : [])));
+            const yearOf = (m: (typeof media)[number]) => {
+              const taken = m.taken_at ? Number(m.taken_at.slice(0, 4)) : null;
+              const trip = m.country_visit_id ? visitYear.get(m.country_visit_id) ?? null : null;
+              return taken && years.includes(taken) ? taken : trip;
+            };
             return (
               <li key={c.id}>
                 <Link href={own ? `/my-world/${c.country_code.toLowerCase()}` : `/u/${username}/countries/${c.country_code.toLowerCase()}`} className="card group block overflow-hidden transition-shadow hover:shadow-lg">
@@ -78,6 +85,8 @@ export function CountryGrid({ countries, stock = {}, username }: { countries: Ro
                         flag={flag}
                         name={c.country_name}
                         detail={detail}
+                        years={years}
+                        mediaYears={media.map(yearOf)}
                       />
                     ) : stock[c.country_code] ? (
                       // No photos of their own yet: a stock photo, clearly marked, and an invitation to add theirs.
