@@ -1,5 +1,6 @@
 "use client";
 
+import { orderCountryMedia } from "@/lib/mediaOrder";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ImagePlus, Search } from "lucide-react";
@@ -11,7 +12,7 @@ import type { VisitedCountry, CountryMedia } from "@/lib/types";
 import { StockCredit } from "./StockCredit";
 import { StockImage } from "./StockImage";
 
-type VisitLite = { year: number; visited_from: string | null; visited_to: string | null };
+type VisitLite = { id?: string; year: number; visited_from: string | null; visited_to: string | null; cover_media_id?: string | null };
 type Row = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
 
 export function CountryGrid({ countries, stock = {} }: { countries: Row[]; stock?: Record<string, StockPhoto> }) {
@@ -52,12 +53,12 @@ export function CountryGrid({ countries, stock = {} }: { countries: Row[]; stock
             const country = countryByCode(c.country_code);
             const territory = country ? null : territoryByCode(c.country_code);
             const flag = country?.flag ?? (territory ? territoryFlagFor(territory) : undefined);
-            const cover =
-              c.country_media.find((m) => m.id === c.cover_media_id) ??
-              [...c.country_media].sort((a, b) => a.display_order - b.display_order)[0];
-            const media = cover
-              ? [cover, ...c.country_media.filter((m) => m.id !== cover.id).sort((a, b) => a.display_order - b.display_order)]
-              : [];
+            // Your chosen cover, then the newest trip's photos first (see mediaOrder.ts).
+            const media = orderCountryMedia(
+              c.country_media,
+              c.country_visits.filter((v): v is VisitLite & { id: string } => !!v.id),
+              c.cover_media_id
+            );
             const years = [...new Set(c.country_visits.map((v) => v.year))].sort();
             const detail = years.length ? years.join(" · ") : "Add your visit years";
             return (

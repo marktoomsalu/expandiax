@@ -1,3 +1,4 @@
+import { orderCountryMedia } from "@/lib/mediaOrder";
 import Link from "next/link";
 import Image from "next/image";
 import { stockPhotoFor } from "@/lib/stockPhotos";
@@ -118,14 +119,8 @@ export default async function PublicCountryPage({
   const comments = (commentRows ?? []) as CommentWithAuthor[];
 
   const allMedia = [...country.country_media].sort((a, b) => a.display_order - b.display_order);
-  const visitsByRecency = [...country.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
-  const mostRecentVisit = visitsByRecency[0];
-  // Cover priority: an explicit pick, else the most recent trip's own
-  // photo, else any photo — every photo now belongs to some trip.
-  const cover =
-    allMedia.find((m) => m.id === country.cover_media_id) ??
-    (mostRecentVisit ? allMedia.find((m) => m.country_visit_id === mostRecentVisit.id) : undefined) ??
-    allMedia[0];
+  // An explicit pick, else the newest trip's cover (the same order as the My World card).
+  const cover = orderCountryMedia(allMedia, country.country_visits, country.cover_media_id)[0];
   const stock = cover ? null : stockPhotoFor(meta.code, profile.id);
   const years = [...new Set(country.country_visits.map((v) => v.year))].sort();
   const highlightedVisits = [...country.country_visits]

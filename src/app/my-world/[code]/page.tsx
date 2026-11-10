@@ -1,3 +1,4 @@
+import { orderCountryMedia } from "@/lib/mediaOrder";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -52,11 +53,8 @@ export default async function ManageCountryPage({ params }: { params: { code: st
       const own = images.filter((m) => m.country_visit_id === visitId);
       return own.find((m) => m.id === coverId) ?? own[0];
     };
-    // The country's picture: the one you chose, else your latest trip's, else any of yours.
-    const heroPhoto =
-      images.find((m) => m.id === visited.cover_media_id) ??
-      (visits[0] ? tripCover(visits[0].id, visits[0].cover_media_id) : undefined) ??
-      images[0];
+    // The country's picture: the one you chose, else your latest trip's (the same order as the My World card).
+    const heroPhoto = orderCountryMedia(images, visits, visited.cover_media_id)[0];
     const cities = visited.country_cities ?? [];
     const base = `/my-world/${meta.code.toLowerCase()}`;
     const trips: StayView[] = visits.map((v, i) => {

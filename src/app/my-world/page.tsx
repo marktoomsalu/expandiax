@@ -23,7 +23,7 @@ import { DreamPlaces } from "@/components/dreams/DreamPlaces";
 
 export const metadata = { title: "My World" };
 
-type VisitLite = { year: number; visited_from: string | null; visited_to: string | null; kind: string | null };
+type VisitLite = { id: string; year: number; visited_from: string | null; visited_to: string | null; kind: string | null; cover_media_id: string | null };
 type Row = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
 
 // When you actually travelled, not when you happened to add it to the app —
@@ -41,7 +41,7 @@ export default async function MyWorldPage() {
   const [{ data }, { data: profile }, dreams] = await Promise.all([
     supabase
       .from("visited_countries")
-      .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(year, visited_from, visited_to, kind)")
+      .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(id, year, visited_from, visited_to, kind, cover_media_id)")
       .eq("user_id", user.id),
     supabase.from("profiles").select("home_country_code, display_name").eq("id", user.id).single(),
     loadDreamPlaces(supabase, user.id),
