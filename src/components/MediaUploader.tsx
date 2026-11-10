@@ -3,11 +3,11 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, Camera as CameraIcon, ImagePlus, MapPin, Move, Star, Trash2, X } from "lucide-react";
+import { Camera as CameraIcon, ImagePlus, Loader2, MapPin, Move, Star, Trash2 } from "lucide-react";
 import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
 import { classifyFile, focalPosition, validateFile } from "@/lib/media";
-import { convertHeic } from "@/lib/heic";
+import { looksLikeHeic } from "@/lib/heic";
 import { enqueueUploads } from "@/lib/uploadQueue";
 import { QueuedMedia } from "./UploadQueue";
 import type { MediaItem } from "@/lib/types";
@@ -16,9 +16,12 @@ import { RepositionPhotoDialog } from "./RepositionPhotoDialog";
 import { cn } from "@/lib/utils";
 import { useIsNative } from "@/lib/useIsNative";
 import { tapSuccess } from "@/lib/haptics";
-import { nearestPlace } from "@/lib/photoDates";
+import { nearestPlace, photoTakenAt } from "@/lib/photoDates";
 import { groupByTown, placeKey } from "@/lib/photoPlaces";
-import { readPhotoFacts, savePlaces, useBestCover } from "./PhotoPlaceSuggestion";
+import { readPhotoFacts, savePlaces } from "./PhotoPlaceSuggestion";
+import { PhotoArranger } from "./PhotoArranger";
+import { placeByTime } from "@/lib/mediaOrder";
+import { pickCover } from "@/lib/photoPrepare";
 
 type Props = {
   userId: string;
@@ -43,16 +46,6 @@ type Props = {
   countryCode?: string;
 };
 
-type NewPlace = { key: string; name: string; lat: number; lng: number };
-type Pending = {
-  file: File;
-  previewUrl: string;
-  caption: string;
-  kind: "image" | "video";
-  placeId?: string | null;
-  newPlace?: NewPlace | null; // a town in the photo that isn't one of the trip's places yet
-  day?: string | null;
-};
 export type UploaderPlace = { id: string; name: string; lat: number | null; lng: number | null; position: number; arrived: string | null; departed: string | null };
 
 export function MediaUploader(props: Props) {
@@ -66,117 +59,141 @@ export function MediaUploader(props: Props) {
   const router = useRouter();
   const supabase = createClient();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [pending, setPending] = useState<Pending[]>([]);
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [error, setError] = useState<string | null>(null);
-  const [converting, setConverting] = useState(false);
-  const [busy, setBusy] = useState(false);
+  // Photos being read (when and where taken) before they join the uploads.
+  const [preparing, setPreparing] = useState(0);
   const [toDelete, setToDelete] = useState<MediaItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toReposition, setToReposition] = useState<MediaItem | null>(null);
   const [addedPlaces, setAddedPlaces] = useState<string[]>([]);
-  const coverIndex = useBestCover(pending.filter((p) => p.kind === "image").map((p) => p.file));
 
-  const photoCount = items.filter((m) => m.media_type === "image").length + pending.filter((p) => p.kind === "image").length;
-  const videoCount = items.filter((m) => m.media_type === "video").length + pending.filter((p) => p.kind === "video").length;
+  const photoCount = items.filter((m) => m.media_type === "image").length;
+  const videoCount = items.filter((m) => m.media_type === "video").length;
   const photoRemaining = photoCap - photoCount;
   const videoRemaining = videoCap - videoCount;
-  const hasPendingVideo = pending.some((p) => p.kind === "video");
 
-  function addFiles(files: File[]) {
+  // Picked photos start uploading straight away, in the order they were
+  // taken, while the person carries on with the page; there's no extra
+  // "save" step. Only reading when and where each was taken happens first.
+  async function addAndUpload(files: File[]) {
     setError(null);
-    const next: Pending[] = [];
-    let addedPhotos = 0;
-    let addedVideos = 0;
+    const accepted: { file: File; kind: "image" | "video" }[] = [];
+    let photos = photoCount;
+    let videos = videoCount;
     for (const file of files) {
-      const kind = classifyFile(file);
+      // iPhone (HEIC) photos are converted in the background upload, not here.
+      const kind = looksLikeHeic(file) ? "image" : classifyFile(file);
       if (!kind) {
         setError(`“${file.name}” isn't a supported photo or video.`);
         continue;
       }
-      const cap = kind === "image" ? photoCap : videoCap;
-      const current = (kind === "image" ? photoCount + addedPhotos : videoCount + addedVideos);
-      if (current >= cap) {
-        setError(`You can keep up to ${cap} ${kind === "image" ? "photos" : "videos"} here. Remove one to add another.`);
+      if ((kind === "image" ? photos : videos) >= (kind === "image" ? photoCap : videoCap)) {
+        setError(`You can keep up to ${kind === "image" ? photoCap : videoCap} ${kind === "image" ? "photos" : "videos"} here. Remove one to add another.`);
         continue;
       }
-      const problem = validateFile(file, kind);
+      const problem = looksLikeHeic(file) ? null : validateFile(file, kind);
       if (problem) {
         setError(problem);
         continue;
       }
-      next.push({ file, previewUrl: URL.createObjectURL(file), caption: "", kind });
-      if (kind === "image") addedPhotos++;
-      else addedVideos++;
+      accepted.push({ file, kind });
+      if (kind === "image") photos++;
+      else videos++;
     }
-    if (next.length) setPending((p) => [...p, ...next]);
-    if (table === "country_media" && props.countryCode) void placePhotos(next, props.countryCode);
+    if (!accepted.length) return;
+
+    setPreparing((n) => n + accepted.length);
+    try {
+      const images = accepted.filter((a) => a.kind === "image").map((a) => a.file);
+      const [times, facts] = await Promise.all([
+        Promise.all(accepted.map((a) => (a.kind === "image" ? photoTakenAt(a.file) : Promise.resolve(null)))),
+        table === "country_media" && props.countryCode && images.length ? readPhotoFacts(images, props.countryCode) : Promise.resolve(null),
+      ]);
+      const cityOf = facts ? await placesFor(images, facts) : new Map<File, string>();
+
+      // Slot them in by when they were taken; what's already here keeps its order.
+      const keys = accepted.map((_, i) => `new-${i}`);
+      const placed = placeByTime(
+        items.map((m) => ({ id: m.id, order: m.display_order, takenAt: m.taken_at ?? null })),
+        accepted.map((_, i) => ({ key: keys[i], takenAt: times[i] }))
+      );
+      const moved = placed.flatMap((p, idx) => (!p.isNew && items.find((m) => m.id === p.id)?.display_order !== idx ? [{ id: p.id, idx }] : []));
+      await Promise.all(moved.map((m) => supabase.from(table).update({ display_order: m.idx }).eq("id", m.id)));
+      const positionOf = new Map(placed.map((p, idx) => [p.id, idx]));
+
+      // No cover yet: the best landscape photo of these (or the first) becomes it.
+      let cover: File | undefined;
+      if (coverTable && !coverId && images.length) {
+        const best = await Promise.race([pickCover(images).catch(() => -1), new Promise<number>((r) => setTimeout(() => r(-1), 1500))]);
+        cover = images[best] ?? images[0];
+      }
+
+      enqueueUploads(
+        accepted.map((a, i) => {
+          const cityId = cityOf.get(a.file);
+          return {
+            file: a.file,
+            kind: a.kind,
+            target: {
+              userId,
+              scope,
+              parentId,
+              table,
+              fields: { [fkColumn]: parentId, ...extraFields, ...(cityId ? { city_id: cityId } : {}) },
+              displayOrder: positionOf.get(keys[i]) ?? items.length + i,
+              takenAt: times[i],
+              videoQuality,
+              cover: cover && a.file === cover && coverTable ? { table: coverTable, id: parentId } : undefined,
+            },
+          };
+        })
+      );
+      tapSuccess();
+      if (moved.length) router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong while adding those.");
+    } finally {
+      setPreparing((n) => n - accepted.length);
+    }
   }
 
-  // Where and when each photo was taken (read on the device, before it's
-  // stripped for upload): a photo from one of the trip's places goes under
-  // it; one from somewhere new suggests a new place, with its own days.
-  async function placePhotos(items: Pending[], countryCode: string) {
-    const images = items.filter((i) => i.kind === "image");
-    if (!images.length) return;
-    const facts = await readPhotoFacts(images.map((i) => i.file), countryCode);
-    const known = new Map<string, string>();
-    const rest: { url: string; fact: (typeof facts)[number] }[] = [];
-    images.forEach((item, i) => {
+  // Where each photo was taken (read on the device, before it's stripped for
+  // upload): a photo from one of the trip's places goes under it; photos
+  // from somewhere new in the country become new places of the trip, with
+  // their days. Returns each photo's place.
+  async function placesFor(images: File[], facts: Awaited<ReturnType<typeof readPhotoFacts>>): Promise<Map<File, string>> {
+    const result = new Map<File, string>();
+    const rest: { file: File; fact: (typeof facts)[number] }[] = [];
+    images.forEach((file, i) => {
       const f = facts[i];
       const match =
         (f.town && places.find((p) => placeKey(p.name) === placeKey(f.town!.name))) ||
         (f.spot && nearestPlace(f.spot, places, f.town ? 10 : 60)) ||
         null;
-      if (match) known.set(item.previewUrl, match.id);
-      else rest.push({ url: item.previewUrl, fact: f });
+      if (match) result.set(file, match.id);
+      else rest.push({ file, fact: f });
     });
-    const fresh = new Map<string, NewPlace>();
-    for (const g of groupByTown(rest.map((r) => r.fact))) {
-      for (const i of g.photos) fresh.set(rest[i].url, { key: g.key, name: g.name, lat: g.lat, lng: g.lng });
-    }
-    const dayOf = new Map(images.map((item, i) => [item.previewUrl, facts[i].day]));
-    setPending((cur) =>
-      cur.map((x) =>
-        dayOf.has(x.previewUrl)
-          ? {
-              ...x,
-              day: dayOf.get(x.previewUrl),
-              placeId: x.placeId === undefined ? known.get(x.previewUrl) : x.placeId,
-              newPlace: x.newPlace === undefined ? fresh.get(x.previewUrl) ?? null : x.newPlace,
-            }
-          : x
-      )
-    );
-  }
-
-  /** Before uploading: adds the new places the photos came from, and fills in days for places that have none. */
-  async function preparePlaces(): Promise<Map<string, string>> {
     const visitedCountryId = extraFields?.visited_country_id;
-    if (table !== "country_media" || !visitedCountryId) return new Map();
+    if (!visitedCountryId) return result;
     const span = (days: (string | null | undefined)[]) => {
       const ok = days.filter((d): d is string => !!d).sort();
-      return { arrived: ok[0] ?? null, departed: ok.at(-1) ?? null };
+      return { arrived: ok[0] ?? null, departed: ok[ok.length - 1] ?? null };
     };
-    const fresh = new Map<string, NewPlace & { days: (string | null | undefined)[] }>();
-    for (const p of pending) {
-      if (p.placeId || !p.newPlace) continue;
-      const f = fresh.get(p.newPlace.key) ?? { ...p.newPlace, days: [] };
-      f.days.push(p.day);
-      fresh.set(p.newPlace.key, f);
-    }
+    // Places without days get them from their photos.
     for (const place of places) {
       if (place.arrived || place.departed) continue;
-      const { arrived, departed } = span(pending.filter((p) => p.placeId === place.id).map((p) => p.day));
+      const { arrived, departed } = span(images.flatMap((f, i) => (result.get(f) === place.id ? [facts[i].day] : [])));
       if (arrived) await supabase.from("country_cities").update({ arrived, departed }).eq("id", place.id);
     }
-    if (!fresh.size) return new Map();
-    // A trip with one place so far had all its photos "there" — keep them there as others join.
+    const groups = groupByTown(rest.map((r) => r.fact));
+    if (!groups.length) return result;
+    // A trip with one place so far had all its photos "there": keep them there as others join.
     if (places.length === 1) {
       await supabase.from("country_media").update({ city_id: places[0].id }).eq("country_visit_id", parentId).is("city_id", null);
     }
-    const toAdd = [...fresh.values()]
-      .map((f) => ({ ...f, ...span(f.days) }))
+    const toAdd = groups
+      .map((g) => ({ key: g.key, name: g.name, lat: g.lat, lng: g.lng, ...span(g.photos.map((i) => rest[i].fact.day)) }))
       .sort((a, b) => (a.arrived ?? "9999").localeCompare(b.arrived ?? "9999"));
     const ids = await savePlaces(supabase, {
       visitedCountryId,
@@ -184,8 +201,12 @@ export function MediaUploader(props: Props) {
       places: toAdd,
       firstPosition: places.length ? Math.max(...places.map((p) => p.position)) + 1 : 0,
     });
+    for (const g of groups) {
+      const id = ids.get(g.key);
+      if (id) for (const i of g.photos) result.set(rest[i].file, id);
+    }
     setAddedPlaces(toAdd.filter((p) => ids.has(p.key)).map((p) => p.name));
-    return ids;
+    return result;
   }
 
   async function setPlace(item: MediaItem, placeId: string) {
@@ -193,19 +214,14 @@ export function MediaUploader(props: Props) {
     router.refresh();
   }
 
-  async function pickFiles(list: FileList | null) {
+  function pickFiles(list: FileList | null) {
     if (!list) return;
     const picked = Array.from(list);
     if (inputRef.current) inputRef.current.value = "";
     // Lets the page offer the dates these photos were taken (read on the device,
     // before their metadata is stripped for upload).
     window.dispatchEvent(new CustomEvent<File[]>("expandiax:photos-picked", { detail: picked }));
-    // iPhone (HEIC) photos become JPEGs first — see lib/heic.ts.
-    setError(null);
-    setConverting(true);
-    const { files, failed } = await convertHeic(picked).finally(() => setConverting(false));
-    addFiles(files);
-    if (failed.length) setError(`Couldn't read “${failed[0]}”. Try exporting it from Photos as JPEG.`);
+    void addAndUpload(picked);
   }
 
   async function mediaResultToFile(webPath: string | undefined, format: string | undefined): Promise<File | null> {
@@ -221,56 +237,10 @@ export function MediaUploader(props: Props) {
     try {
       const result = await Camera.takePhoto({ quality: 90, includeMetadata: true });
       const file = await mediaResultToFile(result.webPath, result.metadata?.format);
-      if (file) addFiles([file]);
+      if (file) void addAndUpload([file]);
     } catch {
       // User cancelled the camera or permission was denied — nothing to show.
     }
-  }
-
-  // Hands everything to the background queue: the photos show as uploading
-  // right here (and on the trip or event page) while the person carries on.
-  async function saveAll() {
-    setBusy(true);
-    setError(null);
-    try {
-      const newPlaceIds = await preparePlaces();
-      const photos = pending.filter((p) => p.kind === "image");
-      // No cover yet: the best landscape photo of these becomes it.
-      const cover = coverTable && !coverId ? (photos[coverIndex] ?? photos[0])?.file : undefined;
-      enqueueUploads(
-        pending.map((p, i) => {
-          const cityId = p.placeId || (p.newPlace ? newPlaceIds.get(p.newPlace.key) : undefined);
-          return {
-            file: p.file,
-            kind: p.kind,
-            target: {
-              userId,
-              scope,
-              parentId,
-              table,
-              fields: { [fkColumn]: parentId, ...extraFields, ...(cityId ? { city_id: cityId } : {}) },
-              displayOrder: items.length + i,
-              caption: p.caption,
-              videoQuality,
-              cover: cover && p.file === cover && coverTable ? { table: coverTable, id: parentId } : undefined,
-            },
-          };
-        })
-      );
-      pending.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-      setPending([]);
-      tapSuccess();
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong while saving.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function removePending(url: string) {
-    setPending((p) => p.filter((x) => x.previewUrl !== url));
-    URL.revokeObjectURL(url);
   }
 
   async function confirmDelete() {
@@ -283,16 +253,16 @@ export function MediaUploader(props: Props) {
     router.refresh();
   }
 
-  async function move(item: MediaItem, dir: -1 | 1) {
-    const sorted = [...items].sort((a, b) => a.display_order - b.display_order);
-    const i = sorted.findIndex((x) => x.id === item.id);
-    const j = i + dir;
-    if (j < 0 || j >= sorted.length) return;
-    const other = sorted[j];
-    await Promise.all([
-      supabase.from(table).update({ display_order: other.display_order }).eq("id", item.id),
-      supabase.from(table).update({ display_order: item.display_order }).eq("id", other.id),
-    ]);
+  // A new order from dragging: each photo gets its new position.
+  async function reorder(ids: string[]) {
+    const changed = ids.flatMap((id, idx) => (items.find((m) => m.id === id)?.display_order !== idx ? [{ id, idx }] : []));
+    await Promise.all(changed.map((c) => supabase.from(table).update({ display_order: c.idx }).eq("id", c.id)));
+    router.refresh();
+  }
+
+  async function saveCaption(item: MediaItem, caption: string) {
+    if (caption.trim() === (item.caption ?? "").trim()) return;
+    await supabase.from(table).update({ caption: caption.trim() }).eq("id", item.id);
     router.refresh();
   }
 
@@ -303,9 +273,7 @@ export function MediaUploader(props: Props) {
   }
 
   const sorted = [...items].sort((a, b) => a.display_order - b.display_order);
-  const pendingSummary = pending.length === 1
-    ? `Save 1 ${pending[0].kind === "image" ? "photo" : "video"}`
-    : `Save ${pending.length} items`;
+  const byId = new Map(sorted.map((m) => [m.id, m]));
 
   const tile =
     "flex w-full items-center gap-2.5 rounded-2xl border border-line bg-surface p-3 text-left shadow-sm transition-colors hover:border-accent sm:gap-3.5 sm:p-4";
@@ -335,7 +303,7 @@ export function MediaUploader(props: Props) {
                 accept="image/*,.heic,.heif"
                 capture="environment"
                 className="sr-only"
-                onChange={(e) => void pickFiles(e.target.files)}
+                onChange={(e) => pickFiles(e.target.files)}
               />
               <label htmlFor={`${table}-camera-input`} className={cn(tile, "cursor-pointer", photoRemaining <= 0 && "pointer-events-none opacity-40")}>
                 <CameraIcon size={24} className="shrink-0 text-accent" aria-hidden />
@@ -360,125 +328,88 @@ export function MediaUploader(props: Props) {
       </div>
 
       {sorted.length > 0 && (
-        <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {sorted.map((m, i) => (
-            <li key={m.id} className="group relative overflow-hidden rounded-lg border border-line bg-raised">
-              {m.media_type === "image" ? (
-                <div className="relative aspect-[4/3] w-full">
-                  <Image
-                    src={m.public_url}
-                    alt={m.caption || "Uploaded photo"}
-                    fill
-                    sizes="(min-width: 640px) 33vw, 50vw"
-                    className="object-cover"
-                    style={{ objectPosition: focalPosition(m) }}
-                  />
-                </div>
-              ) : (
-                <video src={m.public_url} controls preload="metadata" className="aspect-[4/3] w-full bg-black object-contain" />
-              )}
-              {coverId === m.id && (
-                <span className="absolute left-2 top-2 rounded-full bg-accent px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-white">
-                  Cover
-                </span>
-              )}
-              {m.caption && <p className="truncate px-2 py-1.5 text-xs text-muted">{m.caption}</p>}
-              {choosePlace && (
-                <PlaceSelect
-                  places={places}
-                  value={(m as MediaItem & { city_id?: string | null }).city_id ?? ""}
-                  onChange={(v) => setPlace(m, v)}
-                />
-              )}
-              <div className="flex items-center justify-between border-t border-line px-1.5 py-1">
-                <div className="flex">
-                  <button type="button" aria-label="Move earlier" className="p-1.5 text-muted hover:text-ink disabled:opacity-30" disabled={i === 0} onClick={() => move(m, -1)}>
-                    <ArrowUp size={14} />
-                  </button>
-                  <button type="button" aria-label="Move later" className="p-1.5 text-muted hover:text-ink disabled:opacity-30" disabled={i === sorted.length - 1} onClick={() => move(m, 1)}>
-                    <ArrowDown size={14} />
-                  </button>
-                  {coverTable && m.media_type === "image" && coverId !== m.id && (
-                    <button type="button" aria-label="Use as cover photo" title="Use as cover photo" className="p-1.5 text-muted hover:text-accent" onClick={() => setCover(m)}>
-                      <Star size={14} />
-                    </button>
+        <div className="mt-4">
+          <PhotoArranger
+            items={sorted.map((m) => ({ id: m.id, thumb: m.media_type === "image" ? m.public_url : null, isVideo: m.media_type === "video" }))}
+            coverId={coverId ?? null}
+            onReorder={(ids) => void reorder(ids)}
+            onCover={coverTable ? (id) => { const m = byId.get(id); if (m && m.media_type === "image") void setCover(m); } : undefined}
+            renderTile={(id) => {
+              const m = byId.get(id)!;
+              return (
+                <>
+                  {m.media_type === "image" ? (
+                    <div className="relative aspect-[4/3] w-full">
+                      <Image
+                        src={m.public_url}
+                        alt={m.caption || "Uploaded photo"}
+                        fill
+                        draggable={false}
+                        sizes="(min-width: 640px) 33vw, 50vw"
+                        className="pointer-events-none object-cover"
+                        style={{ objectPosition: focalPosition(m) }}
+                      />
+                    </div>
+                  ) : (
+                    <video src={m.public_url} controls preload="metadata" className="aspect-[4/3] w-full bg-black object-contain" />
                   )}
-                  {m.media_type === "image" && (
-                    <button type="button" aria-label="Reposition photo" title="Reposition photo" className="p-1.5 text-muted hover:text-accent" onClick={() => setToReposition(m)}>
-                      <Move size={14} />
-                    </button>
+                  {coverId === m.id && (
+                    <span className="absolute left-2 top-2 rounded-full bg-accent px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-white">
+                      Cover
+                    </span>
                   )}
-                </div>
-                <button type="button" aria-label={`Delete ${m.media_type}`} className="p-1.5 text-muted hover:text-red-700" onClick={() => setToDelete(m)}>
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+                  {captions && (
+                    <input
+                      type="text"
+                      aria-label="Caption"
+                      placeholder="Add a caption"
+                      defaultValue={m.caption}
+                      onBlur={(e) => void saveCaption(m, e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                      className="w-full border-t border-line bg-transparent px-2 py-1.5 text-base sm:text-xs focus:outline-none"
+                    />
+                  )}
+                  {choosePlace && (
+                    <PlaceSelect
+                      places={places}
+                      value={(m as MediaItem & { city_id?: string | null }).city_id ?? ""}
+                      onChange={(v) => setPlace(m, v)}
+                    />
+                  )}
+                  <div className="flex items-center justify-between border-t border-line px-1.5 py-1">
+                    <div className="flex">
+                      {coverTable && m.media_type === "image" && coverId !== m.id && (
+                        <button type="button" aria-label="Use as cover photo" title="Use as cover photo" className="p-1.5 text-muted hover:text-accent" onClick={() => setCover(m)}>
+                          <Star size={14} />
+                        </button>
+                      )}
+                      {m.media_type === "image" && (
+                        <button type="button" aria-label="Reposition photo" title="Reposition photo" className="p-1.5 text-muted hover:text-accent" onClick={() => setToReposition(m)}>
+                          <Move size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <button type="button" aria-label={`Delete ${m.media_type}`} className="p-1.5 text-muted hover:text-red-700" onClick={() => setToDelete(m)}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </>
+              );
+            }}
+          />
+        </div>
       )}
 
-      {pending.length > 0 && (
-        <div className="mt-4 rounded-lg border border-dashed border-accent/50 bg-accent-soft/40 p-3">
-          <p className="text-xs font-medium text-ink">Ready to save</p>
-          <ul className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {pending.map((p) => (
-              <li key={p.previewUrl} className="overflow-hidden rounded-lg border border-line bg-surface">
-                {p.kind === "image" ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.previewUrl} alt={`Preview of ${p.file.name}`} className="aspect-[4/3] w-full object-cover" />
-                ) : (
-                  <video src={p.previewUrl} className="aspect-[4/3] w-full bg-black object-contain" muted />
-                )}
-                {p.newPlace && !p.placeId ? (
-                  <p className="flex items-center gap-1 border-t border-line px-2 py-1.5 text-xs">
-                    <MapPin size={12} className="shrink-0 text-accent" aria-hidden />
-                    <span className="min-w-0 flex-1 truncate">
-                      {p.newPlace.name} <span className="text-muted">· new place</span>
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={`Don't add ${p.newPlace.name}`}
-                      className="text-muted hover:text-ink"
-                      onClick={() => setPending((cur) => cur.map((x) => (x.previewUrl === p.previewUrl ? { ...x, newPlace: null } : x)))}
-                    >
-                      <X size={12} />
-                    </button>
-                  </p>
-                ) : choosePlace && (
-                  <PlaceSelect
-                    places={places}
-                    value={p.placeId ?? ""}
-                    onChange={(v) => setPending((cur) => cur.map((x) => (x.previewUrl === p.previewUrl ? { ...x, placeId: v || null } : x)))}
-                  />
-                )}
-                {captions && (
-                  <input
-                    type="text"
-                    aria-label={`Caption for ${p.file.name}`}
-                    placeholder="Caption (optional)"
-                    className="w-full border-t border-line bg-transparent px-2 py-1.5 text-base sm:text-xs focus:outline-none"
-                    value={p.caption}
-                    onChange={(e) =>
-                      setPending((cur) => cur.map((x) => (x.previewUrl === p.previewUrl ? { ...x, caption: e.target.value } : x)))
-                    }
-                  />
-                )}
-                <button type="button" className="w-full border-t border-line py-1.5 text-xs text-muted hover:text-red-700" onClick={() => removePending(p.previewUrl)} disabled={busy}>
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button type="button" className="btn-accent mt-3 !py-2 text-sm" onClick={saveAll} disabled={busy}>
-            {busy ? "Saving…" : pendingSummary}
-          </button>
-        </div>
+      {preparing > 0 && (
+        <p className="mt-4 flex items-center gap-2 text-xs text-muted" role="status">
+          <Loader2 size={14} className="animate-spin text-accent" aria-hidden />
+          Adding {preparing} {preparing === 1 ? "photo" : "photos"}… keep going, they&rsquo;ll upload in the background.
+        </p>
       )}
 
       <QueuedMedia parentId={parentId} className="mt-4" />
 
-      {addedPlaces.length > 0 && pending.length === 0 && (
+      {addedPlaces.length > 0 && (
         <p className="mt-3 flex items-start gap-1.5 text-xs text-muted">
           <MapPin size={13} className="mt-px shrink-0 text-accent" aria-hidden />
           <span>
@@ -491,15 +422,15 @@ export function MediaUploader(props: Props) {
         </p>
       )}
 
-      {hasPendingVideo && (
+      {/* Chosen before picking, since uploads start right away. */}
+      {videoRemaining > 0 && (
         <div className="mt-4 flex items-center gap-2">
-          <span className="text-xs text-muted">Video upload quality</span>
+          <span className="text-xs text-muted">Videos upload in</span>
           <div className="flex gap-1.5">
             {(["standard", "hd"] as const).map((q) => (
               <button
                 key={q}
                 type="button"
-                disabled={busy}
                 onClick={() => setVideoQuality(q)}
                 className={cn(
                   "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
@@ -521,7 +452,7 @@ export function MediaUploader(props: Props) {
           accept="image/*,.heic,.heif,video/*"
           multiple
           className="sr-only"
-          onChange={(e) => void pickFiles(e.target.files)}
+          onChange={(e) => pickFiles(e.target.files)}
         />
         {!tiles && (
           <div className="flex flex-wrap items-center gap-2">
@@ -559,7 +490,6 @@ export function MediaUploader(props: Props) {
         <span className={cn("text-xs text-muted", !tiles && "ml-3")}>JPEG/PNG/WebP up to 10 MB, or MP4/WebM/MOV up to 300 MB</span>
       </div>
 
-      {converting && <p className="mt-2 text-xs text-muted">Preparing iPhone photos…</p>}
       {error && (
         <p role="alert" className="mt-3 rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">
           {error}

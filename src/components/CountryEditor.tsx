@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Calendar, ChevronRight, MapPinPlus, MessageSquareText, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { enqueueUploads } from "@/lib/uploadQueue";
+import { byTimeTaken } from "@/lib/photoDates";
 import { suggestTripName } from "@/lib/tripPlaces";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
@@ -26,7 +27,7 @@ type Meta = { code: string; name: string; flag: string; capital: string };
 // hands the chosen photos and videos to the background upload queue, so the
 // trip opens straight away and they follow — each under its place, and the
 // best landscape photo as the trip's cover.
-function queuePendingMedia(opts: {
+async function queuePendingMedia(opts: {
   userId: string;
   visitedCountryId: string;
   visitId: string;
@@ -37,8 +38,10 @@ function queuePendingMedia(opts: {
   cover?: File;
 }) {
   const { userId, visitedCountryId, visitId, media, videoQuality, placeOf, cover } = opts;
+  // In the order they were taken.
+  const ordered = await byTimeTaken(media);
   enqueueUploads(
-    media.map((p, i) => {
+    ordered.map((p, i) => {
       const cityId = placeOf?.(p.file);
       return {
         file: p.file,
@@ -50,6 +53,7 @@ function queuePendingMedia(opts: {
           table: "country_media" as const,
           fields: { visited_country_id: visitedCountryId, country_visit_id: visitId, ...(cityId ? { city_id: cityId } : {}) },
           displayOrder: i,
+          takenAt: p.takenAt,
           videoQuality,
           cover: p.file === cover ? { table: "country_visits" as const, id: visitId } : undefined,
         },
@@ -170,7 +174,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
     }
 
     const placeIds = await savePlaces(supabase, { visitedCountryId: country.id, visitId: visit.id, places });
-    queuePendingMedia({
+    void queuePendingMedia({
       userId: user.id,
       visitedCountryId: country.id,
       visitId: visit.id,
@@ -369,7 +373,7 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
     }
 
     const placeIds = await savePlaces(supabase, { visitedCountryId: data.id, visitId: inserted.id, places });
-    queuePendingMedia({
+    void queuePendingMedia({
       userId: data.user_id,
       visitedCountryId: data.id,
       visitId: inserted.id,

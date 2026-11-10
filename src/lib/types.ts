@@ -101,6 +101,8 @@ export type MediaItem = {
   focal_x: number | null;
   focal_y: number | null;
   created_at: string;
+  // When it was taken (migration 066), for keeping photos in time order.
+  taken_at?: string | null;
 };
 
 export type CountryMedia = MediaItem & { visited_country_id: string; country_visit_id: string; city_id: string | null };

@@ -1617,3 +1617,7 @@ alter table public.profiles add column cover_url text check (cover_url is null o
 -- Chat (migration 064): conversations, messages, send_message(), decline_postcard(), mark_conversation_read(); see supabase/migrations/064_chat.sql
 
 -- Chat safety (migration 065): private.chat_problem(), send_message() rules, reports on messages; see supabase/migrations/065_chat_safety.sql
+
+-- When photos were taken (migration 066)
+alter table public.country_media add column taken_at timestamptz;
+alter table public.event_media add column taken_at timestamptz;

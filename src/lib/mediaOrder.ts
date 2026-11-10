@@ -33,3 +33,28 @@ export function orderCountryMedia<T extends Media>(media: T[], visits: Visit[], 
   byOrder.forEach(add);
   return out;
 }
+
+type Placed = { id: string; order: number; takenAt: string | null };
+type Incoming = { key: string; takenAt: string | null };
+
+/**
+ * Where new photos go among the ones already there: by when they were
+ * taken. The ones already there keep the order they're in (it may be one
+ * you arranged by hand); each new photo slots in before the first one
+ * taken after it, and new photos without a date go at the end. Returns the
+ * whole list in its new order.
+ */
+export function placeByTime(existing: Placed[], incoming: Incoming[]): { id: string; isNew: boolean }[] {
+  const list: { id: string; isNew: boolean; takenAt: string | null }[] = [...existing]
+    .sort((a, b) => a.order - b.order)
+    .map((e) => ({ id: e.id, isNew: false, takenAt: e.takenAt }));
+  const dated = incoming.filter((i) => i.takenAt).sort((a, b) => a.takenAt!.localeCompare(b.takenAt!));
+  for (const n of dated) {
+    const at = list.findIndex((x) => x.takenAt && x.takenAt > n.takenAt!);
+    const item = { id: n.key, isNew: true, takenAt: n.takenAt };
+    if (at === -1) list.push(item);
+    else list.splice(at, 0, item);
+  }
+  for (const n of incoming.filter((i) => !i.takenAt)) list.push({ id: n.key, isNew: true, takenAt: null });
+  return list.map(({ id, isNew }) => ({ id, isNew }));
+}

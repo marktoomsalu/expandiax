@@ -32,6 +32,30 @@ export async function photoDay(picked: File): Promise<string | null> {
   }
 }
 
+/** When a photo was taken (from its EXIF), as an ISO timestamp, or null. */
+export async function photoTakenAt(picked: File): Promise<string | null> {
+  const file = metadataSource(picked);
+  if (!file.type.startsWith("image/") && !looksLikeHeic(file)) return null;
+  try {
+    const exifr = await import("exifr");
+    const tags = await exifr.parse(await file.arrayBuffer(), ["DateTimeOriginal", "CreateDate"]);
+    const date = tags?.DateTimeOriginal ?? tags?.CreateDate;
+    return date instanceof Date && !Number.isNaN(date.getTime()) ? date.toISOString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Photos and videos in the order they were taken (each photo's time read from it); undated ones keep their place at the end. */
+export async function byTimeTaken<T extends { file: File; kind: "image" | "video" }>(items: T[]): Promise<(T & { takenAt: string | null })[]> {
+  const times = await Promise.all(items.map((it) => (it.kind === "image" ? photoTakenAt(it.file) : Promise.resolve(null))));
+  const index = items.map((it, i) => ({ item: { ...it, takenAt: times[i] }, i }));
+  index.sort((a, b) =>
+    a.item.takenAt && b.item.takenAt ? a.item.takenAt.localeCompare(b.item.takenAt) : a.item.takenAt ? -1 : b.item.takenAt ? 1 : a.i - b.i
+  );
+  return index.map((x) => x.item);
+}
+
 /** First and last day across these photos. */
 export async function photoDateRange(files: File[]) {
   const days = await Promise.all(files.map(photoDay));

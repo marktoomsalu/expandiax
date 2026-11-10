@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
 import type { EventFull, EventType } from "@/lib/types";
 import type { PastShow } from "@/lib/concerts";
-import { localDay, photoDay } from "@/lib/photoDates";
+import { byTimeTaken, localDay, photoDay } from "@/lib/photoDates";
 import { DateField } from "./DateField";
 
 const TODAY = localDay(new Date());
@@ -195,21 +195,25 @@ export function EventForm({
     // background, the best landscape photo becoming its cover.
     const photos = pendingMedia.filter((p) => p.kind === "image").map((p) => p.file);
     const cover = photos[coverIndex] ?? photos[0];
-    enqueueUploads(
-      pendingMedia.map((p, i) => ({
-        file: p.file,
-        kind: p.kind,
-        target: {
-          userId,
-          scope: "events" as const,
-          parentId: data.id,
-          table: "event_media" as const,
-          fields: { event_id: data.id },
-          displayOrder: i,
-          videoQuality,
-          cover: p.file === cover ? { table: "events" as const, id: data.id } : undefined,
-        },
-      }))
+    // In the order they were taken; queued without holding up the page.
+    void byTimeTaken(pendingMedia).then((ordered) =>
+      enqueueUploads(
+        ordered.map((p, i) => ({
+          file: p.file,
+          kind: p.kind,
+          target: {
+            userId,
+            scope: "events" as const,
+            parentId: data.id,
+            table: "event_media" as const,
+            fields: { event_id: data.id },
+            displayOrder: i,
+            takenAt: p.takenAt,
+            videoQuality,
+            cover: p.file === cover ? { table: "events" as const, id: data.id } : undefined,
+          },
+        }))
+      )
     );
 
     tapSuccess();

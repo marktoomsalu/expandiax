@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 import { storagePath } from "@/lib/media";
 import { stripMediaMetadata } from "@/lib/mediaMetadata";
 import { preparePhoto } from "@/lib/photoPrepare";
+import { convertHeic, looksLikeHeic } from "@/lib/heic";
 
 // Photos and videos upload in the background: a trip or event is saved and
 // opened the moment you tap Save, and its memories follow while you carry
@@ -24,6 +25,8 @@ export type UploadTarget = {
   videoQuality?: "standard" | "hd";
   /** Make this the cover once it's in. */
   cover?: { table: CoverTable; id: string };
+  /** When the photo was taken (ISO), so photos can be kept in time order. */
+  takenAt?: string | null;
 };
 
 export type UploadStatus = "waiting" | "preparing" | "uploading" | "retrying" | "done" | "failed";
@@ -132,6 +135,13 @@ async function run(id: string) {
   try {
     let file = job.file;
     if (job.kind === "image") {
+      // An iPhone (HEIC) photo becomes a JPEG here, in the background,
+      // rather than while the person waits after picking.
+      if (looksLikeHeic(file)) {
+        const { files, failed } = await convertHeic([file]);
+        if (failed.length || !files[0]) throw new Final(`Couldn't read “${file.name}”. Try exporting it from Photos as JPEG.`);
+        file = files[0];
+      }
       file = await preparePhoto(file);
     } else {
       if ((target.videoQuality ?? "standard") === "standard") {
@@ -157,18 +167,23 @@ async function run(id: string) {
     }
 
     const { data: pub } = supabase.storage.from("media").getPublicUrl(path);
-    const { data: row, error } = await supabase
+    const values: Record<string, string | number> = {
+      ...target.fields,
+      storage_path: path,
+      public_url: pub.publicUrl,
+      media_type: job.kind,
+      caption: target.caption ?? "",
+      display_order: target.displayOrder,
+    };
+    let { data: row, error } = await supabase
       .from(target.table)
-      .insert({
-        ...target.fields,
-        storage_path: path,
-        public_url: pub.publicUrl,
-        media_type: job.kind,
-        caption: target.caption ?? "",
-        display_order: target.displayOrder,
-      })
+      .insert(target.takenAt ? { ...values, taken_at: target.takenAt } : values)
       .select("id")
       .single();
+    // Before the taken_at column exists (migration 066), save without it.
+    if (error && target.takenAt && /taken_at/.test(error.message)) {
+      ({ data: row, error } = await supabase.from(target.table).insert(values).select("id").single());
+    }
     if (error || !row) {
       await supabase.storage.from("media").remove([path]);
       const msg = error?.message ?? "";
