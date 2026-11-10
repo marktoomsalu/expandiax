@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 // stray gap at the bottom of a screen with no tab bar to justify it.
 export function SiteChrome({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const immersive = path === "/start";
+  const immersive = path === "/start" || path === "/touch";
   // No tab bar while signing up either (see SiteNav.tsx), so no room for one.
   const hasTabBar = !immersive && path !== "/sign-up";
 

@@ -19,7 +19,7 @@ const MAX_ALTITUDE = 3.5;
 // of a polygon it gets one clickable point, placed on the continent itself.
 const ANTARCTICA_POINTS = [{ lat: -82, lng: 20 }];
 
-type GeoFeature = {
+export type GeoFeature = {
   id: string;
   properties: { name: string };
   geometry: unknown;
@@ -36,7 +36,7 @@ type MultiPolygonGeometry = { type: "MultiPolygon"; coordinates: PolygonCoords[]
 // same landmass. Left alone, visiting France would paint French Guiana
 // too, with no way to select it on its own. So it gets carved out into
 // its own feature (id 254, French Guiana's ISO numeric) before render.
-function splitFrenchGuianaFromFrance(features: GeoFeature[]): GeoFeature[] {
+export function splitFrenchGuianaFromFrance(features: GeoFeature[]): GeoFeature[] {
   const franceIdx = features.findIndex((f) => f.id === "250");
   if (franceIdx === -1) return features;
   const france = features[franceIdx];

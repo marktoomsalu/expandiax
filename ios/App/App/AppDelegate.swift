@@ -71,5 +71,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 class MainViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         webView?.allowsBackForwardNavigationGestures = true
+        // Plugins that live in this app rather than in an npm package aren't
+        // in capacitor.config.json's packageClassList, so Capacitor only
+        // knows about them when they're registered here.
+        bridge?.registerPluginInstance(FcmTokenPlugin())
+        bridge?.registerPluginInstance(GlobeTouchPlugin())
     }
 }

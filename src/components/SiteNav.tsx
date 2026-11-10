@@ -32,7 +32,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
   // /start is a full-screen, immersive flow with no site chrome at all
   // until there's an account to actually navigate around with — see
   // SiteChrome.tsx, which hides the page-end footer the same way.
-  if (path === "/start") return null;
+  if (path === "/start" || path === "/touch") return null;
 
   // Creating an account is the end of the start flow: nothing in the chrome
   // should lead away from it by accident — no tab bar, no logo link, no

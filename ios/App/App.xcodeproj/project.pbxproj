@@ -20,6 +20,7 @@
 		B7FFD4093024D07700D0B93B /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = B7FFD4083024D07700D0B93B /* FirebaseCore */; };
 		B7FFD40B3024D07700D0B93B /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = B7FFD40A3024D07700D0B93B /* FirebaseMessaging */; };
 		B7FFD40D3024D0B000D0B93B /* FcmTokenPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FFD40C3024D0B000D0B93B /* FcmTokenPlugin.swift */; };
+		C1A0B0C22EF0A00100A1B2C3 /* GlobeTouchPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A0B0C12EF0A00100A1B2C3 /* GlobeTouchPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +38,7 @@
 		B760EE5530226CA600810CEB /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		B7FFD4053023EBE400D0B93B /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		B7FFD40C3024D0B000D0B93B /* FcmTokenPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FcmTokenPlugin.swift; sourceTree = "<group>"; };
+		C1A0B0C12EF0A00100A1B2C3 /* GlobeTouchPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobeTouchPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				B7FFD40C3024D0B000D0B93B /* FcmTokenPlugin.swift */,
+				C1A0B0C12EF0A00100A1B2C3 /* GlobeTouchPlugin.swift */,
 				B7FFD4053023EBE400D0B93B /* GoogleService-Info.plist */,
 				B760EE5530226CA600810CEB /* App.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
@@ -185,6 +188,7 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				B7FFD40D3024D0B000D0B93B /* FcmTokenPlugin.swift in Sources */,
+				C1A0B0C22EF0A00100A1B2C3 /* GlobeTouchPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { FirstFriends } from "@/components/FirstFriends";
+import { TouchGlobesButton } from "@/components/touch/TouchGlobesButton";
 import { AddCountryButton } from "@/components/AddCountrySheet";
 import { hasRealName } from "@/lib/profileName";
 import { mapStays } from "@/lib/stays";
@@ -119,6 +120,7 @@ export default async function MyWorldPage() {
           </p>
         )}
         <div className="flex items-center gap-3">
+          <TouchGlobesButton />
           <Link href="/stats" className="btn-ghost !py-2 text-sm"><BarChart3 size={16} /> Stats</Link>
           <AddCountryButton className="btn-accent"><Plus size={17} /> Add country</AddCountryButton>
         </div>
