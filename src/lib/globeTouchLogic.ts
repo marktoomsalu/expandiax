@@ -5,10 +5,14 @@ import { countryByCode } from "./countries";
 
 export type Reading = { meters: number; at: number };
 
-/** Closer than this, the phones are touching (the chips read ~5–10 cm with the phones together). */
-export const TOUCH_METERS = 0.12;
-/** A touch has to come from further away than this, a moment before. */
-export const APPROACH_METERS = 0.3;
+/**
+ * Closer than this, the phones connect. Deliberately before they touch:
+ * iOS's own NameDrop (contact sharing) starts when the tops of two iPhones
+ * meet, so World Connect happens a hand's width earlier, side by side.
+ */
+export const TOUCH_METERS = 0.2;
+/** A connection has to come from further away than this, a moment before. */
+export const APPROACH_METERS = 0.45;
 /** Two knocks this close together in time are the same knock. */
 export const BUMP_WINDOW_MS = 700;
 
@@ -31,7 +35,7 @@ export function isFreshBumpPair(a: number, b: number): boolean {
   return a > 0 && b > 0 && Math.abs(a - b) <= BUMP_WINDOW_MS;
 }
 
-/** 0 at a metre or more, 1 when touching, eased so the last few centimetres feel the biggest. */
+/** 0 at a metre or more, 1 when close enough to connect, eased so the last few centimetres feel the biggest. */
 export function approachProgress(meters: number): number {
   const t = Math.min(1, Math.max(0, (1 - meters) / (1 - TOUCH_METERS)));
   return t * t;

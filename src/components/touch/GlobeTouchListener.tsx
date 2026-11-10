@@ -124,7 +124,7 @@ export function WorldConnectIntro({ onAnswer }: { onAnswer: (on: boolean) => voi
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/55">New</p>
           <h2 id="world-connect-h" className="mt-1 font-serif text-3xl">World Connect</h2>
           <p className="mx-auto mt-3 max-w-xs text-white/80">
-            Hold your iPhone against a friend&rsquo;s, wherever you are in ExpandiaX. Your worlds connect: the countries you share, and you can follow each other.
+            Hold your iPhone close to a friend&rsquo;s, wherever you are in ExpandiaX. Your worlds connect: the countries you share, and you can follow each other.
           </p>
           <button
             type="button"
@@ -137,7 +137,7 @@ export function WorldConnectIntro({ onAnswer }: { onAnswer: (on: boolean) => voi
           <button type="button" onClick={() => onAnswer(false)} className="mt-3 w-full rounded-full py-3 text-white/70">
             Not now
           </button>
-          <p className="mt-2 text-xs text-white/45">Your iPhone will ask to find devices nearby. Nothing is shared until two phones touch.</p>
+          <p className="mt-2 text-xs text-white/45">Your iPhone will ask to find devices nearby. Nothing is shared until two phones meet.</p>
         </div>
       </div>
       <style>{`.world-connect-pulse{animation:wc-pulse 1.6s ease-out infinite}@keyframes wc-pulse{from{transform:scale(1);opacity:1}to{transform:scale(1.7);opacity:0}}@media (prefers-reduced-motion:reduce){.world-connect-pulse{animation:none}}`}</style>

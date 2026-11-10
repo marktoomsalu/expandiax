@@ -5,19 +5,19 @@ const at = (pairs: [number, number][]) => pairs.map(([meters, t]) => ({ meters, 
 
 describe("decideTouch", () => {
   it("is a touch when the phones come together", () => {
-    expect(decideTouch(at([[0.6, 0], [0.3, 200], [0.1, 400], [0.06, 450]]), 500)).toBe(true);
+    expect(decideTouch(at([[0.7, 0], [0.4, 200], [0.18, 400], [0.15, 450]]), 500)).toBe(true);
   });
 
   it("is not a touch for phones that were already lying together", () => {
-    expect(decideTouch(at([[0.08, 0], [0.07, 200], [0.06, 400], [0.07, 450]]), 500)).toBe(false);
+    expect(decideTouch(at([[0.15, 0], [0.12, 200], [0.1, 400], [0.12, 450]]), 500)).toBe(false);
   });
 
   it("needs two close readings in a row", () => {
-    expect(decideTouch(at([[0.6, 0], [0.4, 200], [0.2, 400], [0.1, 450]]), 500)).toBe(false);
+    expect(decideTouch(at([[0.7, 0], [0.5, 200], [0.3, 400], [0.18, 450]]), 500)).toBe(false);
   });
 
   it("forgets an approach from long ago", () => {
-    expect(decideTouch(at([[0.6, 0], [0.08, 5000], [0.07, 5200], [0.06, 5300]]), 5400)).toBe(false);
+    expect(decideTouch(at([[0.7, 0], [0.15, 5000], [0.12, 5200], [0.1, 5300]]), 5400)).toBe(false);
   });
 });
 
@@ -32,7 +32,7 @@ describe("bumps", () => {
 describe("approachProgress", () => {
   it("goes from 0 far away to 1 touching", () => {
     expect(approachProgress(2)).toBe(0);
-    expect(approachProgress(0.05)).toBe(1);
+    expect(approachProgress(0.15)).toBe(1);
     expect(approachProgress(0.5)).toBeGreaterThan(0);
     expect(approachProgress(0.5)).toBeLessThan(approachProgress(0.2));
   });

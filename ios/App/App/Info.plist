@@ -45,7 +45,7 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>ExpandiaX looks for friends' iPhones nearby for World Connect, so you can see the countries you've both been to.</string>
 	<key>NSNearbyInteractionUsageDescription</key>
-	<string>ExpandiaX feels when your iPhone touches a friend's, so your worlds can connect.</string>
+	<string>ExpandiaX feels when your iPhone is close to a friend's, so your worlds can connect.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>ExpandiaX uses your camera to add photos to your trips and events.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

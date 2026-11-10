@@ -89,7 +89,7 @@ function useDemoState(demo: "approach" | "reveal" | null, fixedCm: number | null
       const t = (Date.now() - start) / 1000;
       if (t < 1.6) return;
       const meters = Math.max(0.05, 1.3 - (t - 1.6) * 0.24);
-      setS((x) => (x.touch ? x : { ...x, peers: peer(meters), touch: meters <= 0.06 ? { ...touch, at: Date.now() } : null }));
+      setS((x) => (x.touch ? x : { ...x, peers: peer(meters), touch: meters <= 0.18 ? { ...touch, at: Date.now() } : null }));
     }, 50);
     return () => clearInterval(id);
   }, [demo, fixedCm, run]);
@@ -292,11 +292,11 @@ function Intro({ me, myCountries, size, onStart }: { me: TouchMe; myCountries: G
         <TouchGlobe size={size} colors={colors} spin={0.7} />
       </div>
       <p className="max-w-xs text-base text-white/80">
-        Hold your iPhone against a friend&rsquo;s. Your worlds connect: the countries you share, where each of you has been, and you can follow each other right there.
+        Hold your iPhone close to a friend&rsquo;s, side by side. Your worlds connect: the countries you share, where each of you has been, and you can follow each other right there.
       </p>
       <ul className="mt-5 space-y-2 text-left text-sm text-white/60">
         <li className="flex gap-2"><Smartphone size={16} className="mt-0.5 shrink-0" /> Your friend opens ExpandiaX too.</li>
-        <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0" /> Only what you show on your globe is shared, and only when your phones touch.</li>
+        <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0" /> Only what you show on your globe is shared, and only when your phones meet.</li>
       </ul>
       <button type="button" onClick={onStart} className="touch-cta mt-auto w-full">
         Start
@@ -334,14 +334,14 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
   const met = size * 0.1 - orb * 0.55;
   const orbTop = linked ? (meters == null ? -orb * 0.5 : far + (met - far) * c) : -orb * 1.5;
 
-  let title = "Hold your iPhone near a friend’s";
-  let sub = "They open ExpandiaX too. Then bring the tops of your phones together.";
+  let title = "Hold your iPhone close to a friend’s";
+  let sub = "They open ExpandiaX too. Hold the phones side by side, no need to touch.";
   if (linked && meters == null && !state.preciseDistance) {
     title = "A friend is nearby";
-    sub = "Tap your phones together, gently.";
+    sub = "Tap the sides of your phones together, gently.";
   } else if (linked && meters == null) {
     title = "A friend is nearby";
-    sub = "Bring your phones together.";
+    sub = "Side by side, no need to touch.";
   } else if (linked) {
     title = c > 0.85 ? "Almost…" : "Closer";
     sub = "";
@@ -605,7 +605,7 @@ function Failed({ onAgain }: { onAgain: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
       <p className="font-serif text-3xl">That didn&rsquo;t connect</p>
-      <p className="mt-3 max-w-xs text-white/70">Keep both phones on this screen, with internet, and touch them together again.</p>
+      <p className="mt-3 max-w-xs text-white/70">Keep both phones on this screen, with internet, and bring them close again.</p>
       <button type="button" onClick={onAgain} className="touch-cta mt-8 w-full">Try again</button>
     </div>
   );
@@ -620,7 +620,7 @@ function Unsupported() {
       <p className="mt-3 max-w-xs text-white/70">
         {android
           ? "World Connect works between iPhones for now. Android is on its way."
-          : "Hold two iPhones together in the ExpandiaX app to connect your worlds. Update the app if you don’t see it yet."}
+          : "Hold two iPhones close in the ExpandiaX app to connect your worlds. Update the app if you don’t see it yet."}
       </p>
     </div>
   );
