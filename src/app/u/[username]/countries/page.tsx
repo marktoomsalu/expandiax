@@ -40,7 +40,11 @@ export default async function ProfileCountriesPage({ params }: { params: { usern
       .eq("user_id", profile.id)
   );
   const latest = (c: Row) => c.country_visits.map(visitSortKey).sort().at(-1) ?? c.created_at.slice(0, 10);
-  const countries = ((data ?? []) as Row[]).sort((a, b) => latest(b).localeCompare(latest(a)));
+  // Countries with their own photos first, then the rest; each group newest trip first.
+  const hasPhotos = (c: Row) => c.country_media.some((m) => m.media_type === "image");
+  const countries = ((data ?? []) as Row[]).sort(
+    (a, b) => Number(hasPhotos(b)) - Number(hasPhotos(a)) || latest(b).localeCompare(latest(a))
+  );
   const stock: Record<string, StockPhoto> = {};
   for (const c of countries) {
     if (c.country_media.length) continue;
