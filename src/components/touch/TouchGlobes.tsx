@@ -292,7 +292,7 @@ function Intro({ me, myCountries, size, onStart }: { me: TouchMe; myCountries: G
         <TouchGlobe size={size} colors={colors} spin={0.7} />
       </div>
       <p className="max-w-xs text-base text-white/80">
-        Hold your iPhone close to a friend&rsquo;s, side by side. Your worlds connect: the countries you share, where each of you has been, and you can follow each other right there.
+        Hold your iPhone close to a friend&rsquo;s. Your worlds connect: the countries you share, where each of you has been, and you can follow each other right there.
       </p>
       <ul className="mt-5 space-y-2 text-left text-sm text-white/60">
         <li className="flex gap-2"><Smartphone size={16} className="mt-0.5 shrink-0" /> Your friend opens ExpandiaX too.</li>
@@ -335,13 +335,13 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
   const orbTop = linked ? (meters == null ? -orb * 0.5 : far + (met - far) * c) : -orb * 1.5;
 
   let title = "Hold your iPhone close to a friend’s";
-  let sub = "They open ExpandiaX too. Hold the phones side by side, no need to touch.";
+  let sub = "They open ExpandiaX too. Then bring your phones close.";
   if (linked && meters == null && !state.preciseDistance) {
     title = "A friend is nearby";
-    sub = "Tap the sides of your phones together, gently.";
+    sub = "Tap your phones together, gently.";
   } else if (linked && meters == null) {
     title = "A friend is nearby";
-    sub = "Side by side, no need to touch.";
+    sub = "Bring your phones close.";
   } else if (linked) {
     title = c > 0.85 ? "Almost…" : "Closer";
     sub = "";
