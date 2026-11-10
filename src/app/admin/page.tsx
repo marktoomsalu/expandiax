@@ -125,6 +125,20 @@ export default async function AdminPage() {
   const android = tokens.filter((t) => t.platform === "android").length;
   const sponsorsLive = SPONSORS.filter((s) => !s.until || s.until >= today).length;
 
+  // Reports, newest first: the one place people are named, because acting on a report needs it.
+  const { data: reportRows } = await admin.from("reports").select("id, reporter_id, target_type, target_id, target_url, reason, created_at").order("created_at", { ascending: false }).limit(40);
+  const reports = reportRows ?? [];
+  const messageIds = reports.filter((r) => r.target_type === "message").map((r) => r.target_id);
+  const { data: reportedMessages } = messageIds.length
+    ? await admin.from("messages").select("id, sender_id, body").in("id", messageIds)
+    : { data: [] as { id: string; sender_id: string; body: string }[] };
+  const messageById = new Map((reportedMessages ?? []).map((m) => [m.id, m]));
+  const peopleIds = [...new Set([...reports.map((r) => r.reporter_id), ...(reportedMessages ?? []).map((m) => m.sender_id)])];
+  const { data: named } = peopleIds.length
+    ? await admin.from("profiles").select("id, username").in("id", peopleIds)
+    : { data: [] as { id: string; username: string }[] };
+  const usernameOf = new Map((named ?? []).map((p) => [p.id, p.username]));
+
   return (
     <div className="mx-auto max-w-4xl px-5 py-8">
       <p className="flex items-center gap-1.5 text-xs text-muted">
@@ -194,6 +208,36 @@ export default async function AdminPage() {
               .map((d) => `${countryByCode(d.country_code.slice(0, 2))?.flag ?? ""} ${d.dreamers}`)
               .join("  ·  ")}
           </p>
+        )}
+      </section>
+
+      <section aria-labelledby="reports-h" className="mt-8">
+        <h2 id="reports-h" className="font-serif text-xl">Reports</h2>
+        <p className="mt-1 text-xs text-muted">
+          Newest first. Three people reporting someone&rsquo;s messages pauses their chat automatically; two, or three postcards turned down in a
+          month, pauses their postcards. Blocking them for good: their profile &rsaquo; Block.
+        </p>
+        {reports.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">No reports.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
+            {reports.map((r) => {
+              const m = r.target_type === "message" ? messageById.get(r.target_id) : null;
+              return (
+                <li key={r.id} className="px-4 py-3 text-sm">
+                  <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
+                    <span className="rounded-full bg-raised px-2 py-0.5 font-medium text-ink">{r.target_type}</span>
+                    {r.created_at.slice(0, 16).replace("T", " ")}
+                    <span>· by @{usernameOf.get(r.reporter_id) ?? "?"}</span>
+                    {m && <span>· sender @{usernameOf.get(m.sender_id) ?? "?"}</span>}
+                  </p>
+                  <p className="mt-1">{r.reason}</p>
+                  {m && <p className="mt-1 rounded-lg bg-raised px-3 py-2 text-xs">&ldquo;{m.body}&rdquo;</p>}
+                  <a href={r.target_url} className="mt-1 inline-block text-xs text-accent hover:underline">Open</a>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
     </div>

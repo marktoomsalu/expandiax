@@ -83,6 +83,12 @@ export default function PrivacyPage() {
           </li>
         </LegalList>
         <p>
+          <Strong>Chat messages and postcards</Strong> are stored so the two people in a conversation can read them, and only they
+          can. Before a message is sent it is checked automatically, inside our database, for spam, scams and (in postcards) links
+          or contact details; nobody reads it to do this. If you report a conversation, the message you report is shared with our
+          team so we can act on it. <em>Legal basis:</em> contract, and our legitimate interest in keeping people safe.
+        </p>
+        <p>
           We don’t use your content to train AI models, we don’t sell your data, and we never use your notification
           token for advertising or to track you across other apps or services.
         </p>

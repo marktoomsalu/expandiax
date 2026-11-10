@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ArrowUp, MapPin, MessageCircle, PenSquare, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowUp, Ban, Flag, MapPin, MessageCircle, MoreHorizontal, PenSquare, Search, ShieldCheck, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { COUNTRIES, countryByCode } from "@/lib/countries";
 import { tapLight, tapSuccess } from "@/lib/haptics";
@@ -23,6 +23,7 @@ import {
   type MessageRow,
 } from "@/lib/chat";
 import { cn } from "@/lib/utils";
+import { chatProblem } from "@/lib/chatRules";
 import { useChatEnabled } from "@/lib/useChatEnabled";
 
 // Screens where the bubble would be in the way.
@@ -42,9 +43,13 @@ function useChat(me: string) {
   const load = useCallback(async () => {
     const { data: convs } = await supabase.from("conversations").select(CONV_FIELDS).order("last_message_at", { ascending: false }).limit(60);
     const list = (convs ?? []) as ConversationRow[];
-    setConversations(list);
     const ids = list.map((c) => c.id);
     const others = list.map((c) => otherOf(c, me));
+    const { data: blockRows } = await supabase.from("blocks").select("blocked_id").eq("blocker_id", me);
+    const blocked = new Set((blockRows ?? []).map((r) => r.blocked_id as string));
+    // Someone you blocked is gone from your chats.
+    const visible = list.filter((c) => !blocked.has(otherOf(c, me)));
+    setConversations(visible);
     const [{ data: msgs }, { data: mine }] = await Promise.all([
       ids.length
         ? supabase.from("messages").select("*").in("conversation_id", ids).order("created_at", { ascending: false }).limit(400)
@@ -131,7 +136,7 @@ function ChatBubbleInner({ me }: { me: string }) {
           }}
           aria-label={chat.unread.length ? `Chat, ${chat.unread.length} unread` : "Chat"}
           className="chat-bubble fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl shadow-black/25 transition-transform active:scale-95"
-          style={{ bottom: "calc(6rem + env(safe-area-inset-bottom))", background: "linear-gradient(135deg, #fa51a2, #fb7822)" }}
+          style={{ bottom: "calc(4.75rem + env(safe-area-inset-bottom))", background: "linear-gradient(135deg, #fa51a2, #fb7822)" }}
         >
           {face ? (
             <span className="relative h-12 w-12 overflow-hidden rounded-full ring-2 ring-white">
@@ -399,8 +404,9 @@ function Conversation({ me, chat, conversationId }: { me: string; chat: Chat; co
 
   return (
     <>
-      <Header person={person} sub={sub} onBack={() => goChat({ view: "home" })} />
+      <Header person={person} sub={sub} onBack={() => goChat({ view: "home" })} menu={<SafetyMenu me={me} chat={chat} person={person} messages={messages} />} />
       <div className="flex-1 overflow-y-auto px-4 py-3">
+        {!chat.friends.some((f) => f.id === person.id) && <SafetyNote />}
         {messages.map((m, i) => (
           <Bubble key={m.id} m={m} mine={m.sender_id === me} postcard={i === 0 && c.started_by === m.sender_id && (incomingPostcard || waiting)} firstOfRun={messages[i - 1]?.sender_id !== m.sender_id} />
         ))}
@@ -461,6 +467,11 @@ function Draft({ me, chat, person, place }: { me: string; chat: Chat; person: Ch
             ? "One message, stamped with the place it's about. If they write back, you can keep talking."
             : "Ask about a trip, a place, or just say hello."}
         </p>
+        {!friend && (
+          <div className="mt-4 w-full max-w-xs">
+            <SafetyNote />
+          </div>
+        )}
         {existing && (
           <button type="button" onClick={() => goChat({ view: "conversation", conversationId: existing.id })} className="mt-4 text-sm font-medium text-accent hover:underline">
             Open your chat
@@ -474,6 +485,7 @@ function Draft({ me, chat, person, place }: { me: string; chat: Chat; person: Ch
         conversationId={existing?.id ?? null}
         initialPlace={place}
         placeholder={!friend ? "Write your postcard…" : "Message…"}
+        postcard={!friend}
         onDraft={(text, p) => setDraft({ text, place: p })}
         onSent={async (id) => goChat({ view: "conversation", conversationId: id })}
       />
@@ -490,6 +502,7 @@ function Composer({
   placeholder = "Message…",
   onSent,
   onDraft,
+  postcard = false,
 }: {
   me: string;
   chat: Chat;
@@ -500,6 +513,8 @@ function Composer({
   onSent: (conversationId: string) => void | Promise<void>;
   /** What's being written, for a live preview. */
   onDraft?: (text: string, place: ChatPlace | null) => void;
+  /** A first message to someone who isn't a friend: stricter rules (see chatRules). */
+  postcard?: boolean;
 }) {
   const [text, setText] = useState("");
   const [place, setPlace] = useState<ChatPlace | null>(initialPlace);
@@ -508,9 +523,12 @@ function Composer({
   const [error, setError] = useState<string | null>(null);
   useEffect(() => onDraft?.(text, place), [text, place]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Said before sending, the same rules the server applies.
+  const problem = text.trim() ? chatProblem(text, postcard) : null;
+
   async function send() {
     const body = text.trim();
-    if (!body || busy) return;
+    if (!body || busy || problem) return;
     setBusy(true);
     setError(null);
     const { data, error: err } = await chat.supabase.rpc("send_message", {
@@ -543,7 +561,7 @@ function Composer({
           </button>
         </div>
       )}
-      {error && <p className="mb-2 px-1 text-xs text-red-700 dark:text-red-400">{error}</p>}
+      {(problem || error) && <p className="mb-2 px-1 text-xs text-red-700 dark:text-red-400">{problem ?? error}</p>}
       <div className="flex items-end gap-2">
         <button type="button" onClick={() => setPicking((v) => !v)} aria-label="Stamp a place" className={cn("mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full", place ? "bg-accent-soft text-accent" : "text-muted hover:bg-raised")}>
           <MapPin size={20} />
@@ -571,7 +589,7 @@ function Composer({
         <button
           type="button"
           onClick={() => void send()}
-          disabled={!text.trim() || busy}
+          disabled={!text.trim() || busy || !!problem}
           aria-label="Send"
           className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-opacity disabled:opacity-40"
           style={{ background: "linear-gradient(135deg, #fa51a2, #fb7822)" }}
@@ -580,6 +598,108 @@ function Composer({
         </button>
       </div>
     </div>
+  );
+}
+
+/** The rules, said kindly, wherever people aren't friends yet. */
+function SafetyNote() {
+  return (
+    <p className="mb-3 flex items-start gap-2 rounded-2xl bg-raised px-3 py-2.5 text-left text-xs leading-relaxed text-muted">
+      <ShieldCheck size={15} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+      <span>
+        Keep it about places and trips. Selling, links and contact details aren&rsquo;t allowed in postcards, and ExpandiaX never asks for money in
+        chat. Something off? Report it from &hellip; above.
+      </span>
+    </p>
+  );
+}
+
+const REPORT_REASONS = ["Selling or spam", "A scam or asking for money", "Harassment or something hurtful", "Something else"];
+
+/** ... in a conversation: report what they sent, or block them. */
+function SafetyMenu({ me, chat, person, messages }: { me: string; chat: Chat; person: ChatPerson; messages: MessageRow[] }) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"menu" | "report" | "reported" | "block">("menu");
+  const [busy, setBusy] = useState(false);
+  const theirs = [...messages].reverse().find((m) => m.sender_id !== me);
+
+  async function report(reason: string) {
+    setBusy(true);
+    await chat.supabase.from("reports").insert(
+      theirs
+        ? { reporter_id: me, target_type: "message", target_id: theirs.id, target_url: `/u/${person.username}`, reason: `${reason}: "${theirs.body.slice(0, 300)}"` }
+        : { reporter_id: me, target_type: "profile", target_id: person.id, target_url: `/u/${person.username}`, reason }
+    );
+    setBusy(false);
+    setStep("reported");
+  }
+
+  async function block() {
+    setBusy(true);
+    await chat.supabase.rpc("block_user", { p_blocked_id: person.id });
+    setBusy(false);
+    setOpen(false);
+    await chat.reload();
+    goChat({ view: "home" });
+  }
+
+  const first = person.display_name.split(" ")[0];
+  return (
+    <>
+      <button type="button" onClick={() => { setStep("menu"); setOpen(true); }} aria-label="Report or block" className="flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-raised">
+        <MoreHorizontal size={20} />
+      </button>
+      {open && (
+        <div className="absolute inset-0 z-20 flex items-end bg-black/30" onClick={() => setOpen(false)}>
+          <div className="w-full rounded-t-3xl bg-surface p-5 shadow-2xl" onClick={(e) => e.stopPropagation()} style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" }}>
+            {step === "menu" && (
+              <div className="space-y-2">
+                <button type="button" onClick={() => setStep("report")} className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left hover:bg-raised">
+                  <Flag size={18} className="text-red-700 dark:text-red-400" /> <span className="font-medium">Report {first}</span>
+                </button>
+                <button type="button" onClick={() => setStep("block")} className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left hover:bg-raised">
+                  <Ban size={18} className="text-red-700 dark:text-red-400" /> <span className="font-medium">Block {first}</span>
+                </button>
+                <button type="button" onClick={() => setOpen(false)} className="w-full py-2 text-sm text-muted">Cancel</button>
+              </div>
+            )}
+            {step === "report" && (
+              <div>
+                <p className="font-serif text-xl">What&rsquo;s wrong?</p>
+                <p className="mt-1 text-sm text-muted">We&rsquo;ll look at {theirs ? "their last message" : "their account"}. {first} won&rsquo;t know it was you.</p>
+                <div className="mt-4 space-y-2">
+                  {REPORT_REASONS.map((r) => (
+                    <button key={r} type="button" disabled={busy} onClick={() => void report(r)} className="w-full rounded-2xl border border-line px-4 py-3 text-left text-sm hover:border-accent">
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {step === "reported" && (
+              <div>
+                <p className="font-serif text-xl">Thanks for telling us.</p>
+                <p className="mt-1 text-sm text-muted">We&rsquo;ll take a look. You can also block {first} so they can&rsquo;t write to you again.</p>
+                <div className="mt-4 flex gap-2">
+                  <button type="button" onClick={() => void block()} disabled={busy} className="btn-accent flex-1 justify-center">Block {first}</button>
+                  <button type="button" onClick={() => setOpen(false)} className="btn-ghost flex-1 justify-center">Done</button>
+                </div>
+              </div>
+            )}
+            {step === "block" && (
+              <div>
+                <p className="font-serif text-xl">Block {first}?</p>
+                <p className="mt-1 text-sm text-muted">They won&rsquo;t be able to write to you, see your profile or find you. They aren&rsquo;t told.</p>
+                <div className="mt-4 flex gap-2">
+                  <button type="button" onClick={() => void block()} disabled={busy} className="flex-1 rounded-full bg-red-700 px-4 py-3 font-semibold text-white">Block</button>
+                  <button type="button" onClick={() => setOpen(false)} className="btn-ghost flex-1 justify-center">Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -667,7 +787,7 @@ function Stamp({ code, small = false }: { code: string | null; small?: boolean }
   );
 }
 
-function Header({ title, person, sub, onBack }: { title?: string; person?: ChatPerson; sub?: string | null; onBack: () => void }) {
+function Header({ title, person, sub, onBack, menu }: { title?: string; person?: ChatPerson; sub?: string | null; onBack: () => void; menu?: React.ReactNode }) {
   return (
     <header className="flex items-center gap-2 border-b border-line px-3 py-3">
       <button type="button" onClick={onBack} aria-label="Back" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-raised">
@@ -684,6 +804,7 @@ function Header({ title, person, sub, onBack }: { title?: string; person?: ChatP
       ) : (
         <h2 className="flex-1 font-serif text-xl">{title}</h2>
       )}
+      {menu}
       <button type="button" onClick={closeChat} aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-raised">
         <X size={20} />
       </button>

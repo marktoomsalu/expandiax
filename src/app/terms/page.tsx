@@ -77,6 +77,24 @@ export default function TermsPage() {
         </LegalList>
       </LegalSection>
 
+      <LegalSection title="Chat and postcards">
+        <p>
+          Chat is for talking about trips, places and events. Friends (people who follow each other) can write freely; anyone else
+          can send one <Strong>postcard</Strong>, and the conversation opens only if they write back. In chat, don&rsquo;t:
+        </p>
+        <LegalList>
+          <li>sell, advertise or promote anything, or use postcards to send links, contact details or offers;</li>
+          <li>ask anyone for money, payment or card details, or push investments, crypto or anything like them;</li>
+          <li>send messages someone hasn&rsquo;t welcomed, or keep writing after being turned down or blocked.</li>
+        </LegalList>
+        <p>
+          To keep chat safe, messages are checked automatically for spam and scams before they&rsquo;re sent, new accounts wait a day
+          before sending postcards, and there are limits on how many messages and postcards anyone can send. Accounts that are
+          reported by several people, or whose postcards keep being turned down, can be paused while we look. Anyone can report a
+          conversation or block someone from the &hellip; menu in a chat. ExpandiaX never asks for money in chat.
+        </p>
+      </LegalSection>
+
       <LegalSection title="Reporting and moderation">
         <p>
           Every profile, country page and event has a <Strong>Report</Strong> option. You can also email{" "}
