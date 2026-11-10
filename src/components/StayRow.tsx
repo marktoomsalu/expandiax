@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Home, Image as ImageIcon, MoreHorizontal, Plane, Trash2 } from "lucide-react";
+import { ChevronRight, Eye, Home, Image as ImageIcon, Lock, MoreHorizontal, Plane, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { StockPhoto } from "@/lib/stockPhotos";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,8 @@ export type StayView = {
   railTop: string | null; // "2025" — only where the year changes
   railBottom: string | null; // "AUG"
   photos: number;
+  /** false = "Only me": only its owner sees it. */
+  isPublic: boolean;
   photo: string | null;
   stock: StockPhoto | null;
   mediaPaths: string[];
@@ -60,6 +62,12 @@ export function StayRow({
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [menu]);
+
+  async function togglePrivacy() {
+    setMenu(false);
+    await createClient().from("country_visits").update({ is_public: !stay.isPublic }).eq("id", stay.id);
+    router.refresh();
+  }
 
   async function remove() {
     setRemoving(true);
@@ -110,7 +118,14 @@ export function StayRow({
             </span>
           </span>
           <span className="pointer-events-none min-w-0 flex-1">
-            <span className="block truncate font-serif text-base leading-tight sm:text-lg">{stay.name}</span>
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate font-serif text-base leading-tight sm:text-lg">{stay.name}</span>
+              {!stay.isPublic && (
+                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-raised px-1.5 py-0.5 text-[10px] font-medium text-muted">
+                  <Lock size={9} aria-hidden /> Only me
+                </span>
+              )}
+            </span>
             {stay.places && stay.places !== stay.name && <span className="block truncate text-xs text-muted">{stay.places}</span>}
             <span className="block truncate text-xs text-muted">
               {stay.when}
@@ -138,6 +153,10 @@ export function StayRow({
                 <Link href={`${href}/edit`} className="block px-4 py-2.5 hover:bg-raised">
                   Edit
                 </Link>
+                <button type="button" onClick={togglePrivacy} className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-raised">
+                  {stay.isPublic ? <Lock size={15} /> : <Eye size={15} />}
+                  {stay.isPublic ? "Only me" : "Show to others"}
+                </button>
                 <button
                   type="button"
                   onClick={() => {

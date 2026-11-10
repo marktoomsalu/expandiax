@@ -56,6 +56,8 @@ export type DatePrecision = "year" | "month" | "day";
 export type CountryVisit = {
   id: string;
   visited_country_id: string;
+  // false = "Only me": this trip, its places and photos are hidden from everyone else (migration 061).
+  is_public: boolean;
   cover_media_id: string | null;
   year: number;
   visited_from: string | null;

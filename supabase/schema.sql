@@ -1604,3 +1604,6 @@ alter table public.profiles
   add column if not exists push_activity boolean not null default true,
   add column if not exists push_reminders boolean not null default true,
   add column if not exists push_updates boolean not null default true;
+
+-- Privacy per trip or stay (migration 061): see supabase/migrations/061_trip_privacy.sql
+alter table public.country_visits add column is_public boolean not null default true;

@@ -44,6 +44,7 @@ export function buildCountryView(visited: VisitedCountryFull, meta: { code: stri
       railTop: !prev || prev.year !== v.year ? String(v.year) : null,
       railBottom: stayMonth(v),
       photos: media.filter((m) => m.media_type === "image").length,
+      isPublic: v.is_public !== false,
       photo: cover?.public_url ?? null,
       // Different stock photo per trip, so an empty country doesn't repeat one picture.
       stock: cover ? null : stockPhotoFor(meta.code, v.id),

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, ChevronRight, Lock, MapPinPlus, MessageSquareText, Plus, Rss, X } from "lucide-react";
+import { Calendar, ChevronRight, MapPinPlus, MessageSquareText, Plus, Rss, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { enqueueUploads } from "@/lib/uploadQueue";
 import { suggestTripName } from "@/lib/tripPlaces";
@@ -544,24 +544,24 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
       <section aria-labelledby="settings-h" className="card px-5 py-5">
         <h2 id="settings-h" className="font-serif text-lg">{meta.name} settings</h2>
         <div className="mt-4 space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Who can see it</p>
-              <p className="text-xs text-muted">
-                {data.is_public ? "Everyone who can see your profile." : "Only you - hidden from everyone else."}
-              </p>
+          {!data.is_public && (
+            // Left from when a whole country could be "Only me": now each trip
+            // chooses for itself, so the country can only be shown again.
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Hidden from everyone</p>
+                <p className="text-xs text-muted">
+                  {meta.name} is hidden from your map for others. Show it, then choose &ldquo;Only me&rdquo; on the trips you want to keep to yourself.
+                </p>
+              </div>
+              <button type="button" onClick={toggleOnlyMe} disabled={privacyBusy} className={cn(pill, "border-accent bg-accent-soft text-accent")}>
+                Show {meta.name}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={toggleOnlyMe}
-              disabled={privacyBusy}
-              aria-pressed={!data.is_public}
-              className={cn(pill, !data.is_public ? "border-ink bg-ink text-canvas" : "border-line text-muted hover:text-accent")}
-            >
-              <Lock size={13} />
-              {data.is_public ? "Visible" : "Only me"}
-            </button>
-          </div>
+          )}
+          <p className="text-xs text-muted">
+            Who sees each trip or stay is chosen on the trip itself: open it, or use its &hellip; menu above.
+          </p>
           {data.is_public && (
             <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
               <div className="min-w-0">

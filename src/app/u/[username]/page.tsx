@@ -27,7 +27,7 @@ import { signMedia } from "@/lib/signedMedia";
 import { mapStays } from "@/lib/stays";
 import { MapLegend } from "@/components/MapLegend";
 
-type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight" | "kind">;
+type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight" | "kind" | "is_public">;
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
 type EventRow = Event & { event_media: EventMedia[] };
 type TripCard = { visit: VisitLite; countryCode: string; countryName: string; cover?: CountryMedia };
@@ -103,7 +103,7 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   ] = await Promise.all([
       supabase
         .from("visited_countries")
-        .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(id, year, visited_from, visited_to, date_precision, highlight, kind)")
+        .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(*)")
         .eq("user_id", profile.id)
         .in("is_public", preview ? [true] : [true, false])
         .order("country_name"),
@@ -154,7 +154,14 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   // anything that shouldn't blend the two (the 195-country %, continents,
   // badges); `countries` (unfiltered) still feeds trips/gallery/the globe,
   // so territory photos and map highlights show up there naturally.
-  const countries = (countriesData ?? []) as CountryRow[];
+  // In the preview, leave out the trips you keep to yourself, and their photos, as others see it.
+  const countries = ((countriesData ?? []) as CountryRow[]).map((c) => {
+    if (!preview) return c;
+    const hidden = new Set(c.country_visits.filter((v) => v.is_public === false).map((v) => v.id));
+    return hidden.size
+      ? { ...c, country_visits: c.country_visits.filter((v) => !hidden.has(v.id)), country_media: c.country_media.filter((m) => !hidden.has(m.country_visit_id ?? "")) }
+      : c;
+  });
   const realCountries = countries.filter((c) => !isTerritoryCode(c.country_code));
   const territories = countries.filter((c) => isTerritoryCode(c.country_code));
   const events = (eventsData ?? []) as EventRow[];
