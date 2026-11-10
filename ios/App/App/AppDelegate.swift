@@ -76,5 +76,6 @@ class MainViewController: CAPBridgeViewController {
         // knows about them when they're registered here.
         bridge?.registerPluginInstance(FcmTokenPlugin())
         bridge?.registerPluginInstance(GlobeTouchPlugin())
+        bridge?.registerPluginInstance(PhotoPickerPlugin())
     }
 }

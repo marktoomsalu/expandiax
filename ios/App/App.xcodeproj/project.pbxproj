@@ -21,6 +21,7 @@
 		B7FFD40B3024D07700D0B93B /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = B7FFD40A3024D07700D0B93B /* FirebaseMessaging */; };
 		B7FFD40D3024D0B000D0B93B /* FcmTokenPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FFD40C3024D0B000D0B93B /* FcmTokenPlugin.swift */; };
 		C1A0B0C22EF0A00100A1B2C3 /* GlobeTouchPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A0B0C12EF0A00100A1B2C3 /* GlobeTouchPlugin.swift */; };
+		D2B1C0D22EF0B00100B2C3D4 /* PhotoPickerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B1C0D12EF0B00100B2C3D4 /* PhotoPickerPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +40,7 @@
 		B7FFD4053023EBE400D0B93B /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		B7FFD40C3024D0B000D0B93B /* FcmTokenPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FcmTokenPlugin.swift; sourceTree = "<group>"; };
 		C1A0B0C12EF0A00100A1B2C3 /* GlobeTouchPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobeTouchPlugin.swift; sourceTree = "<group>"; };
+		D2B1C0D12EF0B00100B2C3D4 /* PhotoPickerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPickerPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +81,7 @@
 			children = (
 				B7FFD40C3024D0B000D0B93B /* FcmTokenPlugin.swift */,
 				C1A0B0C12EF0A00100A1B2C3 /* GlobeTouchPlugin.swift */,
+				D2B1C0D12EF0B00100B2C3D4 /* PhotoPickerPlugin.swift */,
 				B7FFD4053023EBE400D0B93B /* GoogleService-Info.plist */,
 				B760EE5530226CA600810CEB /* App.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
@@ -189,6 +192,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				B7FFD40D3024D0B000D0B93B /* FcmTokenPlugin.swift in Sources */,
 				C1A0B0C22EF0A00100A1B2C3 /* GlobeTouchPlugin.swift in Sources */,
+				D2B1C0D22EF0B00100B2C3D4 /* PhotoPickerPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -330,7 +334,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = DLT7RVX2J5;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -354,7 +358,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = DLT7RVX2J5;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;

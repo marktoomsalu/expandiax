@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Camera as CameraIcon, ImagePlus, Loader2, MapPin, Move, Star, Trash2 } from "lucide-react";
@@ -22,6 +22,9 @@ import { readPhotoFacts, savePlaces } from "./PhotoPlaceSuggestion";
 import { PhotoArranger } from "./PhotoArranger";
 import { placeByTime } from "@/lib/mediaOrder";
 import { pickCover } from "@/lib/photoPrepare";
+import { hasNativePhotoPicker, pickNativePhotos, type PickProgress } from "@/lib/nativePhotoPicker";
+
+const never = () => () => {};
 
 type Props = {
   userId: string;
@@ -67,6 +70,31 @@ export function MediaUploader(props: Props) {
   const [deleting, setDeleting] = useState(false);
   const [toReposition, setToReposition] = useState<MediaItem | null>(null);
   const [addedPlaces, setAddedPlaces] = useState<string[]>([]);
+  // The app's own picker (build 10+): it closes at once and photos follow from iCloud.
+  const nativePicker = useSyncExternalStore(never, hasNativePhotoPicker, () => false);
+  const [fetching, setFetching] = useState<PickProgress | null>(null);
+
+  async function pickNative() {
+    if (photoRemaining <= 0) {
+      setError(`You can keep up to ${photoCap} photos here. Remove one to add another.`);
+      return;
+    }
+    setError(null);
+    try {
+      const { files, failed } = await pickNativePhotos(
+        photoRemaining,
+        (n) => n && setFetching({ total: n, done: 0, fraction: 0 }),
+        setFetching
+      );
+      if (failed) setError(`${failed} ${failed === 1 ? "photo" : "photos"} couldn't be downloaded from iCloud. Try those again.`);
+      if (files.length) {
+        window.dispatchEvent(new CustomEvent<File[]>("expandiax:photos-picked", { detail: files }));
+        await addAndUpload(files);
+      }
+    } finally {
+      setFetching(null);
+    }
+  }
 
   const photoCount = items.filter((m) => m.media_type === "image").length;
   const videoCount = items.filter((m) => m.media_type === "video").length;
@@ -311,13 +339,20 @@ export function MediaUploader(props: Props) {
               </label>
             </>
           )}
-          <label
-            htmlFor={`${table}-media-input`}
-            className={cn(tile, "cursor-pointer", photoRemaining <= 0 && videoRemaining <= 0 && "pointer-events-none opacity-40")}
-          >
-            <ImagePlus size={24} className="shrink-0 text-accent" aria-hidden />
-            {tileText("Add photos or videos", "From your device or library")}
-          </label>
+          {nativePicker ? (
+            <button type="button" onClick={() => void pickNative()} className={cn(tile, photoRemaining <= 0 && "pointer-events-none opacity-40")}>
+              <ImagePlus size={24} className="shrink-0 text-accent" aria-hidden />
+              {tileText("Add photos", "From your library")}
+            </button>
+          ) : (
+            <label
+              htmlFor={`${table}-media-input`}
+              className={cn(tile, "cursor-pointer", photoRemaining <= 0 && videoRemaining <= 0 && "pointer-events-none opacity-40")}
+            >
+              <ImagePlus size={24} className="shrink-0 text-accent" aria-hidden />
+              {tileText("Add photos or videos", "From your device or library")}
+            </label>
+          )}
         </div>
       )}
       <div className="flex items-baseline justify-between">
@@ -400,6 +435,30 @@ export function MediaUploader(props: Props) {
         </div>
       )}
 
+      {nativePicker && videoRemaining > 0 && (
+        <label htmlFor={`${table}-media-input`} className="mt-3 inline-block cursor-pointer text-sm font-medium text-accent hover:underline">
+          Add a video
+        </label>
+      )}
+
+      {fetching && (
+        <div className="mt-4" role="status">
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {Array.from({ length: Math.min(fetching.total, 8) }, (_, i) => (
+              <li key={i} className={cn("aspect-square rounded-lg bg-raised", i >= fetching.done && "animate-pulse")} />
+            ))}
+          </ul>
+          <p className="mt-2 flex items-center gap-2 text-xs text-muted">
+            <Loader2 size={14} className="animate-spin text-accent" aria-hidden />
+            Getting {fetching.total} {fetching.total === 1 ? "photo" : "photos"} from your library… {Math.round(fetching.fraction * 100)}%. Keep going, they&rsquo;ll
+            upload by themselves.
+          </p>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-raised">
+            <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${Math.round(fetching.fraction * 100)}%` }} />
+          </div>
+        </div>
+      )}
+
       {preparing > 0 && (
         <p className="mt-4 flex items-center gap-2 text-xs text-muted" role="status">
           <Loader2 size={14} className="animate-spin text-accent" aria-hidden />
@@ -475,16 +534,23 @@ export function MediaUploader(props: Props) {
               round trip the Camera plugin needs per photo — that conversion
               was the main source of the native picker feeling slower than web.
             */}
-            <label
-              htmlFor={`${table}-media-input`}
-              className={cn(
-                "btn-ghost cursor-pointer !py-2 text-sm",
-                photoRemaining <= 0 && videoRemaining <= 0 && "pointer-events-none opacity-40"
-              )}
-            >
-              <ImagePlus size={16} />
-              Add photos or videos
-            </label>
+            {nativePicker ? (
+              <button type="button" onClick={() => void pickNative()} className={cn("btn-ghost !py-2 text-sm", photoRemaining <= 0 && "pointer-events-none opacity-40")}>
+                <ImagePlus size={16} />
+                Add photos
+              </button>
+            ) : (
+              <label
+                htmlFor={`${table}-media-input`}
+                className={cn(
+                  "btn-ghost cursor-pointer !py-2 text-sm",
+                  photoRemaining <= 0 && videoRemaining <= 0 && "pointer-events-none opacity-40"
+                )}
+              >
+                <ImagePlus size={16} />
+                Add photos or videos
+              </label>
+            )}
           </div>
         )}
         <span className={cn("text-xs text-muted", !tiles && "ml-3")}>JPEG/PNG/WebP up to 10 MB, or MP4/WebM/MOV up to 300 MB</span>

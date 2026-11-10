@@ -1,7 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { X } from "lucide-react";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { Loader2, X } from "lucide-react";
+import { hasNativePhotoPicker, pickNativePhotos, type PickProgress } from "@/lib/nativePhotoPicker";
+
+const never = () => () => {};
 import { classifyFile, validateFile } from "@/lib/media";
 import { convertHeic } from "@/lib/heic";
 
@@ -32,6 +35,25 @@ export function PendingMediaPicker({
   const [error, setError] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // The app's own picker (build 10+): it closes at once and photos follow from iCloud.
+  const nativePicker = useSyncExternalStore(never, hasNativePhotoPicker, () => false);
+  const [fetching, setFetching] = useState<PickProgress | null>(null);
+
+  async function pickNative() {
+    const left = photoCap - items.filter((i) => i.kind === "image").length;
+    if (left <= 0) {
+      setError(`You can add up to ${photoCap} photos here.`);
+      return;
+    }
+    setError(null);
+    try {
+      const { files, failed } = await pickNativePhotos(left, (n) => n && setFetching({ total: n, done: 0, fraction: 0 }), setFetching);
+      if (failed) setError(`${failed} ${failed === 1 ? "photo" : "photos"} couldn't be downloaded from iCloud. Try those again.`);
+      if (files.length) addFiles(files);
+    } finally {
+      setFetching(null);
+    }
+  }
 
   const photoCount = items.filter((i) => i.kind === "image").length;
   const videoCount = items.filter((i) => i.kind === "video").length;
@@ -107,14 +129,34 @@ export function PendingMediaPicker({
           ))}
         </ul>
       )}
+      {fetching && (
+        <p className="mb-3 flex items-center gap-2 text-xs text-muted" role="status">
+          <Loader2 size={14} className="animate-spin text-accent" aria-hidden />
+          Getting {fetching.total} {fetching.total === 1 ? "photo" : "photos"} from your library… {Math.round(fetching.fraction * 100)}%. Fill in the rest
+          meanwhile, and save once they&rsquo;re here.
+        </p>
+      )}
       <button
         type="button"
-        onClick={() => inputRef.current?.click()}
+        onClick={() => (nativePicker ? void pickNative() : inputRef.current?.click())}
         disabled={atCap}
         className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-card border border-dashed border-line bg-surface disabled:opacity-50"
       >
-        <span className="text-sm text-muted">{items.length > 0 ? "Add more photos or videos" : "Add photos or videos (optional)"}</span>
+        <span className="text-sm text-muted">
+          {nativePicker
+            ? items.length > 0
+              ? "Add more photos"
+              : "Add photos (optional)"
+            : items.length > 0
+              ? "Add more photos or videos"
+              : "Add photos or videos (optional)"}
+        </span>
       </button>
+      {nativePicker && videoCount < videoCap && (
+        <button type="button" onClick={() => inputRef.current?.click()} className="mt-2 text-sm font-medium text-accent hover:underline">
+          Add a video
+        </button>
+      )}
       <input
         ref={inputRef}
         type="file"
