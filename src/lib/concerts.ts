@@ -416,10 +416,12 @@ async function ticketmasterNearby(where: NearbyWhere, window: { startDateTime: s
  * each source getting its turn. Around a point Ticketmaster starts at 100 km
  * and widens to 400 km when that's quiet (a small city next to a big one).
  */
-export async function nearbyEvents(where: NearbyWhere, limit = 24): Promise<NearbyEvent[]> {
-  // Whole days, so everyone asking today shares one cached answer.
-  const today = new Date().toISOString().slice(0, 10);
-  const until = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
+export async function nearbyEvents(where: NearbyWhere, limit = 24, range?: { from: string; until: string }): Promise<NearbyEvent[]> {
+  // Whole days, so everyone asking today shares one cached answer. A range
+  // (the "When" chips on What's on) asks the sources for just those days.
+  const now = new Date().toISOString().slice(0, 10);
+  const today = range && range.from > now ? range.from : now;
+  const until = range?.until ?? new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
   const window = { startDateTime: `${today}T00:00:00Z`, endDateTime: `${until}T23:59:59Z` };
   const w = { from: today, until };
   const area = "lat" in where ? where : { countryCode: where.countryCode };

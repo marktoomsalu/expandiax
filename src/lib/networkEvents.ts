@@ -61,20 +61,30 @@ export function mergeNetworkEvents(rows: InterestRow[], nearby: NearbyEvent[], v
 
 export type NetworkEventCard = NetworkEvent & { friends: Person[] };
 
-export async function loadNetworkEvents(supabase: Supabase, viewerId: string, where: NearbyWhere | null, nearbyLimit = 24): Promise<NetworkEventCard[]> {
-  const today = new Date().toISOString().slice(0, 10);
+export async function loadNetworkEvents(
+  supabase: Supabase,
+  viewerId: string,
+  where: NearbyWhere | null,
+  nearbyLimit = 24,
+  // Only these days (What's on's "When"), and how many cards at most.
+  range?: { from: string; until: string },
+  limit = 16
+): Promise<NetworkEventCard[]> {
+  const now = new Date().toISOString().slice(0, 10);
+  const today = range && range.from > now ? range.from : now;
   const [{ data: follows }, { data: rows }, nearby] = await Promise.all([
     supabase.from("follows").select("followee_id").eq("follower_id", viewerId),
     supabase
       .from("event_interest")
       .select("user_id, event_key, name, event_date, venue, city, country_code, category, url, image")
       .gte("event_date", today)
+      .lte("event_date", range?.until ?? "9999-12-31")
       .order("event_date")
       .limit(500),
-    where ? nearbyEvents(where, nearbyLimit).catch(() => [] as NearbyEvent[]) : Promise.resolve([] as NearbyEvent[]),
+    where ? nearbyEvents(where, nearbyLimit, range).catch(() => [] as NearbyEvent[]) : Promise.resolve([] as NearbyEvent[]),
   ]);
   const following = new Set((follows ?? []).map((f) => f.followee_id));
-  const events = mergeNetworkEvents((rows ?? []) as InterestRow[], nearby, viewerId, following);
+  const events = mergeNetworkEvents((rows ?? []) as InterestRow[], nearby, viewerId, following, limit);
   const ids = [...new Set(events.flatMap((e) => e.friendIds.slice(0, 3)))];
   const { data: faces } = ids.length
     ? await supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", ids)
