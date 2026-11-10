@@ -10,13 +10,18 @@ type NotificationRow = {
   id: string;
   user_id: string;
   actor_id: string;
-  kind: NotificationKind;
-  target_kind: "country" | "event" | "question" | null;
+  // Notifications, plus chat messages (migration 064), which skip the Notifications list.
+  kind: PushKind;
+  target_kind: "country" | "event" | "question" | "conversation" | null;
   target_id: string | null;
   comment_body: string | null;
 };
 
-const TITLES: Record<NotificationKind, string> = {
+type PushKind = NotificationKind | "message" | "postcard";
+
+const TITLES: Record<PushKind, string> = {
+  message: "New message",
+  postcard: "A postcard for you",
   like: "New like",
   comment: "New comment",
   follow: "New follower",
@@ -27,7 +32,9 @@ const TITLES: Record<NotificationKind, string> = {
 };
 
 // Which Settings switch each kind of notification answers to.
-const CATEGORY: Record<NotificationKind, "push_followers" | "push_messages" | "push_activity"> = {
+const CATEGORY: Record<PushKind, "push_followers" | "push_messages" | "push_activity"> = {
+  message: "push_messages",
+  postcard: "push_messages",
   like: "push_activity",
   comment: "push_activity",
   follow: "push_followers",
@@ -78,6 +85,8 @@ export async function POST(request: NextRequest) {
   // places as tapping it in Notifications.
   const link = (() => {
     const me = owner?.username;
+    // A chat message opens that conversation in the chat bubble.
+    if (record.target_kind === "conversation" && record.target_id) return `/feed?chat=${record.target_id}`;
     const onComments = record.kind === "comment" ? "#comments" : "";
     if (record.target_kind === "country" && country && me) return `/u/${me}/countries/${country.country_code.toLowerCase()}`;
     if (record.target_kind === "event" && record.target_id && me) return `/u/${me}/events/${record.target_id}${onComments}`;
@@ -89,6 +98,10 @@ export async function POST(request: NextRequest) {
   const actorName = actor?.display_name ?? "Someone";
   const body = (() => {
     switch (record.kind) {
+      case "message":
+        return record.comment_body ?? "";
+      case "postcard":
+        return `${actorName}: "${record.comment_body ?? ""}"`;
       case "follow":
         return `${actorName} started following you`;
       case "like":
@@ -110,7 +123,8 @@ export async function POST(request: NextRequest) {
     tokens.map((t) =>
       messaging.send({
         token: t.token,
-        notification: { title: TITLES[record.kind], body },
+        // A message is titled with who wrote it, like any messaging app.
+        notification: { title: record.kind === "message" ? actorName : TITLES[record.kind], body },
         data: { kind: record.kind, notificationId: record.id, link },
         apns: { payload: { aps: { sound: "default" } } },
       })

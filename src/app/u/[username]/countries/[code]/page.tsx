@@ -3,6 +3,7 @@ import { countrySummary } from "@/lib/tripPlaces";
 import { CountryHero } from "@/components/CountryHero";
 import { CountryPlaces } from "@/components/CountryPlaces";
 import { StayTimeline } from "@/components/StayTimeline";
+import { AskAboutButton } from "@/components/chat/AskAboutButton";
 import Link from "next/link";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { notFound } from "next/navigation";
@@ -78,7 +79,7 @@ export default async function PublicCountryPage({
   const supabase = createClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name")
+    .select("id, username, display_name, avatar_url")
     .eq("username", params.username.toLowerCase())
     .maybeSingle();
   if (!profile) notFound();
@@ -198,6 +199,14 @@ export default async function PublicCountryPage({
         )}
 
         <CountryPlaces places={places} countryCode={meta.code} hrefFor={placeHref} />
+
+        {viewer && !isOwnProfile && (
+          <AskAboutButton
+            person={{ id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url ?? null }}
+            placeCode={meta.code}
+            placeName={meta.name}
+          />
+        )}
 
         {events.length > 0 && (
           <section className="mt-12" aria-labelledby="rel-h">

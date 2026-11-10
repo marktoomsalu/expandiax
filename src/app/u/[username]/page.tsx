@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { StockCredit } from "@/components/StockCredit";
+import { MessageButton } from "@/components/chat/AskAboutButton";
 import { StockImage } from "@/components/StockImage";
 import { BarChart3, ChevronRight, Pencil } from "lucide-react";
 import type { Metadata } from "next";
@@ -318,6 +319,9 @@ export default async function PublicProfilePage({ params, searchParams }: { para
                   initialFollowing={isFollowing}
                   initialRequested={hasPendingRequest}
                 />
+              )}
+              {!isOwnProfile && !preview && viewer && (
+                <MessageButton person={{ id: profile.id, username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url }} />
               )}
               {isOwnProfile && (
                 <>
