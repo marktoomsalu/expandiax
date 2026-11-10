@@ -109,6 +109,9 @@ export async function startTouch(mode: TouchState["mode"]): Promise<void> {
     set({ status: "unavailable" });
     return;
   }
+  // Opening World Connect means you want to connect now: no waiting out the
+  // pause that closing it started.
+  if (mode === "screen") quietUntil = 0;
   // Already running for the screen: the background listener doesn't take it back.
   if (state.status === "searching" && (state.mode === mode || mode === "background")) return;
   if (starting) await starting;
