@@ -239,32 +239,7 @@ export default async function PublicProfilePage({ params, searchParams }: { para
           </div>
         )}
         <div className="flex-1">
-          <div className="flex flex-wrap items-center gap-4">
-            <h1 className="text-4xl md:text-5xl">{profile.display_name}</h1>
-            {preview && (
-              <span className="btn-accent pointer-events-none !py-2 text-sm" aria-hidden>
-                Follow
-              </span>
-            )}
-            {!isOwnProfile && !preview && viewer && (
-              <FollowButton
-                targetId={profile.id}
-                visibility={profile.visibility}
-                initialFollowing={isFollowing}
-                initialRequested={hasPendingRequest}
-              />
-            )}
-            {isOwnProfile && (
-              <>
-                <Link href="/settings" className="btn-ghost !py-2 text-sm">
-                  <Pencil size={14} /> Edit profile
-                </Link>
-                <Link href="/stats" className="btn-ghost !py-2 text-sm">
-                  <BarChart3 size={14} /> Stats
-                </Link>
-              </>
-            )}
-          </div>
+          <h1 className="text-4xl md:text-5xl">{profile.display_name}</h1>
           {profile.bio && <p className="mt-2 max-w-xl leading-relaxed">{profile.bio}</p>}
           <p className="mt-1.5 text-sm text-muted">
             @{profile.username}
@@ -280,6 +255,34 @@ export default async function PublicProfilePage({ params, searchParams }: { para
               <span className="font-medium text-ink">{followingCount ?? 0}</span> following
             </Link>
           </p>
+          {/* Your own buttons, or Follow: under who you are and your followers. */}
+          {(preview || isOwnProfile || viewer) && (
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {preview && (
+                <span className="btn-accent pointer-events-none !py-2 text-sm" aria-hidden>
+                  Follow
+                </span>
+              )}
+              {!isOwnProfile && !preview && viewer && (
+                <FollowButton
+                  targetId={profile.id}
+                  visibility={profile.visibility}
+                  initialFollowing={isFollowing}
+                  initialRequested={hasPendingRequest}
+                />
+              )}
+              {isOwnProfile && (
+                <>
+                  <Link href="/settings" className="btn-ghost !py-2 text-sm">
+                    <Pencil size={14} /> Edit profile
+                  </Link>
+                  <Link href="/stats" className="btn-ghost !py-2 text-sm">
+                    <BarChart3 size={14} /> Stats
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
