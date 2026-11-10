@@ -1,6 +1,10 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Plane } from "lucide-react";
+import { Plane, RefreshCw } from "lucide-react";
+import { tapLight } from "@/lib/haptics";
 import { FollowButton } from "@/components/FollowButton";
 import type { ClickWith } from "@/lib/exploreData";
 
@@ -32,23 +36,67 @@ function Perforation() {
   );
 }
 
+// Twins you asked to swap, remembered on this phone so they don't come straight back.
+const SKIPPED = "expandiax.skippedTwins";
+const readSkipped = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(SKIPPED) ?? "[]");
+  } catch {
+    return [];
+  }
+};
+const writeSkipped = (ids: string[]) => {
+  try {
+    localStorage.setItem(SKIPPED, JSON.stringify(ids.slice(-50)));
+  } catch {
+    // Private mode: the swap still works for now.
+  }
+};
+
 /**
  * Your travel twin as a boarding pass: you and them as passengers, why you
- * match, and a stub with the Follow button. Without a twin yet, the pass
- * says how to get one.
+ * match, and a stub with the Follow button. "Someone else" swaps to your
+ * next-best match (round again once you've seen them all). Without a twin
+ * yet, the pass says how to get one.
  */
-export function BoardingPass({ me, twin }: { me: Face & { username: string }; twin: ClickWith | null }) {
+export function BoardingPass({ me, twins }: { me: Face & { username: string }; twins: ClickWith[] }) {
+  const [skipped, setSkipped] = useState<string[]>([]);
+  useEffect(() => setSkipped(readSkipped()), []);
+  const fresh = twins.filter((t) => !skipped.includes(t.id));
+  // Everyone seen: start again from the best match.
+  const twin = fresh[0] ?? twins[0] ?? null;
+
+  function next() {
+    if (!twin) return;
+    tapLight();
+    const seenAll = fresh.length <= 1;
+    const nextSkipped = seenAll ? [] : [...skipped.filter((id) => id !== twin.id), twin.id];
+    setSkipped(nextSkipped);
+    writeSkipped(nextSkipped);
+  }
+
   return (
     <section aria-labelledby="twin-h" className="overflow-hidden rounded-2xl bg-surface shadow-lg shadow-black/5 ring-1 ring-line">
       <div className="gradient-travel flex items-center justify-between px-4 py-2 text-white">
         <h2 id="twin-h" className="font-mono text-[11px] font-semibold tracking-[0.25em]">
           BOARDING PASS
         </h2>
-        <p className="font-mono text-[10px] tracking-[0.2em] text-white/85">YOUR TRAVEL TWIN</p>
+        {twin && twins.length > 1 ? (
+          <button
+            type="button"
+            onClick={next}
+            className="flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 font-mono text-[10px] tracking-[0.15em] text-white hover:bg-white/25"
+          >
+            <RefreshCw size={11} aria-hidden /> SOMEONE ELSE
+          </button>
+        ) : (
+          <p className="font-mono text-[10px] tracking-[0.2em] text-white/85">YOUR TRAVEL TWIN</p>
+        )}
       </div>
 
       {twin ? (
-        <>
+        <div key={twin.id} className="animate-[twin-in_.35s_ease-out]">
+          <style>{`@keyframes twin-in{from{opacity:0;transform:translateX(12px)}}@media (prefers-reduced-motion:reduce){[class*="twin-in"]{animation:none!important}}`}</style>
           <div className="px-4 pb-5 pt-4">
             <div className="flex items-center justify-between gap-2">
               <Passenger p={me} label="PASSENGER" href={`/u/${me.username}`} />
@@ -80,9 +128,9 @@ export function BoardingPass({ me, twin }: { me: Face & { username: string }; tw
               aria-hidden
               className="h-8 flex-1 opacity-70 [background:repeating-linear-gradient(90deg,currentColor_0_2px,transparent_2px_4px,currentColor_4px_5px,transparent_5px_8px)]"
             />
-            <FollowButton targetId={twin.id} visibility={twin.visibility} initialFollowing={false} />
+            <FollowButton key={twin.id} targetId={twin.id} visibility={twin.visibility} initialFollowing={false} refresh={false} />
           </div>
-        </>
+        </div>
       ) : (
         <div className="px-4 py-5">
           <p className="font-serif text-lg leading-snug">Your travel twin is waiting.</p>

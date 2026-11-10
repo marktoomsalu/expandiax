@@ -98,7 +98,8 @@ export async function loadExplore(supabase: Supabase, viewerId: string | null, h
       })
       .filter((c) => c.score >= 2 && c.reason)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 6);
+      // A few to choose from: "Someone else" on the boarding pass goes down this list.
+      .slice(0, 10);
   }
 
   const ids = [...new Set([...[...localIds.keys()].slice(0, 12), ...clickWithIds.map((c) => c.id)])];

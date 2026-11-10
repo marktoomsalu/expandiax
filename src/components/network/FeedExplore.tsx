@@ -355,7 +355,7 @@ async function Departures({ board: pending, home }: { board: Promise<Board>; hom
 
 async function Twin({ explore, me }: { explore: Promise<Explore>; me: { username: string; display_name: string; avatar_url: string | null } }) {
   const { clickWith } = await explore;
-  return <BoardingPass me={me} twin={clickWith[0] ?? null} />;
+  return <BoardingPass me={me} twins={clickWith} />;
 }
 
 /** For each dream destination someone's been to: the closest few of them, and their latest trip there. */
