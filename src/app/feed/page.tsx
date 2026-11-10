@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { LikeButton } from "@/components/LikeButton";
 import { FeedExplore } from "@/components/network/FeedExplore";
 import { FeedTabs, SearchBox } from "@/components/feed/FeedTabs";
+import { LoadMore } from "@/components/LoadMore";
 import { FirstFriends } from "@/components/FirstFriends";
 import { CommentSection } from "@/components/CommentSection";
 import { FeedMemoryCard, type FeedMediaItem } from "@/components/FeedMemoryCard";
@@ -38,7 +39,7 @@ const PAGE_SIZE = 30;
 type RawMedia = FeedMediaItem & { displayOrder: number };
 
 
-export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string; tab?: string; q?: string; city?: string; cc?: string; lat?: string; lng?: string; friends?: string } }) {
+export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string; seen?: string; tab?: string; q?: string; city?: string; cc?: string; lat?: string; lng?: string; friends?: string } }) {
   const supabase = createClient();
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
@@ -67,7 +68,10 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   // Captured before the update below overwrites it — "new since your last
   // visit" has to compare against where you last left off, not against
   // the value this same page load is about to set.
-  const previousLastSeenAt = viewerProfile?.feed_last_seen_at ?? null;
+  // "Load more" passes along the cut-off this visit started with, so posts
+  // don't move from "new" to "Earlier" (and the page jump) as you page.
+  const seenParam = searchParams?.seen && !Number.isNaN(Date.parse(searchParams.seen)) ? searchParams.seen : null;
+  const previousLastSeenAt = searchParams?.limit && seenParam ? seenParam : viewerProfile?.feed_last_seen_at ?? null;
   const ownEvents: OwnEventLite[] = (ownEventsRaw ?? []).map(({ event_media, ...e }) => ({
     ...e,
     media_count: (event_media as unknown as { count: number }[])[0]?.count ?? 0,
@@ -206,7 +210,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     // A burst within a week of joining is someone's first map — welcome them.
     const isNewMember = !!actor.created_at && Date.parse(newest) - Date.parse(actor.created_at) < 7 * 86_400_000;
     return (
-      <li key={`burst:${entry.items[0].ref_id}`} className="card overflow-hidden">
+      <li key={`burst:${entry.items[0].ref_id}`} data-feed-key={`burst:${entry.items[0].ref_id}`} className="card overflow-hidden">
         <CountryBurstCard actor={actor} codes={entry.items.map((i) => i.country_code)} isNewMember={isNewMember} when={formatRelative(newest)} />
       </li>
     );
@@ -241,7 +245,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         ? [item.venue, item.city || item.country_name].filter(Boolean).join(", ") || null
         : item.city || null;
     return (
-      <li key={key} className="card overflow-hidden">
+      <li key={key} data-feed-key={key} className="card overflow-hidden">
         <FeedMemoryCard
           href={href}
           kind={item.kind}
@@ -372,13 +376,11 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
         <section className="mt-12" aria-labelledby="earlier-h">
           <h2 id="earlier-h" className="text-sm font-medium text-muted">Earlier from people you follow</h2>
           <ul className="mt-4 space-y-8">{earlier.map((entry, i) => renderEntry(entry, fresh.length + i))}</ul>
-          {items.length >= limit && (
-            <div className="mt-8 flex justify-center">
-              <Link href={`/feed?limit=${limit + PAGE_SIZE}#earlier-h`} className="btn-ghost">
-                Load more
-              </Link>
-            </div>
-          )}
+          <LoadMore
+            href={`/feed?limit=${limit + PAGE_SIZE}${previousLastSeenAt ? `&seen=${encodeURIComponent(previousLastSeenAt)}` : ""}`}
+            shown={limit}
+            more={items.length >= limit}
+          />
         </section>
       )}
         </>
