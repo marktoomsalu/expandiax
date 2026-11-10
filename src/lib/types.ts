@@ -7,6 +7,8 @@ export type Profile = {
   username: string;
   display_name: string;
   avatar_url: string | null;
+  // Their own cover photo (migration 063); without one, their home country's photos take turns.
+  cover_url?: string | null;
   bio: string;
   home_country_code: string | null;
   visibility: ProfileVisibility;

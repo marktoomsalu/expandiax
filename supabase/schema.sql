@@ -1610,3 +1610,6 @@ alter table public.country_visits add column is_public boolean not null default 
 
 -- Two kinds of account and per-post audiences (migration 062): see supabase/migrations/062_audiences.sql
 -- country_visits.audience, events.audience: 'everyone' | 'friends' | 'only_me'
+
+-- Profile cover photo (migration 063)
+alter table public.profiles add column cover_url text check (cover_url is null or (cover_url ~ '^https://' and length(cover_url) <= 1000));

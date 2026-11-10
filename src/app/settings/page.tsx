@@ -7,6 +7,7 @@ import { ExportDataButton, DeleteAccountButton } from "@/components/AccountActio
 import { EmailToggle } from "@/components/EmailToggle";
 import { PushSettings } from "@/components/PushSettings";
 import { formatDate } from "@/lib/utils";
+import { stockPhotoFor } from "@/lib/stockPhotos";
 
 export const metadata = { title: "Settings" };
 
@@ -25,7 +26,7 @@ export default async function SettingsPage() {
         @{profile.username} · member since {formatDate(profile.created_at)}
       </p>
       <div className="mt-8">
-        <ProfileForm profile={profile} />
+        <ProfileForm profile={profile} homeCover={stockPhotoFor(profile.home_country_code, `${profile.id}:${new Date().toISOString().slice(0, 10)}`)} />
       </div>
       <div className="mt-10 border-t border-line pt-6">
         <Link href={`/u/${profile.username}?preview=1`} className="text-sm text-accent underline-offset-4 hover:underline">

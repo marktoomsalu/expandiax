@@ -10,6 +10,9 @@ import { COUNTRIES } from "@/lib/countries";
 import { validateFile } from "@/lib/media";
 import { convertHeic } from "@/lib/heic";
 import { AvatarCropper } from "./AvatarCropper";
+import { StockImage } from "./StockImage";
+import type { StockPhoto } from "@/lib/stockPhotos";
+import { preparePhoto } from "@/lib/photoPrepare";
 import { cn } from "@/lib/utils";
 import type { Profile, ProfileVisibility } from "@/lib/types";
 
@@ -22,8 +25,11 @@ export function ProfileForm({
   afterSaveHref,
   submitLabel = "Save profile",
   requireVisibilityChoice = false,
+  homeCover = null,
 }: {
   profile: Profile;
+  /** Today's photo of their home country: the cover when they haven't picked their own. */
+  homeCover?: StockPhoto | null;
   afterSaveHref?: string;
   submitLabel?: string;
   /** When true, neither Public nor Private is pre-selected — the user must actively pick one. */
@@ -43,6 +49,37 @@ export function ProfileForm({
   const [accentColor, setAccentColor] = useState(profile.accent_color ?? DEFAULT_ACCENT);
   // null = ExpandiaX's own pink (nothing saved), otherwise the chosen colour.
   const [accentChoice, setAccentChoice] = useState<string | null>(profile.accent_color ?? null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(profile.cover_url ?? null);
+  const [coverBusy, setCoverBusy] = useState(false);
+
+  async function pickCover(picked: File | undefined) {
+    if (!picked) return;
+    const {
+      files: [file],
+      failed,
+    } = await convertHeic([picked]);
+    if (!file || failed.length) {
+      setError(`Couldn't read “${picked.name}”. Try exporting it from Photos as JPEG.`);
+      return;
+    }
+    const problem = validateFile(file, "image");
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setError(null);
+    setCoverBusy(true);
+    // Shrunk and stripped of location data on the phone first, like every photo.
+    const ready = await preparePhoto(file);
+    const path = `${profile.id}/cover/${crypto.randomUUID()}.jpg`;
+    const { error: upErr } = await supabase.storage.from("avatars").upload(path, ready, { contentType: ready.type || "image/jpeg" });
+    setCoverBusy(false);
+    if (upErr) {
+      setError("Could not upload the cover photo. Try again.");
+      return;
+    }
+    setCoverUrl(supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl);
+  }
   // Private to public: the answer to "show your posts to everyone too?".
   const [askOpen, setAskOpen] = useState(false);
   const [openChoice, setOpenChoice] = useState<"all" | "choose" | null>(null);
@@ -160,6 +197,8 @@ export function ProfileForm({
         avatar_url: avatarUrl,
         // Only a colour someone actually chose; "Default" saves nothing.
         accent_color: accentChoice,
+        // Only sent when it changed.
+        ...(coverUrl !== (profile.cover_url ?? null) ? { cover_url: coverUrl } : {}),
       })
       .eq("id", profile.id);
     if (upErr) {
@@ -251,6 +290,41 @@ export function ProfileForm({
             <option key={c.code} value={c.code}>{c.name}</option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <p className="mb-1.5 block text-sm font-medium">Cover photo</p>
+        <div className="relative h-28 overflow-hidden rounded-2xl border border-line" style={{ backgroundColor: homeCover?.color ?? "#2b0b2e" }}>
+          {coverUrl ? (
+            <Image src={coverUrl} alt="Your cover photo" fill sizes="448px" className="object-cover" />
+          ) : homeCover ? (
+            <StockImage photo={homeCover} alt="" sizes="448px" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-[#2b0b2e] via-[#7c1d6f] to-[#fb7822]" aria-hidden />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" aria-hidden />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <label htmlFor="cover" className="btn-ghost cursor-pointer !py-2 text-sm">
+            {coverBusy ? "Uploading…" : coverUrl ? "Change cover" : "Add your own cover"}
+          </label>
+          <input
+            id="cover"
+            type="file"
+            accept="image/*,.heic,.heif"
+            className="sr-only"
+            onChange={(e) => {
+              void pickCover(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+          {coverUrl && (
+            <button type="button" onClick={() => setCoverUrl(null)} className="text-sm font-medium text-accent hover:underline">
+              Use photos of my home country
+            </button>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-muted">Without your own, photos of your home country take turns at the top of your profile.</p>
       </div>
 
       <div>

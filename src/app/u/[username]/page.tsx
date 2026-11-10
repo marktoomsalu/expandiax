@@ -228,27 +228,49 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   // Their own accent color, scoped to this page only, via the same CSS
   // variable every bg-accent/text-accent/border-accent class already reads
   // from — no per-component styling needed.
+  // Their home country's photos take turns, one a day.
+  const coverStock = profile.cover_url ? null : stockPhotoFor(profile.home_country_code, `${profile.id}:${new Date().toISOString().slice(0, 10)}`);
   const accentTriplet = profile.accent_color ? hexToRgbTriplet(profile.accent_color) : null;
   const accentStyle = accentTriplet ? ({ "--accent": accentTriplet } as React.CSSProperties) : undefined;
 
   return (
-    <div className="mx-auto max-w-shell px-5 py-12" style={accentStyle}>
+    <div style={accentStyle}>
+      {/* Cover: their own photo, or one of their home country's (a different one each day), fading into the page. */}
+      <div className="relative h-44 w-full overflow-hidden sm:h-60" style={{ backgroundColor: coverStock?.color ?? "rgb(43 11 46)" }}>
+        {profile.cover_url ? (
+          <Image src={profile.cover_url} alt="" fill priority sizes="100vw" className="object-cover" />
+        ) : coverStock ? (
+          <StockImage photo={coverStock} alt="" priority sizes="100vw" />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#2b0b2e] via-[#7c1d6f] to-[#fb7822]" aria-hidden />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-canvas/30 to-canvas" aria-hidden />
+        {!profile.cover_url && coverStock && <StockCredit photo={coverStock} className="absolute right-4 top-3 !text-white/70" />}
+      </div>
+    <div className="mx-auto -mt-20 max-w-shell px-5 pb-12 sm:-mt-24">
       {previewBanner}
       {/* Header */}
-      <header className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-        {profile.avatar_url ? (
-          <Image
-            src={profile.avatar_url}
-            alt={`${profile.display_name}'s photo`}
-            width={96}
-            height={96}
-            className="h-24 w-24 rounded-full border border-line object-cover"
-          />
-        ) : (
-          <div aria-hidden className="flex h-24 w-24 items-center justify-center rounded-full border border-line bg-raised font-serif text-3xl text-muted">
-            {profile.display_name.charAt(0)}
-          </div>
-        )}
+      <header className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-end">
+        {/* A halo in their accent colour (ExpandiaX pink unless they chose one). */}
+        <span
+          className="block shrink-0 rounded-full"
+          style={{ boxShadow: "0 0 0 4px rgb(var(--canvas)), 0 0 0 7px rgb(var(--accent)), 0 0 36px 8px rgb(var(--accent) / 0.55)" }}
+        >
+          {profile.avatar_url ? (
+            <Image
+              src={profile.avatar_url}
+              alt={`${profile.display_name}'s photo`}
+              width={112}
+              height={112}
+              priority
+              className="h-28 w-28 rounded-full object-cover"
+            />
+          ) : (
+            <span aria-hidden className="flex h-28 w-28 items-center justify-center rounded-full bg-raised font-serif text-4xl text-muted">
+              {profile.display_name.charAt(0)}
+            </span>
+          )}
+        </span>
         <div className="flex-1">
           <h1 className="text-4xl md:text-5xl">{profile.display_name}</h1>
           {profile.bio && <p className="mt-2 max-w-xl leading-relaxed">{profile.bio}</p>}
@@ -513,6 +535,7 @@ export default async function PublicProfilePage({ params, searchParams }: { para
       )}
 
       {isOwnProfile && <SignOutButton variant="floating" />}
+    </div>
     </div>
   );
 }
