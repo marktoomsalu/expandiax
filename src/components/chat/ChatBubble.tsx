@@ -584,7 +584,7 @@ function Composer({
           maxLength={2000}
           placeholder={placeholder}
           aria-label="Message"
-          className="max-h-32 min-h-[42px] flex-1 resize-none rounded-[22px] border border-line bg-canvas px-4 py-2.5 text-[15px] outline-none focus:border-accent"
+          className="max-h-32 min-h-[42px] flex-1 resize-none rounded-[22px] border border-line bg-canvas px-4 py-2.5 text-base outline-none focus:border-accent"
         />
         <button
           type="button"
@@ -712,7 +712,7 @@ function PlacePicker({ onPick, onClose }: { onPick: (p: ChatPlace) => void; onCl
   return (
     <div className="mb-2 rounded-2xl border border-line bg-canvas p-2">
       <div className="flex items-center gap-2">
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Which place is it about?" className="field !py-2 text-sm" aria-label="Search places" />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Which place is it about?" className="field !py-2" aria-label="Search places" />
         <button type="button" onClick={onClose} aria-label="Close" className="text-muted">
           <X size={18} />
         </button>

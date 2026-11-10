@@ -44,6 +44,10 @@ export const viewport: Viewport = {
   // silently a no-op, and the bottom tab bar sat flush against the home
   // indicator instead of clearing it.
   viewportFit: "cover",
+  // No zooming in by itself when a text box is tapped (iOS does that for
+  // text under 16px), and so no getting stuck zoomed inside the app. Safari
+  // still lets people pinch to zoom.
+  maximumScale: 1,
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
