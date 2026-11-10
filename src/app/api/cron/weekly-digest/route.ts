@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
       await resend.emails.send({
         from: "ExpandiaX <digest@expandiax.com>",
         to: email,
-        subject: "Your week on ExpandiaX",
+        subject: "Your World This Week",
         // Mail apps show their own one-click "Unsubscribe" from these.
         headers: { "List-Unsubscribe": `<${unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
         html: `

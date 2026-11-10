@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 import { createClient } from "@/lib/supabase/client";
@@ -8,6 +9,7 @@ import { isNativePlatform } from "@/lib/capacitor";
 import { FcmToken } from "@/lib/fcmToken";
 
 export function PushRegistration({ userId }: { userId: string }) {
+  const router = useRouter();
   useEffect(() => {
     if (!isNativePlatform()) return;
     const supabase = createClient();
@@ -30,6 +32,11 @@ export function PushRegistration({ userId }: { userId: string }) {
         { onConflict: "token" }
       );
     });
+    // Tapping a notification opens what it's about (the link /api/push/send adds).
+    const tapListener = PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
+      const link = (notification.data as { link?: string } | undefined)?.link;
+      router.push(link && link.startsWith("/") ? link : "/notifications");
+    });
     const errorListener = PushNotifications.addListener("registrationError", () => {
       // Graceful degradation — push just won't work for this device.
     });
@@ -41,8 +48,9 @@ export function PushRegistration({ userId }: { userId: string }) {
     return () => {
       registrationListener.then((l) => l.remove());
       errorListener.then((l) => l.remove());
+      tapListener.then((l) => l.remove());
     };
-  }, [userId]);
+  }, [userId, router]);
 
   return null;
 }

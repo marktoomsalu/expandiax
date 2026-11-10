@@ -14,6 +14,12 @@ export type Profile = {
   accent_color: string | null;
   weekly_digest_enabled: boolean;
   follow_email_enabled: boolean; // false = no "X started following you" emails
+  // Push categories (migration 060), all on by default.
+  push_followers: boolean;
+  push_messages: boolean;
+  push_activity: boolean;
+  push_reminders: boolean;
+  push_updates: boolean;
   signup_number: number;
   feed_last_seen_at: string | null;
   created_at: string;

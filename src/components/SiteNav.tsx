@@ -53,7 +53,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
   return (
     <>
       {user && <AddCountrySheet ref={addCountry} />}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-brand-purple/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-brand-purple pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-shell items-center justify-between px-5">
           <Wordmark linked={!signingUp} />
           {/* 44pt tap targets (Apple's minimum) — the icons stay small. */}

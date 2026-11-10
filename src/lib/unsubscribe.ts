@@ -6,7 +6,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 /** The emails someone can switch off, and the profile column behind each. */
 export const EMAIL_LISTS = {
-  digest: { column: "weekly_digest_enabled", name: "the weekly digest" },
+  digest: { column: "weekly_digest_enabled", name: "Your World This Week" },
   follows: { column: "follow_email_enabled", name: "emails about new followers" },
 } as const;
 export type EmailList = keyof typeof EMAIL_LISTS;

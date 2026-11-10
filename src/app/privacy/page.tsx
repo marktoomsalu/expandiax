@@ -68,8 +68,8 @@ export default function PrivacyPage() {
           <li>
             <Strong>Notifications</Strong> - if you use the app and allow notifications, a device token so we can send
             push notifications about likes, comments, new followers and questions or answers about places; and emails when someone starts following you and
-            a weekly digest. You can turn each email off in Settings, and every one has a one-click unsubscribe. <em>Legal basis:</em> contract, and
-            your consent for push notifications, which you can withdraw in your device’s settings at any time.
+            a weekly summary, &ldquo;Your World This Week&rdquo;. You can turn each email off in Settings, and every one has a one-click unsubscribe. <em>Legal basis:</em> contract, and
+            your consent for push notifications, which you can withdraw at any time in your device’s settings, or kind by kind in ExpandiaX’s Settings.
           </li>
           <li>
             <Strong>Reports and moderation</Strong> - reports you send us (who sent it, what it’s about, what you wrote)

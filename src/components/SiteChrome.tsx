@@ -31,7 +31,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
                 <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} className="h-5 w-auto" />
               </p>
               <div className="flex flex-col items-start gap-3 sm:items-end">
-                <p>Collecting the memories that matter.</p>
+                <p>Your world, remembered.</p>
                 <AppStoreBadge height={36} />
               </div>
             </div>

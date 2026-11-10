@@ -1596,3 +1596,11 @@ grant execute on function public.globe_touch_follow(text) to authenticated;
 
 -- World Connect dream places (migration 059): see supabase/migrations/059_world_connect_dreams.sql
 alter table public.globe_touches add column share_dreams boolean not null default false;
+
+-- Push notification categories (migration 060)
+alter table public.profiles
+  add column if not exists push_followers boolean not null default true,
+  add column if not exists push_messages boolean not null default true,
+  add column if not exists push_activity boolean not null default true,
+  add column if not exists push_reminders boolean not null default true,
+  add column if not exists push_updates boolean not null default true;

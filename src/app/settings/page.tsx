@@ -5,6 +5,7 @@ import { ProfileForm } from "@/components/ProfileForm";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ExportDataButton, DeleteAccountButton } from "@/components/AccountActions";
 import { EmailToggle } from "@/components/EmailToggle";
+import { PushSettings } from "@/components/PushSettings";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Settings" };
@@ -32,29 +33,47 @@ export default async function SettingsPage() {
         </Link>
       </div>
 
-      <div className="mt-8 space-y-4 border-t border-line pt-6">
-        <section id="emails" aria-labelledby="emails-h" className="scroll-mt-24">
-          <p id="emails-h" className="text-sm font-medium">Emails</p>
-          <p className="mt-1 text-xs text-muted">
-            Push notifications on your phone are separate - you choose those in your phone&rsquo;s Settings.
-          </p>
-          <div className="mt-3 space-y-3">
-            <div className="flex items-center justify-between gap-4">
+      <section aria-labelledby="notif-h" className="mt-10 border-t border-line pt-8">
+        <h2 id="notif-h" className="text-2xl">Notification settings</h2>
+
+        <section id="emails" aria-labelledby="emails-h" className="mt-6 scroll-mt-24">
+          <h3 id="emails-h" className="eyebrow">Emails</h3>
+          <ul className="mt-2 divide-y divide-line">
+            <li className="flex items-center justify-between gap-4 py-3.5">
               <div>
-                <p className="text-sm">New followers</p>
+                <p className="text-sm font-medium">New followers</p>
                 <p className="mt-0.5 text-xs text-muted">An email when someone starts following you.</p>
               </div>
               <EmailToggle userId={user.id} column="follow_email_enabled" label="Emails about new followers" initialEnabled={profile.follow_email_enabled} />
-            </div>
-            <div className="flex items-center justify-between gap-4">
+            </li>
+            <li className="flex items-center justify-between gap-4 py-3.5">
               <div>
-                <p className="text-sm">Weekly digest</p>
-                <p className="mt-0.5 text-xs text-muted">New followers, likes and comments, once a week.</p>
+                <p className="text-sm font-medium">Your World This Week</p>
+                <p className="mt-0.5 text-xs text-muted">Your new followers, likes and comments, once a week.</p>
               </div>
-              <EmailToggle userId={user.id} column="weekly_digest_enabled" label="Weekly digest email" initialEnabled={profile.weekly_digest_enabled} />
-            </div>
-          </div>
+              <EmailToggle userId={user.id} column="weekly_digest_enabled" label="Your World This Week email" initialEnabled={profile.weekly_digest_enabled} />
+            </li>
+          </ul>
         </section>
+
+        <section id="push" aria-labelledby="push-h" className="mt-6 scroll-mt-24">
+          <h3 id="push-h" className="eyebrow">Push notifications</h3>
+          <p className="mt-1 text-xs text-muted">Choose which notifications you&rsquo;d like to receive.</p>
+          <PushSettings
+            userId={user.id}
+            initial={{
+              push_followers: profile.push_followers ?? true,
+              push_messages: profile.push_messages ?? true,
+              push_activity: profile.push_activity ?? true,
+              push_reminders: profile.push_reminders ?? true,
+              push_updates: profile.push_updates ?? true,
+            }}
+          />
+        </section>
+      </section>
+
+      <section aria-labelledby="other-h" className="mt-10 space-y-6 border-t border-line pt-8">
+        <h2 id="other-h" className="text-2xl">Other</h2>
         <div>
           <p className="text-sm font-medium">Blocked accounts</p>
           <p className="mt-1 text-xs text-muted">People you&rsquo;ve blocked can&rsquo;t see you, and you can&rsquo;t see them.</p>
@@ -70,7 +89,7 @@ export default async function SettingsPage() {
           <p className="mt-1 text-xs text-muted">Permanently delete your account and everything in it.</p>
           <div className="mt-3"><DeleteAccountButton userId={user.id} /></div>
         </div>
-      </div>
+      </section>
 
       <div className="mt-8 flex justify-end border-t border-line pt-6">
         <SignOutButton />

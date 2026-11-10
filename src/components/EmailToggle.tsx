@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
+import { tapLight } from "@/lib/haptics";
+import { Switch } from "./Switch";
 
 /** On/off for one kind of email, saved straight to the member's profile. */
 export function EmailToggle({
@@ -16,31 +17,17 @@ export function EmailToggle({
   label: string;
   initialEnabled: boolean;
 }) {
-  const supabase = createClient();
   const [enabled, setEnabled] = useState(initialEnabled);
   const [busy, setBusy] = useState(false);
 
-  async function toggle() {
+  async function change(next: boolean) {
+    tapLight();
     setBusy(true);
-    const next = !enabled;
-    const { error } = await supabase.from("profiles").update({ [column]: next }).eq("id", userId);
-    if (!error) setEnabled(next);
+    setEnabled(next);
+    const { error } = await createClient().from("profiles").update({ [column]: next }).eq("id", userId);
+    if (error) setEnabled(!next);
     setBusy(false);
   }
 
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={busy}
-      aria-pressed={enabled}
-      aria-label={label}
-      className={cn(
-        "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-        enabled ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-accent"
-      )}
-    >
-      {enabled ? "On" : "Off"}
-    </button>
-  );
+  return <Switch checked={enabled} onChange={change} label={label} disabled={busy} />;
 }

@@ -124,6 +124,25 @@ export default async function MyWorldPage() {
         </div>
       </div>
 
+      {withoutPhotos.length > 0 && (
+        <Link
+          href={`/my-world/${withoutPhotos[0].country_code.toLowerCase()}`}
+          className="card mt-6 flex items-center gap-3 px-4 py-3.5 transition-shadow hover:shadow-md"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+            <ImagePlus size={18} aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">
+              {withoutPhotos.length === 1 ? "1 country is" : `${withoutPhotos.length} countries are`} waiting for your photos
+            </span>
+            <span className="block truncate text-xs text-muted">
+              Start with {withoutPhotos[0].country_name} - add a few photos and a line about the trip.
+            </span>
+          </span>
+          <span className="shrink-0 text-xs font-semibold text-accent">Add →</span>
+        </Link>
+      )}
       <div className="mt-8">
         <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} livedCodes={livedCodes} dreamCodes={dreamCodes} />
       </div>
@@ -170,25 +189,6 @@ export default async function MyWorldPage() {
 
           <section className="mt-10" aria-labelledby="countries-h">
             <h2 id="countries-h" className="text-xl">Your countries</h2>
-            {withoutPhotos.length > 0 && (
-              <Link
-                href={`/my-world/${withoutPhotos[0].country_code.toLowerCase()}`}
-                className="card mt-4 flex items-center gap-3 px-4 py-3.5 transition-shadow hover:shadow-md"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
-                  <ImagePlus size={18} aria-hidden />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">
-                    {withoutPhotos.length === 1 ? "1 country is" : `${withoutPhotos.length} countries are`} waiting for your photos
-                  </span>
-                  <span className="block truncate text-xs text-muted">
-                    Start with {withoutPhotos[0].country_name} - add a few photos and a line about the trip.
-                  </span>
-                </span>
-                <span className="shrink-0 text-xs font-semibold text-accent">Add →</span>
-              </Link>
-            )}
             <div className="mt-4">
               <CountryGrid countries={countries} stock={stock} />
             </div>
