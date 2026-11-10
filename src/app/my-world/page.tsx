@@ -144,7 +144,7 @@ export default async function MyWorldPage() {
           <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard label="Countries" value={countryCodes.length} detail={`of ${TOTAL_COUNTRIES} recognised countries`} />
             {territoryCount > 0 && (
-              <StatCard label="Territories" value={territoryCount} detail={`of ${TOTAL_TERRITORIES} tracked - separate from your 195`} />
+              <StatCard label="Territories" value={territoryCount} detail={`of ${TOTAL_TERRITORIES} tracked - separate from your ${TOTAL_COUNTRIES}`} />
             )}
             <StatCard label="World explored" value={`${pct}%`} detail="and counting" />
             <StatCard label="Continents" value={`${visitedContinents}/6`} detail="have your footprints" />

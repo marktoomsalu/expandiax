@@ -8,6 +8,10 @@
 //    Russia; here its polygon moves to Ukraine and is merged in (the shared
 //    Perekop border dissolves, so no line runs across Ukraine).
 //
+// 2. Kosovo has no ISO number, so Natural Earth leaves its shape without an
+//    id and the app can't colour it. It gets "XK", the same value as its
+//    `numeric` in src/data/countries.json.
+//
 // (French Guiana, which the same data bundles with France, is split off at
 // load time in WorldGlobeInner instead.)
 
@@ -33,14 +37,19 @@ const isCrimea = (poly) => {
 };
 const index = ruFeature.geometry.type === "MultiPolygon" ? ruFeature.geometry.coordinates.findIndex(isCrimea) : -1;
 if (index === -1) {
-  console.log("Crimea is already not part of Russia here - nothing to do.");
-  process.exit(0);
+  console.log("Crimea is already not part of Russia here.");
+} else {
+  const crimea = { type: "Polygon", arcs: russia.arcs[index] };
+  russia.arcs = russia.arcs.filter((_, i) => i !== index);
+  const merged = mergeArcs(topology, [ukraine, crimea]);
+  Object.assign(ukraine, { type: merged.type, arcs: merged.arcs });
+  console.log(`Moved Crimea (Russia's part ${index}) to Ukraine.`);
 }
 
-const crimea = { type: "Polygon", arcs: russia.arcs[index] };
-russia.arcs = russia.arcs.filter((_, i) => i !== index);
-const merged = mergeArcs(topology, [ukraine, crimea]);
-Object.assign(ukraine, { type: merged.type, arcs: merged.arcs });
+const kosovo = geometries.find((g) => g.properties?.name === "Kosovo");
+if (kosovo && kosovo.id !== "XK") {
+  kosovo.id = "XK";
+  console.log("Gave Kosovo its id.");
+}
 
 writeFileSync(FILE, JSON.stringify(topology));
-console.log(`Moved Crimea (Russia's part ${index}) to Ukraine.`);

@@ -704,6 +704,14 @@
   "capital": "South Tarawa"
  },
  {
+  "code": "XK",
+  "numeric": "XK",
+  "name": "Kosovo",
+  "continent": "Europe",
+  "flag": "🇽🇰",
+  "capital": "Pristina"
+ },
+ {
   "code": "KW",
   "numeric": "414",
   "name": "Kuwait",

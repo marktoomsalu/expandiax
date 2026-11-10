@@ -10,9 +10,9 @@ export type Country = {
 };
 
 // The canonical country list used everywhere in the product:
-// 193 UN member states plus Palestine and Vatican City = 195 countries.
+// 193 UN member states plus Palestine, Vatican City and Kosovo = 196 countries.
 export const COUNTRIES = raw as Country[];
-export const TOTAL_COUNTRIES = COUNTRIES.length; // 195
+export const TOTAL_COUNTRIES = COUNTRIES.length; // 196
 
 export const CONTINENTS = [
   "Africa",
@@ -78,6 +78,8 @@ export const NAME_ALIASES: Record<string, string> = {
   "north korea": "KP",
   czechia: "CZ",
   persia: "IR",
+  kosova: "XK",
+  "republic of kosovo": "XK",
   ceylon: "LK",
 };
 

@@ -322,7 +322,7 @@ export default async function PublicProfilePage({ params }: { params: { username
       {/* Territories */}
       {territories.length > 0 && (
         <section id="territories" className="mt-14" aria-labelledby="territories-h">
-          <p className="eyebrow">Beyond the 195</p>
+          <p className="eyebrow">Beyond the {TOTAL_COUNTRIES}</p>
           <h2 id="territories-h" className="mt-1 text-2xl md:text-3xl">{territories.length} of {TOTAL_TERRITORIES} territories</h2>
           <ul className="mt-6 flex flex-wrap gap-2">
             {territories.map((t) => (

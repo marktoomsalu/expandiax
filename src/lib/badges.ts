@@ -7,6 +7,7 @@ import {
   Star, Camera, Gem, CalendarDays, Hourglass,
 } from "lucide-react";
 import type { AllTimeStats } from "./stats";
+import { TOTAL_COUNTRIES } from "./countries";
 
 export type BadgeGroup = "countries" | "continents" | "events" | "types" | "curation";
 
@@ -47,7 +48,7 @@ export const BADGES: BadgeDef[] = [
   def("country-25", "Globetrotter", "Visit 25 countries.", Globe2, "countries", 25, (s) => s.totalCountries),
   def("country-50", "Jetsetter", "Visit 50 countries.", Plane, "countries", 50, (s) => s.totalCountries),
   def("country-100", "Voyager", "Visit 100 countries.", Rocket, "countries", 100, (s) => s.totalCountries),
-  def("country-195", "World Conqueror", "Visit every recognised country.", Crown, "countries", 195, (s) => s.totalCountries),
+  def("country-195", "World Conqueror", "Visit every recognised country.", Crown, "countries", TOTAL_COUNTRIES, (s) => s.totalCountries),
 
   def("continents-3", "Continental", "Set foot on 3 continents.", Layers, "continents", 3, (s) => s.continentsVisited),
   def("continents-5", "Hemisphere Hopper", "Set foot on 5 continents.", Orbit, "continents", 5, (s) => s.continentsVisited),

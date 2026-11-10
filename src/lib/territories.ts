@@ -10,16 +10,16 @@ export type Territory = {
   name: string;
   continent: string; // display only — deliberately not the Country CONTINENTS
   // union, so it can't accidentally add a 7th (mostly-empty) card to the
-  // "browse all 195 by continent" grid, which only ever iterates COUNTRIES.
+  // "browse all 196 by continent" grid, which only ever iterates COUNTRIES.
   flag?: string; // override for codes territoryFlag() can't compute a flag
   // from (anything that isn't exactly 2 letters) — falls back to the
   // parent country's flag, since Unicode has no flag of its own for these.
 };
 
 // Non-sovereign territories and dependencies — travelers commonly track
-// these alongside the 195 recognised countries, but they deliberately don't
+// these alongside the 196 countries, but they deliberately don't
 // count toward TOTAL_COUNTRIES. Genuinely disputed sovereignty cases
-// (Taiwan, Kosovo, Northern Cyprus, Western Sahara, Somaliland) are left out
+// (Taiwan, Northern Cyprus, Western Sahara, Somaliland) are left out
 // on purpose rather than us deciding that for the user.
 //
 // Kept in sync by hand with the `territories` reference table in

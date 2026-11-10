@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TOTAL_COUNTRIES } from "./countries";
 import { BADGES, EARLY_EXPLORER_THRESHOLD, evaluateBadges, isEarlyExplorer } from "./badges";
 import type { AllTimeStats } from "./stats";
 
@@ -29,7 +30,7 @@ describe("evaluateBadges", () => {
 
   it("caps progress at the badge's target even when the stat exceeds it", () => {
     const badge = evaluateBadges(stats({ totalCountries: 500 })).find((b) => b.id === "country-195");
-    expect(badge?.current).toBe(195);
+    expect(badge?.current).toBe(TOTAL_COUNTRIES);
     expect(badge?.isUnlocked).toBe(true);
   });
 
