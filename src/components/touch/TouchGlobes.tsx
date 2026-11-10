@@ -37,13 +37,22 @@ type Result = {
   they_follow: boolean;
   i_requested: boolean;
   they_requested: boolean;
+  i_share_dreams?: boolean;
+  they_share_dreams?: boolean;
+  /** Only once both have said yes. */
+  my_dreams?: Dream[];
+  peer_dreams?: Dream[];
 };
+type Dream = { code: string; place: string };
 
 // The colours of two globes together.
 const MINE = "#fb7822";
-const THEIRS = "#2dd4bf";
-const BOTH = "#fde047";
+const THEIRS = "#8b3fd9";
+const BOTH = "#f2b01e";
 const LIVED = "#fa51a2";
+// The rings around the two faces: the brand gradient, leaning to each one's colour.
+const MY_RING = "linear-gradient(135deg, #fb7822, #fa51a2)";
+const THEIR_RING = "linear-gradient(135deg, #fa51a2, #8b3fd9)";
 
 const firstName = (p: TouchMe) => (hasRealName(p.display_name) ? p.display_name.trim().split(/\s+/)[0] : `@${p.username}`);
 
@@ -55,6 +64,8 @@ function buzz(style: ImpactStyle) {
 // Where the touch state comes from: the phone, or a made-up one for ?demo.
 
 const DEMO_PEER: Peer = { id: "demo-peer", username: "alex", display_name: "Alex", avatar_url: null, home_country_code: "PT", visibility: "public" };
+const DEMO_PEER_DREAMS: Dream[] = [{ code: "JP", place: "Kyoto" }, { code: "IS", place: "" }, { code: "PE", place: "Machu Picchu" }, { code: "NZ", place: "" }, { code: "FI", place: "Lapland" }];
+const DEMO_MY_DREAMS: Dream[] = [{ code: "IS", place: "" }, { code: "AR", place: "Patagonia" }, { code: "MA", place: "Marrakech" }, { code: "NZ", place: "Queenstown" }];
 const DEMO_PEER_COUNTRIES = ["IT", "ES", "FR", "PT", "GR", "HR", "XK", "AL", "JP", "TH", "US", "MX", "MA", "TR", "DE", "BR", "PE", "VN"].map((code) => ({ code, lived: code === "PT" }));
 const DEMO_CODE = "0".repeat(32);
 
@@ -135,7 +146,7 @@ export function TouchGlobes({
     });
     return () => {
       void sub.then((l) => l.remove());
-      clearTouch();
+      clearTouch(30_000);
       if (isTouchReady()) void startTouch("background");
       else void stopTouch();
     };
@@ -202,6 +213,21 @@ export function TouchGlobes({
     return () => clearInterval(id);
   }, [!!result, demo, touch?.myCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function shareDreams() {
+    if (!touch || !result) return;
+    buzz(ImpactStyle.Medium);
+    if (demo) {
+      setResult({ ...result, i_share_dreams: true });
+      setTimeout(() => setResult((r) => (r ? { ...r, they_share_dreams: true, my_dreams: DEMO_MY_DREAMS, peer_dreams: DEMO_PEER_DREAMS } : r)), 1600);
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.rpc("globe_touch_share_dreams", { p_code: touch.myCode });
+    if (error) return;
+    const { data } = await supabase.rpc("globe_touch", { p_code: touch.myCode, p_peer_code: touch.peerCode });
+    if (data) setResult(data as Result);
+  }
+
   async function follow() {
     if (!touch || !result) return;
     buzz(ImpactStyle.Medium);
@@ -217,13 +243,18 @@ export function TouchGlobes({
     if (data) setResult(data as Result);
   }
 
-  const close = () => router.push("/my-world");
+  // Closing: forget the touch first, so nothing sends you straight back here,
+  // and give the phones half a minute before they can connect again.
+  const close = () => {
+    if (!demo) clearTouch(30_000);
+    router.push("/my-world");
+  };
 
   let body: React.ReactNode;
   if (!mounted) body = null;
   else if (!demo && !hasGlobeTouch()) body = <Unsupported />;
   else if (!started) body = <Intro me={me} myCountries={myCountries} size={size} onStart={begin} />;
-  else if (result) body = <Reveal me={me} result={result} size={size} onFollow={follow} onAgain={again} />;
+  else if (result) body = <Reveal me={me} result={result} size={size} onFollow={follow} onShareDreams={shareDreams} onAgain={again} />;
   else if (failed) body = <Failed onAgain={again} />;
   else body = <Searching state={s} myCountries={myCountries} size={size} touching={!!touch} />;
 
@@ -334,7 +365,7 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
         />
         <Rings speed={2.6 - 2 * c} strength={0.3 + 0.7 * c} />
         <div style={{ filter: `drop-shadow(0 0 ${12 + 50 * c}px rgba(251,120,34,${0.25 + 0.6 * c}))` }}>
-          <TouchGlobe size={size} colors={colors} spin={0.7 + 9 * c} glow={c > 0.5 ? "#fde047" : "#fa51a2"} />
+          <TouchGlobe size={size} colors={colors} spin={0.7 + 9 * c} glow={c > 0.5 ? "#f2b01e" : "#fa51a2"} />
         </div>
         {touching && <div className="touch-flash pointer-events-none fixed inset-0 z-30" aria-hidden />}
       </div>
@@ -365,7 +396,7 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
   );
 }
 
-function Reveal({ me, result, size, onFollow, onAgain }: { me: TouchMe; result: Result; size: number; onFollow: () => void; onAgain: () => void }) {
+function Reveal({ me, result, size, onFollow, onShareDreams, onAgain }: { me: TouchMe; result: Result; size: number; onFollow: () => void; onShareDreams: () => void; onAgain: () => void }) {
   const { peer } = result;
   const name = firstName(peer);
   const g = useMemo(() => compareGlobes(result.my_countries, result.peer_countries), [result.my_countries, result.peer_countries]);
@@ -383,9 +414,9 @@ function Reveal({ me, result, size, onFollow, onAgain }: { me: TouchMe; result: 
   return (
     <div className="flex flex-col items-center pb-6 text-center">
       <div className="mt-6 flex items-center justify-center">
-        <div className="touch-from-left"><Face person={me} size={84} ring={MINE} /></div>
+        <div className="touch-from-left"><Face person={me} size={84} ring={MY_RING} glow={MINE} /></div>
         <div className="touch-spark mx-[-10px] z-10 h-6 w-6 rounded-full" aria-hidden />
-        <div className="touch-from-right"><Face person={peer} size={84} ring={THEIRS} /></div>
+        <div className="touch-from-right"><Face person={peer} size={84} ring={THEIR_RING} glow={THEIRS} /></div>
       </div>
       <p className="touch-rise mt-4 font-serif text-2xl" style={{ animationDelay: "500ms" }}>
         You &amp; {name}
@@ -406,7 +437,7 @@ function Reveal({ me, result, size, onFollow, onAgain }: { me: TouchMe; result: 
       </div>
 
       <div className="touch-rise relative mt-4" style={{ width: size, height: size, animationDelay: "1100ms" }}>
-        <TouchGlobe size={size} colors={colors} spin={1.1} glow="#fde047" interactive labelOf={groupLabel} />
+        <TouchGlobe size={size} colors={colors} spin={1.1} glow="#f2b01e" interactive labelOf={groupLabel} />
       </div>
       <p className="touch-rise -mt-1 text-xs text-white/45" style={{ animationDelay: "1200ms" }}>Turn the globe, tap a country</p>
 
@@ -423,6 +454,7 @@ function Reveal({ me, result, size, onFollow, onAgain }: { me: TouchMe; result: 
       </p>
 
       <FollowCard result={result} name={name} onFollow={onFollow} />
+      <DreamsCard result={result} name={name} onShare={onShareDreams} />
 
       <div className="touch-rise mt-6 flex w-full flex-col gap-3" style={{ animationDelay: "2300ms" }}>
         {peer.id !== DEMO_PEER.id && (
@@ -452,9 +484,9 @@ function FollowCard({ result, name, onFollow }: { result: Result; name: string; 
   const label = i_follow ? "Following" : i_requested ? "Requested" : they_follow || they_requested ? "Follow back" : `Follow ${name}`;
 
   return (
-    <div className={`touch-rise mt-8 w-full rounded-3xl border p-4 text-left ${both ? "touch-glow border-yellow-200/50" : "border-white/15"} bg-white/[0.06] backdrop-blur`} style={{ animationDelay: "2100ms" }}>
+    <div className={`touch-rise mt-8 w-full rounded-3xl border p-4 text-left ${both ? "touch-glow border-amber-300/50" : "border-white/15"} bg-white/[0.06] backdrop-blur`} style={{ animationDelay: "2100ms" }}>
       <div className="flex items-center gap-3">
-        <Face person={peer} size={48} ring={THEIRS} />
+        <Face person={peer} size={48} ring={THEIR_RING} glow={THEIRS} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{hasRealName(peer.display_name) ? peer.display_name : name}</p>
           <p className="truncate text-sm text-white/55">@{peer.username}</p>
@@ -476,6 +508,95 @@ function FollowCard({ result, name, onFollow }: { result: Result; name: string; 
         </button>
       </div>
       <p className="mt-3 text-sm text-white/70" aria-live="polite">{status}</p>
+    </div>
+  );
+}
+
+/** "Show each other your dream places?": both say yes, then both lists open. */
+function DreamsCard({ result, name, onShare }: { result: Result; name: string; onShare: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const mine = !!result.i_share_dreams;
+  const theirs = !!result.they_share_dreams;
+  const open = mine && theirs && result.my_dreams && result.peer_dreams;
+
+  if (open) {
+    const my = result.my_dreams ?? [];
+    const peer = result.peer_dreams ?? [];
+    const myCodes = new Set(my.map((d) => d.code));
+    const peerCodes = new Set(peer.map((d) => d.code));
+    const myBeen = new Set(result.my_countries.map((c) => c.code));
+    const theirBeen = new Set(result.peer_countries.map((c) => c.code));
+    const shared = [...new Set([...myCodes].filter((c) => peerCodes.has(c)))];
+    const peerOnly = peer.filter((d) => !myCodes.has(d.code));
+    const myOnly = my.filter((d) => !peerCodes.has(d.code));
+    return (
+      <div className="touch-rise mt-4 w-full rounded-3xl border border-[#fa51a2]/40 bg-white/[0.06] p-5 text-left backdrop-blur" style={{ animationDelay: "100ms" }}>
+        <p className="touch-eyebrow">Dream places</p>
+        {my.length + peer.length === 0 && <p className="mt-3 text-sm text-white/70">Neither of you has added a dream place yet. Somewhere to start dreaming together.</p>}
+        {shared.length > 0 && (
+          <DreamGroup title="You both dream of" color={BOTH} items={shared.map((code) => ({ code, place: [...my, ...peer].find((d) => d.code === code && d.place)?.place ?? "" }))} />
+        )}
+        {peerOnly.length > 0 && (
+          <DreamGroup title={`${name} dreams of`} color={THEIRS} items={peerOnly} note={(d) => (myBeen.has(d.code) ? "you\u2019ve been" : null)} />
+        )}
+        {myOnly.length > 0 && (
+          <DreamGroup title="You dream of" color={MINE} items={myOnly} note={(d) => (theirBeen.has(d.code) ? `${name}\u2019s been` : null)} />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="touch-rise mt-4 w-full rounded-3xl border border-white/15 bg-white/[0.06] p-5 text-left backdrop-blur" style={{ animationDelay: "2200ms" }}>
+      <p className="font-serif text-xl">Show each other your dream places?</p>
+      <p className="mt-1 text-sm text-white/65">
+        {mine && !theirs
+          ? `Waiting for ${name} to say yes too.`
+          : theirs
+            ? `${name} said yes. They open for both of you when you do.`
+            : "They open for both of you once you both say yes."}
+      </p>
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          disabled={busy || mine}
+          onClick={async () => {
+            setBusy(true);
+            await onShare();
+            setBusy(false);
+          }}
+          className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold ${mine ? "bg-white/15 text-white" : "touch-dream text-white"}`}
+        >
+          {mine && <Check size={15} />}
+          {mine ? "You said yes" : "Yes, show mine"}
+        </button>
+        <span className={`flex items-center gap-1.5 text-sm ${theirs ? "text-white" : "text-white/45"}`}>
+          {theirs ? <Check size={15} /> : <Clock size={15} />} {name}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function DreamGroup({ title, color, items, note }: { title: string; color: string; items: Dream[]; note?: (d: Dream) => string | null }) {
+  return (
+    <div className="mt-4">
+      <p className="flex items-center gap-2 text-sm text-white/75">
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+        {title}
+      </p>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {items.map((d, i) => {
+          const c = countryByCode(d.code);
+          const n = note?.(d);
+          return (
+            <li key={`${d.code}-${d.place}`} className="touch-chip" style={{ animationDelay: `${i * 50}ms`, borderColor: `${color}66`, background: `${color}1f` }}>
+              {c?.flag} {d.place || c?.name || d.code}
+              {n && <span className="ml-1.5 text-xs text-white/60">· {n}</span>}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -508,11 +629,12 @@ function Unsupported() {
 // ---------------------------------------------------------------------------
 // Pieces
 
-function Face({ person, size, ring }: { person: TouchMe; size: number; ring: string }) {
+function Face({ person, size, ring, glow }: { person: TouchMe; size: number; ring: string; glow: string }) {
   return (
+    <span className="block shrink-0 rounded-full p-[3px]" style={{ background: ring, boxShadow: `0 0 28px ${glow}66` }}>
     <span
-      className="flex items-center justify-center overflow-hidden rounded-full bg-white/10 font-serif text-white"
-      style={{ width: size, height: size, boxShadow: `0 0 0 3px ${ring}, 0 0 28px ${ring}66`, fontSize: size * 0.4 }}
+      className="flex items-center justify-center overflow-hidden rounded-full bg-[#2b0b2e] font-serif text-white"
+      style={{ width: size - 6, height: size - 6, fontSize: size * 0.4 }}
     >
       {person.avatar_url ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -520,6 +642,7 @@ function Face({ person, size, ring }: { person: TouchMe; size: number; ring: str
       ) : (
         firstName(person).replace("@", "").charAt(0).toUpperCase()
       )}
+    </span>
     </span>
   );
 }
@@ -638,14 +761,15 @@ const STYLES = `
 .touch-eyebrow { font-size: .72rem; letter-spacing: .22em; text-transform: uppercase; color: rgba(255,255,255,.55); font-weight: 600; }
 .touch-cta { border-radius: 9999px; padding: 1rem 1.5rem; font-weight: 700; font-size: 1.05rem; color: #2b0b2e; background: linear-gradient(90deg, #fa51a2, #fb7822); box-shadow: 0 10px 40px rgba(250,81,162,.35); }
 .touch-ghost { display: block; border-radius: 9999px; padding: .85rem 1.25rem; font-weight: 600; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); }
-.touch-follow { background: linear-gradient(90deg, #fde047, #fb7822); box-shadow: 0 6px 24px rgba(253,224,71,.35); }
-.touch-gold { background: linear-gradient(180deg, #fff7c2, #fde047 45%, #fb7822); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 6px 30px rgba(253,224,71,.35)); }
+.touch-dream { background: linear-gradient(90deg, #fa51a2, #8b3fd9); box-shadow: 0 6px 24px rgba(250,81,162,.3); }
+.touch-follow { background: linear-gradient(90deg, #f7c548, #fb7822); box-shadow: 0 6px 24px rgba(242,176,30,.35); }
+.touch-gold { background: linear-gradient(180deg, #fff1b8, #f5c242 40%, #d9900a); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 6px 30px rgba(242,176,30,.4)); }
 .touch-orb { background: radial-gradient(circle at 35% 30%, #fff 0%, #ffd0e6 18%, #fa51a2 45%, #7c1d6f 80%); transition: top .18s linear, width .18s linear, height .18s linear, opacity .4s; }
 .touch-ring { border: 2px solid rgba(250,81,162,.7); animation: touch-ring 2.4s ease-out infinite; }
 @keyframes touch-ring { from { transform: scale(.92); opacity: .9; } to { transform: scale(1.55); opacity: 0; } }
 .touch-star { opacity: .25; animation: touch-twinkle 4s ease-in-out infinite; }
 @keyframes touch-twinkle { 50% { opacity: .85; } }
-.touch-flash { background: radial-gradient(circle at 50% 45%, #fff 0%, #fde047 20%, rgba(250,81,162,.85) 45%, rgba(43,11,46,0) 75%); animation: touch-flash 1.2s ease-out forwards; }
+.touch-flash { background: radial-gradient(circle at 50% 45%, #fff 0%, #f5c242 20%, rgba(250,81,162,.85) 45%, rgba(43,11,46,0) 75%); animation: touch-flash 1.2s ease-out forwards; }
 @keyframes touch-flash { 0% { opacity: 0; transform: scale(.2); } 18% { opacity: 1; } 100% { opacity: 0; transform: scale(2.2); } }
 .touch-pop { animation: touch-pop .6s cubic-bezier(.2,1.4,.4,1) both; }
 @keyframes touch-pop { from { transform: scale(.6); opacity: 0; } }
@@ -655,10 +779,10 @@ const STYLES = `
 .touch-from-right { animation: touch-right .9s cubic-bezier(.2,1.2,.3,1) both; }
 @keyframes touch-left { from { transform: translateX(-46vw) scale(.6); opacity: 0; } }
 @keyframes touch-right { from { transform: translateX(46vw) scale(.6); opacity: 0; } }
-.touch-spark { background: radial-gradient(circle, #fff 0%, #fde047 40%, rgba(253,224,71,0) 70%); animation: touch-spark 1.6s .7s ease-out both; }
+.touch-spark { background: radial-gradient(circle, #fff 0%, #f5c242 40%, rgba(242,176,30,0) 70%); animation: touch-spark 1.6s .7s ease-out both; }
 @keyframes touch-spark { 0% { transform: scale(0); opacity: 0; } 30% { transform: scale(3.2); opacity: 1; } 100% { transform: scale(1); opacity: .9; } }
 .touch-chip { border-radius: 9999px; padding: .4rem .8rem; font-size: .85rem; background: rgba(253,224,71,.12); border: 1px solid rgba(253,224,71,.35); animation: touch-rise .6s cubic-bezier(.2,.8,.2,1) both; }
-.touch-glow { box-shadow: 0 0 40px rgba(253,224,71,.25); }
+.touch-glow { box-shadow: 0 0 40px rgba(242,176,30,.25); }
 @media (prefers-reduced-motion: reduce) {
   .touch-ring, .touch-star, .touch-flash, .touch-pop, .touch-rise, .touch-from-left, .touch-from-right, .touch-spark, .touch-chip { animation: none !important; }
 }

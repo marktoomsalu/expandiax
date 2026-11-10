@@ -46,7 +46,9 @@ export function GlobeTouchListener() {
   }, [ready, onScreen]);
 
   useEffect(() => {
-    if (touch && !onScreen) router.push("/touch");
+    // Read it fresh: leaving World Connect clears the touch just before this
+    // runs, and the value from this render may still be the old one.
+    if (touch && !onScreen && getState().touch) router.push("/touch");
   }, [touch, onScreen, router]);
 
   if (!asking) return null;

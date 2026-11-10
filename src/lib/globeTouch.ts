@@ -93,9 +93,13 @@ function say(message: Record<string, unknown>, peerId?: string) {
   Native.send({ data: JSON.stringify(message), peerId }).catch(() => {});
 }
 
+// After World Connect is closed, phones that are still together don't
+// open it again straight away.
+let quietUntil = 0;
+
 function touched(peerId: string) {
   const peer = state.peers[peerId];
-  if (state.touch || !peer?.code) return;
+  if (state.touch || !peer?.code || Date.now() < quietUntil) return;
   say({ t: "touch" }, peerId);
   set({ touch: { peerId, myCode: state.myCode, peerCode: peer.code, at: Date.now() } });
 }
@@ -188,7 +192,8 @@ export async function stopTouch(): Promise<void> {
 }
 
 /** Forget the last touch (after it's been shown). */
-export function clearTouch() {
+export function clearTouch(quietMs = 0) {
+  quietUntil = Math.max(quietUntil, Date.now() + quietMs);
   set({ touch: null });
 }
 

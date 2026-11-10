@@ -1593,3 +1593,6 @@ revoke all on function public.globe_touch(text, text) from public, anon;
 revoke all on function public.globe_touch_follow(text) from public, anon;
 grant execute on function public.globe_touch(text, text) to authenticated;
 grant execute on function public.globe_touch_follow(text) to authenticated;
+
+-- World Connect dream places (migration 059): see supabase/migrations/059_world_connect_dreams.sql
+alter table public.globe_touches add column share_dreams boolean not null default false;
