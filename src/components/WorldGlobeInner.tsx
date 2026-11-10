@@ -135,6 +135,10 @@ export function WorldGlobeInner({
   const containerRef = useRef<HTMLDivElement>(null);
   const [features, setFeatures] = useState<GeoFeature[]>([]);
   const [hoverId, setHoverId] = useState<string | null>(null);
+  // A tapped country's name, for globes where a tap opens nothing (profiles).
+  const [tapped, setTapped] = useState<{ id: string; text: string } | null>(null);
+  const tappedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const tappedUntil = useRef(0);
   const [size, setSize] = useState({ width: 320, height: 320 });
 
   const visited = useMemo(() => new Set(visitedCodes), [visitedCodes]);
@@ -220,6 +224,32 @@ export function WorldGlobeInner({
     return undefined;
   }
 
+  function labelOf(f: GeoFeature): string {
+    const p = placeOf(f);
+    if (!p) return "";
+    const isHome = !p.isTerritory && homeCode && p.code === homeCode;
+    const livedHere = lived.has(p.code);
+    // Trips only: a place you lived isn't counted as a visit.
+    const count = visitCounts?.[p.code] ?? 0;
+    const suffix = livedHere ? (count >= 1 ? ` · visited ${count}×` : "") : count >= 2 ? ` · visited ${count}×` : "";
+    const dream = !visited.has(p.code) && dreams.has(p.code) ? " · Dreaming" : "";
+    const what = isHome ? " · Home" : livedHere ? " · Lived here" : p.isTerritory ? " · Territory" : "";
+    return `${p.flag} ${p.name}${what}${isHome && livedHere ? " · Lived here" : ""}${suffix}${dream}`;
+  }
+
+  function showTapped(f: GeoFeature) {
+    setTapped({ id: String(f.id), text: labelOf(f) });
+    setHoverId(f.id);
+    tappedUntil.current = Date.now() + 1500;
+    clearTimeout(tappedTimer.current);
+    tappedTimer.current = setTimeout(() => {
+      setTapped(null);
+      setHoverId(null);
+    }, 3500);
+  }
+
+  useEffect(() => () => clearTimeout(tappedTimer.current), []);
+
   function zoomBy(factor: number) {
     const g = globeRef.current;
     if (!g) return;
@@ -263,25 +293,23 @@ export function WorldGlobeInner({
           polygonStrokeColor={() => "rgba(10,8,6,0.55)"}
           polygonAltitude={(f) => ((f as GeoFeature).id === hoverId ? 0.02 : 0.006)}
           polygonsTransitionDuration={200}
-          polygonLabel={(f) => {
-            if (!labels) return "";
-            const p = placeOf(f as GeoFeature);
-            if (!p) return "";
-            const isHome = !p.isTerritory && homeCode && p.code === homeCode;
-            const livedHere = lived.has(p.code);
-            // Trips only: a place you lived isn't counted as a visit.
-            const count = visitCounts?.[p.code] ?? 0;
-            const suffix = livedHere ? (count >= 1 ? ` · visited ${count}×` : "") : count >= 2 ? ` · visited ${count}×` : "";
-            const dream = !visited.has(p.code) && dreams.has(p.code) ? " · Dreaming" : "";
-            const what = isHome ? " · Home" : livedHere ? " · Lived here" : p.isTerritory ? " · Territory" : "";
-            return `${p.flag} ${p.name}${what}${isHome && livedHere ? " · Lived here" : ""}${suffix}${dream}`;
+          // Globes where a tap opens nothing show the name up top instead (see `tapped`).
+          polygonLabel={(f) => (labels && onSelect ? labelOf(f as GeoFeature) : "")}
+          onPolygonHover={(f) => {
+            if (!labels) return;
+            setHoverId(f ? (f as GeoFeature).id : null);
+            // Pointing at a country with a mouse names it up top too; a tap's name stays a moment.
+            if (!onSelect && Date.now() > tappedUntil.current) setTapped(f && placeOf(f as GeoFeature) ? { id: String((f as GeoFeature).id), text: labelOf(f as GeoFeature) } : null);
           }}
-          onPolygonHover={(f) => labels && setHoverId(f ? (f as GeoFeature).id : null)}
           onPolygonClick={(f) => {
-            if (!interactive || !onSelect) return;
+            if (!interactive) return;
             const p = placeOf(f as GeoFeature);
-            if (p) onSelect(p.code);
+            if (!p) return;
+            if (onSelect) onSelect(p.code);
+            // Nothing to open: just say which country it is.
+            else if (labels) showTapped(f as GeoFeature);
           }}
+          onGlobeClick={() => setTapped(null)}
           pointsData={ANTARCTICA_POINTS}
           pointLat="lat"
           pointLng="lng"
@@ -294,6 +322,13 @@ export function WorldGlobeInner({
           }}
           showPointerCursor={interactive}
         />
+        {tapped && (
+          <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3" aria-live="polite">
+            <span key={tapped.id} className="rounded-full border border-line bg-surface/95 px-3.5 py-1.5 text-sm font-medium text-ink shadow-md backdrop-blur">
+              {tapped.text}
+            </span>
+          </div>
+        )}
         {interactive && (
           <div className="absolute bottom-3 right-3 flex flex-col overflow-hidden rounded-full border border-line bg-surface/90 shadow-sm backdrop-blur">
             <button
