@@ -23,6 +23,7 @@ import {
   type MessageRow,
 } from "@/lib/chat";
 import { cn } from "@/lib/utils";
+import { useChatEnabled } from "@/lib/useChatEnabled";
 
 // Screens where the bubble would be in the way.
 const HIDDEN = ["/start", "/touch", "/sign-in", "/sign-up", "/onboarding"];
@@ -98,7 +99,13 @@ function useChat(me: string) {
   return { supabase, conversations, people, last, friends, unread, incoming, reload: load };
 }
 
+/** Only in the new app build (see useChatEnabled). */
 export function ChatBubble({ me }: { me: string }) {
+  const enabled = useChatEnabled();
+  return enabled ? <ChatBubbleInner me={me} /> : null;
+}
+
+function ChatBubbleInner({ me }: { me: string }) {
   const path = usePathname();
   const s = useSyncExternalStore(chatSubscribe, chatState, chatServerState);
   const chat = useChat(me);

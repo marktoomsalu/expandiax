@@ -3,9 +3,11 @@
 import { MessageCircle } from "lucide-react";
 import { openChat, type ChatPerson } from "@/lib/chat";
 import { tapLight } from "@/lib/haptics";
+import { useChatEnabled } from "@/lib/useChatEnabled";
 
 /** "Ask Mark about Italy": opens the chat (or a postcard) with the place already stamped. */
 export function AskAboutButton({ person, placeCode, placeName }: { person: ChatPerson; placeCode: string; placeName: string }) {
+  if (!useChatEnabled()) return null;
   return (
     <button
       type="button"
@@ -30,6 +32,7 @@ export function AskAboutButton({ person, placeCode, placeName }: { person: ChatP
 
 /** "Message" on someone's profile: a chat with friends, a postcard otherwise. */
 export function MessageButton({ person }: { person: ChatPerson }) {
+  if (!useChatEnabled()) return null;
   return (
     <button
       type="button"
