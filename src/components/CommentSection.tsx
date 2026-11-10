@@ -58,7 +58,8 @@ export function CommentSection({ kind, targetId, posterId, initialComments }: Pr
   }
 
   return (
-    <div className="space-y-4">
+    // Notifications about a comment open the page right here (#comments).
+    <div id="comments" className="scroll-mt-24 space-y-4">
       {comments.length > 0 && (
         <ul className="space-y-3">
           {comments.map((c) => {

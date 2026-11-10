@@ -131,6 +131,10 @@ export default async function NotificationsPage() {
             const actor = n.actor;
             const actorHref = actor ? `/u/${actor.username}` : "#";
             const actorName = actor?.display_name ?? "Someone";
+            // Where tapping the notification takes you: the post (straight to
+            // its comments for a comment), the question, or the person.
+            const rowHref =
+              n.kind === "comment" && t ? `${t.href}#comments` : t ? t.href : n.kind.startsWith("follow") && actor ? actorHref : null;
 
             let text: React.ReactNode;
             if (n.kind === "follow") {
@@ -169,8 +173,10 @@ export default async function NotificationsPage() {
             }
 
             return (
-              <li key={n.id} className={`flex items-start gap-3 py-4 ${!n.read ? "bg-accent-soft/40" : ""}`}>
-                <div className="relative shrink-0">
+              <li key={n.id} className={`relative flex items-start gap-3 py-4 ${!n.read ? "bg-accent-soft/40" : ""}`}>
+                {/* The whole row opens it; the name, photo and buttons above it keep their own taps. */}
+                {rowHref && <Link href={rowHref} aria-label={`Open: ${actorName}`} className="absolute inset-0 z-0" />}
+                <div className="relative z-10 shrink-0">
                   <Link
                     href={actorHref}
                     aria-label={actorName}
@@ -186,7 +192,7 @@ export default async function NotificationsPage() {
                     <Icon size={11} className={n.kind === "like" ? "fill-accent" : undefined} />
                   </span>
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="pointer-events-none min-w-0 flex-1 [&_a]:pointer-events-auto [&_a]:relative [&_a]:z-10 [&_button]:pointer-events-auto [&_button]:relative [&_button]:z-10">
                   <p className="text-sm leading-relaxed">
                     <Link href={actorHref} className="font-medium hover:text-accent">{actorName}</Link>{" "}
                     {text}

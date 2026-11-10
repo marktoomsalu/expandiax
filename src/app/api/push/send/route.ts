@@ -57,20 +57,34 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
   const category = CATEGORY[record.kind];
-  const [{ data: actor }, { data: tokens }, { data: question }, { data: prefs }] = await Promise.all([
+  const [{ data: actor }, { data: tokens }, { data: question }, { data: prefs }, { data: owner }, { data: country }] = await Promise.all([
     admin.from("profiles").select("display_name, username").eq("id", record.actor_id).single(),
     admin.from("device_tokens").select("token").eq("user_id", record.user_id),
     record.target_kind === "question" && record.target_id
       ? admin.from("place_questions").select("country_code").eq("id", record.target_id).maybeSingle()
       : Promise.resolve({ data: null as { country_code: string } | null }),
     admin.from("profiles").select(category).eq("id", record.user_id).single(),
+    admin.from("profiles").select("username").eq("id", record.user_id).single(),
+    record.target_kind === "country" && record.target_id
+      ? admin.from("visited_countries").select("country_code").eq("id", record.target_id).maybeSingle()
+      : Promise.resolve({ data: null as { country_code: string } | null }),
   ]);
   // Switched off in Settings → Notification settings → Push notifications.
   if ((prefs as Record<string, boolean> | null)?.[category] === false) return NextResponse.json({ ok: true, sent: 0, reason: "muted" });
   if (!tokens || tokens.length === 0) return NextResponse.json({ ok: true, sent: 0 });
 
-  // Where a tap on the notification takes you.
-  const link = record.kind === "follow" && actor?.username ? `/u/${actor.username}` : "/notifications";
+  // Where a tap on the notification takes you: the post itself (straight to
+  // its comments for a comment), the question, or the person. The same
+  // places as tapping it in Notifications.
+  const link = (() => {
+    const me = owner?.username;
+    const onComments = record.kind === "comment" ? "#comments" : "";
+    if (record.target_kind === "country" && country && me) return `/u/${me}/countries/${country.country_code.toLowerCase()}${onComments}`;
+    if (record.target_kind === "event" && record.target_id && me) return `/u/${me}/events/${record.target_id}${onComments}`;
+    if (record.target_kind === "question" && question && record.target_id) return `/explore/country/${question.country_code.toLowerCase()}#q-${record.target_id}`;
+    if (record.kind.startsWith("follow") && actor?.username) return record.kind === "follow_request" ? "/notifications" : `/u/${actor.username}`;
+    return "/notifications";
+  })();
 
   const actorName = actor?.display_name ?? "Someone";
   const body = (() => {
