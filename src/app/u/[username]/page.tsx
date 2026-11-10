@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: { params: { username: string 
   };
 }
 
-export default async function PublicProfilePage({ params }: { params: { username: string } }) {
+export default async function PublicProfilePage({ params, searchParams }: { params: { username: string }; searchParams?: { preview?: string } }) {
   const supabase = createClient();
   const { data: profile } = (await supabase
     .from("profiles")
@@ -85,7 +85,11 @@ export default async function PublicProfilePage({ params }: { params: { username
   }
 
   const viewer = await getAuthUser();
-  const isOwnProfile = viewer?.id === profile.id;
+  // "View public profile" from Settings: your own page exactly as someone
+  // who doesn't follow you sees it, without your own buttons or anything
+  // you've kept to "Only me".
+  const preview = viewer?.id === profile.id && searchParams?.preview === "1";
+  const isOwnProfile = viewer?.id === profile.id && !preview;
 
   const [
     { data: countriesData },
@@ -101,6 +105,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         .from("visited_countries")
         .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(id, year, visited_from, visited_to, date_precision, highlight, kind)")
         .eq("user_id", profile.id)
+        .in("is_public", preview ? [true] : [true, false])
         .order("country_name"),
       supabase
         .from("events")
@@ -134,6 +139,16 @@ export default async function PublicProfilePage({ params }: { params: { username
     profile.visibility === "public" ||
     (profile.visibility === "friends" && isFollowing && followedBy) ||
     (profile.visibility === "private" && isFollowing);
+  const previewBanner = preview && (
+    <div className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
+      <span>
+        <span className="font-medium">Preview:</span> this is how people who don&rsquo;t follow you see your profile.
+      </span>
+      <Link href="/settings" className="font-medium text-accent hover:underline">
+        Back to settings
+      </Link>
+    </div>
+  );
   // visited_countries rows now include territories too (Greenland,
   // Gibraltar, etc.) — realCountries/territories split them back apart for
   // anything that shouldn't blend the two (the 195-country %, continents,
@@ -207,6 +222,7 @@ export default async function PublicProfilePage({ params }: { params: { username
 
   return (
     <div className="mx-auto max-w-shell px-5 py-12" style={accentStyle}>
+      {previewBanner}
       {/* Header */}
       <header className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
         {profile.avatar_url ? (
@@ -225,7 +241,12 @@ export default async function PublicProfilePage({ params }: { params: { username
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-4">
             <h1 className="text-4xl md:text-5xl">{profile.display_name}</h1>
-            {!isOwnProfile && viewer && (
+            {preview && (
+              <span className="btn-accent pointer-events-none !py-2 text-sm" aria-hidden>
+                Follow
+              </span>
+            )}
+            {!isOwnProfile && !preview && viewer && (
               <FollowButton
                 targetId={profile.id}
                 visibility={profile.visibility}
@@ -244,6 +265,7 @@ export default async function PublicProfilePage({ params }: { params: { username
               </>
             )}
           </div>
+          {profile.bio && <p className="mt-2 max-w-xl leading-relaxed">{profile.bio}</p>}
           <p className="mt-1.5 text-sm text-muted">
             @{profile.username}
             {home && <> · from {home.flag} {home.name}</>}
@@ -258,7 +280,6 @@ export default async function PublicProfilePage({ params }: { params: { username
               <span className="font-medium text-ink">{followingCount ?? 0}</span> following
             </Link>
           </p>
-          {profile.bio && <p className="mt-3 max-w-xl leading-relaxed">{profile.bio}</p>}
         </div>
       </header>
 
@@ -503,7 +524,7 @@ export default async function PublicProfilePage({ params }: { params: { username
         </div>
       )}
 
-      {!isOwnProfile && (
+      {!isOwnProfile && !preview && (
         <div className="mt-16 flex items-center justify-center gap-6 border-t border-line pt-6">
           <ReportButton targetType="profile" targetId={profile.id} targetUrl={`/u/${profile.username}`} />
           {viewer && <BlockButton targetId={profile.id} targetName={profile.display_name} targetUsername={profile.username} />}

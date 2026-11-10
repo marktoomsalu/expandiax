@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -13,6 +14,8 @@ import { cn } from "@/lib/utils";
 import type { Profile, ProfileVisibility } from "@/lib/types";
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
+// ExpandiaX's own pink (--accent in globals.css, the logo's #FA51A2).
+const DEFAULT_ACCENT = "#FA51A2";
 
 export function ProfileForm({
   profile,
@@ -37,8 +40,9 @@ export function ProfileForm({
     requireVisibilityChoice ? null : profile.visibility
   );
   const [discoverable, setDiscoverable] = useState(profile.discoverable ?? true);
-  const [accentColor, setAccentColor] = useState(profile.accent_color ?? "#E91E63");
-  const [accentPicked, setAccentPicked] = useState(false);
+  const [accentColor, setAccentColor] = useState(profile.accent_color ?? DEFAULT_ACCENT);
+  // null = ExpandiaX's own pink (nothing saved), otherwise the chosen colour.
+  const [accentChoice, setAccentChoice] = useState<string | null>(profile.accent_color ?? null);
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -96,7 +100,15 @@ export function ProfileForm({
       setError("Choose who can see your account.");
       return;
     }
+    if (!displayName.trim()) {
+      setError("Add a display name: it's what friends see.");
+      return;
+    }
     const uname = username.trim().toLowerCase();
+    if (!uname) {
+      setError("Choose a username.");
+      return;
+    }
     if (!USERNAME_RE.test(uname)) {
       setError("Usernames are 3–24 characters: lowercase letters, numbers and underscores.");
       return;
@@ -125,8 +137,8 @@ export function ProfileForm({
         visibility,
         discoverable,
         avatar_url: avatarUrl,
-        // Only a colour someone actually chose — not the picker's starting pink.
-        accent_color: accentPicked || profile.accent_color ? accentColor : null,
+        // Only a colour someone actually chose; "Default" saves nothing.
+        accent_color: accentChoice,
       })
       .eq("id", profile.id);
     if (upErr) {
@@ -172,7 +184,7 @@ export function ProfileForm({
       </div>
 
       <div>
-        <label htmlFor="pf-username" className="mb-1.5 block text-sm font-medium">Username</label>
+        <label htmlFor="pf-username" className="mb-1.5 block text-sm font-medium">Username <span className="text-accent" aria-hidden>*</span></label>
         <input
           id="pf-username"
           className="field"
@@ -187,7 +199,7 @@ export function ProfileForm({
       </div>
 
       <div>
-        <label htmlFor="pf-name" className="mb-1.5 block text-sm font-medium">Display name</label>
+        <label htmlFor="pf-name" className="mb-1.5 block text-sm font-medium">Display name <span className="text-accent" aria-hidden>*</span></label>
         <input
           id="pf-name"
           className="field"
@@ -203,8 +215,9 @@ export function ProfileForm({
       </div>
 
       <div>
-        <label htmlFor="pf-bio" className="mb-1.5 block text-sm font-medium">Biography</label>
-        <textarea id="pf-bio" className="field min-h-24" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A line or two about how you travel and what you listen to." maxLength={400} />
+        <label htmlFor="pf-bio" className="block text-sm font-medium">Biography</label>
+        <p id="pf-bio-hint" className="mb-1.5 mt-0.5 text-xs text-muted">A little about you and what you love…</p>
+        <textarea id="pf-bio" className="field min-h-24" value={bio} onChange={(e) => setBio(e.target.value)} maxLength={400} aria-describedby="pf-bio-hint" />
       </div>
 
       <div>
@@ -227,9 +240,23 @@ export function ProfileForm({
             value={accentColor}
             onChange={(e) => {
               setAccentColor(e.target.value);
-              setAccentPicked(true);
+              setAccentChoice(e.target.value);
             }}
           />
+          <button
+            type="button"
+            onClick={() => {
+              setAccentColor(DEFAULT_ACCENT);
+              setAccentChoice(null);
+            }}
+            aria-pressed={accentChoice === null}
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium",
+              accentChoice === null ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
+            )}
+          >
+            <span className="h-3 w-3 rounded-full" style={{ background: DEFAULT_ACCENT }} aria-hidden /> Default
+          </button>
           <p className="text-xs text-muted">Colors your public profile page - links, buttons and highlights.</p>
         </div>
       </div>
@@ -243,7 +270,7 @@ export function ProfileForm({
         )}
         <label className="flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "public"} onChange={() => setVisibility("public")} />
-          <span><strong className="font-medium">Public</strong> - anyone can see your map, memories and public events.</span>
+          <span><strong className="font-medium">Public</strong> - anyone can see your map, memories and events.</span>
         </label>
         <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "friends"} onChange={() => setVisibility("friends")} />
@@ -254,20 +281,23 @@ export function ProfileForm({
           <span><strong className="font-medium">Private</strong> - people have to ask to follow you; only followers you approve can see your map and memories.</span>
         </label>
         <p className="mt-3 text-xs text-muted">
-          Whichever you choose, members can see your name, username and profile photo (on your comments, for example), and you
-          can hide single countries and events with &ldquo;Only me&rdquo;.
+          Whichever you choose, members can see your name, username, profile photo and bio (on your comments, for example).
+          You can choose which country and event posts to keep private by setting their visibility to &lsquo;Only me&rsquo;.
         </p>
         <label className="mt-4 flex cursor-pointer items-start gap-3 border-t border-line pt-4 text-sm">
           <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[rgb(var(--accent))]" checked={discoverable} onChange={(e) => setDiscoverable(e.target.checked)} />
           <span>
-            <strong className="font-medium">Show me in search and suggestions</strong> - turn off to stay out of search, &ldquo;People
-            you may want to meet&rdquo;, who&rsquo;s been to a place, and the traveller counts. People who already follow you still see you as usual.
+            <strong className="block font-medium">Show me in search and suggestions</strong>
+            <span className="mt-0.5 block text-xs text-muted">
+              Turn this off to hide your profile from search results, friend suggestions, lists of people who have visited a place and
+              traveller counts. Your existing followers can still see your profile as usual.
+            </span>
           </span>
         </label>
       </fieldset>
 
       {error && <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
-      {saved && <p role="status" className="rounded-lg border border-accent/40 bg-accent-soft/50 px-3 py-2 text-sm">Profile saved.</p>}
+      {saved && <SavedOverlay onClose={() => setSaved(false)} />}
 
       <button type="submit" className="btn-accent" disabled={busy}>
         {busy ? "Saving…" : submitLabel}
@@ -281,5 +311,32 @@ export function ProfileForm({
         onConfirm={onAvatarCropped}
       />
     </form>
+  );
+}
+
+/** "Profile saved" in the middle of the screen: gone by itself, or with a tap anywhere. */
+function SavedOverlay({ onClose }: { onClose: () => void }) {
+  // The latest onClose, without restarting the timer whenever the form re-renders.
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const t = setTimeout(() => close.current(), 1800);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <button
+      type="button"
+      onClick={onClose}
+      aria-label="Profile saved. Tap to close."
+      className="fixed inset-0 z-[90] flex cursor-default items-center justify-center bg-black/20 backdrop-blur-[2px]"
+    >
+      <span role="status" className="saved-pop flex items-center gap-2.5 rounded-2xl bg-surface px-6 py-4 text-base font-medium text-ink shadow-2xl">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-white">
+          <Check size={16} strokeWidth={3} />
+        </span>
+        Profile saved
+      </span>
+      <style>{`.saved-pop{animation:saved-pop .35s cubic-bezier(.2,1.3,.4,1) both}@keyframes saved-pop{from{transform:scale(.85);opacity:0}}@media (prefers-reduced-motion:reduce){.saved-pop{animation:none}}`}</style>
+    </button>
   );
 }

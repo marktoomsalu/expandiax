@@ -27,7 +27,7 @@ export default async function SettingsPage() {
         <ProfileForm profile={profile} />
       </div>
       <div className="mt-10 border-t border-line pt-6">
-        <Link href={`/u/${profile.username}`} className="text-sm text-accent underline-offset-4 hover:underline">
+        <Link href={`/u/${profile.username}?preview=1`} className="text-sm text-accent underline-offset-4 hover:underline">
           View public profile
         </Link>
       </div>

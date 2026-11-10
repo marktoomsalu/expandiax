@@ -42,5 +42,5 @@ export const hasTripLinks = () => tripLinks("x").length > 0 || flightsConfigured
 /** The honest line under partner links. */
 export function PartnerNote({ className }: { className?: string }) {
   if (!hasTripLinks()) return null;
-  return <p className={cn("text-[11px] text-muted", className)}>Flights, stays and things to do are partner links - ExpandiaX may earn a small commission, at no cost to you.</p>;
+  return <p className={cn("text-[11px] text-muted", className)}>Flights, stays and things to do are partner links - ExpandiaX may earn a small commission, at no extra cost to you.</p>;
 }
