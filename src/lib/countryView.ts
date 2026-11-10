@@ -1,4 +1,5 @@
 import { orderCountryMedia } from "./mediaOrder";
+import { audienceOf } from "./audience";
 import { stockPhotoFor } from "./stockPhotos";
 import { visitSortKey } from "./utils";
 import { orderStops, placesInCountry, stayLength, stayMonth, stayWhen, tripName } from "./tripPlaces";
@@ -44,7 +45,7 @@ export function buildCountryView(visited: VisitedCountryFull, meta: { code: stri
       railTop: !prev || prev.year !== v.year ? String(v.year) : null,
       railBottom: stayMonth(v),
       photos: media.filter((m) => m.media_type === "image").length,
-      isPublic: v.is_public !== false,
+      audience: audienceOf(v.audience ?? (v.is_public === false ? "only_me" : "everyone")),
       photo: cover?.public_url ?? null,
       // Different stock photo per trip, so an empty country doesn't repeat one picture.
       stock: cover ? null : stockPhotoFor(meta.code, v.id),

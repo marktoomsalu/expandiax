@@ -24,13 +24,25 @@ export default async function FollowersPage({ params }: { params: { username: st
     );
   }
 
+  // A private profile's lists are only for its owner and approved followers.
+  const viewer = await getAuthUser();
+  const { data: canSee } = viewer?.id === profile.id ? { data: true } : await supabase.rpc("is_profile_public", { profile_id: profile.id });
+  if (!canSee) {
+    return (
+      <div className="mx-auto max-w-md px-5 py-24 text-center">
+        <h1 className="text-3xl">This account is private.</h1>
+        <p className="mt-3 text-sm text-muted">Follow {profile.display_name} to see who they follow and who follows them.</p>
+        <Link href={`/u/${profile.username}`} className="btn-ghost mt-8">Back to {profile.display_name}</Link>
+      </div>
+    );
+  }
+
   const { data } = await supabase
     .from("follows")
     .select("follower:profiles!follows_follower_id_fkey(id, username, display_name, avatar_url, visibility)")
     .eq("followee_id", profile.id)
     .order("created_at", { ascending: false });
 
-  const viewer = await getAuthUser();
   const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
   const followers = (data ?? []).map((r) => one(r.follower)).filter((p): p is NonNullable<typeof p> => !!p);
 

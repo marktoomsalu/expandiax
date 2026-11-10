@@ -1,4 +1,5 @@
-export type ProfileVisibility = "public" | "friends" | "private";
+// Friends-only accounts became private in migration 062.
+export type ProfileVisibility = "public" | "private";
 export type Plan = "free" | "premium";
 
 export type Profile = {
@@ -58,6 +59,8 @@ export type CountryVisit = {
   visited_country_id: string;
   // false = "Only me": this trip, its places and photos are hidden from everyone else (migration 061).
   is_public: boolean;
+  // Who sees it (migration 062): "everyone" (Feed), "friends" (mutual follows) or "only_me".
+  audience?: "everyone" | "friends" | "only_me";
   cover_media_id: string | null;
   year: number;
   visited_from: string | null;
@@ -106,6 +109,8 @@ export type EventType = "concert" | "festival" | "sport" | "conference" | "perso
 export type Event = {
   id: string;
   user_id: string;
+  // Who sees it (migration 062): "everyone" (Feed), "friends" (mutual follows) or "only_me".
+  audience?: "everyone" | "friends" | "only_me";
   event_type: EventType;
   title: string;
   subtitle: string;

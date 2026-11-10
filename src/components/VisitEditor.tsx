@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Check, Eye, Lock, MapPin, MessageSquareText, Music2, PenLine, Share2 } from "lucide-react";
+import { Calendar, Check, Lock, MapPin, MessageSquareText, Music2, PenLine, Share2 } from "lucide-react";
+import { AudiencePicker } from "./AudiencePicker";
+import { audienceOf, type Audience } from "@/lib/audience";
 import { createClient } from "@/lib/supabase/client";
 import { VisitDateFields } from "./VisitDateFields";
 import { SoundtrackPicker } from "./SoundtrackPicker";
@@ -142,13 +144,14 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
   }
 
   // Saved straight away, like a switch.
-  const [isPublic, setIsPublic] = useState(visit.is_public !== false);
-  async function setVisibility(next: boolean) {
-    if (next === isPublic) return;
-    setIsPublic(next);
-    const { error: err } = await supabase.from("country_visits").update({ is_public: next }).eq("id", visit.id);
+  const [audience, setAudience] = useState<Audience>(audienceOf(visit.audience ?? (visit.is_public === false ? "only_me" : "everyone")));
+  async function setVisibility(next: Audience) {
+    if (next === audience) return;
+    const before = audience;
+    setAudience(next);
+    const { error: err } = await supabase.from("country_visits").update({ audience: next }).eq("id", visit.id);
     if (err) {
-      setIsPublic(!next);
+      setAudience(before);
       setError("Could not change who can see it. Try again.");
     } else router.refresh();
   }
@@ -227,32 +230,7 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
       </Basket>
 
       <Basket icon={Lock} title="Who can see it" hint="Your country stays on your map either way.">
-        <div className="flex gap-2" role="radiogroup" aria-label="Who can see this trip">
-          {[
-            { on: true, icon: Eye, label: "Visible", note: "Everyone who can see your profile" },
-            { on: false, icon: Lock, label: "Only me", note: "Its places and photos too" },
-          ].map(({ on, icon: Icon, label, note }) => {
-            const picked = isPublic === on;
-            return (
-              <button
-                key={label}
-                type="button"
-                role="radio"
-                aria-checked={picked}
-                onClick={() => void setVisibility(on)}
-                className={cn(
-                  "flex flex-1 flex-col items-start rounded-2xl border px-3.5 py-3 text-left transition-colors",
-                  picked ? "border-accent bg-accent-soft" : "border-line hover:border-accent/50"
-                )}
-              >
-                <span className={cn("flex items-center gap-1.5 text-sm font-medium", picked && "text-accent")}>
-                  <Icon size={15} aria-hidden /> {label}
-                </span>
-                <span className="mt-0.5 text-xs text-muted">{note}</span>
-              </button>
-            );
-          })}
-        </div>
+        <AudiencePicker value={audience} onChange={(next) => void setVisibility(next)} />
       </Basket>
 
       <Basket icon={Calendar} title="When" hint="Set the dates for your trip.">

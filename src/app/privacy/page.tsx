@@ -172,9 +172,10 @@ export default function PrivacyPage() {
       <LegalSection title="Who can see your content">
         <p>
           Entirely up to you. Your profile is <Strong>private</Strong> (people ask to follow you, and only followers you
-          approve see your map and memories), <Strong>friends only</Strong> (only people you follow who follow you back),
-          or <Strong>public</Strong> (anyone; public pages can also show up in search engines like Google). On top of that,
-          any single country or event can be set to <Strong>only me</Strong>. Your name, username and profile photo are
+          approve see your map and memories; others see your name, bio and follower numbers) or <Strong>public</Strong>
+          (anyone; public pages can also show up in search engines like Google). On top of that, every trip, stay and
+          event has its own audience: <Strong>feed</Strong> (everyone who can see your profile), <Strong>friends</Strong>
+          (people you follow who follow you back) or <Strong>only me</Strong>. Your name, username and profile photo are
           visible to other members (on your comments, for example); you can choose not to appear in search and
           suggestions. Places show who has been there only to people who can already see those trips, and a count of
           travellers that includes you as a number, never by name - unless the country is set to only me or you&rsquo;ve

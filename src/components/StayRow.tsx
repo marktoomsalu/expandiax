@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Eye, Home, Image as ImageIcon, Lock, MoreHorizontal, Plane, Trash2 } from "lucide-react";
+import { Check, ChevronRight, Home, Image as ImageIcon, Lock, MoreHorizontal, Plane, Trash2, Users } from "lucide-react";
+import { AUDIENCES, type Audience } from "@/lib/audience";
 import { createClient } from "@/lib/supabase/client";
 import type { StockPhoto } from "@/lib/stockPhotos";
 import { cn } from "@/lib/utils";
@@ -21,8 +22,8 @@ export type StayView = {
   railTop: string | null; // "2025" — only where the year changes
   railBottom: string | null; // "AUG"
   photos: number;
-  /** false = "Only me": only its owner sees it. */
-  isPublic: boolean;
+  /** Who sees it: Feed (everyone), Friends, or Only me. */
+  audience: Audience;
   photo: string | null;
   stock: StockPhoto | null;
   mediaPaths: string[];
@@ -63,9 +64,9 @@ export function StayRow({
     return () => document.removeEventListener("mousedown", close);
   }, [menu]);
 
-  async function togglePrivacy() {
+  async function setAudience(next: Audience) {
     setMenu(false);
-    await createClient().from("country_visits").update({ is_public: !stay.isPublic }).eq("id", stay.id);
+    await createClient().from("country_visits").update({ audience: next }).eq("id", stay.id);
     router.refresh();
   }
 
@@ -120,9 +121,10 @@ export function StayRow({
           <span className="pointer-events-none min-w-0 flex-1">
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate font-serif text-base leading-tight sm:text-lg">{stay.name}</span>
-              {!stay.isPublic && (
+              {stay.audience !== "everyone" && (
                 <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-raised px-1.5 py-0.5 text-[10px] font-medium text-muted">
-                  <Lock size={9} aria-hidden /> Only me
+                  {stay.audience === "friends" ? <Users size={9} aria-hidden /> : <Lock size={9} aria-hidden />}
+                  {stay.audience === "friends" ? "Friends" : "Only me"}
                 </span>
               )}
             </span>
@@ -149,14 +151,25 @@ export function StayRow({
               <MoreHorizontal size={18} />
             </button>
             {menu && (
-              <div className="absolute right-0 top-9 z-10 w-40 overflow-hidden rounded-xl border border-line bg-surface py-1 text-sm shadow-xl">
+              <div className="absolute right-0 top-9 z-10 w-48 overflow-hidden rounded-xl border border-line bg-surface py-1 text-sm shadow-xl">
                 <Link href={`${href}/edit`} className="block px-4 py-2.5 hover:bg-raised">
                   Edit
                 </Link>
-                <button type="button" onClick={togglePrivacy} className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-raised">
-                  {stay.isPublic ? <Lock size={15} /> : <Eye size={15} />}
-                  {stay.isPublic ? "Only me" : "Show to others"}
-                </button>
+                <p className="border-t border-line px-4 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted">Who can see it</p>
+                {AUDIENCES.map(({ value, label, icon: Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => void setAudience(value)}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-raised"
+                    aria-pressed={stay.audience === value}
+                  >
+                    <Icon size={15} className={stay.audience === value ? "text-accent" : undefined} />
+                    <span className="flex-1">{label}</span>
+                    {stay.audience === value && <Check size={14} className="text-accent" aria-hidden />}
+                  </button>
+                ))}
+                <div className="border-t border-line" />
                 <button
                   type="button"
                   onClick={() => {

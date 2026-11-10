@@ -43,12 +43,19 @@ export function ProfileForm({
   const [accentColor, setAccentColor] = useState(profile.accent_color ?? DEFAULT_ACCENT);
   // null = ExpandiaX's own pink (nothing saved), otherwise the chosen colour.
   const [accentChoice, setAccentChoice] = useState<string | null>(profile.accent_color ?? null);
+  // Private to public: the answer to "show your posts to everyone too?".
+  const [askOpen, setAskOpen] = useState(false);
+  const [openChoice, setOpenChoice] = useState<"all" | "choose" | null>(null);
+  // Answered: carry on saving.
+  useEffect(() => {
+    if (openChoice) void onSubmit();
+  }, [openChoice]); // eslint-disable-line react-hooks/exhaustive-deps
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<string | false>(false);
 
   async function pickAvatar(picked: File | undefined) {
     if (!picked) return;
@@ -92,8 +99,8 @@ export function ProfileForm({
     setCropSrc(null);
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
     setError(null);
     setSaved(false);
     if (visibility === null) {
@@ -113,7 +120,21 @@ export function ProfileForm({
       setError("Usernames are 3–24 characters: lowercase letters, numbers and underscores.");
       return;
     }
+    // Going from private to public: ask whether posts open up too.
+    if (profile.visibility === "private" && visibility === "public" && !openChoice) {
+      setAskOpen(true);
+      return;
+    }
     setBusy(true);
+    if (openChoice === "choose") {
+      // "No, I'll choose": posts for everyone become posts for friends, so nothing new turns public.
+      const { error: rpcErr } = await supabase.rpc("posts_to_friends");
+      if (rpcErr) {
+        setError("Could not keep your posts to friends. Try again.");
+        setBusy(false);
+        return;
+      }
+    }
     if (uname !== profile.username) {
       const { data: taken } = await supabase
         .from("profiles")
@@ -146,11 +167,13 @@ export function ProfileForm({
       setBusy(false);
       return;
     }
+    const kept = openChoice === "choose";
+    setOpenChoice(null);
     if (afterSaveHref) {
       router.push(afterSaveHref);
       router.refresh();
     } else {
-      setSaved(true);
+      setSaved(kept ? "Profile saved. Your posts are for friends: open up the ones you want from each trip or event." : "Profile saved");
       setBusy(false);
       router.refresh();
     }
@@ -273,16 +296,12 @@ export function ProfileForm({
           <span><strong className="font-medium">Public</strong> - anyone can see your map, memories and events.</span>
         </label>
         <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
-          <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "friends"} onChange={() => setVisibility("friends")} />
-          <span><strong className="font-medium">Friends only</strong> - only people you follow and who follow you back can see your map and memories.</span>
-        </label>
-        <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm">
           <input type="radio" name="visibility" className="mt-0.5 accent-[rgb(var(--accent))]" checked={visibility === "private"} onChange={() => setVisibility("private")} />
-          <span><strong className="font-medium">Private</strong> - people have to ask to follow you; only followers you approve can see your map and memories.</span>
+          <span><strong className="font-medium">Private</strong> - people ask to follow you. Others still find you and see your name, bio and follower numbers, but only followers you approve see your map and memories.</span>
         </label>
         <p className="mt-3 text-xs text-muted">
           Whichever you choose, members can see your name, username, profile photo and bio (on your comments, for example).
-          You can choose which country and event posts to keep private by setting their visibility to &lsquo;Only me&rsquo;.
+          Each trip, stay and event also has its own audience: Feed, Friends (people who follow each other) or Only me.
         </p>
         <label className="mt-4 flex cursor-pointer items-start gap-3 border-t border-line pt-4 text-sm">
           <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[rgb(var(--accent))]" checked={discoverable} onChange={(e) => setDiscoverable(e.target.checked)} />
@@ -297,7 +316,16 @@ export function ProfileForm({
       </fieldset>
 
       {error && <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
-      {saved && <SavedOverlay onClose={() => setSaved(false)} />}
+      {saved && <SavedOverlay text={saved} onClose={() => setSaved(false)} />}
+      {askOpen && (
+        <GoPublicDialog
+          onChoose={(choice) => {
+            setAskOpen(false);
+            setOpenChoice(choice);
+          }}
+          onCancel={() => setAskOpen(false)}
+        />
+      )}
 
       <button type="submit" className="btn-accent" disabled={busy}>
         {busy ? "Saving…" : submitLabel}
@@ -315,28 +343,54 @@ export function ProfileForm({
 }
 
 /** "Profile saved" in the middle of the screen: gone by itself, or with a tap anywhere. */
-function SavedOverlay({ onClose }: { onClose: () => void }) {
+function SavedOverlay({ text, onClose }: { text: string; onClose: () => void }) {
   // The latest onClose, without restarting the timer whenever the form re-renders.
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
-    const t = setTimeout(() => close.current(), 1800);
+    const t = setTimeout(() => close.current(), text.length > 20 ? 4500 : 1800);
     return () => clearTimeout(t);
-  }, []);
+  }, [text]);
   return (
     <button
       type="button"
       onClick={onClose}
-      aria-label="Profile saved. Tap to close."
+      aria-label={`${text} Tap to close.`}
       className="fixed inset-0 z-[90] flex cursor-default items-center justify-center bg-black/20 backdrop-blur-[2px]"
     >
       <span role="status" className="saved-pop flex items-center gap-2.5 rounded-2xl bg-surface px-6 py-4 text-base font-medium text-ink shadow-2xl">
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-white">
           <Check size={16} strokeWidth={3} />
         </span>
-        Profile saved
+        <span className="max-w-[16rem]">{text}</span>
       </span>
       <style>{`.saved-pop{animation:saved-pop .35s cubic-bezier(.2,1.3,.4,1) both}@keyframes saved-pop{from{transform:scale(.85);opacity:0}}@media (prefers-reduced-motion:reduce){.saved-pop{animation:none}}`}</style>
     </button>
+  );
+}
+
+/** "Your account will be public. Show your posts to everyone too?" */
+function GoPublicDialog({ onChoose, onCancel }: { onChoose: (choice: "all" | "choose") => void; onCancel: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/40 p-4 backdrop-blur-[2px] sm:items-center" role="dialog" aria-modal="true" aria-labelledby="go-public-h">
+      <div className="w-full max-w-sm rounded-3xl bg-surface p-6 shadow-2xl">
+        <h2 id="go-public-h" className="font-serif text-2xl">Make your posts public too?</h2>
+        <p className="mt-2 text-sm text-muted">
+          Your account will be public. Your trips, stays and events shared with your followers can become visible to everyone, or you can keep them
+          to friends and choose which ones to open up.
+        </p>
+        <div className="mt-6 space-y-2">
+          <button type="button" onClick={() => onChoose("all")} className="btn-accent w-full justify-center">
+            Yes, show them to everyone
+          </button>
+          <button type="button" onClick={() => onChoose("choose")} className="btn-ghost w-full justify-center">
+            No, I&rsquo;ll choose myself
+          </button>
+          <button type="button" onClick={onCancel} className="w-full py-2 text-sm text-muted hover:text-ink">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

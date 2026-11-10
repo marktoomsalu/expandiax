@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { FollowList } from "@/components/FollowList";
 
 export const metadata = { title: "Following" };
@@ -19,6 +19,19 @@ export default async function FollowingPage({ params }: { params: { username: st
         <h1 className="text-3xl">This world is private.</h1>
         <p className="mt-3 text-sm text-muted">The profile doesn&rsquo;t exist, or its owner keeps it to themselves.</p>
         <Link href="/explore" className="btn-ghost mt-8">Explore public travellers</Link>
+      </div>
+    );
+  }
+
+  // A private profile's lists are only for its owner and approved followers.
+  const viewerId = (await getAuthUser())?.id;
+  const { data: canSee } = viewerId === profile.id ? { data: true } : await supabase.rpc("is_profile_public", { profile_id: profile.id });
+  if (!canSee) {
+    return (
+      <div className="mx-auto max-w-md px-5 py-24 text-center">
+        <h1 className="text-3xl">This account is private.</h1>
+        <p className="mt-3 text-sm text-muted">Follow {profile.display_name} to see who they follow and who follows them.</p>
+        <Link href={`/u/${profile.username}`} className="btn-ghost mt-8">Back to {profile.display_name}</Link>
       </div>
     );
   }

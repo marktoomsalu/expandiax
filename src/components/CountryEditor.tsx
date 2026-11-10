@@ -11,6 +11,8 @@ import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
 import type { DatePrecision, TripKind, VisitedCountryFull } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { StayRow, type StayView } from "./StayRow";
+import { AudiencePicker } from "./AudiencePicker";
+import type { Audience } from "@/lib/audience";
 import { TripKindToggle } from "./TripKindToggle";
 import { SuggestedDatesNote, usePhotoDateRange, useSuggestedDates } from "./PhotoDateSuggestion";
 import { SuggestedNameNote, SuggestedPlacesField, savePlaces, useBestCover, usePhotoPlaces } from "./PhotoPlaceSuggestion";
@@ -67,6 +69,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
+  const [audience, setAudience] = useState<Audience>("everyone");
   const [kind, setKind] = useState<TripKind>("trip");
   const [title, setTitle] = useState("");
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
@@ -154,6 +157,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
         highlight: highlight.trim(),
         title: titleTouched ? title.trim().slice(0, 80) : "",
         kind,
+        ...(audience !== "everyone" ? { audience } : {}),
       })
       .select("id")
       .single();
@@ -199,6 +203,10 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
           }}
         />
         {!titleTouched && shownTitle && <SuggestedNameNote />}
+      </div>
+      <div>
+        <p className="eyebrow mb-2">Who can see it</p>
+        <AudiencePicker value={audience} onChange={setAudience} />
       </div>
       <div className="border-t border-line pt-5">
         <p className="eyebrow mb-3">Photos & videos</p>
@@ -279,6 +287,7 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
   const [visitedFrom, setVisitedFrom] = useState("");
   const [visitedTo, setVisitedTo] = useState("");
   const [highlight, setHighlight] = useState("");
+  const [audience, setAudience] = useState<Audience>("everyone");
   const [kind, setKind] = useState<TripKind>("trip");
   const [title, setTitle] = useState("");
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
@@ -348,6 +357,8 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
         highlight: highlight.trim(),
         title: titleTouched ? title.trim().slice(0, 80) : "",
         kind,
+        // "everyone" is the column's default, so it's only sent when it differs.
+        ...(audience !== "everyone" ? { audience } : {}),
       })
       .select("id")
       .single();
@@ -474,6 +485,10 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
                 }}
               />
               {!titleTouched && shownTitle && <SuggestedNameNote />}
+            </div>
+            <div>
+              <p className="eyebrow mb-2">Who can see it</p>
+              <AudiencePicker value={audience} onChange={setAudience} />
             </div>
             <div className="border-t border-line pt-5">
               <p className="eyebrow mb-3">Photos & videos</p>

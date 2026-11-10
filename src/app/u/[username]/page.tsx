@@ -27,7 +27,7 @@ import { signMedia } from "@/lib/signedMedia";
 import { mapStays } from "@/lib/stays";
 import { MapLegend } from "@/components/MapLegend";
 
-type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight" | "kind" | "is_public">;
+type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight" | "kind" | "is_public" | "audience">;
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
 type EventRow = Event & { event_media: EventMedia[] };
 type TripCard = { visit: VisitLite; countryCode: string; countryName: string; cover?: CountryMedia };
@@ -98,7 +98,6 @@ export default async function PublicProfilePage({ params, searchParams }: { para
     { count: followerCount },
     { count: followingCount },
     { data: followingRow },
-    { data: followedByRow },
     { data: pendingRequestRow },
   ] = await Promise.all([
       supabase
@@ -120,25 +119,32 @@ export default async function PublicProfilePage({ params, searchParams }: { para
         ? supabase.from("follows").select("follower_id").eq("follower_id", viewer.id).eq("followee_id", profile.id).maybeSingle()
         : Promise.resolve({ data: null }),
       viewer && !isOwnProfile
-        ? supabase.from("follows").select("follower_id").eq("follower_id", profile.id).eq("followee_id", viewer.id).maybeSingle()
-        : Promise.resolve({ data: null }),
-      viewer && !isOwnProfile
         ? supabase.from("follow_requests").select("requester_id").eq("requester_id", viewer.id).eq("target_id", profile.id).maybeSingle()
         : Promise.resolve({ data: null }),
     ]).then((r) => signMedia(r));
 
   const isFollowing = !!followingRow;
-  const followedBy = !!followedByRow;
   const hasPendingRequest = !!pendingRequestRow;
-  // Mirrors is_profile_public()'s logic — friends unlocks via mutual
-  // follow, private unlocks once the target has accepted a follow request
-  // (which is the only way isFollowing can be true for a private profile,
-  // since direct follows into private profiles are blocked at the DB).
-  const hasAccess =
-    isOwnProfile ||
-    profile.visibility === "public" ||
-    (profile.visibility === "friends" && isFollowing && followedBy) ||
-    (profile.visibility === "private" && isFollowing);
+  // Mirrors is_profile_public(): private unlocks once the target has
+  // accepted a follow request (the only way isFollowing can be true for a
+  // private profile, since direct follows into private profiles are
+  // blocked at the DB).
+  const hasAccess = isOwnProfile || profile.visibility === "public" || isFollowing;
+
+  // On a private profile you can't open: who you know that follows them, as Instagram.
+  let mutuals: { names: string[]; more: number } | null = null;
+  if (!hasAccess && viewer && !preview) {
+    const { data: mine } = await supabase.from("follows").select("followee_id").eq("follower_id", viewer.id);
+    const myIds = (mine ?? []).map((r) => r.followee_id as string);
+    if (myIds.length) {
+      const { data: theirs } = await supabase.from("follows").select("follower_id").eq("followee_id", profile.id).in("follower_id", myIds);
+      const ids = (theirs ?? []).map((r) => r.follower_id as string);
+      if (ids.length) {
+        const { data: people } = await supabase.from("profiles").select("display_name").in("id", ids.slice(0, 2));
+        mutuals = { names: (people ?? []).map((p) => p.display_name), more: Math.max(0, ids.length - 2) };
+      }
+    }
+  }
   const previewBanner = preview && (
     <div className="mb-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
       <span>
@@ -157,14 +163,16 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   // In the preview, leave out the trips you keep to yourself, and their photos, as others see it.
   const countries = ((countriesData ?? []) as CountryRow[]).map((c) => {
     if (!preview) return c;
-    const hidden = new Set(c.country_visits.filter((v) => v.is_public === false).map((v) => v.id));
+    // Someone who doesn't follow you sees only posts for everyone (Feed).
+    const hidden = new Set(c.country_visits.filter((v) => v.is_public === false || (v.audience ?? "everyone") !== "everyone").map((v) => v.id));
     return hidden.size
       ? { ...c, country_visits: c.country_visits.filter((v) => !hidden.has(v.id)), country_media: c.country_media.filter((m) => !hidden.has(m.country_visit_id ?? "")) }
       : c;
   });
   const realCountries = countries.filter((c) => !isTerritoryCode(c.country_code));
   const territories = countries.filter((c) => isTerritoryCode(c.country_code));
-  const events = (eventsData ?? []) as EventRow[];
+  // The preview shows only events for everyone, as someone who doesn't follow you sees them.
+  const events = ((eventsData ?? []) as EventRow[]).filter((e) => !preview || (e.audience ?? "everyone") === "everyone");
   const usStates = (usStatesData ?? []) as VisitedUSState[];
   const codes = countries.map((c) => c.country_code);
   const countryCodes = realCountries.map((c) => c.country_code);
@@ -249,15 +257,30 @@ export default async function PublicProfilePage({ params, searchParams }: { para
             {home && <> · from {home.flag} {home.name}</>}
             {" · "}collecting memories since {new Date(profile.created_at).getFullYear()}
           </p>
-          <p className="mt-1.5 text-sm text-muted">
-            <Link href={`/u/${profile.username}/followers`} className="hover:text-ink">
+          {hasAccess ? (
+            <p className="mt-1.5 text-sm text-muted">
+              <Link href={`/u/${profile.username}/followers`} className="hover:text-ink">
+                <span className="font-medium text-ink">{followerCount ?? 0}</span> followers
+              </Link>
+              {" · "}
+              <Link href={`/u/${profile.username}/following`} className="hover:text-ink">
+                <span className="font-medium text-ink">{followingCount ?? 0}</span> following
+              </Link>
+            </p>
+          ) : (
+            // A private profile you can't open: the numbers, but not who.
+            <p className="mt-1.5 text-sm text-muted">
               <span className="font-medium text-ink">{followerCount ?? 0}</span> followers
-            </Link>
-            {" · "}
-            <Link href={`/u/${profile.username}/following`} className="hover:text-ink">
+              {" · "}
               <span className="font-medium text-ink">{followingCount ?? 0}</span> following
-            </Link>
-          </p>
+            </p>
+          )}
+          {mutuals && (
+            <p className="mt-1 text-xs text-muted">
+              Followed by {mutuals.names.join(mutuals.more ? ", " : " and ")}
+              {mutuals.more > 0 && ` and ${mutuals.more} ${mutuals.more === 1 ? "other" : "others"} you know`}
+            </p>
+          )}
           {/* Your own buttons, or Follow: under who you are and your followers. */}
           {(preview || isOwnProfile || viewer) && (
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -473,15 +496,11 @@ export default async function PublicProfilePage({ params, searchParams }: { para
         </>
       ) : (
         <div className="mt-14 text-center">
-          <p className="text-lg">
-            This world is {profile.visibility === "private" ? "private" : "for friends only"}.
-          </p>
+          <p className="text-lg">This account is private.</p>
           <p className="mt-2 text-sm text-muted">
             {hasPendingRequest
               ? "Your follow request is waiting for approval."
-              : profile.visibility === "private"
-                ? `Request to follow ${profile.display_name} to see their trips and events.`
-                : `Follow each other to see ${profile.display_name}'s trips and events.`}
+              : `Request to follow ${profile.display_name} to see their countries, trips and events.`}
           </p>
         </div>
       )}
