@@ -29,6 +29,7 @@ export function CountryHero({
   stock,
   publicHref,
   initialFavourite,
+  visitor,
 }: {
   visitedCountryId: string;
   flag: string;
@@ -39,8 +40,11 @@ export function CountryHero({
   summary: string; // "5 trips · 3 places · Lived here 2025 – 2026"
   photo: string | null;
   stock: StockPhoto | null;
+  /** Your country page: the general page about the country, for everyone. */
   publicHref: string | null;
   initialFavourite: boolean;
+  /** Someone else's country page: where Back goes, and the general country page. */
+  visitor?: { backHref: string; backLabel: string; exploreHref: string };
 }) {
   const router = useRouter();
   const [favourite, setFavourite] = useState(initialFavourite);
@@ -67,8 +71,8 @@ export function CountryHero({
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/25" aria-hidden />
 
       <div className="absolute inset-x-0 top-0 mx-auto flex max-w-3xl items-center justify-between px-5 pt-5">
-        <Link href="/my-world" className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-sm text-white backdrop-blur hover:bg-black/50">
-          <ArrowLeft size={15} /> My World
+        <Link href={visitor?.backHref ?? "/my-world"} className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-sm text-white backdrop-blur hover:bg-black/50">
+          <ArrowLeft size={15} /> {visitor?.backLabel ?? "My World"}
         </Link>
         {!photo && stock && (
           <span className="rounded-full bg-black/35 px-2.5 py-1.5 backdrop-blur-sm">
@@ -95,6 +99,13 @@ export function CountryHero({
         </h1>
         <p className="mt-2 text-sm text-white/80">{summary}</p>
 
+        {visitor ? (
+          <div className="mt-4 flex items-center gap-x-4">
+            <Link href={visitor.exploreHref} className={action}>
+              <Globe2 size={16} className="text-accent" /> Explore {name}
+            </Link>
+          </div>
+        ) : (
         <div className="mt-4 flex items-center gap-x-4">
           <ShareButton kind="country" targetId={visitedCountryId} title={`${flag} ${name}`} compact className="!text-white/90 hover:!text-white" />
           {publicHref && (
@@ -111,6 +122,7 @@ export function CountryHero({
             Favourite
           </button>
         </div>
+        )}
       </div>
     </div>
   );

@@ -8,6 +8,8 @@ import { LikeButton } from "@/components/LikeButton";
 import { FeedExplore } from "@/components/network/FeedExplore";
 import { FeedTabs, SearchBox } from "@/components/feed/FeedTabs";
 import { LoadMore } from "@/components/LoadMore";
+import { PersonCard } from "@/components/PersonCard";
+import { searchPeople } from "@/lib/peopleSearch";
 import { FirstFriends } from "@/components/FirstFriends";
 import { CommentSection } from "@/components/CommentSection";
 import { FeedMemoryCard, type FeedMediaItem } from "@/components/FeedMemoryCard";
@@ -104,7 +106,9 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   }
 
 
-  // Searching your friends' posts: by place, title, words, or who.
+  // Searching: people first (anyone you could find in Explore), then your
+  // friends' posts by place, title, words, or who.
+  const people = q ? await searchPeople(supabase, q, user.id, 6) : [];
   let searchActors: string[] = [];
   if (q && followeeIds.length) {
     const { data: who } = await supabase.from("profiles").select("id").in("id", followeeIds).or(`display_name.ilike.%${q}%,username.ilike.%${q}%`);
@@ -289,7 +293,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       <Suspense fallback={null}>
         <FirstFriends userId={user.id} force={searchParams?.friends === "1"} />
       </Suspense>
-      <SearchBox action="/feed" placeholder="Search your friends' experiences…" defaultValue={q} />
+      <SearchBox action="/feed" placeholder="Search people and experiences…" defaultValue={q} />
 
       {q ? (
         <section className="mt-8" aria-labelledby="results-h">
@@ -301,10 +305,30 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
               Clear
             </Link>
           </div>
-          {items.length === 0 ? (
-            <p className="mt-4 text-sm text-muted">Nothing from people you follow matches &ldquo;{q}&rdquo;.</p>
+          {people.length > 0 && (
+            <div className="mt-5">
+              <h3 className="eyebrow">People</h3>
+              <ul className="mt-3 space-y-3">
+                {people.map((p) => (
+                  <li key={p.id}>
+                    <PersonCard
+                      p={p}
+                      detail={`@${p.username} · ${p.countries} ${p.countries === 1 ? "country" : "countries"}${p.following ? " · Following" : ""}`}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {items.length > 0 ? (
+            <div className="mt-8">
+              {people.length > 0 && <h3 className="eyebrow">Trips, stays &amp; events</h3>}
+              <ul className="mt-4 space-y-8">{items.map((item, i) => renderPost(item, i))}</ul>
+            </div>
+          ) : people.length === 0 ? (
+            <p className="mt-4 text-sm text-muted">Nothing matches &ldquo;{q}&rdquo; yet.</p>
           ) : (
-            <ul className="mt-4 space-y-8">{items.map((item, i) => renderPost(item, i))}</ul>
+            <p className="mt-6 text-sm text-muted">No trips or events from people you follow match &ldquo;{q}&rdquo;.</p>
           )}
         </section>
       ) : (

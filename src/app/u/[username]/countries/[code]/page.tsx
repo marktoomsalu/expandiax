@@ -1,12 +1,13 @@
-import { orderCountryMedia } from "@/lib/mediaOrder";
+import { buildCountryView } from "@/lib/countryView";
+import { countrySummary } from "@/lib/tripPlaces";
+import { CountryHero } from "@/components/CountryHero";
+import { CountryPlaces } from "@/components/CountryPlaces";
+import { StayRow } from "@/components/StayRow";
 import Link from "next/link";
-import Image from "next/image";
 import { stockPhotoFor } from "@/lib/stockPhotos";
-import { StockCredit } from "@/components/StockCredit";
-import { StockImage } from "@/components/StockImage";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, ArrowRight, ImagePlus, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, Pencil } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { territoryByCode, territoryToMeta } from "@/lib/territories";
@@ -118,20 +119,25 @@ export default async function PublicCountryPage({
     .order("created_at", { ascending: true });
   const comments = (commentRows ?? []) as CommentWithAuthor[];
 
-  const allMedia = [...country.country_media].sort((a, b) => a.display_order - b.display_order);
-  // An explicit pick, else the newest trip's cover (the same order as the My World card).
-  const cover = orderCountryMedia(allMedia, country.country_visits, country.cover_media_id)[0];
-  const stock = cover ? null : stockPhotoFor(meta.code, profile.id);
-  const years = [...new Set(country.country_visits.map((v) => v.year))].sort();
-  const highlightedVisits = [...country.country_visits]
-    .filter(
-      (v) =>
-        v.highlight.trim() ||
-        v.spotify_track_id ||
-        country.country_media.some((m) => m.country_visit_id === v.id) ||
-        country.country_cities.some((c) => c.country_visit_id === v.id)
-    )
-    .sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
+  // The same page the owner sees on My World, read-only: their stays and
+  // trips on a timeline, the places, and each trip's photos and notes below.
+  // Row-level security has already left out anything they keep to themselves.
+  const { heroPhoto, trips, places, cities } = buildCountryView(country, meta);
+  const stock = heroPhoto ? null : stockPhotoFor(meta.code, profile.id);
+  const tripById = new Map(trips.map((t) => [t.id, t]));
+  const visitsNewest = [...country.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
+  const highlightedVisits = visitsNewest.filter(
+    (v) =>
+      v.highlight.trim() ||
+      v.spotify_track_id ||
+      country.country_media.some((m) => m.country_visit_id === v.id) ||
+      cities.some((c) => c.country_visit_id === v.id)
+  );
+  // A place opens its most recent trip further down the page.
+  const placeHref = (cityIds: string[]) => {
+    const c = visitsNewest.map((v) => cities.find((x) => x.country_visit_id === v.id && cityIds.includes(x.id))).find(Boolean);
+    return c ? `#trip-${c.country_visit_id}` : "#trips";
+  };
   const events = (relatedEvents ?? []) as Event[];
 
   const list = allCountries ?? [];
@@ -141,78 +147,63 @@ export default async function PublicCountryPage({
 
   return (
     <div>
-      {cover && (
-        <div className="relative h-[42vh] min-h-64 w-full overflow-hidden">
-          <Image
-            src={cover.public_url}
-            alt={cover.caption || `Photo from ${meta.name}`}
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" aria-hidden />
-        </div>
-      )}
-      {!cover && stock && (
-        // No photos of their own yet: a credited stock photo, never passed off as theirs.
-        <div className="relative h-[34vh] min-h-56 w-full overflow-hidden" style={{ backgroundColor: stock.color }}>
-          <StockImage photo={stock} alt={stock.alt} priority sizes="100vw" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/10" aria-hidden />
-          {isOwnProfile && (
-            <Link
-              href={`/my-world/${meta.code.toLowerCase()}`}
-              className="absolute bottom-4 left-5 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-sm font-semibold text-[#14110d] shadow-sm"
-            >
-              <ImagePlus size={15} aria-hidden /> Add your own photos
-            </Link>
-          )}
-          <StockCredit photo={stock} className="absolute bottom-4 right-5" />
-        </div>
-      )}
+      <CountryHero
+        visitedCountryId={country.id}
+        flag={meta.flag}
+        name={meta.name}
+        continent={meta.continent}
+        isTerritory={isTerritory}
+        onlyMe={false}
+        summary={countrySummary(visitsNewest, places.length, country.country_media.length)}
+        photo={heroPhoto?.public_url ?? null}
+        stock={stock}
+        publicHref={null}
+        initialFavourite={false}
+        visitor={{
+          backHref: `/u/${profile.username}`,
+          backLabel: `${profile.display_name}\u2019s world`,
+          exploreHref: `/explore/country/${meta.code.toLowerCase()}`,
+        }}
+      />
 
-      <div className="mx-auto max-w-3xl px-5 py-10">
-        <Link href={`/u/${profile.username}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-          <ArrowLeft size={15} /> {profile.display_name}&rsquo;s world
-        </Link>
+      <div className="mx-auto max-w-3xl space-y-8 px-5 pb-10 pt-8">
+        {isOwnProfile && (
+          <Link
+            href={`/my-world/${meta.code.toLowerCase()}`}
+            className="inline-flex items-center gap-1.5 text-sm text-accent underline-offset-4 hover:underline"
+          >
+            <Pencil size={14} /> Edit on My World
+          </Link>
+        )}
 
-        <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="eyebrow flex items-center gap-2">
-              {meta.continent}{years.length > 0 && <> · {years.join(" · ")}</>}
-              {isTerritory && (
-                <span className="rounded-full border border-line px-2 py-0.5 text-[0.625rem] font-medium normal-case tracking-normal text-muted">
-                  Territory
-                </span>
-              )}
-            </p>
-            <h1 className="mt-2 text-4xl md:text-5xl">
-              <span aria-hidden className="mr-2">{meta.flag}</span>{meta.name}
-            </h1>
-          </div>
-          {isOwnProfile && (
-            <Link
-              href={`/my-world/${meta.code.toLowerCase()}`}
-              className="inline-flex items-center gap-1.5 text-sm text-accent underline-offset-4 hover:underline"
-            >
-              <Pencil size={14} /> Edit
-            </Link>
-          )}
-        </div>
+        <CountryPlaces places={places} countryCode={meta.code} hrefFor={placeHref} />
+
+        {trips.length > 0 && (
+          <section id="trips" aria-labelledby="trips-h" className="scroll-mt-24">
+            <h2 id="trips-h" className="font-serif text-2xl">All stays &amp; trips</h2>
+            <div className="mt-3">
+              {trips.map((t, i) => (
+                <StayRow key={t.id} stay={t} href={`#trip-${t.id}`} first={i === 0} last={i === trips.length - 1} readOnly />
+              ))}
+            </div>
+          </section>
+        )}
 
         {highlightedVisits.length > 0 && (
-          <section className="mt-10" aria-label="Trips">
-            <ul className="space-y-6">
+          <section aria-labelledby="memories-h">
+            <h2 id="memories-h" className="font-serif text-2xl">Memories</h2>
+            <ul className="mt-4 space-y-8">
               {highlightedVisits.map((v) => {
                 const visitPhotos = country.country_media
                   .filter((m) => m.country_visit_id === v.id)
                   .sort((a, b) => a.display_order - b.display_order);
-                const visitCities = country.country_cities.filter((c) => c.country_visit_id === v.id).map((c) => c.city_name);
+                const t = tripById.get(v.id);
                 return (
-                  <li key={v.id} className="border-l-2 border-line pl-5">
+                  <li key={v.id} id={`trip-${v.id}`} className="scroll-mt-24 border-l-2 pl-5" style={{ borderColor: v.kind === "lived" ? "#fa51a2" : "#fb7822" }}>
                     <p className="eyebrow">{formatVisitRange(v)}</p>
-                    {visitCities.length > 0 && <p className="mt-1 text-sm text-muted">{visitCities.join(" · ")}</p>}
-                    {v.highlight && <p className="mt-1 text-sm leading-relaxed">{v.highlight}</p>}
+                    {t && <p className="mt-1 font-serif text-xl">{t.name}</p>}
+                    {t?.places && t.places !== t.name && t.places !== v.highlight.trim() && <p className="mt-0.5 text-sm text-muted">{t.places}</p>}
+                    {v.highlight && <p className="mt-2 text-sm leading-relaxed">{v.highlight}</p>}
                     {visitPhotos.length > 0 && (
                       <div className="mt-3">
                         <PhotoGallery
@@ -220,7 +211,7 @@ export default async function PublicCountryPage({
                           gridClassName="grid grid-cols-3 gap-2"
                           itemClassName="relative aspect-square w-full overflow-hidden rounded-lg border border-line"
                           sizes="33vw"
-                          coverId={v.cover_media_id}
+                          coverId={isOwnProfile ? v.cover_media_id : null}
                         />
                       </div>
                     )}

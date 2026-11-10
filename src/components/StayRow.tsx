@@ -26,8 +26,8 @@ export type StayView = {
   mediaPaths: string[];
 };
 
-/** One row of a country's "All stays & trips" timeline. */
-export function StayRow({ stay, href, first, last }: { stay: StayView; href: string; first: boolean; last: boolean }) {
+/** One row of a country's "All stays & trips" timeline. `readOnly`: someone else's, with no Edit or Remove. */
+export function StayRow({ stay, href, first, last, readOnly = false }: { stay: StayView; href: string; first: boolean; last: boolean; readOnly?: boolean }) {
   const router = useRouter();
   const [menu, setMenu] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -61,7 +61,7 @@ export function StayRow({ stay, href, first, last }: { stay: StayView; href: str
         {stay.railBottom && <span className="text-[10px] uppercase leading-tight text-muted">{stay.railBottom}</span>}
         <span className={cn("absolute right-0 top-0 w-px bg-line", first ? "top-6" : "top-0", last ? "h-6" : "bottom-0")} aria-hidden />
         <span
-          className={cn("absolute -right-[5px] top-6 h-2.5 w-2.5 rounded-full ring-2 ring-canvas", stay.kind === "lived" ? "bg-accent" : "bg-sky-500")}
+          className={cn("absolute -right-[5px] top-6 h-2.5 w-2.5 rounded-full ring-2 ring-canvas", stay.kind === "lived" ? "bg-[#fa51a2]" : "bg-[#fb7822]")}
           aria-hidden
         />
       </div>
@@ -81,7 +81,7 @@ export function StayRow({ stay, href, first, last }: { stay: StayView; href: str
           </span>
           <span className="pointer-events-none min-w-0 flex-1">
             <span className="block truncate font-serif text-base leading-tight sm:text-lg">{stay.name}</span>
-            {stay.places && <span className="block truncate text-xs text-muted">{stay.places}</span>}
+            {stay.places && stay.places !== stay.name && <span className="block truncate text-xs text-muted">{stay.places}</span>}
             <span className="block truncate text-xs text-muted">
               {stay.when}
               {stay.length ? ` · ${stay.length}` : ""}
@@ -92,6 +92,7 @@ export function StayRow({ stay, href, first, last }: { stay: StayView; href: str
               <ImageIcon size={14} aria-hidden /> {stay.photos}
             </span>
           )}
+          {!readOnly && (
           <div ref={menuRef} className="relative">
             <button
               type="button"
@@ -120,10 +121,12 @@ export function StayRow({ stay, href, first, last }: { stay: StayView; href: str
               </div>
             )}
           </div>
+          )}
           <ChevronRight size={16} className="pointer-events-none shrink-0 text-muted" aria-hidden />
         </div>
       </div>
 
+      {!readOnly && (
       <ConfirmDialog
         open={confirm}
         title={`Remove ${stay.name}?`}
@@ -133,6 +136,7 @@ export function StayRow({ stay, href, first, last }: { stay: StayView; href: str
         onConfirm={remove}
         onCancel={() => setConfirm(false)}
       />
+      )}
     </div>
   );
 }
