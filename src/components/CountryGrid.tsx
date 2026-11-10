@@ -15,7 +15,13 @@ import { StockImage } from "./StockImage";
 type VisitLite = { id?: string; year: number; visited_from: string | null; visited_to: string | null; cover_media_id?: string | null };
 type Row = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
 
-export function CountryGrid({ countries, stock = {} }: { countries: Row[]; stock?: Record<string, StockPhoto> }) {
+/**
+ * Country cards with a search. Yours (My World) by default; with
+ * `username`, someone else's, linking to their public country pages and
+ * without the "add your memories" prompts.
+ */
+export function CountryGrid({ countries, stock = {}, username }: { countries: Row[]; stock?: Record<string, StockPhoto>; username?: string }) {
+  const own = !username;
   const [query, setQuery] = useState("");
 
   const shown = useMemo(() => {
@@ -37,8 +43,8 @@ export function CountryGrid({ countries, stock = {} }: { countries: Row[]; stock
         <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
         <input
           type="search"
-          aria-label="Search your countries"
-          placeholder="Search your countries…"
+          aria-label={own ? "Search your countries" : "Search countries"}
+          placeholder={own ? "Search your countries…" : "Search countries…"}
           className="field !pl-10"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -60,10 +66,10 @@ export function CountryGrid({ countries, stock = {} }: { countries: Row[]; stock
               c.cover_media_id
             );
             const years = [...new Set(c.country_visits.map((v) => v.year))].sort();
-            const detail = years.length ? years.join(" · ") : "Add your visit years";
+            const detail = years.length ? years.join(" · ") : own ? "Add your visit years" : "";
             return (
               <li key={c.id}>
-                <Link href={`/my-world/${c.country_code.toLowerCase()}`} className="card group block overflow-hidden transition-shadow hover:shadow-lg">
+                <Link href={own ? `/my-world/${c.country_code.toLowerCase()}` : `/u/${username}/countries/${c.country_code.toLowerCase()}`} className="card group block overflow-hidden transition-shadow hover:shadow-lg">
                   <div className="relative aspect-[3/4] bg-raised">
                     {media.length > 0 ? (
                       <CountryCardMedia
@@ -85,9 +91,11 @@ export function CountryGrid({ countries, stock = {} }: { countries: Row[]; stock
                         <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-12 text-white">
                           <p className="font-serif text-xl drop-shadow-sm">{flag} {c.country_name}</p>
                           <p className="mt-0.5 text-xs text-white/75">{detail}</p>
-                          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-[#14110d] shadow-sm transition-transform group-hover:scale-[1.03]">
-                            <ImagePlus size={13} aria-hidden /> Add your memories
-                          </span>
+                          {own && (
+                            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-[#14110d] shadow-sm transition-transform group-hover:scale-[1.03]">
+                              <ImagePlus size={13} aria-hidden /> Add your memories
+                            </span>
+                          )}
                           <StockCredit photo={stock[c.country_code]} linked={false} className="mt-2.5 block text-white/60" />
                         </div>
                       </>
@@ -97,7 +105,7 @@ export function CountryGrid({ countries, stock = {} }: { countries: Row[]; stock
                         <div>
                           <p className="font-serif text-lg">{c.country_name}</p>
                           <p className="mt-0.5 text-xs text-muted">
-                            {years.length ? years.join(" · ") : "Add your visit years"}
+                            {years.length ? years.join(" · ") : own ? "Add your visit years" : ""}
                           </p>
                         </div>
                       </div>

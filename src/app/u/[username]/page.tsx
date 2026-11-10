@@ -3,7 +3,7 @@ import Image from "next/image";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { StockCredit } from "@/components/StockCredit";
 import { StockImage } from "@/components/StockImage";
-import { BarChart3, Pencil } from "lucide-react";
+import { BarChart3, ChevronRight, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { WorldMapLink } from "@/components/WorldMapLink";
@@ -14,7 +14,7 @@ import { BlockButton } from "@/components/BlockButton";
 import { BadgeGrid } from "@/components/BadgeGrid";
 import { EarlyExplorerBadge } from "@/components/EarlyExplorerBadge";
 import { SignOutButton } from "@/components/SignOutButton";
-import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
+import { TOTAL_COUNTRIES, countryByCode } from "@/lib/countries";
 import { isTerritoryCode, TOTAL_TERRITORIES } from "@/lib/territories";
 import { formatDate, hexToRgbTriplet } from "@/lib/utils";
 import { focalPosition } from "@/lib/media";
@@ -163,8 +163,6 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   const countryCodes = realCountries.map((c) => c.country_code);
   // Trips count as visits; somewhere they lived shows pink, like home.
   const { visitCounts, livedCodes } = mapStays(countries);
-  const pct = Math.round((countryCodes.length / TOTAL_COUNTRIES) * 1000) / 10;
-  const visitedContinents = continentCounts(countryCodes).filter((c) => c.visited > 0);
   const home = countryByCode(profile.home_country_code);
 
   const statCountries: CountryStatInput[] = realCountries.map((c) => ({
@@ -199,19 +197,17 @@ export default async function PublicProfilePage({ params, searchParams }: { para
     )
     .sort((a, b) => visitSortKey(b.visit).localeCompare(visitSortKey(a.visit)));
   const codesWithPhotos = new Set(countries.filter((c) => c.country_media.length > 0).map((c) => c.country_code));
-  const recentTrips = allTrips.slice(0, 4);
-  const gallery = [
-    ...countries.flatMap((c) => c.country_media.map((m) => ({ ...m, alt: `Photo from ${c.country_name}` }))),
-    ...events.flatMap((e) =>
-      e.event_media.filter((m) => m.media_type === "image").map((m) => ({ ...m, alt: e.title }))
-    ),
-  ].slice(0, 8);
+  const recentTrips = allTrips.slice(0, 3);
 
-  const stat = (value: React.ReactNode, label: string) => (
-    <div className="border-l border-line pl-4 first:border-0 first:pl-0">
-      <p className="stat-number !text-3xl md:!text-4xl">{value}</p>
-      <p className="eyebrow mt-1.5">{label}</p>
-    </div>
+  // The two counters open the full lists: yours in My World and Events,
+  // someone else's on their own list pages.
+  const stat = (value: React.ReactNode, label: string, href: string) => (
+    <Link href={href} className="group border-l border-line pl-4 first:border-0 first:pl-0">
+      <p className="stat-number !text-3xl transition-colors group-hover:text-accent md:!text-4xl">{value}</p>
+      <p className="eyebrow mt-1.5 flex items-center gap-1">
+        {label} <ChevronRight size={12} aria-hidden className="transition-transform group-hover:translate-x-0.5" />
+      </p>
+    </Link>
   );
 
   // Their own accent color, scoped to this page only, via the same CSS
@@ -290,30 +286,8 @@ export default async function PublicProfilePage({ params, searchParams }: { para
         <>
       {/* Stats */}
       <div className="mt-10 grid grid-cols-2 gap-y-6 sm:flex sm:flex-wrap sm:gap-x-10">
-        {stat(countryCodes.length, "Countries")}
-        {stat(`${pct}%`, "Of the world")}
-        {stat(`${visitedContinents.length}/6`, "Continents")}
-        {stat(events.length, "Events")}
-        {usStates.length > 0 && (
-          <Link href="#us-states" className="border-l border-line pl-4 hover:opacity-80">
-            <p className="stat-number !text-3xl md:!text-4xl">{usStates.length}</p>
-            <p className="eyebrow mt-1.5">US States</p>
-          </Link>
-        )}
-        {territories.length > 0 && (
-          <Link href="#territories" className="border-l border-line pl-4 hover:opacity-80">
-            <p className="stat-number !text-3xl md:!text-4xl">{territories.length}</p>
-            <p className="eyebrow mt-1.5">Territories</p>
-          </Link>
-        )}
-        {(badges.length > 0 || isEarlyExplorer(profile.signup_number)) && (
-          <Link href="#badges" className="border-l border-line pl-4 hover:opacity-80">
-            <p className="stat-number !text-3xl md:!text-4xl">
-              {badges.length + (isEarlyExplorer(profile.signup_number) ? 1 : 0)}
-            </p>
-            <p className="eyebrow mt-1.5">Badges</p>
-          </Link>
-        )}
+        {stat(countryCodes.length, "Countries", isOwnProfile ? "/my-world" : `/u/${profile.username}/countries`)}
+        {stat(events.length, "Events", isOwnProfile ? "/events" : `/u/${profile.username}/events`)}
       </div>
 
       {/* Map */}
@@ -366,13 +340,13 @@ export default async function PublicProfilePage({ params, searchParams }: { para
               <p className="eyebrow">Travel</p>
               <h2 id="mem-h" className="mt-1 text-2xl md:text-3xl">Recent trips</h2>
             </div>
-            {allTrips.length > 4 && (
+            {allTrips.length > 3 && (
               <Link href={`/u/${profile.username}/trips`} className="text-sm text-accent underline-offset-4 hover:underline">
                 See more
               </Link>
             )}
           </div>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {recentTrips.map(({ visit, countryCode, countryName, cover }) => {
               const meta = countryByCode(countryCode);
               const stock = !cover && !codesWithPhotos.has(countryCode) ? stockPhotoFor(countryCode, profile.id) : null;
@@ -418,14 +392,14 @@ export default async function PublicProfilePage({ params, searchParams }: { para
               <p className="eyebrow">Music &amp; moments</p>
               <h2 id="conc-h" className="mt-1 text-2xl md:text-3xl">Recent events</h2>
             </div>
-            {events.length > 6 && (
+            {events.length > 3 && (
               <Link href={`/u/${profile.username}/events`} className="text-sm text-accent underline-offset-4 hover:underline">
                 See more
               </Link>
             )}
           </div>
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {events.slice(0, 6).map((e) => {
+            {events.slice(0, 3).map((e) => {
               const cover =
                 e.event_media.find((m) => m.id === e.cover_media_id) ??
                 e.event_media.filter((m) => m.media_type === "image").sort((a, b) => a.display_order - b.display_order)[0];
@@ -463,28 +437,6 @@ export default async function PublicProfilePage({ params, searchParams }: { para
               );
             })}
           </ul>
-        </section>
-      )}
-
-      {/* Gallery */}
-      {gallery.length > 0 && (
-        <section className="mt-14" aria-labelledby="gal-h">
-          <p className="eyebrow">Archive</p>
-          <h2 id="gal-h" className="mt-1 text-2xl md:text-3xl">Selected frames</h2>
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {gallery.map((m) => (
-              <div key={m.id} className="relative aspect-square w-full overflow-hidden rounded-lg border border-line">
-                <Image
-                  src={m.public_url}
-                  alt={m.caption || m.alt}
-                  fill
-                  sizes="(min-width: 640px) 25vw, 50vw"
-                  loading="lazy"
-                  className="object-cover"
-                />
-              </div>
-            ))}
-          </div>
         </section>
       )}
 

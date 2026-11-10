@@ -42,7 +42,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
 
   const leftLinks = [
     { href: "/feed", label: "Feed", icon: Rss },
-    { href: "/my-world", label: "My World", icon: Globe2 },
+    { href: "/my-world", label: "Countries", icon: Globe2 },
   ];
   const rightLinks = [
     { href: "/events", label: "Events", icon: Ticket },
