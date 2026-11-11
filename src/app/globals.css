@@ -163,3 +163,9 @@
     transform: scaleY(0.7);
   }
 }
+
+/* Tailwind's select-none without the -webkit- name that iPhones still need
+   (there's no autoprefixer here): press-and-hold spots never select text. */
+.select-none {
+  -webkit-user-select: none;
+}

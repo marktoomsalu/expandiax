@@ -7,6 +7,7 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { createClient } from "@/lib/supabase/client";
 import { isNativePlatform } from "@/lib/capacitor";
 import { FcmToken } from "@/lib/fcmToken";
+import { openChat } from "@/lib/chat";
 
 export function PushRegistration({ userId }: { userId: string }) {
   const router = useRouter();
@@ -39,6 +40,12 @@ export function PushRegistration({ userId }: { userId: string }) {
       // Count the open: an announcement's open rate, and "seen", so the next like may buzz again.
       if (data?.campaignId || data?.logId) {
         void fetch("/api/push/opened", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaignId: data.campaignId, logId: data.logId }) }).catch(() => {});
+      }
+      // A chat message opens that chat right where you are, over the page.
+      const chatId = link?.match(/[?&]chat=([0-9a-f-]{36})/)?.[1];
+      if (chatId) {
+        openChat({ view: "conversation", conversationId: chatId });
+        return;
       }
       router.push(link && link.startsWith("/") ? link : "/notifications");
     });

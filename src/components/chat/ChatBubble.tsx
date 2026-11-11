@@ -28,6 +28,7 @@ import { useChatEnabled } from "@/lib/useChatEnabled";
 import { askForPush } from "@/lib/pushAsk";
 import { firstCountry, splitMentions } from "@/lib/placeMentions";
 import { ReactionChips, ReactionPicker, type Reaction } from "./Reactions";
+import { useChatKeyboard } from "@/lib/useChatKeyboard";
 
 // Screens where the bubble would be in the way.
 const HIDDEN = ["/start", "/touch", "/sign-in", "/sign-up", "/onboarding"];
@@ -45,6 +46,8 @@ function useChat(me: string) {
   // When this phone last had each chat open: counts as read straight away,
   // whether or not the database's confirmation has come back yet.
   const [readHere, setReadHere] = useState<Record<string, number>>({});
+  // The list has loaded at least once.
+  const [ready, setReady] = useState(false);
 
   const load = useCallback(async () => {
     const { data: convs } = await supabase.from("conversations").select(CONV_FIELDS).order("last_message_at", { ascending: false }).limit(60);
@@ -78,6 +81,7 @@ function useChat(me: string) {
     for (const p of (profs ?? []) as ChatPerson[]) byId[p.id] = p;
     setPeople(byId);
     setFriends(friendIds.map((id) => byId[id]).filter(Boolean));
+    setReady(true);
   }, [supabase, me]);
 
   useEffect(() => {
@@ -120,7 +124,7 @@ function useChat(me: string) {
     return Date.parse(m.created_at) > readAt;
   });
 
-  return { supabase, conversations, people, last, friends, unread, incoming, reload: load, markRead };
+  return { supabase, conversations, people, last, friends, unread, incoming, reload: load, markRead, ready };
 }
 
 /** Only in the new app build (see useChatEnabled). */
@@ -181,6 +185,7 @@ function ChatBubbleInner({ me }: { me: string }) {
 type Chat = ReturnType<typeof useChat>;
 
 function ChatPanel({ me, chat, target }: { me: string; chat: Chat; target: ReturnType<typeof chatState>["target"] }) {
+  const keyboard = useChatKeyboard();
   // The phone's back gesture and Escape close it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeChat();
@@ -189,11 +194,18 @@ function ChatPanel({ me, chat, target }: { me: string; chat: Chat; target: Retur
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[75] flex items-end justify-end sm:p-5" role="dialog" aria-modal="true" aria-label="Chat">
+    <div
+      className={cn("fixed inset-0 z-[75] flex items-end justify-end sm:p-5", keyboard > 0 && "kb-open")}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Chat"
+      // Rises with the keyboard, at its pace (see useChatKeyboard).
+      style={{ paddingBottom: keyboard, transition: "padding-bottom .34s cubic-bezier(.38,.7,.125,1)" }}
+    >
       <button type="button" aria-label="Close chat" onClick={closeChat} className="absolute inset-0 bg-black/40 backdrop-blur-[2px] sm:bg-black/20" />
       <div
         className="chat-sheet relative flex w-full flex-col overflow-hidden rounded-t-[28px] bg-canvas shadow-2xl sm:h-[640px] sm:w-[400px] sm:rounded-[28px]"
-        style={{ height: "min(88vh, 760px)" }}
+        style={{ height: "min(88vh, 760px)", maxHeight: "calc(100% - env(safe-area-inset-top) - 12px)" }}
       >
         {target.view === "home" && <Home me={me} chat={chat} />}
         {target.view === "new" && <NewChat me={me} chat={chat} />}
@@ -452,12 +464,32 @@ function Conversation({ me, chat, conversationId }: { me: string; chat: Chat; co
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [messages.length]);
+  // As the keyboard comes up and the chat gets shorter, the newest message stays in view.
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let h = el.clientHeight;
+    const ro = new ResizeObserver(() => {
+      const nearEnd = el.scrollHeight - el.scrollTop - h < 80;
+      h = el.clientHeight;
+      if (nearEnd) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(el);
+    // And no text selection starting in the messages (iOS's own long-press menu).
+    const noSelect = (e: Event) => e.preventDefault();
+    el.addEventListener("selectstart", noSelect);
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("selectstart", noSelect);
+    };
+  }, [loaded]);
 
   if (!c || !person) {
     return (
       <>
         <Header title="Chat" onBack={() => goChat({ view: "home" })} />
-        <p className="px-5 py-10 text-center text-sm text-muted">{loaded ? "This chat isn't here any more." : "Opening…"}</p>
+        <p className="px-5 py-10 text-center text-sm text-muted">{loaded && chat.ready ? "This chat isn't here any more." : "Opening…"}</p>
       </>
     );
   }
@@ -472,7 +504,7 @@ function Conversation({ me, chat, conversationId }: { me: string; chat: Chat; co
       <Header person={person} sub={sub} onBack={() => goChat({ view: "home" })} menu={<SafetyMenu me={me} chat={chat} person={person} messages={messages} />} />
       {/* Tapping anywhere else closes the reactions. */}
       {picker && <button type="button" aria-label="Close reactions" onClick={() => setPicker(null)} className="fixed inset-0 z-20 cursor-default bg-black/10" />}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div ref={listRef} className="chat-messages flex-1 overflow-y-auto px-4 py-3">
         {!chat.friends.some((f) => f.id === person.id) && <SafetyNote />}
         {messages.map((m, i) => {
           const mine = m.sender_id === me;
@@ -645,7 +677,7 @@ function Composer({
   }
 
   return (
-    <div className="border-t border-line bg-surface/80 px-3 pt-2 backdrop-blur" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}>
+    <div className="chat-composer border-t border-line bg-surface/80 px-3 pt-2 backdrop-blur" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}>
       {picking && <PlacePicker onPick={(p) => { setPlace(p); setPicking(false); }} onClose={() => setPicking(false)} />}
       {place && (
         <div className="mb-2 flex items-center gap-2 px-1">
@@ -896,6 +928,8 @@ function usePressToReact(enabled: boolean, onLongPress: () => void, onDoubleTap:
       start.current = { x: e.clientX, y: e.clientY };
       timer.current = setTimeout(() => {
         fired.current = true;
+        // Whatever iOS had started selecting goes: copying is the Copy button's job.
+        window.getSelection()?.removeAllRanges();
         onLongPress();
       }, 380);
     },
@@ -1058,6 +1092,9 @@ const STYLES = `
 @keyframes chat-up { from { transform: translateY(40px); opacity: 0; } }
 .postcard { background: linear-gradient(135deg, #fff8ee, #ffe9d6); border: 1px solid rgba(43,11,46,.08); }
 .stamp { border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.18); outline: 1.5px dashed rgba(43,11,46,.28); outline-offset: -4px; transform: rotate(3deg); }
+/* Holding a message reacts; it never selects the words (iPhone needs the -webkit- names). */
+.chat-messages, .chat-messages * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.kb-open .chat-composer { padding-bottom: 10px !important; }
 .react-bar { animation: react-in .18s cubic-bezier(.2,.9,.3,1.3) both; transform-origin: bottom center; }
 @keyframes react-in { from { transform: scale(.6); opacity: 0; } }
 .react-pop { animation: react-pop .32s cubic-bezier(.2,.9,.3,1.5) both; }
