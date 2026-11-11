@@ -51,7 +51,7 @@ export default async function UserPostsPage({ params, searchParams }: Props) {
         <>
           <ul className="mt-6 space-y-8">
             {which.kind === "country"
-              ? trips.slice(0, limit).map((t, i) => <FeedPost key={t.key} item={t.item} ctx={ctx} index={i} media={t.media} dateLabel={t.dateLabel} actionLabel={t.actionLabel} hideWhen />)
+              ? trips.slice(0, limit).map((t, i) => <FeedPost key={t.key} item={t.item} ctx={ctx} index={i} media={t.media} dateLabel={t.dateLabel} actionLabel={t.actionLabel} hideWhen href={`/u/${profile.username}/trips/${t.key}`} />)
               : posts.map((p, i) => <FeedPost key={`${p.kind}:${p.ref_id}`} item={p} ctx={ctx} index={i} />)}
           </ul>
           <LoadMore href={`/u/${profile.username}/posts/${params.kind}?limit=${limit + PAGE}`} shown={limit} more={all.length > limit} />

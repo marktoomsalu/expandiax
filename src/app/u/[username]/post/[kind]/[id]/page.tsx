@@ -59,7 +59,7 @@ export default async function PostPage({ params }: Props) {
         )}
       </div>
       <ul className="mt-4">
-        <FeedPost item={post} ctx={ctx} media={asTrip?.media} dateLabel={asTrip?.dateLabel} actionLabel={asTrip?.actionLabel} hideWhen={!!asTrip} />
+        <FeedPost item={post} ctx={ctx} media={asTrip?.media} dateLabel={asTrip?.dateLabel} actionLabel={asTrip?.actionLabel} hideWhen={!!asTrip} href={asTrip ? `/u/${actor.username}/trips/${params.id}` : undefined} />
       </ul>
     </div>
   );

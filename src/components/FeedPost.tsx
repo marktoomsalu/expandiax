@@ -23,6 +23,7 @@ export function FeedPost({
   dateLabel: ownDate,
   actionLabel: ownAction,
   hideWhen = false,
+  href: ownHref,
 }: {
   item: FeedEvent;
   ctx: PostContext;
@@ -34,12 +35,22 @@ export function FeedPost({
   actionLabel?: string;
   /** A single trip: when the country was first added says nothing about it. */
   hideWhen?: boolean;
+  /** Where tapping it goes (a single trip's page); otherwise worked out below. */
+  href?: string;
 }) {
   const actor = ctx.actors.get(item.actor_id);
   if (!actor) return null;
   const meta = countryByCode(item.country_code);
   const key = postKey(item);
-  const href = item.kind === "country" ? `/u/${actor.username}/countries/${item.country_code.toLowerCase()}` : `/u/${actor.username}/events/${item.ref_id}`;
+  // A trip post opens the trip itself (the country's latest one); an event, the event.
+  const trip = ctx.latestTrip.get(item.ref_id);
+  const href =
+    ownHref ??
+    (item.kind === "country"
+      ? trip
+        ? `/u/${actor.username}/trips/${trip}`
+        : `/u/${actor.username}/countries/${item.country_code.toLowerCase()}`
+      : `/u/${actor.username}/events/${item.ref_id}`);
   const typeLabel = item.event_type ? eventTypeMeta(item.event_type).label.toLowerCase() : "event";
   const dateLabel = ownDate ?? (item.visit_date
     ? item.visit_date_precision === "month"

@@ -10,7 +10,6 @@ import { LoadMore } from "@/components/LoadMore";
 import { PersonCard } from "@/components/PersonCard";
 import { searchPeople } from "@/lib/peopleSearch";
 import { FirstFriends } from "@/components/FirstFriends";
-import type { FeedMediaItem } from "@/components/FeedMemoryCard";
 import {
   groupCountryBursts,
   pickResurfacedMemory,
@@ -25,17 +24,17 @@ import { TogetherSection } from "@/components/TogetherSection";
 import { CountryBurstCard } from "@/components/CountryBurstCard";
 import { whereAmI } from "@/lib/location";
 import { formatRelative } from "@/lib/utils";
-import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
+import type { FeedEvent, Profile } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { SuggestedPeopleRow } from "@/components/network/SuggestedPeopleRow";
 import { FeedPost } from "@/components/FeedPost";
+import { loadPostContext, type PostContext } from "@/lib/feedPosts";
 import { StickyTabs } from "@/components/feed/StickyTabs";
 
 export const metadata = { title: "Feed" };
 
 const PAGE_SIZE = 30;
 
-type RawMedia = FeedMediaItem & { displayOrder: number };
 
 
 export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string; seen?: string; tab?: string; q?: string; city?: string; cc?: string; lat?: string; lng?: string; friends?: string; remember?: string } }) {
@@ -117,9 +116,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
   let items: FeedEvent[] = [];
   let actors = new Map<string, Pick<Profile, "id" | "username" | "display_name" | "avatar_url" | "created_at">>();
-  const likedByMe = new Set<string>();
-  const commentsByKey = new Map<string, CommentWithAuthor[]>();
-  const mediaByKey = new Map<string, RawMedia[]>();
+  let postCtx: PostContext = { actors: new Map(), likedByMe: new Set(), commentsByKey: new Map(), mediaByKey: new Map(), latestTrip: new Map() };
 
   // The resurfaced memory loads alongside the posts, not after them.
   const now = new Date();
@@ -156,44 +153,9 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     items = (feedData ?? []) as FeedEvent[];
 
     if (items.length > 0) {
-      const actorIds = [...new Set(items.map((i) => i.actor_id))];
-      const refIds = items.map((i) => i.ref_id);
-      const countryRefIds = items.filter((i) => i.kind === "country").map((i) => i.ref_id);
-      const eventRefIds = items.filter((i) => i.kind === "event").map((i) => i.ref_id);
-      const [{ data: profiles }, { data: likeRows }, { data: commentRows }, { data: countryMediaRows }, { data: eventMediaRows }] = await Promise.all([
-        supabase.from("profiles").select("id, username, display_name, avatar_url, created_at").in("id", actorIds),
-        supabase.from("likes").select("kind, target_id").eq("user_id", user.id).in("target_id", refIds),
-        supabase
-          .from("comments")
-          .select("*, profiles(username, display_name, avatar_url)")
-          .in("target_id", refIds)
-          .order("created_at", { ascending: true }),
-        countryRefIds.length
-          ? supabase.from("country_media").select("id, visited_country_id, public_url, media_type, display_order, caption, focal_x, focal_y").in("visited_country_id", countryRefIds)
-          : Promise.resolve({ data: [] as { id: string; visited_country_id: string; public_url: string; media_type: "image" | "video"; display_order: number; caption: string; focal_x: number | null; focal_y: number | null }[] }),
-        eventRefIds.length
-          ? supabase.from("event_media").select("id, event_id, public_url, media_type, display_order, caption, focal_x, focal_y").in("event_id", eventRefIds)
-          : Promise.resolve({ data: [] as { id: string; event_id: string; public_url: string; media_type: "image" | "video"; display_order: number; caption: string; focal_x: number | null; focal_y: number | null }[] }),
-      ]).then((r) => signMedia(r));
-      actors = new Map((profiles ?? []).map((p) => [p.id, p]));
-      for (const row of likeRows ?? []) likedByMe.add(`${row.kind}:${row.target_id}`);
-      for (const row of (commentRows ?? []) as CommentWithAuthor[]) {
-        const key = `${row.kind}:${row.target_id}`;
-        commentsByKey.set(key, [...(commentsByKey.get(key) ?? []), row]);
-      }
-      for (const row of countryMediaRows ?? []) {
-        const key = `country:${row.visited_country_id}`;
-        const list = mediaByKey.get(key) ?? [];
-        list.push({ id: row.id, url: row.public_url, type: row.media_type, alt: row.caption || "", displayOrder: row.display_order, focalX: row.focal_x, focalY: row.focal_y });
-        mediaByKey.set(key, list);
-      }
-      for (const row of eventMediaRows ?? []) {
-        const key = `event:${row.event_id}`;
-        const list = mediaByKey.get(key) ?? [];
-        list.push({ id: row.id, url: row.public_url, type: row.media_type, alt: row.caption || "", displayOrder: row.display_order, focalX: row.focal_x, focalY: row.focal_y });
-        mediaByKey.set(key, list);
-      }
-      for (const list of mediaByKey.values()) list.sort((a, b) => a.displayOrder - b.displayOrder);
+      // Posters, your likes, comments, photos, and each trip post's latest trip.
+      postCtx = await loadPostContext(supabase, user.id, items);
+      actors = postCtx.actors;
     }
   }
 
@@ -207,7 +169,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
   // A country post with nothing but the country in it — part of a burst if several come at once.
   const isBareCountry = (item: FeedEvent) =>
-    item.kind === "country" && !(mediaByKey.get(`country:${item.ref_id}`)?.length) && !item.cover_url && !item.body?.trim() && !item.spotify_track_id;
+    item.kind === "country" && !(postCtx.mediaByKey.get(`country:${item.ref_id}`)?.length) && !item.cover_url && !item.body?.trim() && !item.spotify_track_id;
 
   // Group first, then split into new / earlier — so one person's burst of
   // countries is always a single card, never cut in two by the caught-up line.
@@ -245,7 +207,6 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   };
 
   // The same post card as everywhere else (FeedPost).
-  const postCtx = { actors, likedByMe, commentsByKey, mediaByKey };
   const renderPost = (item: FeedEvent, index: number) => <FeedPost key={`${item.kind}:${item.ref_id}`} item={item} ctx={postCtx} index={index} />;
 
   return (
