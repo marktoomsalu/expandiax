@@ -66,6 +66,16 @@ describe("pickResurfacedMemory", () => {
     expect(picked).toMatchObject({ id: "m3", isAnniversary: true, subtitle: "3 months ago today" });
   });
 
+  it("says a long stretch of months in years and months", () => {
+    const picked = pickResurfacedMemory([event({ id: "m15", event_date: "2025-06-23" })], [], "u1", NOW, "mark");
+    expect(picked?.subtitle).toBe("1 year and 3 months ago today");
+  });
+
+  it("prefers an anniversary with photos over one without", () => {
+    const picked = pickResurfacedMemory([event({ id: "bare", event_date: "2026-06-23" }), event({ id: "pics", event_date: "2026-07-23", media_count: 2 })], [], "u1", NOW, "mark");
+    expect(picked?.id).toBe("pics");
+  });
+
   it("counts a trip's exact days for anniversaries", () => {
     const trip = country({ id: "trip", country_visits: [{ year: 2025, visited_from: "2025-09-20", visited_to: "2025-09-23", date_precision: "day" }] });
     expect(pickResurfacedMemory([], [trip], "u1", NOW, "mark")).toMatchObject({ id: "trip", subtitle: "1 year ago today" });

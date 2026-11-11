@@ -57,7 +57,11 @@ export function pickReminder(events: OwnEventLite[], countries: OwnCountryLite[]
 
   // The username only shapes links, which a reminder doesn't use.
   const resurfaced = pickResurfacedMemory(events, countries, userId, now, "_");
-  if (resurfaced?.isAnniversary) return from(resurfaced, "anniversary");
+  if (resurfaced?.isAnniversary) {
+    // "3 years ago", "1 year and 3 months ago": the same words as the feed.
+    const p = from(resurfaced, "anniversary");
+    return p ? { ...p, values: { ...p.values, ago: resurfaced.subtitle.replace(/ today$/, "") } } : null;
+  }
 
   // Something that happened (at least a few days ago) and has no photos.
   const settled = now.getTime() - 3 * 86_400_000;

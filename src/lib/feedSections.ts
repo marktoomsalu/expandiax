@@ -57,6 +57,16 @@ function allMemories(events: OwnEventLite[], countries: OwnCountryLite[], eventH
   return out;
 }
 
+/** "3 months", "1 year and 3 months", "2 years and 1 month". */
+export function monthsAgo(n: number): string {
+  const y = Math.floor(n / 12);
+  const m = n % 12;
+  const months = `${m} month${m === 1 ? "" : "s"}`;
+  if (!y) return months;
+  const years = `${y} year${y === 1 ? "" : "s"}`;
+  return m ? `${years} and ${months}` : years;
+}
+
 const dayHash = (seed: string) => {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
@@ -98,8 +108,10 @@ export function pickResurfacedMemory(
 
   // 1. Years ago today.
   const yearly = all.filter((m) => m.day && m.day.getDate() === today.getDate() && m.day.getMonth() === today.getMonth() && m.day.getFullYear() < today.getFullYear());
+  // Among several, the ones with photos first.
+  const photosFirst = <T extends { hasPhotos: boolean }>(list: T[]) => (list.some((m) => m.hasPhotos) ? list.filter((m) => m.hasPhotos) : list);
   if (yearly.length) {
-    const m = pickOfDay(yearly, userId, now);
+    const m = pickOfDay(photosFirst(yearly), userId, now);
     const n = today.getFullYear() - m.day!.getFullYear();
     return { ...m.memory, subtitle: `${n} year${n === 1 ? "" : "s"} ago today`, isAnniversary: true };
   }
@@ -111,9 +123,9 @@ export function pickResurfacedMemory(
     return months > 0 && months % 12 !== 0;
   });
   if (monthly.length) {
-    const m = pickOfDay(monthly, userId, now);
+    const m = pickOfDay(photosFirst(monthly), userId, now);
     const n = (today.getFullYear() - m.day!.getFullYear()) * 12 + (today.getMonth() - m.day!.getMonth());
-    return { ...m.memory, subtitle: `${n} month${n === 1 ? "" : "s"} ago today`, isAnniversary: true };
+    return { ...m.memory, subtitle: `${monthsAgo(n)} ago today`, isAnniversary: true };
   }
 
   // 3. One of them, a different one each day.
