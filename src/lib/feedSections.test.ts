@@ -50,13 +50,33 @@ describe("pickResurfacedMemory", () => {
     expect(picked).toMatchObject({ id: "c", kind: "country", href: "/u/mark/countries/de", isAnniversary: false });
   });
 
-  it("never resurfaces something from the last two months", () => {
+  it("prefers older memories, but shows a recent one when that's all there is", () => {
     const recent = event({ id: "recent", event_date: "2026-09-01", is_favourite: true, media_count: 9 });
-    expect(pickResurfacedMemory([recent], [], "u1", NOW, "mark")).toBeNull();
+    expect(pickResurfacedMemory([recent, event({ id: "old", event_date: "2022-03-03" })], [], "u1", NOW, "mark")?.id).toBe("old");
+    expect(pickResurfacedMemory([recent], [], "u1", NOW, "mark")?.id).toBe("recent");
   });
 
-  it("returns null when there's nothing worth resurfacing", () => {
-    expect(pickResurfacedMemory([event({ id: "plain" })], [], "u1", NOW, "mark")).toBeNull();
+  it("shows any memory when there's nothing better, and nothing when there are none", () => {
+    expect(pickResurfacedMemory([event({ id: "plain" })], [], "u1", NOW, "mark")?.id).toBe("plain");
+    expect(pickResurfacedMemory([], [], "u1", NOW, "mark")).toBeNull();
+  });
+
+  it("then months ago today, when there's no year anniversary", () => {
+    const picked = pickResurfacedMemory([event({ id: "fav", is_favourite: true, media_count: 3 }), event({ id: "m3", event_date: "2026-06-23" })], [], "u1", NOW, "mark");
+    expect(picked).toMatchObject({ id: "m3", isAnniversary: true, subtitle: "3 months ago today" });
+  });
+
+  it("counts a trip's exact days for anniversaries", () => {
+    const trip = country({ id: "trip", country_visits: [{ year: 2025, visited_from: "2025-09-20", visited_to: "2025-09-23", date_precision: "day" }] });
+    expect(pickResurfacedMemory([], [trip], "u1", NOW, "mark")).toMatchObject({ id: "trip", subtitle: "1 year ago today" });
+  });
+
+  it("doesn't show yesterday's memory again when there's another", () => {
+    const events = [event({ id: "a", media_count: 1 }), event({ id: "b", media_count: 1 }), event({ id: "c", media_count: 1 })];
+    const ids = Array.from({ length: 12 }, (_, i) => pickResurfacedMemory(events, [], "u1", new Date(2026, 2, i + 1, 12), "mark")?.id);
+    for (let i = 1; i < ids.length; i++) expect(ids[i]).not.toBe(ids[i - 1]);
+    // Every one has its turn.
+    expect(new Set(ids.slice(0, 3)).size).toBe(3);
   });
 
   it("keeps the same pick all day", () => {

@@ -32,13 +32,56 @@ function memoryDate(m: { kind: "event"; e: OwnEventLite } | { kind: "country"; c
   return dates.length ? new Date(`${dates.at(-1)}T00:00:00`) : null;
 }
 
+/** Every memory with the day it happened (only exact days count for anniversaries). */
+function allMemories(events: OwnEventLite[], countries: OwnCountryLite[], eventHref: (id: string) => string, countryHref: (code: string) => string) {
+  type M = { memory: ResurfacedMemory; day: Date | null; date: Date | null; favourite: boolean; hasPhotos: boolean };
+  const out: M[] = [];
+  for (const e of events) {
+    const d = new Date(`${e.event_date}T00:00:00`);
+    out.push({
+      memory: { kind: "event", id: e.id, title: e.title, subtitle: "One to remember", href: eventHref(e.id), isAnniversary: false },
+      day: d,
+      date: d,
+      favourite: e.is_favourite,
+      hasPhotos: e.media_count > 0,
+    });
+  }
+  for (const c of countries) {
+    const memory = { kind: "country" as const, id: c.id, title: c.country_name, subtitle: "One to remember", href: countryHref(c.country_code), isAnniversary: false };
+    const days = c.country_visits.filter((v) => v.date_precision === "day" && (v.visited_to ?? v.visited_from)).map((v) => new Date(`${v.visited_to ?? v.visited_from}T00:00:00`));
+    const date = memoryDate({ kind: "country", c });
+    // One entry per day-exact visit (each can have its anniversary), or one undated.
+    if (days.length) for (const day of days) out.push({ memory, day, date, favourite: c.is_favourite, hasPhotos: c.media_count > 0 });
+    else out.push({ memory, day: null, date, favourite: c.is_favourite, hasPhotos: c.media_count > 0 });
+  }
+  return out;
+}
+
+const dayHash = (seed: string) => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return hash;
+};
+
 /**
- * Anniversary first (same month+day, a past year). Otherwise a
- * deterministic per-day pick (same all day, no "last resurfaced" column
- * needed) among memories at least 2 months old, from the best pool that
- * isn't empty: favourites with photos, then anything with photos, then any
- * favourite — a memory is worth resurfacing mostly for its pictures.
- * Returns null when there's nothing — the section just doesn't render.
+ * The day's pick from a list, the same all day. The list is shuffled once
+ * per person and walked a step a day: never the same two days running, and
+ * every memory has its turn before any comes back.
+ */
+function pickOfDay<T extends { memory: ResurfacedMemory }>(list: T[], userId: string, now: Date): T {
+  const shuffled = [...list].sort((a, b) => dayHash(`${userId}:${a.memory.id}`) - dayHash(`${userId}:${b.memory.id}`) || a.memory.id.localeCompare(b.memory.id));
+  const day = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86_400_000);
+  return shuffled[day % shuffled.length];
+}
+
+/**
+ * The feed's "One to remember", a different memory each day:
+ *  1. something from exactly 1, 2, 3… years ago today;
+ *  2. otherwise from exactly 1, 2, 3… months ago today;
+ *  3. otherwise one of your memories (favourites with photos first, then
+ *     anything with photos, then any favourite, then anything), never the
+ *     same as yesterday's when there's another to show.
+ * Returns null when there's nothing at all — the section just doesn't render.
  */
 export function pickResurfacedMemory(
   events: OwnEventLite[],
@@ -49,75 +92,38 @@ export function pickResurfacedMemory(
 ): ResurfacedMemory | null {
   const eventHref = (id: string) => `/u/${username}/events/${id}`;
   const countryHref = (code: string) => `/u/${username}/countries/${code.toLowerCase()}`;
-  const month = now.getMonth() + 1;
-  const day = now.getDate();
-  const year = now.getFullYear();
+  const all = allMemories(events, countries, eventHref, countryHref);
+  if (!all.length) return null;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  for (const e of events) {
-    const d = new Date(`${e.event_date}T00:00:00`);
-    if (d.getMonth() + 1 === month && d.getDate() === day && d.getFullYear() < year) {
-      const yearsAgo = year - d.getFullYear();
-      return {
-        kind: "event",
-        id: e.id,
-        title: e.title,
-        subtitle: `${yearsAgo} year${yearsAgo === 1 ? "" : "s"} ago today`,
-        href: eventHref(e.id),
-        isAnniversary: true,
-      };
-    }
-  }
-  for (const c of countries) {
-    for (const v of c.country_visits) {
-      if (v.date_precision !== "day") continue;
-      const raw = v.visited_to ?? v.visited_from;
-      if (!raw) continue;
-      const d = new Date(`${raw}T00:00:00`);
-      if (d.getMonth() + 1 === month && d.getDate() === day && d.getFullYear() < year) {
-        const yearsAgo = year - d.getFullYear();
-        return {
-          kind: "country",
-          id: c.id,
-          title: c.country_name,
-          subtitle: `${yearsAgo} year${yearsAgo === 1 ? "" : "s"} ago today`,
-          href: countryHref(c.country_code),
-          isAnniversary: true,
-        };
-      }
-    }
+  // 1. Years ago today.
+  const yearly = all.filter((m) => m.day && m.day.getDate() === today.getDate() && m.day.getMonth() === today.getMonth() && m.day.getFullYear() < today.getFullYear());
+  if (yearly.length) {
+    const m = pickOfDay(yearly, userId, now);
+    const n = today.getFullYear() - m.day!.getFullYear();
+    return { ...m.memory, subtitle: `${n} year${n === 1 ? "" : "s"} ago today`, isAnniversary: true };
   }
 
+  // 2. Months ago today (not a whole number of years: that's 1.).
+  const monthly = all.filter((m) => {
+    if (!m.day || m.day.getDate() !== today.getDate()) return false;
+    const months = (today.getFullYear() - m.day.getFullYear()) * 12 + (today.getMonth() - m.day.getMonth());
+    return months > 0 && months % 12 !== 0;
+  });
+  if (monthly.length) {
+    const m = pickOfDay(monthly, userId, now);
+    const n = (today.getFullYear() - m.day!.getFullYear()) * 12 + (today.getMonth() - m.day!.getMonth());
+    return { ...m.memory, subtitle: `${n} month${n === 1 ? "" : "s"} ago today`, isAnniversary: true };
+  }
+
+  // 3. One of them, a different one each day.
+  const unique = [...new Map(all.map((m) => [m.memory.id, m])).values()];
   const cutoff = new Date(now.getTime() - MIN_AGE_DAYS * 86_400_000);
-  const all = [
-    ...events.map((e) => ({
-      favourite: e.is_favourite,
-      hasPhotos: e.media_count > 0,
-      date: memoryDate({ kind: "event", e }),
-      memory: { kind: "event" as const, id: e.id, title: e.title, subtitle: "One to remember", href: eventHref(e.id), isAnniversary: false },
-    })),
-    ...countries.map((c) => ({
-      favourite: c.is_favourite,
-      hasPhotos: c.media_count > 0,
-      date: memoryDate({ kind: "country", c }),
-      memory: {
-        kind: "country" as const,
-        id: c.id,
-        title: c.country_name,
-        subtitle: "One to remember",
-        href: countryHref(c.country_code),
-        isAnniversary: false,
-      },
-    })),
-  ];
-  // "Then" is the past — last week's trip isn't a memory to resurface yet.
-  const old = all.filter((m) => m.date === null || m.date <= cutoff);
-  const pools = [old.filter((m) => m.favourite && m.hasPhotos), old.filter((m) => m.hasPhotos), old.filter((m) => m.favourite)];
-  const pool = pools.find((p) => p.length > 0);
-  if (!pool) return null;
-  const seed = `${userId}:${now.toDateString()}`;
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return pool[hash % pool.length].memory;
+  // "Then" is the past: last week's trip isn't a memory to resurface yet (unless that's all there is).
+  const old = unique.filter((m) => m.date === null || m.date <= cutoff);
+  const pools = [old.filter((m) => m.favourite && m.hasPhotos), old.filter((m) => m.hasPhotos), old.filter((m) => m.favourite), old, unique];
+  const pool = pools.find((p) => p.length > 0)!;
+  return pickOfDay(pool, userId, now).memory;
 }
 
 // ---------- TOGETHER lives in src/lib/together.ts ----------

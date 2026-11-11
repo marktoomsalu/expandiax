@@ -20,7 +20,7 @@ function who(d: DreamPlaceCard): string {
 export function DreamPlaces({ dreams }: { dreams: DreamPlaceCard[] }) {
   return (
     <section className="mt-10" aria-labelledby="dreams-h">
-      <h2 id="dreams-h" className="flex items-center gap-2 text-xl">
+      <h2 id="dreams-h" className="flex scroll-mt-24 items-center gap-2 text-xl">
         <Sparkles size={18} className="text-violet-500" aria-hidden /> Dream places
       </h2>
       <p className="mt-1 text-xs text-muted">Every adventure starts with a dream. Only you see this list.</p>

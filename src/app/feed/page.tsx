@@ -29,6 +29,7 @@ import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { SuggestedPeopleRow } from "@/components/network/SuggestedPeopleRow";
 import { FeedPost } from "@/components/FeedPost";
+import { StickyTabs } from "@/components/feed/StickyTabs";
 
 export const metadata = { title: "Feed" };
 
@@ -87,7 +88,9 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   if (tab === "explore") {
     return (
       <div className="mx-auto max-w-2xl px-5 py-6">
-        <FeedTabs tab="explore" />
+        <StickyTabs>
+          <FeedTabs tab="explore" />
+        </StickyTabs>
         <SearchBox action="/explore" placeholder="Search people, places or artists…" />
         <Suspense fallback={<p className="mt-10 text-center text-sm text-muted">Finding places and people…</p>}>
           <FeedExplore
@@ -247,7 +250,9 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-6">
-      <FeedTabs tab="friends" />
+      <StickyTabs>
+        <FeedTabs tab="friends" />
+      </StickyTabs>
       <Suspense fallback={null}>
         <FirstFriends userId={user.id} force={searchParams?.friends === "1"} />
       </Suspense>

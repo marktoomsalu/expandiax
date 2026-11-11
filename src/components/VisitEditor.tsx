@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Check, Lock, MapPin, MessageSquareText, Music2, PenLine, Share2 } from "lucide-react";
+import { Calendar, Check, Lock, MapPin, MessageSquareText, Music2, PenLine } from "lucide-react";
 import { AudiencePicker } from "./AudiencePicker";
 import { audienceOf, type Audience } from "@/lib/audience";
 import { createClient } from "@/lib/supabase/client";
@@ -13,12 +13,10 @@ import { suggestTripName } from "@/lib/tripPlaces";
 import { SuggestedNameNote } from "./PhotoPlaceSuggestion";
 import { TripKindToggle } from "./TripKindToggle";
 import { TripPlacesEditor } from "./TripPlacesEditor";
-import { cn } from "@/lib/utils";
 import { Basket } from "./Basket";
 import { SuggestedDatesNote, useSuggestedDates, type DateRange } from "./PhotoDateSuggestion";
 import { photoDateRange } from "@/lib/photoDates";
 
-type Sharing = "feed" | "profile" | "private";
 export type TripCountry = { id: string; code: string; name: string; is_public: boolean; share_to_feed: boolean };
 
 function savedAgoLabel(savedAt: number, now: number): string {
@@ -73,7 +71,6 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
     };
   }, []);
 
-  const [sharing, setSharing] = useState<Sharing>(!country.is_public ? "private" : country.share_to_feed ? "feed" : "profile");
 
   // Photos just added on this page: offer their dates when they differ from the trip's.
   const [photoRange, setPhotoRange] = useState<DateRange | null>(null);
@@ -91,15 +88,6 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
     { precision, year, visitedFrom, visitedTo, setPrecision, setYear, setVisitedFrom, setVisitedTo },
     visit.date_precision !== "day"
   );
-
-  async function changeSharing(next: Sharing) {
-    const before = sharing;
-    setSharing(next);
-    const update = next === "private" ? { is_public: false } : { is_public: true, share_to_feed: next === "feed" };
-    const { error: err } = await supabase.from("visited_countries").update(update).eq("id", country.id);
-    if (err) setSharing(before);
-    else router.refresh();
-  }
 
   // Saves the dates; false (with a message) when they don't make sense.
   async function persistDates(): Promise<boolean> {
@@ -195,21 +183,6 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
 
 
 
-  const segment = (value: Sharing, label: string) => (
-    <button
-      key={value}
-      type="button"
-      onClick={() => changeSharing(value)}
-      aria-pressed={sharing === value}
-      className={cn(
-        "flex-1 whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition-colors",
-        sharing === value ? "bg-accent-soft text-accent ring-1 ring-accent" : "text-muted hover:text-ink"
-      )}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div className="space-y-3">
       <Basket icon={PenLine} title="Name & type" hint="Give it a name, and say whether it was a trip or somewhere you lived.">
@@ -280,13 +253,6 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
         <TripPlacesEditor visitId={visit.id} visitedCountryId={visit.visited_country_id} countryCode={country.code} initial={cities} />
       </Basket>
 
-      <Basket icon={Share2} title="Sharing" hint={`Who can see ${country.name} - for all your trips there.`}>
-        <div className="flex rounded-full border border-line p-1" role="group" aria-label="Who can see it">
-          {segment("feed", "In feed")}
-          {segment("profile", "Profile only")}
-          {segment("private", "Only me")}
-        </div>
-      </Basket>
 
       {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
 

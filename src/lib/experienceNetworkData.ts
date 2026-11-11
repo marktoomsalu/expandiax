@@ -4,6 +4,7 @@ import { liveKey, liveName, slugify, type LiveRow } from "@/lib/explore";
 import { LIVE_TYPES } from "@/lib/exploreData";
 import { placeKey } from "@/lib/photoPlaces";
 import { signMedia } from "@/lib/signedMedia";
+import { DEPARTURES_SHOWN, pickDepartures } from "@/lib/departures";
 import { orderStops, stayWhen, tripName } from "@/lib/tripPlaces";
 import type { DatePrecision, ProfileVisibility } from "@/lib/types";
 import type { Row, RowPerson } from "@/components/network/NetworkRows";
@@ -127,8 +128,13 @@ export async function loadTravellers(
 /** A destination on your dream list, and everyone you can see who's been — people you follow first. */
 export type DreamBoardRow = { code: string; place: string; travellers: Traveller[]; network: number };
 
-/** Explore's departures board: your dream destinations (newest first, one per country) and who's been. */
-export async function loadDreamBoard(supabase: Supabase, viewerId: string, limit = 5): Promise<DreamBoardRow[]> {
+/**
+ * Explore's departures board: up to five of your dream destinations (one per
+ * country) and who's been. Where someone's just been comes first; the rest
+ * take turns day by day (lib/departures). `total`: how many dream countries
+ * there are in all, for "See all".
+ */
+export async function loadDreamBoard(supabase: Supabase, viewerId: string, limit = DEPARTURES_SHOWN): Promise<DreamBoardRow[] & { total: number }> {
   const circle = await viewerCircle(supabase, viewerId);
   const seen = new Set<string>();
   const wanted: { code: string; place: string }[] = [];
@@ -137,15 +143,31 @@ export async function loadDreamBoard(supabase: Supabase, viewerId: string, limit
     if (seen.has(code) || !countryByCode(code)) continue;
     seen.add(code);
     wanted.push({ code, place: d.place_name });
-    if (wanted.length === limit) break;
   }
-  return Promise.all(
-    wanted.map(async (w) => {
+  // When anyone (you can see) last added or changed a trip to each of them.
+  const lastActivity = new Map<string, string>();
+  if (wanted.length) {
+    const { data } = await supabase
+      .from("visited_countries")
+      .select("country_code, updated_at, created_at")
+      .in("country_code", wanted.map((w) => w.code))
+      .neq("user_id", viewerId)
+      .order("updated_at", { ascending: false })
+      .limit(1000);
+    for (const r of data ?? []) {
+      const at = [r.updated_at, r.created_at].filter(Boolean).sort().at(-1) as string;
+      if (at && at > (lastActivity.get(r.country_code) ?? "")) lastActivity.set(r.country_code, at);
+    }
+  }
+  const shown = pickDepartures(wanted, lastActivity, new Date(), limit);
+  const rows = await Promise.all(
+    shown.map(async (w) => {
       const { travellers } = await loadTravellers(supabase, viewerId, w.code, undefined, circle);
       travellers.sort(byCloseness);
       return { ...w, travellers, network: travellers.filter((t) => t.following).length };
     })
   );
+  return Object.assign(rows, { total: wanted.length });
 }
 
 /**

@@ -23,7 +23,6 @@ import { StockImage } from "../StockImage";
 import { FaceStack } from "./FaceStack";
 import { SuggestedPeopleRow } from "./SuggestedPeopleRow";
 
-const rail = "no-scrollbar -mx-5 mt-4 flex snap-x gap-3 overflow-x-auto px-5 pb-2";
 
 function Head({ id, title, sub, href }: { id: string; title: string; sub: string; href?: string }) {
   return (
@@ -354,7 +353,7 @@ async function Departures({ board: pending, home }: { board: Promise<Board>; hom
       ];
     });
   }
-  return <DeparturesBoard rows={rows} />;
+  return <DeparturesBoard rows={rows} seeAll={board.total > rows.length ? { href: "/my-world#dreams-h", total: board.total } : null} />;
 }
 
 async function Twin({ explore, me }: { explore: Promise<Explore>; me: { username: string; display_name: string; avatar_url: string | null } }) {
@@ -417,7 +416,10 @@ async function BeenWhereYouDream({ board: pending }: { board: Promise<Board> }) 
   );
 }
 
-const postRail = "no-scrollbar -mx-5 mt-3 flex snap-x gap-4 overflow-x-auto px-5 pb-3 pt-3";
+// Tilted postcards and stamps need a little room, most of all on the left
+// (and the snap keeps the first one there instead of at the screen's edge).
+const postRail = "no-scrollbar -mx-5 mt-3 flex snap-x scroll-pl-7 gap-4 overflow-x-auto pb-4 pl-7 pr-5 pt-4";
+const stampRail = "no-scrollbar -mx-5 mt-4 flex snap-x scroll-pl-7 gap-4 overflow-x-auto pb-3 pl-7 pr-5 pt-2";
 
 /** Friends' places and the wider network's, as postcards behind one switch. */
 async function Postcards({ home }: { home: Promise<Home> }) {
@@ -440,7 +442,7 @@ async function IdeasSection({ home, origin }: { home: Promise<Home>; origin: str
   return (
     <section aria-labelledby="idea-h">
       <Head id="idea-h" title="Stamps for your passport" sub="Countries your network knows - and you don't, yet." href="/explore/ideas" />
-      <ul className={rail}>
+      <ul className={stampRail}>
         {ideas.map((i) => (
           <IdeaCard key={i.country} i={i} flight={<IdeaFlight origin={origin} country={i.country} />} />
         ))}

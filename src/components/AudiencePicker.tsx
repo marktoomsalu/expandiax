@@ -4,7 +4,7 @@ import { AUDIENCES, type Audience } from "@/lib/audience";
 import { tapLight } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
-/** Feed / Friends / Only me, side by side. */
+/** Everyone / Friends / Only me, side by side. */
 export function AudiencePicker({ value, onChange, label = "Who can see it" }: { value: Audience; onChange: (next: Audience) => void; label?: string }) {
   return (
     <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={label}>

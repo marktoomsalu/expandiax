@@ -75,7 +75,7 @@ function SplitFlap({ text, delay = 0, className }: { text: string; delay?: numbe
  * been to each, and whether there's someone you can ask. With no dreams yet,
  * suggestions from your network, and a nudge to add the first.
  */
-export function DeparturesBoard({ rows }: { rows: BoardRow[] }) {
+export function DeparturesBoard({ rows, seeAll = null }: { rows: BoardRow[]; seeAll?: { href: string; total: number } | null }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -96,7 +96,13 @@ export function DeparturesBoard({ rows }: { rows: BoardRow[] }) {
         <h2 id="dep-h" className="flex items-center gap-2 font-mono text-xs font-semibold tracking-[0.3em]">
           <Plane size={14} className="text-accent" aria-hidden /> DEPARTURES
         </h2>
-        <p className="font-mono text-[10px] tracking-[0.2em] text-white/50">{suggesting ? "SUGGESTED FOR YOU" : "YOUR DREAM LIST"}</p>
+        {seeAll ? (
+          <Link href={seeAll.href} className="font-mono text-[10px] font-semibold tracking-[0.2em] text-accent hover:text-white">
+            SEE ALL {seeAll.total} →
+          </Link>
+        ) : (
+          <p className="font-mono text-[10px] tracking-[0.2em] text-white/50">{suggesting ? "SUGGESTED FOR YOU" : "YOUR DREAM LIST"}</p>
+        )}
       </div>
 
       {rows.length > 0 && (

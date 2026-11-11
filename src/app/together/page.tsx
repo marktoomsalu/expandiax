@@ -43,7 +43,7 @@ export default async function TogetherPage() {
         <Users size={28} className="text-accent" aria-hidden /> Together
       </h1>
       <p className="mt-2 text-sm text-muted">
-        The concerts, races and trips you shared with people you follow - found from what you&rsquo;ve both logged.
+        The concerts, events and trips you shared with people you follow, based on what you&rsquo;ve both added to ExpandiaX.
       </p>
 
       {byPerson.size === 0 && !hasPrompts && (

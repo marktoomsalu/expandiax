@@ -16,7 +16,7 @@ export function IWasThereButton({ prefill, label = "I was there" }: { prefill: E
   function onClick() {
     tapSuccess();
     savePrefill(prefill);
-    router.push("/events/new");
+    router.push("/events/new?from=there");
   }
 
   return (

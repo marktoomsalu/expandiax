@@ -30,15 +30,27 @@ export function savePrefill(prefill: EventPrefill): void {
   }
 }
 
-/** One-shot: returns the pending prefill (if any) and clears it immediately. */
-export function loadAndClearPrefill(): EventPrefill | null {
+/**
+ * The pending prefill, if the form was opened from "I was there"
+ * (/events/new?from=there). It stays until the event is saved
+ * (clearPrefill), so a form that loads twice still gets the date, title
+ * and place the second time.
+ */
+export function loadPrefill(): EventPrefill | null {
   if (typeof window === "undefined") return null;
+  if (new URLSearchParams(window.location.search).get("from") !== "there") return null;
   try {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    window.sessionStorage.removeItem(STORAGE_KEY);
-    return JSON.parse(raw) as EventPrefill;
+    return raw ? (JSON.parse(raw) as EventPrefill) : null;
   } catch {
     return null;
+  }
+}
+
+export function clearPrefill(): void {
+  try {
+    window.sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Nothing to clear.
   }
 }

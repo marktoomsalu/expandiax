@@ -11,7 +11,7 @@ import { CountrySearch } from "./CountrySearch";
 import { countryByCode } from "@/lib/countries";
 import { enqueueUploads } from "@/lib/uploadQueue";
 import { useBestCover } from "./PhotoPlaceSuggestion";
-import { loadAndClearPrefill } from "@/lib/eventPrefill";
+import { loadPrefill, clearPrefill } from "@/lib/eventPrefill";
 import { EVENT_TYPES, eventTypeMeta, type RecentArtist } from "@/lib/events";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { RatingInput } from "./Rating";
@@ -91,7 +91,7 @@ export function EventForm({
   // fresh create form mounts, never for editing an existing event.
   useEffect(() => {
     if (event) return;
-    const prefill = loadAndClearPrefill();
+    const prefill = loadPrefill();
     if (!prefill) return;
     setPrefilledFrom(prefill.from ?? "");
     setF((cur) => ({
@@ -192,6 +192,8 @@ export function EventForm({
       return;
     }
     askForPush("memory", 2500);
+    // Saved: the "I was there" details have done their job.
+    clearPrefill();
 
     // The event opens straight away; its photos and videos follow in the
     // background, the best landscape photo becoming its cover.
