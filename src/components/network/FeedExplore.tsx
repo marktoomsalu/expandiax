@@ -21,6 +21,7 @@ import { PartnerNote, TripLinks } from "../TripLinks";
 import { InterestButton } from "./InterestButton";
 import { StockImage } from "../StockImage";
 import { FaceStack } from "./FaceStack";
+import { SuggestedPeopleRow } from "./SuggestedPeopleRow";
 
 const rail = "no-scrollbar -mx-5 mt-4 flex snap-x gap-3 overflow-x-auto px-5 pb-2";
 
@@ -261,6 +262,9 @@ export function FeedExplore({
     <div className="mt-6 space-y-10">
       <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-[#140d18]" aria-busy="true" aria-label="Departures, loading" />}>
         <Departures board={board} home={home} />
+      </Suspense>
+      <Suspense fallback={<RowSkeleton title="Suggested for you" />}>
+        <SuggestedPeopleRow viewerId={viewerId} />
       </Suspense>
       <Suspense fallback={null}>
         <Twin explore={explore} me={me} />
@@ -509,7 +513,7 @@ async function OnYourRadar({ events, board, homeCountry }: { events: Promise<Net
 function KeepExploring({ city, place }: { city: string; place: string | null }) {
   const links = [
     { href: `/explore/events${city}`, label: place ? `What's on near ${place}` : "What's on near you" },
-    { href: "/explore/people", label: "People you may click with" },
+    { href: "/explore/people", label: "People you may know" },
     { href: "/explore/trending", label: "Trending memories" },
     { href: "/explore/places?circle=network", label: "Places your network knows" },
   ];

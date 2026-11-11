@@ -17,6 +17,7 @@ export function FollowButton({
   back = false,
   compact = false,
   refresh = true,
+  full = false,
 }: {
   targetId: string;
   visibility: ProfileVisibility;
@@ -30,6 +31,8 @@ export function FollowButton({
   compact?: boolean;
   /** Refresh the page after a change (off where the row should stay as it is). */
   refresh?: boolean;
+  /** As wide as its card. */
+  full?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -114,8 +117,8 @@ export function FollowButton({
   const Icon = config.icon;
 
   return (
-    <div>
-      <button type="button" onClick={config.onClick} disabled={busy} className={config.className}>
+    <div className={full ? "w-full" : undefined}>
+      <button type="button" onClick={config.onClick} disabled={busy} className={`${config.className}${full ? " w-full justify-center" : ""}`}>
         <Icon size={compact ? 14 : 16} />
         {config.label}
       </button>

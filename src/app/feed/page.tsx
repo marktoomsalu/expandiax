@@ -33,6 +33,7 @@ import { whereAmI } from "@/lib/location";
 import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
+import { SuggestedPeopleRow } from "@/components/network/SuggestedPeopleRow";
 
 export const metadata = { title: "Feed" };
 
@@ -218,6 +219,19 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const fresh = split.fresh.map((t) => t.entry);
   const earlier = split.earlier.map((t) => t.entry);
 
+  // "Suggested for you" sits a few posts in, like a post of its own (or under
+  // the empty feed, where finding people matters most).
+  const suggested = (
+    <li key="suggested-people">
+      <Suspense fallback={null}>
+        <SuggestedPeopleRow viewerId={user.id} />
+      </Suspense>
+    </li>
+  );
+  const suggestInFresh = fresh.length >= 3;
+  const suggestAt = suggestInFresh ? 3 : Math.min(earlier.length, Math.max(1, 3 - fresh.length));
+  const withSuggested = (nodes: React.ReactNode[], here: boolean) => (here ? [...nodes.slice(0, suggestAt), suggested, ...nodes.slice(suggestAt)] : nodes);
+
   const renderEntry = (entry: FeedEvent | CountryBurst<FeedEvent>, index: number) => {
     if (entry.kind !== "burst") return renderPost(entry, index);
     const actor = actors.get(entry.actorId);
@@ -353,10 +367,12 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
             actionLabel="Find friends"
             actionHref="/feed?friends=1"
           />
+          <ul className="mt-8">{suggested}</ul>
         </div>
       ) : items.length === 0 ? (
         <div className="mt-6">
           <EmptyState title="Nothing yet." body="The people you follow haven't added anything public yet - check back soon." />
+          <ul className="mt-8">{suggested}</ul>
         </div>
       ) : null}
 
@@ -364,7 +380,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       {fresh.length > 0 && (
         <section className="mt-8" aria-labelledby="new-h">
           <h2 id="new-h" className="font-serif text-2xl">Latest from friends</h2>
-          <ul className="mt-4 space-y-8">{fresh.map((entry, i) => renderEntry(entry, i))}</ul>
+          <ul className="mt-4 space-y-8">{withSuggested(fresh.map((entry, i) => renderEntry(entry, i)), suggestInFresh)}</ul>
         </section>
       )}
 
@@ -411,7 +427,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       {earlier.length > 0 && (
         <section className="mt-12" aria-labelledby="earlier-h">
           <h2 id="earlier-h" className="text-sm font-medium text-muted">Earlier from people you follow</h2>
-          <ul className="mt-4 space-y-8">{earlier.map((entry, i) => renderEntry(entry, fresh.length + i))}</ul>
+          <ul className="mt-4 space-y-8">{withSuggested(earlier.map((entry, i) => renderEntry(entry, fresh.length + i)), !suggestInFresh && earlier.length > 0)}</ul>
           <LoadMore
             href={`/feed?limit=${limit + PAGE_SIZE}${previousLastSeenAt ? `&seen=${encodeURIComponent(previousLastSeenAt)}` : ""}`}
             shown={limit}
