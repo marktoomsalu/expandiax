@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Props) {
   const p = await inviterOf(params.username);
   const first = (p?.display_name ?? "A friend").trim().split(" ")[0];
   const title = `${first} invited you to ExpandiaX`;
-  const description = "Join me: the places you've been and the moments you never want to forget, on one map.";
+  const description = "Your travels and memories, on one map.";
   // A small ExpandiaX icon in the preview (not anyone's photo): it reads as
   // the app's own invitation, which is what makes people trust it.
   const icon = { url: "https://expandiax.com/invite-preview.png", width: 300, height: 300, alt: "ExpandiaX" };
