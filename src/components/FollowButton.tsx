@@ -6,6 +6,7 @@ import { Clock, UserCheck, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { tapLight } from "@/lib/haptics";
 import type { ProfileVisibility } from "@/lib/types";
+import { askForPush } from "@/lib/pushAsk";
 
 export function FollowButton({
   targetId,
@@ -72,6 +73,7 @@ export function FollowButton({
       else {
         setFollowing(true);
         onChange?.("following");
+        askForPush("follow");
       }
     });
   }
@@ -83,6 +85,7 @@ export function FollowButton({
       else {
         setRequested(true);
         onChange?.("requested");
+        askForPush("follow");
       }
     });
   }

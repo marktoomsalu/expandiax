@@ -27,6 +27,7 @@ import type { EventFull, EventType } from "@/lib/types";
 import type { PastShow } from "@/lib/concerts";
 import { byTimeTaken, localDay, photoDay } from "@/lib/photoDates";
 import { DateField } from "./DateField";
+import { askForPush } from "@/lib/pushAsk";
 
 const TODAY = localDay(new Date());
 
@@ -190,6 +191,7 @@ export function EventForm({
       setBusy(false);
       return;
     }
+    askForPush("memory", 2500);
 
     // The event opens straight away; its photos and videos follow in the
     // background, the best landscape photo becoming its cover.

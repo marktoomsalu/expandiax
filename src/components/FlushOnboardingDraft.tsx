@@ -6,6 +6,7 @@ import { countryByCode } from "@/lib/countries";
 import { storagePath } from "@/lib/media";
 import { preparePhoto } from "@/lib/photoPrepare";
 import { loadDraft, clearDraft, loadPendingPhoto, clearPendingPhoto } from "@/lib/onboardingDraft";
+import { askForPush } from "@/lib/pushAsk";
 
 // Picks up a pending /start draft (sessionStorage, plus a photo in
 // IndexedDB for Path B — see onboardingDraft.ts) right after signup and
@@ -17,10 +18,12 @@ export function FlushOnboardingDraft({ userId }: { userId: string }) {
   useEffect(() => {
     const draft = loadDraft();
 
+    // Their first memories: once onboarding is behind them, a good moment to
+    // offer notifications (the sheet waits until they've left /onboarding).
     if (draft.kind === "country" && draft.homeCode) {
-      flushCountries(userId, [draft.homeCode, ...draft.countryCodes]);
+      void flushCountries(userId, [draft.homeCode, ...draft.countryCodes]).then(() => askForPush("memory", 4000));
     } else if (draft.kind === "event" && draft.memory) {
-      flushMemory(userId, draft.memory);
+      void flushMemory(userId, draft.memory).then(() => askForPush("memory", 4000));
     }
   }, [userId]);
 

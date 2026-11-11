@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { chatProblem } from "@/lib/chatRules";
 import { useChatEnabled } from "@/lib/useChatEnabled";
+import { askForPush } from "@/lib/pushAsk";
 
 // Screens where the bubble would be in the way.
 const HIDDEN = ["/start", "/touch", "/sign-in", "/sign-up", "/onboarding"];
@@ -543,6 +544,7 @@ function Composer({
       return;
     }
     tapSuccess();
+    askForPush("message");
     setText("");
     setPlace(null);
     await chat.reload();

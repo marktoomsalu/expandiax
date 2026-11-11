@@ -20,6 +20,7 @@ import { SuggestedNameNote, SuggestedPlacesField, savePlaces, useBestCover, useP
 import { VisitDateFields } from "./VisitDateFields";
 import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
+import { askForPush } from "@/lib/pushAsk";
 
 type Meta = { code: string; name: string; flag: string; capital: string };
 
@@ -165,6 +166,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
       })
       .select("id")
       .single();
+    if (!visitErr && visit) askForPush("memory", 2500);
     if (visitErr || !visit) {
       // The country itself was added fine — just send them to its page to
       // retry the trip, rather than losing the country too.
@@ -366,6 +368,7 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
       })
       .select("id")
       .single();
+    if (!err && inserted) askForPush("memory");
     if (err || !inserted) {
       setError("Could not add that visit.");
       setAddingVisit(false);

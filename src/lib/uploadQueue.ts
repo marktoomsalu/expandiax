@@ -3,6 +3,7 @@ import { storagePath } from "@/lib/media";
 import { stripMediaMetadata } from "@/lib/mediaMetadata";
 import { preparePhoto } from "@/lib/photoPrepare";
 import { convertHeic, looksLikeHeic } from "@/lib/heic";
+import { askForPush } from "./pushAsk";
 
 // Photos and videos upload in the background: a trip or event is saved and
 // opened the moment you tap Save, and its memories follow while you carry
@@ -193,6 +194,7 @@ async function run(id: string) {
 
     update(id, { status: "done", progress: 100 });
     void forgetJob(id);
+    askForPush("memory", 2500);
     const done = jobs.find((j) => j.id === id);
     if (done) doneListeners.forEach((l) => l(done));
     // Stays briefly so the page can swap it for the real thing.

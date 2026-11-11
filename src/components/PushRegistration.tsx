@@ -46,9 +46,13 @@ export function PushRegistration({ userId }: { userId: string }) {
       // Graceful degradation — push just won't work for this device.
     });
 
-    PushNotifications.requestPermissions().then((result) => {
-      if (result.receive === "granted") PushNotifications.register();
-    });
+    // Only once they've said yes. iPhone's question itself comes at a good
+    // moment, after our own explanation (PushAskSheet, lib/pushAsk).
+    PushNotifications.checkPermissions()
+      .then((result) => {
+        if (result.receive === "granted") PushNotifications.register();
+      })
+      .catch(() => {});
 
     return () => {
       registrationListener.then((l) => l.remove());

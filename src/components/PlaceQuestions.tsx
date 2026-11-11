@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { tapSuccess } from "@/lib/haptics";
 import { TimeAgo } from "./TimeAgo";
 import { ReportButton } from "./ReportButton";
+import { askForPush } from "@/lib/pushAsk";
 
 export type QAAuthor = { username: string; display_name: string; avatar_url: string | null };
 export type QAAnswer = { id: string; user_id: string; body: string; created_at: string; author: QAAuthor | null };
@@ -87,6 +88,7 @@ export function PlaceQuestions({
       return;
     }
     tapSuccess();
+    askForPush("comment");
     setDraft("");
     setQuestions((qs) => [{ id: data.id, user_id: viewer.id, body, created_at: data.created_at, author: me, answers: [] }, ...qs]);
   }
@@ -103,6 +105,7 @@ export function PlaceQuestions({
       return;
     }
     tapSuccess();
+    askForPush("comment");
     setReply("");
     setReplyTo(null);
     setQuestions((qs) =>

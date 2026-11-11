@@ -5,6 +5,7 @@ import { Heart } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { tapLight } from "@/lib/haptics";
+import { askForPush } from "@/lib/pushAsk";
 
 type Props = {
   kind: "country" | "event";
@@ -42,7 +43,10 @@ export function LikeButton({ kind, targetId, initialLiked }: Props) {
       if (!error) setLiked(false);
     } else {
       const { error } = await supabase.from("likes").insert({ user_id: user.id, kind, target_id: targetId });
-      if (!error) setLiked(true);
+      if (!error) {
+        setLiked(true);
+        askForPush("like");
+      }
     }
     setBusy(false);
   }

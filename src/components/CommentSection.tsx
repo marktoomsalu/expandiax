@@ -8,6 +8,7 @@ import { MessageCircle, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { TimeAgo } from "./TimeAgo";
 import type { CommentWithAuthor } from "@/lib/types";
+import { askForPush } from "@/lib/pushAsk";
 
 type Props = {
   kind: "country" | "event";
@@ -42,6 +43,7 @@ export function CommentSection({ kind, targetId, posterId, initialComments }: Pr
     if (!error && data) {
       setComments((c) => [...c, data as CommentWithAuthor]);
       setText("");
+      askForPush("comment");
       router.refresh();
     }
     setBusy(false);
