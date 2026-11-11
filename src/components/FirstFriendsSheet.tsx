@@ -10,6 +10,7 @@ import { PeopleSuggest } from "./PeopleSuggest";
 import { FollowButton } from "@/components/FollowButton";
 import { tapSuccess } from "@/lib/haptics";
 import type { PersonCard } from "@/lib/experienceNetworkData";
+import { inviteText, inviteUrl } from "@/lib/invite";
 
 // "Later" waits a few days before offering again; finishing waits much longer.
 const SNOOZE_KEY = "expandiax:first-friends-until";
@@ -96,8 +97,9 @@ export function FirstFriendsSheet({
   }
 
   async function invite() {
-    const url = `https://expandiax.com/u/${me.username}`;
-    const text = "I keep my travels and concerts on ExpandiaX - come find your travel twin:";
+    // Your invite link: friends who join through it follow you straight away.
+    const url = inviteUrl(me.username);
+    const text = inviteText(me.display_name.split(" ")[0]);
     try {
       if (navigator.share) {
         await navigator.share({ title: "ExpandiaX", text, url });

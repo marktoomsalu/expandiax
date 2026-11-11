@@ -10,7 +10,7 @@ export async function GET() {
       details: [
         {
           appID: "4AAMQQWSPW.com.expandiax.travelapp",
-          paths: ["/auth/callback*"],
+          paths: ["/auth/callback*", "/join/*"],
         },
       ],
     },

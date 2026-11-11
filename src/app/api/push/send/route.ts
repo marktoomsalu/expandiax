@@ -25,7 +25,7 @@ type NotificationRow = {
 };
 
 type PushKind = NotificationKind | "message" | "postcard";
-const PUSHED: PushKind[] = ["message", "postcard", "like", "comment", "follow", "follow_request", "follow_accepted", "question", "answer"];
+const PUSHED: PushKind[] = ["message", "postcard", "like", "comment", "follow", "follow_request", "follow_accepted", "question", "answer", "invite_joined"];
 
 // Which Settings switch each kind of notification answers to.
 const CATEGORY: Record<PushKind, "push_followers" | "push_messages" | "push_activity"> = {
@@ -36,6 +36,7 @@ const CATEGORY: Record<PushKind, "push_followers" | "push_messages" | "push_acti
   follow: "push_followers",
   follow_request: "push_followers",
   follow_accepted: "push_followers",
+  invite_joined: "push_followers",
   question: "push_messages",
   answer: "push_messages",
 };
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
     if (record.target_kind === "country" && country && me) return `/u/${me}/countries/${country.country_code.toLowerCase()}`;
     if (record.target_kind === "event" && record.target_id && me) return `/u/${me}/events/${record.target_id}${onComments}`;
     if (record.target_kind === "question" && question && record.target_id) return `/explore/country/${question.country_code.toLowerCase()}#q-${record.target_id}`;
-    if (kind.startsWith("follow") && actor?.username) return kind === "follow_request" ? "/notifications" : `/u/${actor.username}`;
+    if ((kind.startsWith("follow") || kind === "invite_joined") && actor?.username) return kind === "follow_request" ? "/notifications" : `/u/${actor.username}`;
     return "/notifications";
   })();
 

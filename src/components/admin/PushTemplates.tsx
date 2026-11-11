@@ -26,6 +26,7 @@ const GROUPS: { label: string; note: string; kinds: [string, string][] }[] = [
       ["follow_request", "Someone asks to follow their private account"],
       ["follow_request_many", "…more requests before they've looked"],
       ["follow_accepted", "Their follow request is accepted"],
+      ["invite_joined", "A friend joins through their invite link"],
     ],
   },
   {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Sparkles, X } from "lucide-react";
+import { ArrowRight, Sparkles, UserPlus, X } from "lucide-react";
 import { FollowButton } from "@/components/FollowButton";
 import { FaceStack } from "./FaceStack";
 import { createClient } from "@/lib/supabase/client";
@@ -85,6 +85,18 @@ export function SuggestedPeople({
             </div>
           </li>
         ))}
+        {!grid && (
+          // The last card: bring your own friends.
+          <li className="flex w-44 shrink-0 snap-start">
+            <Link href="/invite" className="flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-accent/40 px-3 py-5 text-center hover:border-accent">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full gradient-travel text-white shadow-md">
+                <UserPlus size={26} aria-hidden />
+              </span>
+              <span className="mt-3 font-medium">Invite friends</span>
+              <span className="mt-1 text-xs text-muted">You&rsquo;ll follow each other when they join</span>
+            </Link>
+          </li>
+        )}
       </ul>
       <style>{`.suggest-in{animation:suggest-in .4s cubic-bezier(.2,.9,.3,1) both}@keyframes suggest-in{from{opacity:0;transform:translateY(8px)}}@media (prefers-reduced-motion:reduce){.suggest-in{animation:none}}`}</style>
     </section>

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { ProfileForm } from "@/components/ProfileForm";
 import { FlushOnboardingDraft } from "@/components/FlushOnboardingDraft";
+import { AcceptInvite } from "@/components/invite/AcceptInvite";
 import { hasRealName } from "@/lib/profileName";
 
 export const metadata = { title: "Set up your profile" };
@@ -25,6 +26,7 @@ export default async function OnboardingPage() {
         A photo and a few words turn a map into a story. You can change all of this later in Settings.
       </p>
       <div className="mt-8">
+        <AcceptInvite />
         <ProfileForm profile={profile} afterSaveHref="/my-world" submitLabel="Continue to your world" requireVisibilityChoice />
       </div>
     </div>

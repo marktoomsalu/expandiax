@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { Clock, Heart, HelpCircle, MessageCircle, MessagesSquare, UserCheck, UserPlus } from "lucide-react";
+import { Clock, Heart, HelpCircle, MessageCircle, MessagesSquare, PartyPopper, UserCheck, UserPlus } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { FollowRequestActions } from "@/components/FollowRequestActions";
@@ -20,6 +20,7 @@ const ICONS = {
   follow_accepted: UserCheck,
   question: HelpCircle,
   answer: MessagesSquare,
+  invite_joined: PartyPopper,
 };
 
 export default async function NotificationsPage() {
@@ -134,7 +135,7 @@ export default async function NotificationsPage() {
             // Where tapping the notification takes you: the post (straight to
             // its comments for a comment), the question, or the person.
             const rowHref =
-              n.kind === "comment" && n.target_kind === "event" && t ? `${t.href}#comments` : t ? t.href : n.kind.startsWith("follow") && actor ? actorHref : null;
+              n.kind === "comment" && n.target_kind === "event" && t ? `${t.href}#comments` : t ? t.href : (n.kind.startsWith("follow") || n.kind === "invite_joined") && actor ? actorHref : null;
 
             let text: React.ReactNode;
             if (n.kind === "follow") {
@@ -143,6 +144,8 @@ export default async function NotificationsPage() {
               text = <>wants to follow you</>;
             } else if (n.kind === "follow_accepted") {
               text = <>accepted your follow request</>;
+            } else if (n.kind === "invite_joined") {
+              text = <>joined ExpandiaX with your invite 🎉 You now follow each other.</>;
             } else if (n.kind === "question" || n.kind === "answer") {
               text = (
                 <>

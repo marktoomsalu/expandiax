@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isNativeUserAgent } from "@/lib/nativeApp";
 
-const PROTECTED = ["/my-world", "/events", "/stats", "/settings", "/onboarding", "/feed", "/together", "/reset-password", "/notifications"];
+const PROTECTED = ["/my-world", "/events", "/stats", "/settings", "/onboarding", "/feed", "/together", "/reset-password", "/notifications", "/invite"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });

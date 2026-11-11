@@ -367,6 +367,11 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
             actionLabel="Find friends"
             actionHref="/feed?friends=1"
           />
+          <p className="mt-3 text-center text-sm">
+            <Link href="/invite" className="font-medium text-accent">
+              Or invite friends: you&rsquo;ll follow each other when they join →
+            </Link>
+          </p>
           <ul className="mt-8">{suggested}</ul>
         </div>
       ) : items.length === 0 ? (

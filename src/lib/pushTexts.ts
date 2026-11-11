@@ -15,6 +15,7 @@ export const DEFAULT_TEXTS: Record<string, { title: string; body: string }> = {
   follow_request: { title: "Follow request", body: "{name} wants to follow you" },
   follow_request_many: { title: "Follow requests", body: "{name} and {others} want to follow you" },
   follow_accepted: { title: "Follow request accepted", body: "{name} accepted your follow request" },
+  invite_joined: { title: "Your invite worked 🎉", body: "{name} joined ExpandiaX. You now follow each other." },
   comment: { title: "New comment", body: "{name} commented on your memory" },
   comment_many: { title: "New comments", body: "{count} people commented on your memory" },
   question: { title: "A question for you", body: '{name} asks about {place}: "{text}"' },

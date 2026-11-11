@@ -22,6 +22,15 @@ export async function POST(request: NextRequest) {
   if (!record?.follower_id || !record.followee_id) return NextResponse.json({ ok: true, sent: false, reason: "ignored" });
 
   const admin = createAdminClient();
+  // An invite connecting two people (migration 071): the notification
+  // "joined with your invite" says it, not an email per direction.
+  const { data: invite } = await admin
+    .from("invites")
+    .select("created_at")
+    .or(`and(invitee_id.eq.${record.follower_id},inviter_id.eq.${record.followee_id}),and(invitee_id.eq.${record.followee_id},inviter_id.eq.${record.follower_id})`)
+    .gte("created_at", new Date(Date.now() - 5 * 60_000).toISOString())
+    .maybeSingle();
+  if (invite) return NextResponse.json({ ok: true, sent: false, reason: "invite" });
   const [{ data: follower }, { data: followee }] = await Promise.all([
     admin.from("profiles").select("username, display_name").eq("id", record.follower_id).maybeSingle(),
     admin.from("profiles").select("username, display_name, follow_email_enabled").eq("id", record.followee_id).maybeSingle(),

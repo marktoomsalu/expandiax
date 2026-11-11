@@ -4,7 +4,7 @@ import { stockPhotoFor } from "@/lib/stockPhotos";
 import { StockCredit } from "@/components/StockCredit";
 import { MessageButton } from "@/components/chat/AskAboutButton";
 import { StockImage } from "@/components/StockImage";
-import { BarChart3, ChevronRight, Pencil } from "lucide-react";
+import { BarChart3, ChevronRight, Pencil, UserPlus } from "lucide-react";
 import type { Metadata } from "next";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { WorldMapLink } from "@/components/WorldMapLink";
@@ -27,6 +27,8 @@ import type { CountryVisit, Event, EventMedia, CountryMedia, Profile, VisitedCou
 import { signMedia } from "@/lib/signedMedia";
 import { mapStays } from "@/lib/stays";
 import { MapLegend } from "@/components/MapLegend";
+import { ConnectorBadge } from "@/components/invite/ConnectorBadge";
+import { CONNECTOR_TARGET } from "@/lib/invite";
 
 type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight" | "kind" | "is_public" | "audience">;
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
@@ -199,6 +201,9 @@ export default async function PublicProfilePage({ params, searchParams }: { para
     video_count: e.event_media.filter((m) => m.media_type === "video").length,
   }));
   const badges = evaluateBadges(buildAllTimeStats(statCountries, statEvents)).filter((b) => b.isUnlocked);
+  // Friends who joined through their invite link (migration 071; 0 before it).
+  const { data: invitedRaw } = await supabase.rpc("invite_count", { p_user: profile.id });
+  const invitedCount = typeof invitedRaw === "number" ? invitedRaw : 0;
 
   const allTrips: TripCard[] = countries
     .flatMap((c) =>
@@ -333,6 +338,9 @@ export default async function PublicProfilePage({ params, searchParams }: { para
                   </Link>
                   <Link href="/stats" className="btn-ghost !py-2 text-sm">
                     <BarChart3 size={14} /> Stats
+                  </Link>
+                  <Link href="/invite" className="btn-ghost !py-2 text-sm">
+                    <UserPlus size={14} /> Invite friends
                   </Link>
                 </>
               )}
@@ -500,13 +508,18 @@ export default async function PublicProfilePage({ params, searchParams }: { para
       )}
 
       {/* Badges */}
-      {(badges.length > 0 || isEarlyExplorer(profile.signup_number)) && (
+      {(badges.length > 0 || isEarlyExplorer(profile.signup_number) || invitedCount >= CONNECTOR_TARGET) && (
         <section id="badges" className="mt-14" aria-labelledby="badges-h">
           <p className="eyebrow">Trophy case</p>
           <h2 id="badges-h" className="mt-1 text-2xl md:text-3xl">Badges</h2>
           {isEarlyExplorer(profile.signup_number) && (
             <div className="mt-6">
               <EarlyExplorerBadge signupNumber={profile.signup_number} />
+            </div>
+          )}
+          {invitedCount >= CONNECTOR_TARGET && (
+            <div className="mt-4">
+              <ConnectorBadge count={invitedCount} />
             </div>
           )}
           {badges.length > 0 && (

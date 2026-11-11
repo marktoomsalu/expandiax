@@ -82,6 +82,7 @@ export const PRIORITY: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = {
   follow: 2,
   follow_request: 2,
   follow_accepted: 2,
+  invite_joined: 2,
   comment: 3,
   question: 3,
   answer: 3,
