@@ -51,7 +51,7 @@ export function SuggestedPeople({
           </Link>
         )}
       </div>
-      <ul className={grid ? "mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3" : "no-scrollbar -mx-5 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2"}>
+      <ul className={grid ? "mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3" : "no-scrollbar -mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-2"}>
         {list.map((p) => (
           <li key={p.id} className={`suggest-in relative flex ${grid ? "" : "w-44 shrink-0 snap-start"} flex-col items-center rounded-2xl border border-line bg-surface px-3 pb-3 pt-5 text-center shadow-sm`}>
             <button

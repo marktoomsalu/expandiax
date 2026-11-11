@@ -333,15 +333,18 @@ export default async function PublicProfilePage({ params, searchParams }: { para
               )}
               {isOwnProfile && (
                 <>
-                  <Link href="/settings" className="btn-ghost !py-2 text-sm">
-                    <Pencil size={14} /> Edit profile
-                  </Link>
-                  <Link href="/stats" className="btn-ghost !py-2 text-sm">
-                    <BarChart3 size={14} /> Stats
-                  </Link>
-                  <Link href="/invite" className="btn-ghost !py-2 text-sm">
-                    <UserPlus size={14} /> Invite friends
-                  </Link>
+                  {/* Three side by side, even on a phone. */}
+                  <div className="flex w-full gap-2 sm:w-auto">
+                    <Link href="/settings" className="btn-ghost flex-auto justify-center whitespace-nowrap !gap-1.5 !px-3 !py-2 text-[13px] sm:flex-none">
+                      <Pencil size={14} /> Edit profile
+                    </Link>
+                    <Link href="/stats" className="btn-ghost flex-auto justify-center whitespace-nowrap !gap-1.5 !px-3 !py-2 text-[13px] sm:flex-none">
+                      <BarChart3 size={14} /> Stats
+                    </Link>
+                    <Link href="/invite" className="btn-ghost flex-auto justify-center whitespace-nowrap !gap-1.5 !px-3 !py-2 text-[13px] sm:flex-none">
+                      <UserPlus size={14} /> Invite
+                    </Link>
+                  </div>
                 </>
               )}
             </div>
