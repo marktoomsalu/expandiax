@@ -384,7 +384,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       {/* NEW — added by people you follow since your last visit */}
       {fresh.length > 0 && (
         <section className="mt-8" aria-labelledby="new-h">
-          <h2 id="new-h" className="font-serif text-2xl">Latest from friends</h2>
+          <h2 id="new-h" className="font-serif text-2xl">Latest from people you follow</h2>
           <ul className="mt-4 space-y-8">{withSuggested(fresh.map((entry, i) => renderEntry(entry, i)), suggestInFresh)}</ul>
         </section>
       )}
