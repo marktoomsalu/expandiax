@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, CalendarDays, Car, ChevronRight, Home, Image as ImageIcon, MapPin, MessageSquareText, Pencil, Plus, Video } from "lucide-react";
+import { ArrowLeft, CalendarDays, Car, ChevronRight, Home, Image as ImageIcon, MapPin, MessageSquareText, Pencil, Plus } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { signMedia } from "@/lib/signedMedia";
@@ -24,7 +24,6 @@ type VisitRow = CountryVisit & {
 
 export const metadata = { title: "Trip" };
 
-const chip = "inline-flex shrink-0 items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-sm shadow-sm";
 
 /** One trip (or stay): where you went, in order, with its photos and a map. */
 export default async function VisitPage({ params, searchParams }: { params: { code: string; visitId: string }; searchParams: { created?: string } }) {
@@ -51,7 +50,6 @@ export default async function VisitPage({ params, searchParams }: { params: { co
   const media = [...visit.country_media].sort((a, b) => a.display_order - b.display_order);
   const images = media.filter((m) => m.media_type === "image");
   const photos = images.length;
-  const videos = media.length - photos;
   const perPlace = mediaByPlace(stops, media);
   const cover = images.find((m) => m.id === visit.cover_media_id) ?? images[0];
   const stock = cover ? null : stockPhotoFor(meta.code, visit.id);
@@ -112,24 +110,7 @@ export default async function VisitPage({ params, searchParams }: { params: { co
           </p>
         )}
 
-        <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
-          <span className={chip}>
-            <ImageIcon size={16} className="text-accent" aria-hidden /> {photos} photos
-          </span>
-          <span className={chip}>
-            <Video size={16} className="text-accent" aria-hidden /> {videos} videos
-          </span>
-          <span className={chip}>
-            <MapPin size={16} className="text-accent" aria-hidden /> {stops.length} places
-          </span>
-          {days && (
-            <span className={chip}>
-              <CalendarDays size={16} className="text-accent" aria-hidden /> {days} days
-            </span>
-          )}
-        </div>
-
-        <QueuedMedia parentId={visit.id} className="mt-6" />
+        <QueuedMedia parentId={visit.id} />
 
         {/* Places */}
         <section className="mt-8" aria-labelledby="places-h">
