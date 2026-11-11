@@ -8,7 +8,8 @@ export const CONNECTOR_TARGET = 5;
 
 export const inviteUrl = (username: string) => `https://expandiax.com/join/${encodeURIComponent(username)}`;
 
-export const inviteText = (name: string) => `${name} invited you to ExpandiaX: the places you've been and the moments you never want to forget, on one map. Join me:`;
+/** What the share sheet writes next to the link (the link's own preview says the rest). */
+export const INVITE_TEXT = "Join me on ExpandiaX 🌍";
 
 /** On this device: who invited you (from the cookie the join page set). */
 export function readInvite(): string | null {

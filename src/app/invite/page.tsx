@@ -55,7 +55,7 @@ export default async function InvitePage() {
         </p>
 
         <div className="mt-6">
-          <InviteShare username={me?.username ?? ""} name={me?.display_name?.split(" ")[0] ?? "A friend"} dark />
+          <InviteShare username={me?.username ?? ""} dark />
         </div>
       </div>
 

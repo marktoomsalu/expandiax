@@ -14,6 +14,10 @@ import { noteInviteClick } from "@/lib/inviteClicks";
 
 // Link previews (iMessage, WhatsApp…) fetch the page with these: they get the page, not a redirect.
 const PREVIEW_BOT = /bot|crawl|spider|facebookexternalhit|facebot|whatsapp|telegram|slack|discord|skype|linkedin|pinterest|embedly|preview|vkshare|quora/i;
+// Apps' own built-in browsers (Messenger, Instagram, Facebook, TikTok…) can't
+// follow an automatic jump to the App Store (the page stays blank); there the
+// invite page shows, and tapping its App Store button works.
+const IN_APP_BROWSER = /FBAN|FBAV|FBIOS|FB_IAB|FBSV|Messenger|Instagram|Snapchat|TikTok|musical_ly|BytedanceWebview|LinkedInApp|Twitter|Line\/|GSA\/|Pinterest|WhatsApp/i;
 
 type Props = { params: { username: string } };
 
@@ -52,9 +56,10 @@ export default async function JoinPage({ params }: Props) {
   // the invite for after the install.
   const h = headers();
   const ua = h.get("user-agent") ?? "";
-  if (!user && /iPhone|iPad|iPod/.test(ua) && !isNativeUserAgent(ua) && !PREVIEW_BOT.test(ua)) {
+  const iphone = !user && /iPhone|iPad|iPod/.test(ua) && !isNativeUserAgent(ua) && !PREVIEW_BOT.test(ua);
+  if (iphone) {
     await noteInviteClick(inviter.id, h).catch(() => {});
-    redirect(APP_STORE_URL);
+    if (!IN_APP_BROWSER.test(ua)) redirect(APP_STORE_URL);
   }
   const { data: count } = await createClient().from("public_country_counts").select("country_count").eq("user_id", inviter.id).maybeSingle();
   const countries = Number(count?.country_count ?? 0);
@@ -90,10 +95,25 @@ export default async function JoinPage({ params }: Props) {
 
         {!user ? (
           <div className="mt-8 flex w-full flex-col items-center gap-4">
-            <Link href="/start" className="w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]" style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}>
-              Join {first}
-            </Link>
-            <AppStoreBadge height={44} />
+            {iphone ? (
+              <>
+                {/* On an iPhone, in an app's own browser: the App Store first. */}
+                <a href={APP_STORE_URL} className="w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]" style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}>
+                  Get ExpandiaX
+                </a>
+                <p className="-mt-1 text-xs text-white/55">Free on the App Store. Sign up and you&rsquo;ll follow {first} straight away.</p>
+                <Link href="/start" className="text-sm text-white/70 underline">
+                  Or join on the web
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/start" className="w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]" style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}>
+                  Join {first}
+                </Link>
+                <AppStoreBadge height={44} />
+              </>
+            )}
             <p className="text-xs text-white/50">
               Already a member?{" "}
               <Link href="/sign-in" className="underline">
