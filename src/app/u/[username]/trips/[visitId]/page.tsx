@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { signMedia } from "@/lib/signedMedia";
@@ -44,6 +44,9 @@ export default async function TripPage({ params }: Props) {
   const supabase = createClient();
   const user = await getAuthUser();
   const mine = user?.id === person.id;
+  // Your own trip: the one trip page in My World (same tools, and Back
+  // leads to your country under Countries), wherever you came from.
+  if (mine) redirect(`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`);
   const countryId = visit.visited_countries.id;
   const [{ data: like }, { data: comments }] = await Promise.all([
     user ? supabase.from("likes").select("target_id").eq("user_id", user.id).eq("kind", "country").eq("target_id", countryId).maybeSingle() : Promise.resolve({ data: null }),
