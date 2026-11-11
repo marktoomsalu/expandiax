@@ -3,6 +3,9 @@ import Link from "next/link";
 import { CalendarDays, History, MapPin } from "lucide-react";
 import { focalPosition } from "@/lib/media";
 import { eventTypeMeta } from "@/lib/events";
+import type { StockPhoto } from "@/lib/stockPhotos";
+import { StockImage } from "./StockImage";
+import { StockCredit } from "./StockCredit";
 import type { EventType } from "@/lib/types";
 
 export type ThenPhoto = { id: string; url: string; focalX: number | null; focalY: number | null };
@@ -22,6 +25,8 @@ export type ThenMemory = {
   photos: ThenPhoto[];
   /** Used when there are no photos (e.g. a concert's Spotify artist image). */
   fallbackImage: string | null;
+  /** A country with no photos yet: an Unsplash photo of it, credited. */
+  stock?: StockPhoto | null;
   gradient: [string, string];
 };
 
@@ -56,6 +61,11 @@ export function ThenCard({ m }: { m: ThenMemory }) {
             sizes="(min-width: 640px) 672px, 100vw"
             className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
           />
+        ) : m.stock ? (
+          <div className="absolute inset-0" style={{ backgroundColor: m.stock.color }}>
+            <StockImage photo={m.stock} aspect="4:3" sizes="(min-width: 640px) 672px, 100vw" className="transition-transform duration-700 ease-out group-hover:scale-[1.03]" />
+            <StockCredit photo={m.stock} linked={false} className="absolute bottom-2.5 right-3" />
+          </div>
         ) : (
           <div className="absolute inset-0" style={{ backgroundImage: `linear-gradient(135deg, ${m.gradient[0]} 0%, ${m.gradient[1]} 100%)` }}>
             <span className="absolute inset-0 bg-black/25" aria-hidden />

@@ -136,7 +136,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     return c ? { kind: "country" as const, id, title: c.country_name, subtitle: "One to remember", href: `/u/${me}/countries/${c.country_code.toLowerCase()}`, isAnniversary: false } : null;
   })();
   const picked = remembered ?? (viewerProfile?.username ? pickResurfacedMemory(ownEvents, ownCountries, user.id, now, viewerProfile.username) : null);
-  const thenPending = picked ? loadThenMemory(supabase, picked, now) : Promise.resolve(null);
+  const thenPending = picked ? loadThenMemory(supabase, picked, now, user.id) : Promise.resolve(null);
 
   if (followeeIds.length > 0) {
     const { data: feedData } = await signMedia(await supabase

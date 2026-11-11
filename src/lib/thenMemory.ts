@@ -6,6 +6,7 @@ import type { ResurfacedMemory } from "@/lib/feedSections";
 import type { ThenMemory, ThenPhoto } from "@/components/ThenCard";
 import type { DatePrecision, EventType } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
+import { stockPhotoFor } from "@/lib/stockPhotos";
 
 type MediaRow = { id: string; public_url: string; media_type: "image" | "video"; display_order: number; focal_x: number | null; focal_y: number | null };
 
@@ -26,7 +27,7 @@ function agoLabel(date: Date, now: Date): string {
 }
 
 /** Everything the THEN card shows, for the one memory pickResurfacedMemory chose. */
-export async function loadThenMemory(supabase: ReturnType<typeof createClient>, picked: ResurfacedMemory, now: Date): Promise<ThenMemory | null> {
+export async function loadThenMemory(supabase: ReturnType<typeof createClient>, picked: ResurfacedMemory, now: Date, userId = ""): Promise<ThenMemory | null> {
   // The section is already called "One to remember" — the card just says when.
   const eyebrow = (date: Date | null) => (picked.isAnniversary ? picked.subtitle : date ? agoLabel(date, now) : "");
 
@@ -100,6 +101,8 @@ export async function loadThenMemory(supabase: ReturnType<typeof createClient>, 
     words: visits.find((v) => v.highlight?.trim())?.highlight.trim() ?? null,
     photos: photosCoverFirst(c.country_media, c.cover_media_id),
     fallbackImage: null,
+    // No photos of it yet: the same Unsplash photo of the country as its posts show.
+    stock: c.country_media.some((m) => m.media_type === "image") ? null : stockPhotoFor(c.country_code, userId),
     gradient: flagGradientColors(c.country_code),
   };
 }
