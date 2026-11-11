@@ -362,7 +362,7 @@ export function FeedMemoryCard(p: Props) {
                 {p.actor.display_name}
               </Link>
               <p className="text-xs text-white/75">
-                {p.actionLabel} · {p.when}
+                {p.when ? `${p.actionLabel} · ${p.when}` : p.actionLabel}
               </p>
             </div>
             {p.media.length > 1 && (

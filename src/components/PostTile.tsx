@@ -12,16 +12,31 @@ import { formatDate, formatMonthYear } from "@/lib/utils";
 import type { FeedEvent } from "@/lib/types";
 
 /** A post in small, for a profile's recent trips and events: tapping it opens the post itself. */
-export function PostTile({ post, ctx, href }: { post: FeedEvent; ctx: PostContext; href: string }) {
+export function PostTile({
+  post,
+  ctx,
+  href,
+  photo: ownPhoto,
+  eyebrow: ownEyebrow,
+  comments: showComments = true,
+}: {
+  post: FeedEvent;
+  ctx: PostContext;
+  href: string;
+  /** One trip of a country: its own cover photo (null: none) and dates. */
+  photo?: { url: string; alt: string; focalX?: number | null; focalY?: number | null } | null;
+  eyebrow?: string;
+  comments?: boolean;
+}) {
   const key = postKey(post);
-  const photo = (ctx.mediaByKey.get(key) ?? []).find((m) => m.type === "image");
-  const cover = (ctx.mediaByKey.get(key) ?? []).find((m) => m.url === post.cover_url && m.type === "image") ?? photo;
-  const coverUrl = cover?.url ?? (post.cover_media_type !== "video" ? post.cover_url : null);
+  const first = (ctx.mediaByKey.get(key) ?? []).find((m) => m.type === "image");
+  const cover = ownPhoto !== undefined ? ownPhoto : ((ctx.mediaByKey.get(key) ?? []).find((m) => m.url === post.cover_url && m.type === "image") ?? first);
+  const coverUrl = cover?.url ?? (ownPhoto === undefined && post.cover_media_type !== "video" ? post.cover_url : null);
   const stock = !coverUrl && post.kind === "country" ? stockPhotoFor(post.country_code, post.actor_id) : null;
   const meta = countryByCode(post.country_code);
-  const comments = ctx.commentsByKey.get(key)?.length ?? 0;
+  const comments = showComments ? (ctx.commentsByKey.get(key)?.length ?? 0) : 0;
   const when = post.visit_date ? (post.visit_date_precision === "month" ? formatMonthYear(post.visit_date) : formatDate(post.visit_date)) : post.visit_year ? String(post.visit_year) : null;
-  const eyebrow = post.kind === "event" ? [post.event_type ? eventTypeMeta(post.event_type).label : "Event", when].filter(Boolean).join(" · ") : when;
+  const eyebrow = ownEyebrow ?? (post.kind === "event" ? [post.event_type ? eventTypeMeta(post.event_type).label : "Event", when].filter(Boolean).join(" · ") : when);
   const place = post.kind === "event" ? [post.venue, post.city || post.country_name].filter(Boolean).join(", ") : null;
 
   return (

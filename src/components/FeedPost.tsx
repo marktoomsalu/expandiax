@@ -14,27 +14,47 @@ import type { FeedEvent } from "@/lib/types";
  * photos, the words, Like, and the comments. The feed, a post's own page and
  * a profile's trips all use this, so a post is the same post everywhere.
  */
-export function FeedPost({ item, ctx, index = 0, children }: { item: FeedEvent; ctx: PostContext; index?: number; children?: React.ReactNode }) {
+export function FeedPost({
+  item,
+  ctx,
+  index = 0,
+  children,
+  media: ownMedia,
+  dateLabel: ownDate,
+  actionLabel: ownAction,
+  hideWhen = false,
+}: {
+  item: FeedEvent;
+  ctx: PostContext;
+  index?: number;
+  children?: React.ReactNode;
+  /** One trip of a country (lib/userTrips): its own photos, dates and wording. */
+  media?: FeedMediaItem[];
+  dateLabel?: string;
+  actionLabel?: string;
+  /** A single trip: when the country was first added says nothing about it. */
+  hideWhen?: boolean;
+}) {
   const actor = ctx.actors.get(item.actor_id);
   if (!actor) return null;
   const meta = countryByCode(item.country_code);
   const key = postKey(item);
   const href = item.kind === "country" ? `/u/${actor.username}/countries/${item.country_code.toLowerCase()}` : `/u/${actor.username}/events/${item.ref_id}`;
   const typeLabel = item.event_type ? eventTypeMeta(item.event_type).label.toLowerCase() : "event";
-  const dateLabel = item.visit_date
+  const dateLabel = ownDate ?? (item.visit_date
     ? item.visit_date_precision === "month"
       ? formatMonthYear(item.visit_date)
       : formatDate(item.visit_date)
     : item.visit_year
       ? String(item.visit_year)
-      : null;
+      : null);
   const rawMedia = ctx.mediaByKey.get(key) ?? [];
-  const media: FeedMediaItem[] =
-    rawMedia.length > 0
+  const media: FeedMediaItem[] = ownMedia ??
+    (rawMedia.length > 0
       ? [...rawMedia].sort((a, b) => (a.url === item.cover_url ? -1 : b.url === item.cover_url ? 1 : 0))
       : item.cover_url
         ? [{ id: key, url: item.cover_url, type: item.cover_media_type ?? "image", alt: item.title }]
-        : [];
+        : []);
   const location = item.kind === "event" ? [item.venue, item.city || item.country_name].filter(Boolean).join(", ") || null : item.city || null;
   return (
     <li key={key} data-feed-key={key} className="card overflow-hidden">
@@ -55,8 +75,8 @@ export function FeedPost({ item, ctx, index = 0, children }: { item: FeedEvent; 
         stock={item.kind === "country" && media.length === 0 ? stockPhotoFor(item.country_code, item.actor_id) : null}
         priority={index === 0}
         actor={actor}
-        actionLabel={item.kind === "country" ? "added a country" : `logged a ${typeLabel}`}
-        when={formatRelative(item.created_at)}
+        actionLabel={ownAction ?? (item.kind === "country" ? "added a country" : `logged a ${typeLabel}`)}
+        when={hideWhen ? "" : formatRelative(item.created_at)}
         actions={<LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={ctx.likedByMe.has(key)} />}
       />
       <div className="border-t border-line px-4 py-3 sm:px-5">

@@ -4,6 +4,7 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { loadPost, loadPostContext } from "@/lib/feedPosts";
 import { FeedPost } from "@/components/FeedPost";
+import { loadTrip, tripAsPost } from "@/lib/userTrips";
 
 type Props = { params: { username: string; kind: string; id: string } };
 
@@ -12,6 +13,10 @@ const KINDS = { trip: "country", event: "event" } as const;
 export async function generateMetadata({ params }: Props) {
   const kind = KINDS[params.kind as keyof typeof KINDS];
   if (!kind) return {};
+  if (kind === "country") {
+    const trip = await loadTrip(createClient(), params.id);
+    return { title: trip ? tripAsPost(trip).item.title : "Trip" };
+  }
   const post = await loadPost(createClient(), kind, params.id);
   return { title: post ? post.title : "Post" };
 }
@@ -24,7 +29,14 @@ export default async function PostPage({ params }: Props) {
   const kind = KINDS[params.kind as keyof typeof KINDS];
   if (!kind || !/^[0-9a-f-]{36}$/.test(params.id)) notFound();
   const supabase = createClient();
-  const [user, post] = await Promise.all([getAuthUser(), loadPost(supabase, kind, params.id)]);
+  // A trip is one trip (its own dates and photos); an event is its post.
+  const [user, trip, eventPost] = await Promise.all([
+    getAuthUser(),
+    kind === "country" ? loadTrip(supabase, params.id) : Promise.resolve(null),
+    kind === "event" ? loadPost(supabase, "event", params.id) : Promise.resolve(null),
+  ]);
+  const asTrip = trip ? tripAsPost(trip) : null;
+  const post = asTrip?.item ?? eventPost;
   if (!post) notFound();
   const ctx = await loadPostContext(supabase, user?.id ?? null, [post]);
   const actor = ctx.actors.get(post.actor_id);
@@ -39,7 +51,7 @@ export default async function PostPage({ params }: Props) {
         </Link>
         {mine && (
           <Link
-            href={kind === "country" ? `/my-world/${post.country_code.toLowerCase()}` : `/events/${post.ref_id}/edit`}
+            href={kind === "country" ? `/my-world/${post.country_code.toLowerCase()}/visits/${params.id}` : `/events/${post.ref_id}/edit`}
             className="btn-ghost !gap-1.5 !px-3.5 !py-2 text-sm"
           >
             <Pencil size={14} aria-hidden /> {kind === "country" ? "Edit in My World" : "Edit event"}
@@ -47,7 +59,7 @@ export default async function PostPage({ params }: Props) {
         )}
       </div>
       <ul className="mt-4">
-        <FeedPost item={post} ctx={ctx} />
+        <FeedPost item={post} ctx={ctx} media={asTrip?.media} dateLabel={asTrip?.dateLabel} actionLabel={asTrip?.actionLabel} hideWhen={!!asTrip} />
       </ul>
     </div>
   );

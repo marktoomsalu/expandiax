@@ -10,7 +10,7 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { WorldMapLink } from "@/components/WorldMapLink";
 import { PostTile } from "@/components/PostTile";
 import { loadPostContext, loadUserPosts } from "@/lib/feedPosts";
-import { byTripDate } from "@/lib/tripOrder";
+import { tripAsPost, tripsOf } from "@/lib/userTrips";
 import { FollowButton } from "@/components/FollowButton";
 import { ReportButton } from "@/components/ReportButton";
 import { BlockButton } from "@/components/BlockButton";
@@ -204,15 +204,14 @@ export default async function PublicProfilePage({ params, searchParams }: { para
 
   // Recent trips and events: their latest posts (as in the feed), not
   // copies of My World. Four each, to know whether there are more.
-  // Trips in the order they happened (not when they were added), so all of them are read to sort.
-  const [allTripPosts, eventPosts] = await Promise.all([
-    loadUserPosts(supabase, profile.id, { kind: "country", limit: 500 }),
-    loadUserPosts(supabase, profile.id, { kind: "event", limit: 4 }),
-  ]);
-  const tripPosts = byTripDate(allTripPosts);
-  const recentTrips = tripPosts.slice(0, 3);
+  // Recent trips: one card per trip (its own dates and photos), newest by
+  // when it happened. Recent events: their latest event posts.
+  // (country_visits(*) is loaded in full; VisitLite is just what the rest of the page uses.)
+  const trips = tripsOf(countries as unknown as Parameters<typeof tripsOf>[0]);
+  const recentTrips = trips.slice(0, 3).map((t) => ({ trip: t, ...tripAsPost(t) }));
+  const eventPosts = await loadUserPosts(supabase, profile.id, { kind: "event", limit: 4 });
   const recentEvents = eventPosts.slice(0, 3);
-  const postCtx = await loadPostContext(supabase, viewer?.id ?? null, [...recentTrips, ...recentEvents]);
+  const postCtx = await loadPostContext(supabase, viewer?.id ?? null, recentEvents);
 
   // The two counters open the full lists: yours in My World and Events,
   // someone else's on their own list pages.
@@ -404,15 +403,23 @@ export default async function PublicProfilePage({ params, searchParams }: { para
               <p className="eyebrow">Travel</p>
               <h2 id="mem-h" className="mt-1 text-2xl md:text-3xl">Recent trips</h2>
             </div>
-            {tripPosts.length > 3 && (
+            {trips.length > 3 && (
               <Link href={`/u/${profile.username}/posts/trips`} className="text-sm text-accent underline-offset-4 hover:underline">
                 See more
               </Link>
             )}
           </div>
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {recentTrips.map((post) => (
-              <PostTile key={post.ref_id} post={post} ctx={postCtx} href={`/u/${profile.username}/post/trip/${post.ref_id}`} />
+            {recentTrips.map(({ trip, item, media, dateLabel }) => (
+              <PostTile
+                key={trip.visit.id}
+                post={item}
+                ctx={postCtx}
+                href={`/u/${profile.username}/post/trip/${trip.visit.id}`}
+                photo={media.find((m) => m.type === "image") ?? null}
+                eyebrow={dateLabel}
+                comments={false}
+              />
             ))}
           </ul>
         </section>
@@ -434,7 +441,8 @@ export default async function PublicProfilePage({ params, searchParams }: { para
           </div>
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {recentEvents.map((post) => (
-              <PostTile key={post.ref_id} post={post} ctx={postCtx} href={`/u/${profile.username}/post/event/${post.ref_id}`} />
+              // The event's own page: its artist picture, photos, likes and comments.
+              <PostTile key={post.ref_id} post={post} ctx={postCtx} href={`/u/${profile.username}/events/${post.ref_id}`} />
             ))}
           </ul>
         </section>
