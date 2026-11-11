@@ -74,7 +74,7 @@ function useDemoState(demo: "approach" | "reveal" | null, fixedCm: number | null
   useEffect(() => {
     if (!demo) return;
     const touch = { peerId: "demo", myCode: DEMO_CODE, peerCode: "f".repeat(32), at: Date.now() };
-    const peer = (meters: number | null) => ({ demo: { id: "demo", code: touch.peerCode, meters, direction: null, readings: [], bumpAt: 0 } });
+    const peer = (meters: number | null) => ({ demo: { id: "demo", code: touch.peerCode, meters, direction: null, readings: [], bumpAt: 0, active: true } });
     if (demo === "reveal") {
       setS((x) => ({ ...x, peers: peer(0.05), touch }));
       return;
@@ -136,7 +136,7 @@ export function TouchGlobes({
     return () => window.removeEventListener("resize", fit);
   }, [demo]);
 
-  // Leaving: keep listening quietly, so a touch from anywhere in the app still works.
+  // Leaving: keep listening quietly, so a friend who opens World Connect can still find you.
   useEffect(() => {
     if (demo) return;
     // The radio stops while the app is in the background; pick up again on return.
@@ -339,7 +339,7 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
   const orbTop = linked ? (meters == null ? -orb * 0.5 : far + (met - far) * c) : -orb * 1.5;
 
   let title = "Hold your iPhone close to a friend’s";
-  let sub = "They open ExpandiaX too. Then bring your phones close.";
+  let sub = "They just need ExpandiaX open. Then bring your phones close.";
   if (linked && meters == null && !state.preciseDistance) {
     title = "A friend is nearby";
     sub = "Tap your phones together, gently.";

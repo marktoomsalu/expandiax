@@ -7,7 +7,12 @@ import { APPROACH_WINDOW_MS, TOUCH_METERS, approachProgress, decideTouch, isFres
 // deploy: what counts as a touch, and what the phones say to each other.
 //
 // What the phones say, as JSON over the encrypted link:
-//   { t: "hi", code }    this phone's code for this session (see migration 058)
+//   { t: "hi", code, active }  this phone's code for this session (see
+//                        migration 058), and whether World Connect is open on it
+//
+// Two phones only connect when at least one of them has World Connect
+// open (active). Someone just using the app is found by a friend who
+// opened it, but two people simply using the app side by side never are.
 //   { t: "bump" }        I just felt a knock (phones without the distance chip)
 //   { t: "touch" }       I felt us touch: you too, if you measured us close
 
@@ -35,6 +40,8 @@ export type TouchPeer = {
   direction: Vec | null;
   readings: Reading[];
   bumpAt: number;
+  /** World Connect is open on their phone. */
+  active: boolean;
 };
 
 export type Touch = { peerId: string; myCode: string; peerCode: string; at: number };
@@ -72,7 +79,7 @@ function set(next: Partial<TouchState>) {
 }
 
 function setPeer(id: string, change: (p: TouchPeer) => Partial<TouchPeer>) {
-  const p = state.peers[id] ?? { id, code: null, meters: null, direction: null, readings: [], bumpAt: 0 };
+  const p = state.peers[id] ?? { id, code: null, meters: null, direction: null, readings: [], bumpAt: 0, active: false };
   set({ peers: { ...state.peers, [id]: { ...p, ...change(p) } } });
 }
 
@@ -100,6 +107,8 @@ let quietUntil = 0;
 function touched(peerId: string) {
   const peer = state.peers[peerId];
   if (state.touch || !peer?.code || Date.now() < quietUntil) return;
+  // Someone has to be using World Connect: this phone, or theirs.
+  if (state.mode !== "screen" && !peer.active) return;
   say({ t: "touch" }, peerId);
   set({ touch: { peerId, myCode: state.myCode, peerCode: peer.code, at: Date.now() } });
 }
@@ -124,7 +133,7 @@ export async function startTouch(mode: TouchState["mode"]): Promise<void> {
     handles = await Promise.all([
       Native.addListener("peerConnected", ({ peerId }) => {
         setPeer(peerId, () => ({}));
-        say({ t: "hi", code: state.myCode }, peerId);
+        say({ t: "hi", code: state.myCode, active: state.mode === "screen" }, peerId);
       }),
       Native.addListener("peerLost", ({ peerId }) => {
         if (state.touch?.peerId === peerId) return; // keep who we touched
@@ -133,7 +142,7 @@ export async function startTouch(mode: TouchState["mode"]): Promise<void> {
         set({ peers });
       }),
       Native.addListener("message", ({ peerId, data }) => {
-        let m: { t?: string; code?: string };
+        let m: { t?: string; code?: string; active?: boolean };
         try {
           m = JSON.parse(data);
         } catch {
@@ -141,7 +150,8 @@ export async function startTouch(mode: TouchState["mode"]): Promise<void> {
         }
         if (m.t === "hi" && typeof m.code === "string" && /^[0-9a-f]{32}$/.test(m.code)) {
           const code = m.code;
-          setPeer(peerId, () => ({ code }));
+          const active = m.active === true;
+          setPeer(peerId, () => ({ code, active }));
         } else if (m.t === "bump") {
           const now = Date.now();
           setPeer(peerId, () => ({ bumpAt: now }));

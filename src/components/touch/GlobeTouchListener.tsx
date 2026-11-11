@@ -11,9 +11,11 @@ import { isTouchAsked, isTouchReady, setTouchAsked, setTouchReady } from "@/lib/
 const QUIET = ["/touch", "/start", "/sign-in", "/sign-up"];
 
 /**
- * World Connect without a button, like AirDrop: once it's on, the app
- * listens while it's open, on every screen, and bringing two phones
- * together opens World Connect with that touch. The first time, a card
+ * World Connect, like AirDrop: once it's on, the app listens while it's
+ * open, on every screen, so a friend who has World Connect open can find
+ * you by bringing their phone close (and that opens it for you too). At
+ * least one of the two has to have it open: two people just using the app
+ * next to each other are never connected (see touched in lib/globeTouch). The first time, a card
  * asks to turn it on (so the iPhone's permission questions come when you
  * expect them) and shows where its button lives in the header. A touch
  * needs a real approach (see decideTouch), so phones lying side by side
@@ -123,7 +125,7 @@ export function WorldConnectIntro({ onAnswer }: { onAnswer: (on: boolean) => voi
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/55">New</p>
           <h2 id="world-connect-h" className="mt-1 font-serif text-3xl">World Connect</h2>
           <p className="mx-auto mt-3 max-w-xs text-white/80">
-            Hold your iPhone close to a friend&rsquo;s, wherever you are in ExpandiaX. Your worlds connect: the countries you share, and you can follow each other.
+            Tap the button up here and hold your iPhone close to a friend&rsquo;s. They just need ExpandiaX open. Your worlds connect: the countries you share, and you can follow each other.
           </p>
           <button
             type="button"
