@@ -1,12 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { AppStoreBadge } from "@/components/AppStoreBadge";
 import { FollowButton } from "@/components/FollowButton";
 import { RememberInvite } from "@/components/invite/RememberInvite";
 import type { ProfileVisibility } from "@/lib/types";
+import { APP_STORE_URL } from "@/lib/appStore";
+import { isNativeUserAgent } from "@/lib/nativeApp";
+import { noteInviteClick } from "@/lib/inviteClicks";
+
+// Link previews (iMessage, WhatsApp…) fetch the page with these: they get the page, not a redirect.
+const PREVIEW_BOT = /bot|crawl|spider|facebookexternalhit|facebot|whatsapp|telegram|slack|discord|skype|linkedin|pinterest|embedly|preview|vkshare|quora/i;
 
 type Props = { params: { username: string } };
 
@@ -21,11 +28,17 @@ async function inviterOf(username: string) {
 
 export async function generateMetadata({ params }: Props) {
   const p = await inviterOf(params.username);
-  const name = p?.display_name ?? "A friend";
+  const first = (p?.display_name ?? "A friend").trim().split(" ")[0];
+  const title = `${first} invited you to ExpandiaX`;
+  const description = "Join me: the places you've been and the moments you never want to forget, on one map.";
+  // A small ExpandiaX icon in the preview (not anyone's photo): it reads as
+  // the app's own invitation, which is what makes people trust it.
+  const icon = { url: "https://expandiax.com/invite-preview.png", width: 300, height: 300, alt: "ExpandiaX" };
   return {
-    title: `${name} invited you`,
-    description: `${name} invited you to ExpandiaX: the places you've been and the moments you never want to forget, on one map.`,
-    openGraph: { title: `${name} invited you to ExpandiaX`, images: p?.avatar_url ? [p.avatar_url] : undefined },
+    title: { absolute: title },
+    description,
+    openGraph: { title, description, siteName: "ExpandiaX", type: "website", images: [icon] },
+    twitter: { card: "summary", title, description, images: [icon.url] },
   };
 }
 
@@ -34,6 +47,15 @@ export default async function JoinPage({ params }: Props) {
   const inviter = await inviterOf(params.username);
   if (!inviter) notFound();
   const user = await getAuthUser();
+  // On an iPhone, without the app (the app opens these links itself) and
+  // not signed in on the website: straight to the App Store, remembering
+  // the invite for after the install.
+  const h = headers();
+  const ua = h.get("user-agent") ?? "";
+  if (!user && /iPhone|iPad|iPod/.test(ua) && !isNativeUserAgent(ua) && !PREVIEW_BOT.test(ua)) {
+    await noteInviteClick(inviter.id, h).catch(() => {});
+    redirect(APP_STORE_URL);
+  }
   const { data: count } = await createClient().from("public_country_counts").select("country_count").eq("user_id", inviter.id).maybeSingle();
   const countries = Number(count?.country_count ?? 0);
   const first = inviter.display_name.trim().split(" ")[0];

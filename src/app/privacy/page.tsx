@@ -66,6 +66,13 @@ export default function PrivacyPage() {
             months. <em>Legal basis:</em> our legitimate interest in understanding whether ExpandiaX is useful.
           </li>
           <li>
+            <Strong>Invitations</Strong> - when you join through a friend&rsquo;s invite link, who invited you, so you two follow each
+            other and it counts towards their Connector badge. If you open an invite link on an iPhone, it goes straight to the App
+            Store; so we can still connect you after you install the app, we keep a one-way scrambled code made from your network
+            address and iOS version (never the address itself) for at most 24 hours, then delete it. <em>Legal basis:</em> our
+            legitimate interest in connecting you with the friend who invited you.
+          </li>
+          <li>
             <Strong>Notifications</Strong> - if you use the app and allow notifications, a device token and your phone&rsquo;s time zone so we can send
             push notifications about messages, likes, comments, new followers and questions or answers about places, and occasional memory reminders, never
             during your night. To group them and not send too many, we keep a record of which notifications were sent to you and whether you opened them

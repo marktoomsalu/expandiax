@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { INVITE_COOKIE } from "@/lib/invite";
+import { claimInviteClick } from "@/lib/inviteClicks";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,10 @@ export async function POST(request: NextRequest) {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ status: "signed_out" }, { status: 401 });
   const body = (await request.json().catch(() => ({}))) as { username?: string };
-  const username = (body.username ?? decodeURIComponent(request.cookies.get(INVITE_COOKIE)?.value ?? "")).trim().replace(/^@/, "");
+  // Typed, or the join page's cookie, or (installed from the App Store
+  // straight from an invite link) the click noted for this phone.
+  let username = (body.username ?? decodeURIComponent(request.cookies.get(INVITE_COOKIE)?.value ?? "")).trim().replace(/^@/, "");
+  if (!username) username = (await claimInviteClick(request.headers).catch(() => null)) ?? "";
   if (!username || !/^[\w.]{1,40}$/.test(username)) {
     // Nothing to claim. "none" (offer to type a friend's username) only for
     // new accounts that haven't been invited yet.

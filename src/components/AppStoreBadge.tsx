@@ -4,8 +4,9 @@ import { useSyncExternalStore } from "react";
 import { isNativeUserAgent } from "@/lib/nativeApp";
 import { cn } from "@/lib/utils";
 
-export const APP_STORE_ID = "6799725181";
-export const APP_STORE_URL = `https://apps.apple.com/app/id${APP_STORE_ID}`;
+import { APP_STORE_URL } from "@/lib/appStore";
+
+export { APP_STORE_ID, APP_STORE_URL } from "@/lib/appStore";
 
 const inApp = () => isNativeUserAgent(navigator.userAgent);
 

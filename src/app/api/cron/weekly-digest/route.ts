@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResend } from "@/lib/resend";
 import { escapeHtml, unsubscribeUrl } from "@/lib/unsubscribe";
+import { pruneInviteClicks } from "@/lib/inviteClicks";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -22,6 +23,8 @@ export async function GET(request: NextRequest) {
   // Active-day records are kept 13 months (see migration 055), then deleted.
   const keepFrom = new Date(Date.now() - 396 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   await supabase.from("activity_days").delete().lt("day", keepFrom);
+  // Invite clicks are kept a day (migration 072).
+  await pruneInviteClicks().catch(() => {});
   // The push log is kept 90 days (migration 068).
   await supabase.from("push_log").delete().lt("created_at", new Date(Date.now() - 90 * 86_400_000).toISOString());
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
