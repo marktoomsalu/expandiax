@@ -36,6 +36,7 @@ export function SearchBox({ action, placeholder, defaultValue, hidden, flush = f
         <div className="absolute inset-x-0 top-full z-30 mt-2">
           <PeopleSuggest
             query={q}
+            countries
             onPick={() => setOpen(false)}
             footer={
               <button type="submit" onMouseDown={(e) => e.preventDefault()} className="w-full border-t border-line px-4 py-2.5 text-left text-sm font-medium text-accent hover:bg-raised">
