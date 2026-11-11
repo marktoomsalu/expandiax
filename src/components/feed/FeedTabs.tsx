@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Compass, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Friends | Explore — your friends' feed stays about them; exploring has its own view. */
+/** Following | Explore — the feed of people you follow stays about them; exploring has its own view. */
 export function FeedTabs({ tab }: { tab: "friends" | "explore" }) {
   const item = (on: boolean) =>
     cn(
@@ -12,7 +12,7 @@ export function FeedTabs({ tab }: { tab: "friends" | "explore" }) {
   return (
     <nav aria-label="Feed" className="flex rounded-full border border-line bg-surface p-1">
       <Link href="/feed" aria-current={tab === "friends" ? "page" : undefined} className={item(tab === "friends")}>
-        <Users size={17} aria-hidden /> Friends
+        <Users size={17} aria-hidden /> Following
       </Link>
       <Link href="/feed?tab=explore" aria-current={tab === "explore" ? "page" : undefined} className={item(tab === "explore")}>
         <Compass size={17} aria-hidden /> Explore
