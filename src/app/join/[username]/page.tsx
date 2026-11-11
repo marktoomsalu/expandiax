@@ -35,14 +35,15 @@ export async function generateMetadata({ params }: Props) {
   const first = (p?.display_name ?? "A friend").trim().split(" ")[0];
   const title = `${first} invited you to ExpandiaX`;
   const description = "Your travels and memories, remembered.";
-  // A small ExpandiaX icon in the preview (not anyone's photo): it reads as
-  // the app's own invitation, which is what makes people trust it.
-  const icon = { url: "https://expandiax.com/invite-preview.png", width: 300, height: 300, alt: "ExpandiaX" };
+  // ExpandiaX's own picture in the preview (not anyone's photo), App Store
+  // style: the logo, "Your world, remembered." and the app on two phones.
+  // It reads as the app's own invitation, which is what makes people trust it.
+  const image = { url: "https://expandiax.com/invite-preview.jpg", width: 1200, height: 630, alt: "ExpandiaX: Your world, remembered." };
   return {
     title: { absolute: title },
     description,
-    openGraph: { title, description, siteName: "ExpandiaX", type: "website", images: [icon] },
-    twitter: { card: "summary", title, description, images: [icon.url] },
+    openGraph: { title, description, siteName: "ExpandiaX", type: "website", images: [image] },
+    twitter: { card: "summary_large_image", title, description, images: [image.url] },
   };
 }
 
