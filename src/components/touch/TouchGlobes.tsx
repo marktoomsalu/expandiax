@@ -263,7 +263,7 @@ export function TouchGlobes({
   else body = <Searching state={s} myCountries={myCountries} size={size} touching={!!touch} />;
 
   return (
-    <div className="touch-stage fixed inset-0 z-[70] overflow-y-auto overflow-x-hidden text-white">
+    <div className="touch-stage no-select fixed inset-0 z-[70] overflow-y-auto overflow-x-hidden text-white">
       <Stars />
       <button
         type="button"

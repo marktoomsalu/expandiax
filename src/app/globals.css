@@ -169,3 +169,12 @@
 .select-none {
   -webkit-user-select: none;
 }
+
+/* Screens you hold, turn and tap (World Connect, the globes): holding them
+   never selects text or opens iOS's Copy / Look Up menu. */
+.no-select,
+.no-select * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}

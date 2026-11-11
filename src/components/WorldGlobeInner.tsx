@@ -260,7 +260,7 @@ export function WorldGlobeInner({
 
   return (
     <div ref={containerRef} className={className}>
-      <div className="relative overflow-hidden rounded-card" style={{ height: size.height }}>
+      <div className="no-select relative overflow-hidden rounded-card" style={{ height: size.height }}>
         <Globe
           ref={globeRef}
           width={size.width}
