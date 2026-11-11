@@ -4,18 +4,13 @@ import { CheckCircle2, Clock } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
-import { LikeButton } from "@/components/LikeButton";
 import { FeedExplore } from "@/components/network/FeedExplore";
 import { FeedTabs, SearchBox } from "@/components/feed/FeedTabs";
 import { LoadMore } from "@/components/LoadMore";
 import { PersonCard } from "@/components/PersonCard";
 import { searchPeople } from "@/lib/peopleSearch";
 import { FirstFriends } from "@/components/FirstFriends";
-import { CommentSection } from "@/components/CommentSection";
-import { FeedMemoryCard, type FeedMediaItem } from "@/components/FeedMemoryCard";
-import { countryByCode } from "@/lib/countries";
-import { eventTypeMeta } from "@/lib/events";
-import { flagGradientColors } from "@/lib/flagColors";
+import type { FeedMediaItem } from "@/components/FeedMemoryCard";
 import {
   groupCountryBursts,
   pickResurfacedMemory,
@@ -28,12 +23,12 @@ import { loadThenMemory } from "@/lib/thenMemory";
 import { ThenCard } from "@/components/ThenCard";
 import { TogetherSection } from "@/components/TogetherSection";
 import { CountryBurstCard } from "@/components/CountryBurstCard";
-import { stockPhotoFor } from "@/lib/stockPhotos";
 import { whereAmI } from "@/lib/location";
-import { formatDate, formatMonthYear, formatRelative } from "@/lib/utils";
+import { formatRelative } from "@/lib/utils";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { SuggestedPeopleRow } from "@/components/network/SuggestedPeopleRow";
+import { FeedPost } from "@/components/FeedPost";
 
 export const metadata = { title: "Feed" };
 
@@ -246,72 +241,9 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     );
   };
 
-  const renderPost = (item: FeedEvent, index: number) => {
-    const actor = actors.get(item.actor_id);
-    if (!actor) return null;
-    const meta = countryByCode(item.country_code);
-    const key = `${item.kind}:${item.ref_id}`;
-    const href =
-      item.kind === "country"
-        ? `/u/${actor.username}/countries/${item.country_code.toLowerCase()}`
-        : `/u/${actor.username}/events/${item.ref_id}`;
-    const typeLabel = item.event_type ? eventTypeMeta(item.event_type).label.toLowerCase() : "event";
-    const dateLabel = item.visit_date
-      ? item.visit_date_precision === "month"
-        ? formatMonthYear(item.visit_date)
-        : formatDate(item.visit_date)
-      : item.visit_year
-        ? String(item.visit_year)
-        : null;
-    const rawMedia = mediaByKey.get(key) ?? [];
-    const media: FeedMediaItem[] =
-      rawMedia.length > 0
-        ? [...rawMedia].sort((a, b) => (a.url === item.cover_url ? -1 : b.url === item.cover_url ? 1 : 0))
-        : item.cover_url
-          ? [{ id: key, url: item.cover_url, type: item.cover_media_type ?? "image", alt: item.title }]
-          : [];
-    const location =
-      item.kind === "event"
-        ? [item.venue, item.city || item.country_name].filter(Boolean).join(", ") || null
-        : item.city || null;
-    return (
-      <li key={key} data-feed-key={key} className="card overflow-hidden">
-        <FeedMemoryCard
-          href={href}
-          kind={item.kind}
-          eventType={item.event_type}
-          flag={meta?.flag}
-          countryName={meta?.name ?? item.country_name}
-          title={item.title}
-          subtitle={item.subtitle}
-          body={item.body}
-          dateLabel={dateLabel}
-          location={location}
-          track={
-            item.spotify_track_name
-              ? { name: item.spotify_track_name, artist: item.spotify_track_artist, spotifyId: item.spotify_track_id }
-              : null
-          }
-          media={media}
-          gradient={flagGradientColors(item.country_code)}
-          stock={item.kind === "country" && media.length === 0 ? stockPhotoFor(item.country_code, item.actor_id) : null}
-          priority={index === 0}
-          actor={actor}
-          actionLabel={item.kind === "country" ? "added a country" :`logged a ${typeLabel}`}
-          when={formatRelative(item.created_at)}
-          actions={<LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={likedByMe.has(key)} />}
-        />
-        <div className="border-t border-line px-4 py-3 sm:px-5">
-          <CommentSection
-            kind={item.kind}
-            targetId={item.ref_id}
-            posterId={item.actor_id}
-            initialComments={commentsByKey.get(key) ?? []}
-          />
-        </div>
-      </li>
-    );
-  };
+  // The same post card as everywhere else (FeedPost).
+  const postCtx = { actors, likedByMe, commentsByKey, mediaByKey };
+  const renderPost = (item: FeedEvent, index: number) => <FeedPost key={`${item.kind}:${item.ref_id}`} item={item} ctx={postCtx} index={index} />;
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-6">
