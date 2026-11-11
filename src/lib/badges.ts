@@ -5,19 +5,30 @@ import {
   BookOpen, CalendarCheck, Archive, Library,
   Music2, PartyPopper, Trophy, Presentation, Heart, Sparkles, Award,
   Star, Camera, Gem, CalendarDays, Hourglass,
+  Users, HeartHandshake, Medal,
 } from "lucide-react";
 import type { AllTimeStats } from "./stats";
 import { TOTAL_COUNTRIES } from "./countries";
 
-export type BadgeGroup = "countries" | "continents" | "events" | "types" | "curation";
+export type BadgeGroup = "countries" | "continents" | "events" | "types" | "friends" | "curation";
 
 export const BADGE_GROUP_LABELS: Record<BadgeGroup, string> = {
   countries: "Countries",
   continents: "Continents",
   events: "Events",
   types: "Event types",
+  friends: "Friends",
   curation: "Curation",
 };
+
+/** In the order they're shown. */
+export const BADGE_GROUPS: BadgeGroup[] = ["countries", "events", "friends", "continents", "types", "curation"];
+
+/** What everything is counted from: your archive, and friends who joined with your invite. */
+export type BadgeStats = AllTimeStats & { invitedFriends: number };
+
+/** How to get a locked badge: a page, or the Add a country sheet. */
+export type BadgeAction = { label: string; href: string } | { label: string; addCountry: true };
 
 type BadgeDef = {
   id: string;
@@ -26,10 +37,34 @@ type BadgeDef = {
   icon: LucideIcon;
   group: BadgeGroup;
   target: number;
-  progress: (s: AllTimeStats) => number;
+  progress: (s: BadgeStats) => number;
+  /** "3/5 friends joined": what the numbers count. */
+  unit: string;
+  action: BadgeAction;
 };
 
 export type EvaluatedBadge = Omit<BadgeDef, "progress"> & { current: number; isUnlocked: boolean };
+
+const ADD_COUNTRY: BadgeAction = { label: "Add a country", addCountry: true };
+const ADD_EVENT: BadgeAction = { label: "Add an event", href: "/events/new" };
+const INVITE: BadgeAction = { label: "Invite friends", href: "/invite" };
+
+const DEFAULT_ACTION: Record<BadgeGroup, BadgeAction> = {
+  countries: ADD_COUNTRY,
+  continents: ADD_COUNTRY,
+  events: ADD_EVENT,
+  types: ADD_EVENT,
+  friends: INVITE,
+  curation: ADD_EVENT,
+};
+const DEFAULT_UNIT: Record<BadgeGroup, string> = {
+  countries: "countries visited",
+  continents: "continents",
+  events: "events logged",
+  types: "event types",
+  friends: "friends joined",
+  curation: "",
+};
 
 const def = (
   id: string,
@@ -38,8 +73,9 @@ const def = (
   icon: LucideIcon,
   group: BadgeGroup,
   target: number,
-  progress: (s: AllTimeStats) => number
-): BadgeDef => ({ id, label, description, icon, group, target, progress });
+  progress: (s: BadgeStats) => number,
+  more: Partial<Pick<BadgeDef, "unit" | "action">> = {}
+): BadgeDef => ({ id, label, description, icon, group, target, progress, unit: more.unit ?? DEFAULT_UNIT[group], action: more.action ?? DEFAULT_ACTION[group] });
 
 export const BADGES: BadgeDef[] = [
   def("country-1", "First Stamp", "Log your first country.", Footprints, "countries", 1, (s) => s.totalCountries),
@@ -59,9 +95,9 @@ export const BADGES: BadgeDef[] = [
   def("events-25", "Archivist", "Log 25 events.", Archive, "events", 25, (s) => s.totalEvents),
   def("events-50", "Chronicler", "Log 50 events.", Library, "events", 50, (s) => s.totalEvents),
 
-  def("type-concert", "Concert Goer", "Log your first concert.", Music2, "types", 1, (s) => s.eventsByType.concert),
-  def("type-festival", "Festival Fanatic", "Log your first festival.", PartyPopper, "types", 1, (s) => s.eventsByType.festival),
-  def("type-sport", "Superfan", "Log your first sport event.", Trophy, "types", 1, (s) => s.eventsByType.sport),
+  def("type-concert", "Concert Goer", "Log your first concert.", Music2, "types", 1, (s) => s.eventsByType.concert, { action: { label: "Add a concert", href: "/events/new" } }),
+  def("type-festival", "Festival Fanatic", "Log your first festival.", PartyPopper, "types", 1, (s) => s.eventsByType.festival, { action: { label: "Add a festival", href: "/events/new" } }),
+  def("type-sport", "Superfan", "Log your first sport event.", Trophy, "types", 1, (s) => s.eventsByType.sport, { action: { label: "Add a match", href: "/events/new" } }),
   def("type-conference", "Delegate", "Log your first conference.", Presentation, "types", 1, (s) => s.eventsByType.conference),
   def("type-personal", "Guest of Honour", "Log your first personal event.", Heart, "types", 1, (s) => s.eventsByType.personal),
   def("type-other", "Free Spirit", "Log your first “other” event.", Sparkles, "types", 1, (s) => s.eventsByType.other),
@@ -75,10 +111,10 @@ export const BADGES: BadgeDef[] = [
     (s) => Object.values(s.eventsByType).filter((n) => n > 0).length
   ),
 
-  def("perfect-night", "Perfect Night", "Rate an event a perfect 10.", Star, "curation", 1, (s) => (s.topRating === 10 ? 1 : 0)),
-  def("photographer", "Photographer", "Keep 50 photos in your archive.", Camera, "curation", 50, (s) => s.totalPhotos),
-  def("curator", "Curator", "Mark 5 favourites.", Gem, "curation", 5, (s) => s.favouriteCount),
-  def("frequent-flyer", "Frequent Flyer", "Stay active across 3 different years.", CalendarDays, "curation", 3, (s) => s.yearsActive.length),
+  def("perfect-night", "Perfect Night", "Rate an event a perfect 10.", Star, "curation", 1, (s) => (s.topRating === 10 ? 1 : 0), { action: { label: "Rate an event", href: "/events" } }),
+  def("photographer", "Photographer", "Keep 50 photos in your archive.", Camera, "curation", 50, (s) => s.totalPhotos, { unit: "photos", action: { label: "Add photos", href: "/my-world" } }),
+  def("curator", "Curator", "Mark 5 favourites.", Gem, "curation", 5, (s) => s.favouriteCount, { unit: "favourites", action: { label: "Pick favourites", href: "/events" } }),
+  def("frequent-flyer", "Frequent Flyer", "Stay active across 3 different years.", CalendarDays, "curation", 3, (s) => s.yearsActive.length, { unit: "years", action: { label: "Add a trip", addCountry: true } }),
   def(
     "old-soul",
     "Old Soul",
@@ -86,13 +122,20 @@ export const BADGES: BadgeDef[] = [
     Hourglass,
     "curation",
     1,
-    (s) => (s.oldestYear !== null && new Date().getFullYear() - s.oldestYear >= 5 ? 1 : 0)
+    (s) => (s.oldestYear !== null && new Date().getFullYear() - s.oldestYear >= 5 ? 1 : 0),
+    { action: { label: "Add an old trip", addCountry: true } }
   ),
+
+  def("friends-5", "Connector", "Bring 5 friends to ExpandiaX.", Users, "friends", 5, (s) => s.invitedFriends),
+  def("friends-10", "Ambassador", "Bring 10 friends to ExpandiaX.", HeartHandshake, "friends", 10, (s) => s.invitedFriends),
+  def("friends-25", "Trailblazer", "Bring 25 friends to ExpandiaX.", Medal, "friends", 25, (s) => s.invitedFriends),
 ];
 
-export function evaluateBadges(stats: AllTimeStats): EvaluatedBadge[] {
+/** Every badge, with how far along you are. Friends who joined with your invite link count for the Friends badges. */
+export function evaluateBadges(stats: AllTimeStats, invitedFriends = 0): EvaluatedBadge[] {
+  const all: BadgeStats = { ...stats, invitedFriends };
   return BADGES.map(({ progress, ...b }) => {
-    const current = Math.min(progress(stats), b.target);
+    const current = Math.min(progress(all), b.target);
     return { ...b, current, isUnlocked: current >= b.target };
   });
 }

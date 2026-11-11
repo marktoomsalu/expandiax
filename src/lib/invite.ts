@@ -1,10 +1,9 @@
 // Invite links (migration 071): expandiax.com/join/<username>. Opening one
 // remembers who invited you (a cookie for 30 days, on this device); right
 // after signing up, /onboarding claims it, and you and your friend follow
-// each other. Five friends who join earn the Connector badge.
+// each other. Friends who join count for the Friends badges (5, 10, 25).
 
 export const INVITE_COOKIE = "xinvite";
-export const CONNECTOR_TARGET = 5;
 
 export const inviteUrl = (username: string) => `https://expandiax.com/join/${encodeURIComponent(username)}`;
 

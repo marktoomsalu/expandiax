@@ -27,8 +27,6 @@ import type { CountryVisit, Event, EventMedia, CountryMedia, Profile, VisitedCou
 import { signMedia } from "@/lib/signedMedia";
 import { mapStays } from "@/lib/stays";
 import { MapLegend } from "@/components/MapLegend";
-import { ConnectorBadge } from "@/components/invite/ConnectorBadge";
-import { CONNECTOR_TARGET } from "@/lib/invite";
 
 type VisitLite = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "highlight" | "kind" | "is_public" | "audience">;
 type CountryRow = VisitedCountry & { country_media: CountryMedia[]; country_visits: VisitLite[] };
@@ -200,10 +198,10 @@ export default async function PublicProfilePage({ params, searchParams }: { para
     photo_count: e.event_media.filter((m) => m.media_type === "image").length,
     video_count: e.event_media.filter((m) => m.media_type === "video").length,
   }));
-  const badges = evaluateBadges(buildAllTimeStats(statCountries, statEvents)).filter((b) => b.isUnlocked);
-  // Friends who joined through their invite link (migration 071; 0 before it).
+  // Friends who joined through their invite link count for the Friends badges (migration 071; 0 before it).
   const { data: invitedRaw } = await supabase.rpc("invite_count", { p_user: profile.id });
   const invitedCount = typeof invitedRaw === "number" ? invitedRaw : 0;
+  const badges = evaluateBadges(buildAllTimeStats(statCountries, statEvents), invitedCount).filter((b) => b.isUnlocked);
 
   const allTrips: TripCard[] = countries
     .flatMap((c) =>
@@ -511,7 +509,7 @@ export default async function PublicProfilePage({ params, searchParams }: { para
       )}
 
       {/* Badges */}
-      {(badges.length > 0 || isEarlyExplorer(profile.signup_number) || invitedCount >= CONNECTOR_TARGET) && (
+      {(badges.length > 0 || isEarlyExplorer(profile.signup_number) || isOwnProfile) && (
         <section id="badges" className="mt-14" aria-labelledby="badges-h">
           <p className="eyebrow">Trophy case</p>
           <h2 id="badges-h" className="mt-1 text-2xl md:text-3xl">Badges</h2>
@@ -520,10 +518,10 @@ export default async function PublicProfilePage({ params, searchParams }: { para
               <EarlyExplorerBadge signupNumber={profile.signup_number} />
             </div>
           )}
-          {invitedCount >= CONNECTOR_TARGET && (
-            <div className="mt-4">
-              <ConnectorBadge count={invitedCount} />
-            </div>
+          {isOwnProfile && (
+            <Link href="/stats#badges" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent">
+              See all badges and what&rsquo;s next <ChevronRight size={14} aria-hidden />
+            </Link>
           )}
           {badges.length > 0 && (
             <div className="mt-6">

@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -60,15 +60,27 @@ export const AddCountrySheet = forwardRef<AddCountrySheetHandle>(function AddCou
   );
 });
 
-/** A button that opens the "Add a country" sheet. */
+/** A button that opens the "Add a country" sheet (loaded on the first tap, so many buttons on a page cost nothing). */
 export function AddCountryButton({ className, children }: { className?: string; children: React.ReactNode }) {
   const sheet = useRef<AddCountrySheetHandle>(null);
+  const [mounted, setMounted] = useState(false);
+  const [want, setWant] = useState(0);
+  useEffect(() => {
+    if (want) sheet.current?.open();
+  }, [want]);
   return (
     <>
-      <button type="button" className={className} onClick={() => sheet.current?.open()}>
+      <button
+        type="button"
+        className={className}
+        onClick={() => {
+          setMounted(true);
+          setWant((n) => n + 1);
+        }}
+      >
         {children}
       </button>
-      <AddCountrySheet ref={sheet} />
+      {mounted && <AddCountrySheet ref={sheet} />}
     </>
   );
 }

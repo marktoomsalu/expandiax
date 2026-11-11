@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { StatCard } from "@/components/StatCard";
@@ -21,8 +20,6 @@ import {
 } from "@/lib/stats";
 import { cn } from "@/lib/utils";
 import type { EventType } from "@/lib/types";
-import { CONNECTOR_TARGET } from "@/lib/invite";
-import { ConnectorBadge } from "@/components/invite/ConnectorBadge";
 
 export const metadata = { title: "Stats" };
 
@@ -121,7 +118,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
   const totalLikes = (countryLikes ?? 0) + (eventLikes ?? 0);
   const yearStats = selectedYear !== null ? buildYearStats(selectedYear, countries, events) : null;
 
-  const badges = evaluateBadges(allTime);
+  const badges = evaluateBadges(allTime, invitedCount);
   const unlockedCount = badges.filter((b) => b.isUnlocked).length;
   const repeated = mostRepeatedTitle(events);
   const topRatedAllTime =
@@ -291,23 +288,8 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
                 <EarlyExplorerBadge signupNumber={profile.signup_number} />
               </div>
             )}
-            {invitedCount >= CONNECTOR_TARGET ? (
-              <ConnectorBadge count={invitedCount} className="mt-4" />
-            ) : (
-              <Link href="/invite" className="mt-4 flex items-center gap-3 rounded-card border border-dashed border-accent/40 px-4 py-3 hover:border-accent">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
-                  <Users size={18} aria-hidden />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">Connector</span>
-                  <span className="block text-xs text-muted">
-                    {invitedCount} of {CONNECTOR_TARGET} friends joined with your invite link. Invite friends →
-                  </span>
-                </span>
-              </Link>
-            )}
             <div className="mt-6">
-              <BadgeGrid badges={badges} />
+              <BadgeGrid badges={badges} actions />
             </div>
           </section>
         </>

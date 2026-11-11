@@ -3,9 +3,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { CONNECTOR_TARGET } from "@/lib/invite";
+import { Check } from "lucide-react";
+import { BADGES } from "@/lib/badges";
 import { InviteShare } from "@/components/invite/InviteShare";
-import { ConnectorBadge } from "@/components/invite/ConnectorBadge";
+
+// The Friends badges, in order: Connector 5, Ambassador 10, Trailblazer 25.
+const LEVELS = BADGES.filter((b) => b.group === "friends");
 
 export const metadata = { title: "Invite friends" };
 
@@ -23,7 +26,8 @@ export default async function InvitePage() {
   const byId = new Map((people ?? []).map((p) => [p.id as string, p]));
   const joined = ids.map((id) => byId.get(id)).filter(Boolean) as { id: string; username: string; display_name: string; avatar_url: string | null }[];
   const n = joined.length;
-  const left = Math.max(0, CONNECTOR_TARGET - n);
+  const next = LEVELS.find((l) => n < l.target) ?? null;
+  const left = next ? next.target - n : 0;
 
   return (
     <div className="mx-auto max-w-md px-5 pb-16 pt-8">
@@ -31,14 +35,15 @@ export default async function InvitePage() {
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl gradient-travel shadow-lg" aria-hidden>
           <Users size={26} />
         </span>
-        <h1 className="mt-4 font-serif text-3xl leading-tight">Invite your friends</h1>
+        <h1 className="mt-4 font-serif text-3xl leading-tight">Worlds are better shared</h1>
         <p className="mx-auto mt-2 max-w-xs text-sm text-white/75">
-          When a friend joins through your link, you follow each other straight away, and their trips land in your feed.
+          Invite your friends to ExpandiaX! You&rsquo;ll automatically follow each other, and their memories will appear in your feed.
         </p>
 
-        {/* Five stamps: one for each friend who joins. */}
-        <div className="mt-6 flex justify-center gap-2" aria-label={`${Math.min(n, CONNECTOR_TARGET)} of ${CONNECTOR_TARGET} friends joined`}>
-          {Array.from({ length: CONNECTOR_TARGET }, (_, i) => {
+        {/* The first five: a stamp for each friend who joins. Past five, a bar to the next level. */}
+        {n < 5 ? (
+        <div className="mt-6 flex justify-center gap-2" aria-label={`${n} of 5 friends joined`}>
+          {Array.from({ length: 5 }, (_, i) => {
             const p = joined[i];
             return (
               <span
@@ -50,16 +55,38 @@ export default async function InvitePage() {
             );
           })}
         </div>
+        ) : (
+          <div className="mx-auto mt-6 max-w-xs">
+            <div className="h-2 overflow-hidden rounded-full bg-white/15">
+              <div className="gradient-travel h-full rounded-full" style={{ width: `${next ? (n / next.target) * 100 : 100}%` }} />
+            </div>
+          </div>
+        )}
         <p className="mt-3 text-sm font-medium">
-          {left > 0 ? `${n} of ${CONNECTOR_TARGET} friends joined · ${left} more for the Connector badge` : `${n} friends joined · you're a Connector`}
+          {next ? `${n}/${next.target} friends joined · ${left} more for ${next.label}` : `${n} friends joined · every Friends badge is yours`}
         </p>
+
+        {/* The three levels. */}
+        <ul className="mt-5 grid grid-cols-3 gap-2">
+          {LEVELS.map((l) => {
+            const got = n >= l.target;
+            return (
+              <li key={l.id} className={`rounded-2xl px-2 py-3 ${got ? "bg-white/15 ring-1 ring-[#fa51a2]" : "bg-white/5"}`}>
+                <span className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full ${got ? "gradient-travel text-white" : "bg-white/10 text-white/50"}`} aria-hidden>
+                  {got ? <Check size={16} /> : <l.icon size={16} />}
+                </span>
+                <span className={`mt-1.5 block text-xs font-semibold ${got ? "" : "text-white/70"}`}>{l.label}</span>
+                <span className="block text-[11px] text-white/50">{l.target} friends</span>
+              </li>
+            );
+          })}
+        </ul>
 
         <div className="mt-6">
           <InviteShare username={me?.username ?? ""} dark />
         </div>
       </div>
 
-      {n >= CONNECTOR_TARGET && <ConnectorBadge count={n} className="mt-6" />}
 
       {joined.length > 0 && (
         <section className="mt-8" aria-labelledby="joined-h">
@@ -81,7 +108,9 @@ export default async function InvitePage() {
           </ul>
         </section>
       )}
-      <p className="mt-8 text-center text-xs text-muted">Only friends who make their own account count. Your link never expires.</p>
+      <p className="mt-8 text-center text-xs text-muted">
+        Only friends who create a new ExpandiaX account through your invite link (or enter your username when they sign up) count towards your invitation badges. Your link never expires.
+      </p>
     </div>
   );
 }

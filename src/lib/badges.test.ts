@@ -74,3 +74,33 @@ describe("isEarlyExplorer", () => {
     expect(isEarlyExplorer(EARLY_EXPLORER_THRESHOLD + 1)).toBe(false);
   });
 });
+
+describe("Friends badges", () => {
+  const empty = {
+    totalCountries: 0,
+    continentsVisited: 0,
+    totalEvents: 0,
+    eventsByType: { concert: 0, festival: 0, sport: 0, conference: 0, personal: 0, other: 0 },
+    totalPhotos: 0,
+    totalVideos: 0,
+    favouriteCount: 0,
+    topRating: null,
+    yearsActive: [],
+    oldestYear: null,
+    newestYear: null,
+  };
+  it("count friends who joined, in three levels", () => {
+    const byId = (n: number) => Object.fromEntries(evaluateBadges(empty, n).filter((b) => b.group === "friends").map((b) => [b.id, b]));
+    expect(byId(3)["friends-5"]).toMatchObject({ current: 3, isUnlocked: false, unit: "friends joined" });
+    expect(byId(12)["friends-5"].isUnlocked).toBe(true);
+    expect(byId(12)["friends-10"].isUnlocked).toBe(true);
+    expect(byId(12)["friends-25"]).toMatchObject({ current: 12, isUnlocked: false });
+  });
+  it("every badge says how to get it", () => {
+    for (const b of evaluateBadges(empty)) {
+      expect(b.action.label.length).toBeGreaterThan(0);
+      expect("href" in b.action || "addCountry" in b.action).toBe(true);
+    }
+    expect(evaluateBadges(empty).find((b) => b.id === "friends-5")?.action).toEqual({ label: "Invite friends", href: "/invite" });
+  });
+});
