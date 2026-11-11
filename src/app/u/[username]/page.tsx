@@ -237,7 +237,9 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   return (
     <div style={accentStyle}>
       {/* Cover: their own photo, or one of their home country's (a different one each day), fading into the page. */}
-      <div className="relative h-44 w-full overflow-hidden sm:h-60" style={{ backgroundColor: coverStock?.color ?? "rgb(43 11 46)" }}>
+      {/* Phones: edge to edge. Wider screens: the width of the page, rounded, a little taller, so it isn't a thin strip. */}
+      <div className="sm:mx-auto sm:max-w-shell sm:px-5 sm:pt-6">
+      <div className="relative h-44 w-full overflow-hidden sm:h-72 sm:rounded-3xl lg:h-80" style={{ backgroundColor: coverStock?.color ?? "rgb(43 11 46)" }}>
         {profile.cover_url ? (
           <Image src={profile.cover_url} alt="" fill priority sizes="100vw" className="object-cover" />
         ) : coverStock ? (
@@ -248,10 +250,11 @@ export default async function PublicProfilePage({ params, searchParams }: { para
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-canvas/30 to-canvas" aria-hidden />
         {!profile.cover_url && coverStock && <StockCredit photo={coverStock} className="absolute right-4 top-3 !text-white/70" />}
       </div>
+      </div>
     <div className="mx-auto -mt-20 max-w-shell px-5 pb-12 sm:-mt-24">
       {previewBanner}
       {/* Header */}
-      <header className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-end">
+      <header className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-end sm:px-8">
         {/* A halo in their accent colour (ExpandiaX pink unless they chose one). */}
         <span
           className="block shrink-0 rounded-full"
