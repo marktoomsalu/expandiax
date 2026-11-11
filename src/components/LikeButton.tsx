@@ -13,10 +13,9 @@ type Props = {
 };
 
 // Deliberately no visible like count — the point of this app is a personal
-// archive of memories, not a metric to chase. "Remember" instead of "Like":
-// this app isn't optimizing for engagement signals, it's marking a memory
-// as one that mattered to you. Same underlying table/behavior either way;
-// owners can see their own total on /stats, never shown publicly.
+// archive of memories, not a metric to chase. Owners can see their own
+// total on /stats, never shown publicly. (Called "Remember" until Nov 2026;
+// "Like" is what everyone understands.)
 export function LikeButton({ kind, targetId, initialLiked }: Props) {
   const supabase = createClient();
   const [liked, setLiked] = useState(initialLiked);
@@ -54,14 +53,14 @@ export function LikeButton({ kind, targetId, initialLiked }: Props) {
       onClick={toggle}
       disabled={busy}
       aria-pressed={liked}
-      aria-label={liked ? "Remembered" : "Remember"}
+      aria-label={liked ? "Liked" : "Like"}
       className={cn(
         "inline-flex items-center gap-1.5 text-sm transition-colors",
         liked ? "text-accent" : "text-muted hover:text-accent"
       )}
     >
       <Heart size={16} className={liked ? "fill-accent" : undefined} />
-      {liked ? "Remembered" : "Remember"}
+      {liked ? "Liked" : "Like"}
     </button>
   );
 }

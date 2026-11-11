@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
   // Active-day records are kept 13 months (see migration 055), then deleted.
   const keepFrom = new Date(Date.now() - 396 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   await supabase.from("activity_days").delete().lt("day", keepFrom);
+  // The push log is kept 90 days (migration 068).
+  await supabase.from("push_log").delete().lt("created_at", new Date(Date.now() - 90 * 86_400_000).toISOString());
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: profiles } = await supabase

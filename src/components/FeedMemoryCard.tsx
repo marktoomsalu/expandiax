@@ -103,7 +103,7 @@ type Props = {
   actor: { username: string; display_name: string; avatar_url: string | null };
   actionLabel: string;
   when: string;
-  /** Left side of the actions row (e.g. Remember). */
+  /** Left side of the actions row (e.g. Like). */
   actions?: React.ReactNode;
 };
 

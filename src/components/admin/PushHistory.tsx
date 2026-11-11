@@ -17,6 +17,8 @@ export type CampaignRow = {
   recipients: number;
   delivered: number;
   failed: number;
+  /** Waiting for their morning (quiet hours when it went out). */
+  waiting?: number;
   opened: number;
   error: string | null;
 };
@@ -67,7 +69,7 @@ export function PushHistory({ campaigns }: { campaigns: CampaignRow[] }) {
             <p className="text-sm text-muted">{c.body}</p>
             {c.status === "sent" && (
               <p className="mt-1.5 text-xs">
-                <b>{c.recipients}</b> people · <b>{c.delivered}</b> delivered{c.failed ? <> · <b>{c.failed}</b> failed</> : null} · <b>{c.opened}</b> opened ({openRate}%)
+                <b>{c.recipients}</b> people · <b>{c.delivered}</b> delivered{c.failed ? <> · <b>{c.failed}</b> failed</> : null} · <b>{c.opened}</b> opened ({openRate}%){c.waiting ? <> · <b>{c.waiting}</b> waiting for their morning</> : null}
               </p>
             )}
             {c.status === "failed" && c.error && <p className="mt-1.5 text-xs text-red-700 dark:text-red-400">{c.error}</p>}

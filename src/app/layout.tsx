@@ -12,6 +12,7 @@ import { NativeDeepLinks } from "@/components/NativeDeepLinks";
 import { NativeKeyboard } from "@/components/NativeKeyboard";
 import { NativeFirstRunRedirect } from "@/components/NativeFirstRunRedirect";
 import { PushRegistration } from "@/components/PushRegistration";
+import { PushPresence } from "@/components/PushPresence";
 import { GlobeTouchListener } from "@/components/touch/GlobeTouchListener";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -78,6 +79,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <NativeKeyboard />
           <NativeFirstRunRedirect isLoggedIn={!!navUser} />
           {navUser && <PushRegistration userId={navUser.id} />}
+          {navUser && <PushPresence userId={navUser.id} />}
           {navUser && <UploadQueueWatcher userId={navUser.id} />}
           {navUser && <GlobeTouchListener />}
           {navUser && <ChatBubble me={navUser.id} />}

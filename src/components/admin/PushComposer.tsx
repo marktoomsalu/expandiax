@@ -15,7 +15,7 @@ const LINKS = [
   { value: "/settings", label: "Settings" },
 ];
 
-type Estimate = { people: number; skippedRecently: number } | null;
+type Estimate = { people: number; skippedRecently: number; quietNow?: number } | null;
 
 /** Write an announcement, see how it'll look, and send it now or later. */
 export function PushComposer() {
@@ -71,7 +71,7 @@ export function PushComposer() {
     setResult(
       data.scheduled
         ? `Scheduled for ${new Date(sendAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}.`
-        : `Sent to ${data.recipients} ${data.recipients === 1 ? "person" : "people"} (${data.delivered} delivered${data.failed ? `, ${data.failed} failed` : ""}).`
+        : `Sent to ${data.recipients} ${data.recipients === 1 ? "person" : "people"} (${data.delivered} delivered${data.failed ? `, ${data.failed} failed` : ""}${data.waiting ? `, ${data.waiting} waiting for their morning` : ""}).`
     );
     setTitle("");
     setBody("");
@@ -107,7 +107,7 @@ export function PushComposer() {
 
         <div className="rounded-2xl border border-line p-4">
           <p className="text-sm font-medium">Who gets it</p>
-          <p className="mt-0.5 text-xs text-muted">Only people who have this kind switched on in their Settings, and at most one announcement a day each.</p>
+          <p className="mt-0.5 text-xs text-muted">Only people who have this kind switched on in their Settings, within the daily limit for reminders and announcements, and never in their quiet hours.</p>
           <div className="mt-3 flex flex-wrap gap-1.5">
             <button type="button" onClick={() => setCategory("push_updates")} className={pill(category === "push_updates")}>Updates &amp; inspiration</button>
             <button type="button" onClick={() => setCategory("push_reminders")} className={pill(category === "push_reminders")}>Memory reminders</button>
@@ -144,7 +144,8 @@ export function PushComposer() {
             {estimate ? (
               <>
                 <b>{estimate.people}</b> {estimate.people === 1 ? "person" : "people"} would get it now
-                {estimate.skippedRecently > 0 && <span className="text-muted"> · {estimate.skippedRecently} skipped (had one today)</span>}
+                {estimate.skippedRecently > 0 && <span className="text-muted"> · {estimate.skippedRecently} skipped (had their share today)</span>}
+                {!!estimate.quietNow && when === "now" && <span className="text-muted"> · {estimate.quietNow} in quiet hours get it in their morning</span>}
               </>
             ) : (
               <span className="text-muted">Counting…</span>

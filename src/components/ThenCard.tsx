@@ -102,6 +102,7 @@ export function ThenCard({ m }: { m: ThenMemory }) {
           )}
           {m.title}
         </h3>
+        {m.photos.length === 0 && !m.fallbackImage && <p className="mt-1.5 text-sm font-medium text-accent">No photos yet. Add a few so it&rsquo;s never forgotten →</p>}
         {m.words && <p className="mt-1.5 line-clamp-2 max-w-lg font-serif text-base italic leading-snug text-muted">&ldquo;{m.words}&rdquo;</p>}
         {(m.dateLabel || m.place) && (
           <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">

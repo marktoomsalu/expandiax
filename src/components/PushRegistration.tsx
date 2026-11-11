@@ -27,18 +27,18 @@ export function PushRegistration({ userId }: { userId: string }) {
           return; // FCM token isn't ready yet — nothing to store.
         }
       }
-      await supabase.from("device_tokens").upsert(
-        { user_id: userId, token: value, platform },
-        { onConflict: "token" }
-      );
+      // With the phone's time zone, for quiet hours (migration 068; without it if that isn't there yet).
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+      const { error } = await supabase.from("device_tokens").upsert({ user_id: userId, token: value, platform, timezone }, { onConflict: "token" });
+      if (error) await supabase.from("device_tokens").upsert({ user_id: userId, token: value, platform }, { onConflict: "token" });
     });
     // Tapping a notification opens what it's about (the link /api/push/send adds).
     const tapListener = PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
-      const data = notification.data as { link?: string; campaignId?: string } | undefined;
+      const data = notification.data as { link?: string; campaignId?: string; logId?: string } | undefined;
       const link = data?.link;
-      // An announcement from the admin panel: count the open.
-      if (data?.campaignId) {
-        void fetch("/api/push/opened", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaignId: data.campaignId }) }).catch(() => {});
+      // Count the open: an announcement's open rate, and "seen", so the next like may buzz again.
+      if (data?.campaignId || data?.logId) {
+        void fetch("/api/push/opened", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaignId: data.campaignId, logId: data.logId }) }).catch(() => {});
       }
       router.push(link && link.startsWith("/") ? link : "/notifications");
     });

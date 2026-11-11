@@ -41,7 +41,7 @@ const PAGE_SIZE = 30;
 type RawMedia = FeedMediaItem & { displayOrder: number };
 
 
-export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string; seen?: string; tab?: string; q?: string; city?: string; cc?: string; lat?: string; lng?: string; friends?: string } }) {
+export default async function FeedPage({ searchParams }: { searchParams?: { limit?: string; seen?: string; tab?: string; q?: string; city?: string; cc?: string; lat?: string; lng?: string; friends?: string; remember?: string } }) {
   const supabase = createClient();
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
@@ -124,7 +124,19 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
   // The resurfaced memory loads alongside the posts, not after them.
   const now = new Date();
-  const picked = viewerProfile?.username ? pickResurfacedMemory(ownEvents, ownCountries, user.id, now, viewerProfile.username) : null;
+  // A memory reminder names the memory it was about ("country:<id>"); that one shows.
+  const remembered = (() => {
+    const [kind, id] = (searchParams?.remember ?? "").split(":");
+    const me = viewerProfile?.username;
+    if (!me || !id) return null;
+    if (kind === "event") {
+      const e = ownEvents.find((x) => x.id === id);
+      return e ? { kind: "event" as const, id, title: e.title, subtitle: "One to remember", href: `/u/${me}/events/${id}`, isAnniversary: false } : null;
+    }
+    const c = kind === "country" ? ownCountries.find((x) => x.id === id) : null;
+    return c ? { kind: "country" as const, id, title: c.country_name, subtitle: "One to remember", href: `/u/${me}/countries/${c.country_code.toLowerCase()}`, isAnniversary: false } : null;
+  })();
+  const picked = remembered ?? (viewerProfile?.username ? pickResurfacedMemory(ownEvents, ownCountries, user.id, now, viewerProfile.username) : null);
   const thenPending = picked ? loadThenMemory(supabase, picked, now) : Promise.resolve(null);
 
   if (followeeIds.length > 0) {
@@ -375,7 +387,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
 
       {/* THEN — a memory resurfaced from your own past */}
       {then && (
-        <section className="mt-10" aria-labelledby="then-h">
+        <section id="one-to-remember" className="mt-10 scroll-mt-24" aria-labelledby="then-h">
           <h2 id="then-h" className="flex items-center gap-1.5 text-sm font-medium text-muted">
             <Clock size={14} aria-hidden /> One to remember
           </h2>

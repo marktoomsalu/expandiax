@@ -66,8 +66,11 @@ export default function PrivacyPage() {
             months. <em>Legal basis:</em> our legitimate interest in understanding whether ExpandiaX is useful.
           </li>
           <li>
-            <Strong>Notifications</Strong> - if you use the app and allow notifications, a device token so we can send
-            push notifications about likes, comments, new followers and questions or answers about places; and emails when someone starts following you and
+            <Strong>Notifications</Strong> - if you use the app and allow notifications, a device token and your phone&rsquo;s time zone so we can send
+            push notifications about messages, likes, comments, new followers and questions or answers about places, and occasional memory reminders, never
+            during your night. To group them and not send too many, we keep a record of which notifications were sent to you and whether you opened them
+            (90 days), and while the app is open, which chat or notification you&rsquo;re looking at (overwritten every few seconds), so we don&rsquo;t
+            notify you about something already on your screen. And emails when someone starts following you and
             a weekly summary, &ldquo;Your World This Week&rdquo;. You can turn each email off in Settings, and every one has a one-click unsubscribe. <em>Legal basis:</em> contract, and
             your consent for push notifications, which you can withdraw at any time in your device’s settings, or kind by kind in ExpandiaX’s Settings.
           </li>
