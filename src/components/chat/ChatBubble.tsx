@@ -26,6 +26,8 @@ import { cn } from "@/lib/utils";
 import { chatProblem } from "@/lib/chatRules";
 import { useChatEnabled } from "@/lib/useChatEnabled";
 import { askForPush } from "@/lib/pushAsk";
+import { firstCountry, splitMentions } from "@/lib/placeMentions";
+import { ReactionChips, ReactionPicker, type Reaction } from "./Reactions";
 
 // Screens where the bubble would be in the way.
 const HIDDEN = ["/start", "/touch", "/sign-in", "/sign-up", "/onboarding"];
@@ -40,6 +42,9 @@ function useChat(me: string) {
   const [last, setLast] = useState<Record<string, MessageRow>>({});
   const [friends, setFriends] = useState<ChatPerson[]>([]);
   const [incoming, setIncoming] = useState<MessageRow | null>(null);
+  // When this phone last had each chat open: counts as read straight away,
+  // whether or not the database's confirmation has come back yet.
+  const [readHere, setReadHere] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     const { data: convs } = await supabase.from("conversations").select(CONV_FIELDS).order("last_message_at", { ascending: false }).limit(60);
@@ -97,12 +102,25 @@ function useChat(me: string) {
     };
   }, [supabase, me, load]);
 
+  /** You've seen this chat up to now: read here at once, then in the database. */
+  const markRead = useCallback(
+    async (conversationId: string) => {
+      setReadHere((r) => ({ ...r, [conversationId]: Date.now() }));
+      await supabase.rpc("mark_conversation_read", { p_conversation: conversationId });
+      void load();
+    },
+    [supabase, load]
+  );
+
+  // Unread: their newest message came after you last had the chat open.
   const unread = conversations.filter((c) => {
     const m = last[c.id];
-    return m && m.sender_id !== me && m.created_at > myReadAt(c, me) && c.status !== "declined";
+    if (!m || m.sender_id === me || c.status === "declined") return false;
+    const readAt = Math.max(Date.parse(myReadAt(c, me)) || 0, readHere[c.id] ?? 0);
+    return Date.parse(m.created_at) > readAt;
   });
 
-  return { supabase, conversations, people, last, friends, unread, incoming, reload: load };
+  return { supabase, conversations, people, last, friends, unread, incoming, reload: load, markRead };
 }
 
 /** Only in the new app build (see useChatEnabled). */
@@ -238,7 +256,7 @@ function Home({ me, chat }: { me: string; chat: Chat }) {
         {chat.friends.length > 0 && (
           <section aria-label="Friends" className="mb-5">
             <p className="eyebrow">Friends</p>
-            <ul className="no-scrollbar -mx-5 mt-3 flex gap-3 overflow-x-auto px-5 pb-1">
+            <ul className="no-scrollbar -mx-5 mt-1 flex gap-3 overflow-x-auto px-5 pb-1 pt-2">
               {chat.friends.map((p) => (
                 <li key={p.id}>
                   <button type="button" onClick={() => startWith(me, chat, p)} className="flex w-16 flex-col items-center gap-1">
@@ -371,16 +389,62 @@ function Conversation({ me, chat, conversationId }: { me: string; chat: Chat; co
   const person = c ? chat.people[otherOf(c, me)] : null;
   const endRef = useRef<HTMLDivElement>(null);
 
+  const { markRead } = chat;
   const load = useCallback(async () => {
     const { data } = await chat.supabase.from("messages").select("*").eq("conversation_id", conversationId).order("created_at").limit(300);
     setMessages((data ?? []) as MessageRow[]);
     setLoaded(true);
-    void chat.supabase.rpc("mark_conversation_read", { p_conversation: conversationId });
-  }, [chat.supabase, conversationId]);
+    // Open = read, replied or not.
+    void markRead(conversationId);
+  }, [chat.supabase, conversationId, markRead]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Reactions on these messages (migration 069), live.
+  const [reactions, setReactions] = useState<{ message_id: string; user_id: string; reaction: Reaction }[]>([]);
+  const [canReact, setCanReact] = useState(false);
+  const [picker, setPicker] = useState<string | null>(null);
+  const ids = messages.map((m) => m.id).join(",");
+  const loadReactions = useCallback(async () => {
+    if (!ids) return;
+    const { data, error } = await chat.supabase.from("message_reactions").select("message_id, user_id, reaction").in("message_id", ids.split(","));
+    setCanReact(!error);
+    if (!error) setReactions((data ?? []) as typeof reactions);
+  }, [chat.supabase, ids]);
+  useEffect(() => {
+    void loadReactions();
+  }, [loadReactions]);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    const channel = chat.supabase
+      .channel(`reactions-${conversationId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, () => {
+        clearTimeout(t);
+        t = setTimeout(() => void loadReactions(), 200);
+      })
+      .subscribe();
+    return () => {
+      clearTimeout(t);
+      void chat.supabase.removeChannel(channel);
+    };
+  }, [chat.supabase, conversationId, loadReactions]);
+
+  /** Your reaction to a message: set it, change it, or (the same again) take it back. */
+  async function react(messageId: string, r: Reaction | null) {
+    setPicker(null);
+    const mineNow = reactions.find((x) => x.message_id === messageId && x.user_id === me)?.reaction ?? null;
+    const next = r === mineNow ? null : r;
+    if (next) tapSuccess();
+    else tapLight();
+    setReactions((list) => [...list.filter((x) => !(x.message_id === messageId && x.user_id === me)), ...(next ? [{ message_id: messageId, user_id: me, reaction: next }] : [])]);
+    const q = chat.supabase.from("message_reactions");
+    const { error } = next
+      ? await q.upsert({ message_id: messageId, user_id: me, reaction: next }, { onConflict: "message_id,user_id" })
+      : await q.delete().eq("message_id", messageId).eq("user_id", me);
+    if (error) void loadReactions();
+  }
   // New messages, live.
   useEffect(() => {
     if (chat.incoming?.conversation_id === conversationId) void load();
@@ -406,11 +470,35 @@ function Conversation({ me, chat, conversationId }: { me: string; chat: Chat; co
   return (
     <>
       <Header person={person} sub={sub} onBack={() => goChat({ view: "home" })} menu={<SafetyMenu me={me} chat={chat} person={person} messages={messages} />} />
+      {/* Tapping anywhere else closes the reactions. */}
+      {picker && <button type="button" aria-label="Close reactions" onClick={() => setPicker(null)} className="fixed inset-0 z-20 cursor-default bg-black/10" />}
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {!chat.friends.some((f) => f.id === person.id) && <SafetyNote />}
-        {messages.map((m, i) => (
-          <Bubble key={m.id} m={m} mine={m.sender_id === me} postcard={i === 0 && c.started_by === m.sender_id && (incomingPostcard || waiting)} firstOfRun={messages[i - 1]?.sender_id !== m.sender_id} />
-        ))}
+        {messages.map((m, i) => {
+          const mine = m.sender_id === me;
+          const these = reactions.filter((r) => r.message_id === m.id);
+          return (
+            <Bubble
+              key={m.id}
+              m={m}
+              mine={mine}
+              postcard={i === 0 && c.started_by === m.sender_id && (incomingPostcard || waiting)}
+              firstOfRun={messages[i - 1]?.sender_id !== m.sender_id}
+              reactions={these}
+              me={me}
+              canReact={canReact && c.status !== "declined"}
+              picking={picker === m.id}
+              pickerBelow={i < 2}
+              onLongPress={() => {
+                tapLight();
+                setPicker(m.id);
+              }}
+              onDoubleTap={() => void react(m.id, "love")}
+              onReact={(r) => void react(m.id, r)}
+              onClosePicker={() => setPicker(null)}
+            />
+          );
+        })}
         <div ref={endRef} />
       </div>
       {incomingPostcard ? (
@@ -522,7 +610,11 @@ function Composer({
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => onDraft?.(text, place), [text, place]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The postcard preview stamps the first country named, until one is picked.
+  useEffect(() => {
+    const named = place ? null : firstCountry(text);
+    onDraft?.(text, place ?? (named ? { code: named } : null));
+  }, [text, place]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Said before sending, the same rules the server applies.
   const problem = text.trim() ? chatProblem(text, postcard) : null;
@@ -535,7 +627,8 @@ function Composer({
     const { data, error: err } = await chat.supabase.rpc("send_message", {
       p_to: to.id,
       p_body: body,
-      p_place_code: place?.code ?? null,
+      // No place picked: the first country the message names (if any).
+      p_place_code: place?.code ?? firstCountry(body),
       p_place_name: place?.name ?? null,
     });
     setBusy(false);
@@ -746,35 +839,154 @@ function PostcardAnswer({ name, onDecline, composer }: { name: string; onDecline
   );
 }
 
-function Bubble({ m, mine, postcard, firstOfRun }: { m: MessageRow; mine: boolean; postcard: boolean; firstOfRun: boolean }) {
+type BubbleProps = {
+  m: MessageRow;
+  mine: boolean;
+  postcard: boolean;
+  firstOfRun: boolean;
+  reactions: { user_id: string; reaction: Reaction }[];
+  me: string;
+  canReact: boolean;
+  picking: boolean;
+  pickerBelow: boolean;
+  onLongPress: () => void;
+  onDoubleTap: () => void;
+  onReact: (r: Reaction) => void;
+  onClosePicker: () => void;
+};
+
+/** The words, with the countries in them as quiet links to their page. */
+function Words({ text, mine }: { text: string; mine: boolean }) {
+  return (
+    <>
+      {splitMentions(text).map((part, i) =>
+        part.code ? (
+          <Link
+            key={i}
+            href={`/explore/country/${part.code.toLowerCase()}`}
+            onClick={closeChat}
+            className={cn("font-medium underline decoration-dotted decoration-1 underline-offset-[3px]", mine ? "decoration-white/70" : "text-accent decoration-accent/50")}
+          >
+            {part.text}
+          </Link>
+        ) : (
+          <span key={i}>{part.text}</span>
+        )
+      )}
+    </>
+  );
+}
+
+/** Press and hold (or right-click) to react; tap twice for a quick love. */
+function usePressToReact(enabled: boolean, onLongPress: () => void, onDoubleTap: () => void) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const lastTap = useRef(0);
+  const fired = useRef(false);
+  const cancel = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    start.current = null;
+  };
+  if (!enabled) return {};
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      if ((e.target as HTMLElement).closest("a, button")) return;
+      fired.current = false;
+      start.current = { x: e.clientX, y: e.clientY };
+      timer.current = setTimeout(() => {
+        fired.current = true;
+        onLongPress();
+      }, 380);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (start.current && Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 8) cancel();
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      cancel();
+      if (fired.current || (e.target as HTMLElement).closest("a, button")) return;
+      const now = Date.now();
+      if (now - lastTap.current < 320) {
+        lastTap.current = 0;
+        onDoubleTap();
+      } else lastTap.current = now;
+    },
+    onPointerCancel: cancel,
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      cancel();
+      onLongPress();
+    },
+  };
+}
+
+function Bubble({ m, mine, postcard, firstOfRun, reactions, me, canReact, picking, pickerBelow, onLongPress, onDoubleTap, onReact, onClosePicker }: BubbleProps) {
   const place = m.place_code ? countryByCode(m.place_code) : null;
+  const press = usePressToReact(canReact, onLongPress, onDoubleTap);
+  const mineReaction = reactions.find((r) => r.user_id === me)?.reaction ?? null;
+  // The place tag only when the words don't already name it.
+  const tagged = place && !splitMentions(m.body).some((p) => p.code === place.code) ? place : null;
+
+  const picker = picking && (
+    <>
+      <div className={cn("absolute z-30", pickerBelow ? "top-full mt-2" : "bottom-full mb-2", mine ? "right-0" : "left-0")}>
+        <ReactionPicker
+          current={mineReaction}
+          align={mine ? "right" : "left"}
+          onPick={onReact}
+          onCopy={() => {
+            void navigator.clipboard?.writeText(m.body).catch(() => {});
+            onClosePicker();
+          }}
+        />
+      </div>
+    </>
+  );
+  const chips = <ReactionChips list={reactions} me={me} onToggleMine={() => mineReaction && onReact(mineReaction)} />;
+
   if (postcard) {
     return (
-      <div className={cn("my-3 flex", mine ? "justify-end" : "justify-start")}>
-        <div className="postcard w-[85%] rotate-[-1.5deg] rounded-2xl p-4 shadow-md">
+      <div className={cn("my-3 flex flex-col", mine ? "items-end" : "items-start")}>
+        <div className={cn("postcard relative w-[85%] rotate-[-1.5deg] select-none rounded-2xl p-4 shadow-md [-webkit-touch-callout:none]", picking && "z-30")} {...press}>
           <div className="flex items-start justify-between gap-3">
-            <p className="whitespace-pre-wrap font-serif text-[17px] leading-snug text-[#2b0b2e]">{m.body}</p>
+            <p className="whitespace-pre-wrap font-serif text-[17px] leading-snug text-[#2b0b2e]">
+              <Words text={m.body} mine={false} />
+            </p>
             <Stamp code={m.place_code} />
           </div>
           <p className="mt-3 text-[11px] font-medium uppercase tracking-[0.18em] text-[#2b0b2e]/60">Postcard{place ? ` · ${m.place_name || place.name}` : ""}</p>
+          {picker}
         </div>
+        <span className="mx-3">{chips}</span>
       </div>
     );
   }
   return (
-    <div className={cn("flex", mine ? "justify-end" : "justify-start", firstOfRun ? "mt-3" : "mt-1")}>
-      <div className={cn("max-w-[80%] rounded-[20px] px-3.5 py-2 text-[15px] leading-snug", mine ? "rounded-br-md text-white" : "rounded-bl-md bg-surface ring-1 ring-line")} style={mine ? { background: "linear-gradient(135deg, #fa51a2, #fb7822)" } : undefined}>
-        {place && (
+    <div className={cn("flex flex-col", mine ? "items-end" : "items-start", firstOfRun ? "mt-3" : "mt-1", reactions.length > 0 && "mb-1")}>
+      <div
+        className={cn(
+          "relative max-w-[80%] select-none rounded-[20px] px-3.5 py-2 text-[15px] leading-snug transition-transform [-webkit-touch-callout:none]",
+          mine ? "rounded-br-md text-white" : "rounded-bl-md bg-surface ring-1 ring-line",
+          picking && "z-30 scale-[1.03]"
+        )}
+        style={mine ? { background: "linear-gradient(135deg, #fa51a2, #fb7822)" } : undefined}
+        {...press}
+      >
+        {tagged && (
           <Link
-            href={`/explore/country/${place.code.toLowerCase()}`}
+            href={`/explore/country/${tagged.code.toLowerCase()}`}
             onClick={closeChat}
             className={cn("mb-1.5 flex items-center gap-1.5 rounded-xl px-2 py-1 text-xs font-medium", mine ? "bg-white/20" : "bg-raised")}
           >
-            <span className="text-base leading-none">{place.flag}</span> {m.place_name || place.name}
+            <span className="text-base leading-none">{tagged.flag}</span> {m.place_name || tagged.name}
           </Link>
         )}
-        <p className="whitespace-pre-wrap break-words">{m.body}</p>
+        <p className="whitespace-pre-wrap break-words">
+          <Words text={m.body} mine={mine} />
+        </p>
+        {picker}
       </div>
+      <span className="mx-2">{chips}</span>
     </div>
   );
 }
@@ -817,12 +1029,12 @@ function Header({ title, person, sub, onBack, menu }: { title?: string; person?:
 function Avatar({ p, size, ring = false }: { p: ChatPerson; size: number; ring?: boolean }) {
   return (
     <span
-      className={cn("relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-raised font-serif text-muted", ring && "ring-2 ring-accent ring-offset-2 ring-offset-canvas")}
-      style={{ width: size, height: size, fontSize: size * 0.4 }}
+      className={cn("relative flex flex-none items-center justify-center overflow-hidden rounded-full bg-raised font-serif text-muted", ring && "ring-2 ring-accent ring-offset-2 ring-offset-canvas")}
+      style={{ width: size, height: size, minWidth: size, minHeight: size, fontSize: size * 0.4 }}
     >
       {p.avatar_url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={p.avatar_url} alt="" className="h-full w-full object-cover" />
+        <img src={p.avatar_url} alt="" draggable={false} className="absolute inset-0 h-full w-full rounded-full object-cover" />
       ) : (
         p.display_name.charAt(0)
       )}
@@ -846,5 +1058,12 @@ const STYLES = `
 @keyframes chat-up { from { transform: translateY(40px); opacity: 0; } }
 .postcard { background: linear-gradient(135deg, #fff8ee, #ffe9d6); border: 1px solid rgba(43,11,46,.08); }
 .stamp { border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.18); outline: 1.5px dashed rgba(43,11,46,.28); outline-offset: -4px; transform: rotate(3deg); }
-@media (prefers-reduced-motion: reduce) { .chat-ping, .chat-sheet { animation: none; } }
+.react-bar { animation: react-in .18s cubic-bezier(.2,.9,.3,1.3) both; transform-origin: bottom center; }
+@keyframes react-in { from { transform: scale(.6); opacity: 0; } }
+.react-pop { animation: react-pop .32s cubic-bezier(.2,.9,.3,1.5) both; }
+@keyframes react-pop { from { transform: translateY(8px) scale(.4); opacity: 0; } }
+.react-pop:hover { transform: translateY(-3px) scale(1.15); }
+.react-land { animation: react-land .35s cubic-bezier(.2,.9,.3,1.6) both; }
+@keyframes react-land { from { transform: scale(.3); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .chat-ping, .chat-sheet, .react-bar, .react-pop, .react-land { animation: none; } }
 `;
