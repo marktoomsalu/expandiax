@@ -10,6 +10,7 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { WorldMapLink } from "@/components/WorldMapLink";
 import { PostTile } from "@/components/PostTile";
 import { loadPostContext, loadUserPosts } from "@/lib/feedPosts";
+import { byTripDate } from "@/lib/tripOrder";
 import { FollowButton } from "@/components/FollowButton";
 import { ReportButton } from "@/components/ReportButton";
 import { BlockButton } from "@/components/BlockButton";
@@ -203,10 +204,12 @@ export default async function PublicProfilePage({ params, searchParams }: { para
 
   // Recent trips and events: their latest posts (as in the feed), not
   // copies of My World. Four each, to know whether there are more.
-  const [tripPosts, eventPosts] = await Promise.all([
-    loadUserPosts(supabase, profile.id, { kind: "country", limit: 4 }),
+  // Trips in the order they happened (not when they were added), so all of them are read to sort.
+  const [allTripPosts, eventPosts] = await Promise.all([
+    loadUserPosts(supabase, profile.id, { kind: "country", limit: 500 }),
     loadUserPosts(supabase, profile.id, { kind: "event", limit: 4 }),
   ]);
+  const tripPosts = byTripDate(allTripPosts);
   const recentTrips = tripPosts.slice(0, 3);
   const recentEvents = eventPosts.slice(0, 3);
   const postCtx = await loadPostContext(supabase, viewer?.id ?? null, [...recentTrips, ...recentEvents]);

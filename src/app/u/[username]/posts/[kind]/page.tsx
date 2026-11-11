@@ -5,6 +5,7 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { loadPostContext, loadUserPosts } from "@/lib/feedPosts";
 import { FeedPost } from "@/components/FeedPost";
 import { LoadMore } from "@/components/LoadMore";
+import { byTripDate } from "@/lib/tripOrder";
 
 type Props = { params: { username: string; kind: string }; searchParams?: { limit?: string } };
 
@@ -23,7 +24,10 @@ export default async function UserPostsPage({ params, searchParams }: Props) {
   const { data: profile } = await supabase.from("profiles").select("id, username, display_name").eq("username", params.username.toLowerCase()).maybeSingle();
   if (!profile) notFound();
   const limit = Math.min(Math.max(Number(searchParams?.limit) || PAGE, PAGE), 200);
-  const [user, posts] = await Promise.all([getAuthUser(), loadUserPosts(supabase, profile.id, { kind: which.kind, limit })]);
+  // Trips in the order they happened (all read, then sorted); events newest posted first.
+  const [user, fetched] = await Promise.all([getAuthUser(), loadUserPosts(supabase, profile.id, { kind: which.kind, limit: which.kind === "country" ? 1000 : limit + 1 })]);
+  const all = which.kind === "country" ? byTripDate(fetched) : fetched;
+  const posts = all.slice(0, limit);
   const ctx = await loadPostContext(supabase, user?.id ?? null, posts);
   const mine = user?.id === profile.id;
 
@@ -42,7 +46,7 @@ export default async function UserPostsPage({ params, searchParams }: Props) {
               <FeedPost key={`${p.kind}:${p.ref_id}`} item={p} ctx={ctx} index={i} />
             ))}
           </ul>
-          <LoadMore href={`/u/${profile.username}/posts/${params.kind}?limit=${limit + PAGE}`} shown={limit} more={posts.length >= limit} />
+          <LoadMore href={`/u/${profile.username}/posts/${params.kind}?limit=${limit + PAGE}`} shown={limit} more={all.length > limit} />
         </>
       )}
     </div>
