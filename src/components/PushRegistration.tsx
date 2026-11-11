@@ -34,7 +34,12 @@ export function PushRegistration({ userId }: { userId: string }) {
     });
     // Tapping a notification opens what it's about (the link /api/push/send adds).
     const tapListener = PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
-      const link = (notification.data as { link?: string } | undefined)?.link;
+      const data = notification.data as { link?: string; campaignId?: string } | undefined;
+      const link = data?.link;
+      // An announcement from the admin panel: count the open.
+      if (data?.campaignId) {
+        void fetch("/api/push/opened", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaignId: data.campaignId }) }).catch(() => {});
+      }
       router.push(link && link.startsWith("/") ? link : "/notifications");
     });
     const errorListener = PushNotifications.addListener("registrationError", () => {

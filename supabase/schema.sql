@@ -1621,3 +1621,5 @@ alter table public.profiles add column cover_url text check (cover_url is null o
 -- When photos were taken (migration 066)
 alter table public.country_media add column taken_at timestamptz;
 alter table public.event_media add column taken_at timestamptz;
+
+-- Push notifications from the admin panel (migration 067): push_campaigns, push_deliveries, push_templates; see supabase/migrations/067_push_admin.sql

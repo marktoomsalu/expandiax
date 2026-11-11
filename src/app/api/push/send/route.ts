@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getFirebaseMessaging } from "@/lib/firebase";
 import type { NotificationKind } from "@/lib/types";
 import { countryByCode } from "@/lib/countries";
+import { fillTemplate } from "@/lib/pushCampaigns";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +97,16 @@ export async function POST(request: NextRequest) {
   })();
 
   const actorName = actor?.display_name ?? "Someone";
-  const body = (() => {
+  // The words (and on/off) come from the admin panel's templates, if set (migration 067).
+  const { data: template } = await admin.from("push_templates").select("title, body, enabled").eq("kind", record.kind).maybeSingle();
+  if (template && !template.enabled) return NextResponse.json({ ok: true, sent: 0, reason: "switched_off" });
+  const values = {
+    name: actorName,
+    thing: record.target_kind === "country" ? "trip" : "event",
+    place: countryByCode(question?.country_code)?.name ?? "a place you've been",
+    text: record.comment_body ?? "",
+  };
+  const fallbackBody = (() => {
     switch (record.kind) {
       case "message":
         return record.comment_body ?? "";
@@ -119,12 +129,15 @@ export async function POST(request: NextRequest) {
     }
   })();
 
+  const title = template ? fillTemplate(template.title, values) || TITLES[record.kind] : record.kind === "message" ? actorName : TITLES[record.kind];
+  const body = template ? fillTemplate(template.body, values) || fallbackBody : fallbackBody;
+
   const results = await Promise.allSettled(
     tokens.map((t) =>
       messaging.send({
         token: t.token,
         // A message is titled with who wrote it, like any messaging app.
-        notification: { title: record.kind === "message" ? actorName : TITLES[record.kind], body },
+        notification: { title, body },
         data: { kind: record.kind, notificationId: record.id, link },
         apns: { payload: { aps: { sound: "default" } } },
       })

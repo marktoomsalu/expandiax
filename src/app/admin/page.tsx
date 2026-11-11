@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Lock } from "lucide-react";
@@ -141,6 +142,10 @@ export default async function AdminPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-8">
+      <Link href="/admin/push" className="mb-6 flex items-center justify-between rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium hover:border-accent">
+        <span>Push notifications: send announcements, edit the automatic ones, see how they did</span>
+        <span className="text-accent">Open &rarr;</span>
+      </Link>
       <p className="flex items-center gap-1.5 text-xs text-muted">
         <Lock size={12} aria-hidden /> Only you can see this · counts only, nobody is named
       </p>
