@@ -15,6 +15,8 @@ import { PushRegistration } from "@/components/PushRegistration";
 import { PushPresence } from "@/components/PushPresence";
 import { PushAskSheet } from "@/components/PushAskSheet";
 import { GlobeTouchListener } from "@/components/touch/GlobeTouchListener";
+import { WhatsNew } from "@/components/WhatsNew";
+import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 
@@ -83,6 +85,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {navUser && <PushPresence userId={navUser.id} />}
           {navUser && <PushAskSheet />}
           {navUser && <UploadQueueWatcher userId={navUser.id} />}
+          {/* Before the World Connect card: "What's new" goes first. Both wait for 1.1 on the App Store. */}
+          {navUser && <WhatsNew />}
+          {navUser && <UpdatePrompt />}
           {navUser && <GlobeTouchListener />}
           {navUser && <ChatBubble me={navUser.id} />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />

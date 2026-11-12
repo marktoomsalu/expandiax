@@ -6,6 +6,7 @@ import { App } from "@capacitor/app";
 import { getServerState, getState, hasGlobeTouch, startTouch, stopTouch, subscribe } from "@/lib/globeTouch";
 import { WORLD_CONNECT_BUTTON_ID } from "./WorldConnectButton";
 import { isTouchAsked, isTouchReady, setTouchAsked, setTouchReady } from "@/lib/globeTouchReady";
+import { introHolder, onIntroChange } from "@/lib/introQueue";
 
 // Screens where a "turn it on" card would be in the way.
 const QUIET = ["/touch", "/start", "/sign-in", "/sign-up"];
@@ -28,6 +29,8 @@ export function GlobeTouchListener() {
   const onScreen = path === "/touch";
   const [ready, setReady] = useState(false);
   const [asking, setAsking] = useState(false);
+  // "What's new" first: this card waits while it's open (lib/introQueue).
+  const waiting = useSyncExternalStore(onIntroChange, () => introHolder() !== null, () => false);
 
   useEffect(() => {
     if (!hasGlobeTouch()) return;
@@ -52,7 +55,7 @@ export function GlobeTouchListener() {
     if (touch && !onScreen && getState().touch) router.push("/touch");
   }, [touch, onScreen, router]);
 
-  if (!asking) return null;
+  if (!asking || waiting) return null;
 
   const answer = (on: boolean) => {
     setTouchAsked();
