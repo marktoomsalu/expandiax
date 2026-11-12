@@ -17,6 +17,7 @@ import { PushAskSheet } from "@/components/PushAskSheet";
 import { GlobeTouchListener } from "@/components/touch/GlobeTouchListener";
 import { WhatsNew } from "@/components/WhatsNew";
 import { UpdatePrompt } from "@/components/UpdatePrompt";
+import { ChatTour } from "@/components/chat/ChatTour";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 
@@ -89,6 +90,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {navUser && <WhatsNew />}
           {navUser && <UpdatePrompt />}
           {navUser && <GlobeTouchListener />}
+          {/* After the World Connect card: the chat tour, pointing at the bubble. */}
+          {navUser && <ChatTour />}
           {navUser && <ChatBubble me={navUser.id} />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
           <SiteChrome>{children}</SiteChrome>

@@ -59,6 +59,8 @@ export function GlobeTouchListener() {
 
   const answer = (on: boolean) => {
     setTouchAsked();
+    // The next welcome card (the chat tour) may follow.
+    window.dispatchEvent(new Event("expandiax:intro-done"));
     setAsking(false);
     if (on) {
       setTouchReady();
@@ -128,7 +130,7 @@ export function WorldConnectIntro({ onAnswer }: { onAnswer: (on: boolean) => voi
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/55">New</p>
           <h2 id="world-connect-h" className="mt-1 font-serif text-3xl">World Connect</h2>
           <p className="mx-auto mt-3 max-w-xs text-white/80">
-            Tap the button up here and hold your iPhone close to a friend&rsquo;s. They just need ExpandiaX open. Your worlds connect: the countries you share, and you can follow each other.
+            Tap the button up here and hold your iPhone close to a friend&rsquo;s. They just need to open ExpandiaX. You&rsquo;ll see the countries you&rsquo;ve both been to, and you can follow each other right away.
           </p>
           <button
             type="button"

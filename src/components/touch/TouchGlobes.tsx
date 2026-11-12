@@ -339,7 +339,7 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
   const orbTop = linked ? (meters == null ? -orb * 0.5 : far + (met - far) * c) : -orb * 1.5;
 
   let title = "Hold your iPhone close to a friend’s";
-  let sub = "They just need ExpandiaX open. Then bring your phones close.";
+  let sub = "They just need to open ExpandiaX. Then bring your phones close.";
   if (linked && meters == null && !state.preciseDistance) {
     title = "A friend is nearby";
     sub = "Tap your phones together, gently.";
