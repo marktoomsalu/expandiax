@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { HOME_RGB, rgb, visitedColor } from "@/lib/mapColors";
-import { BarChart3, CalendarDays, Clock, Globe2, MapPin, Plus, Ticket, Users } from "lucide-react";
+import { ArrowLeft, ArrowUp, BarChart3, CalendarDays, Clock, Globe2, MapPin, Plus, Ticket, Users, X } from "lucide-react";
+import { ReactionIcon } from "@/components/chat/Reactions";
 import { FeedMemoryCard } from "@/components/FeedMemoryCard";
 import { ThenCard, type ThenMemory } from "@/components/ThenCard";
 import { LikeButton } from "@/components/LikeButton";
@@ -285,3 +286,68 @@ export function CreateScreen() {
   );
 }
 
+
+/**
+ * Chat, as it looks in the app: the chat open over the feed, a friend's
+ * tips about a place she's been, a country turned into a link, reactions.
+ */
+export function ChatScreen() {
+  const link = "font-medium underline decoration-dotted decoration-1 underline-offset-[3px]";
+  return (
+    <>
+      <div className="absolute inset-0" aria-hidden>
+        <FeedScreen />
+      </div>
+      <div className="fixed inset-0 z-[60] bg-black/40 md:bg-black/20" aria-hidden />
+      <div className="fixed inset-x-0 bottom-0 top-[22%] z-[61] flex flex-col overflow-hidden rounded-t-[28px] bg-canvas shadow-2xl md:inset-x-auto md:bottom-8 md:right-8 md:top-auto md:h-[760px] md:w-[440px] md:rounded-[28px]">
+        <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
+          <ArrowLeft size={20} className="text-ink" />
+          <span className="relative h-9 w-9 overflow-hidden rounded-full">
+            <Image src={EMMA.avatar_url} alt="" fill sizes="36px" className="object-cover" />
+          </span>
+          <span className="flex-1">
+            <span className="block font-medium leading-tight">Emma Laine</span>
+            <span className="block text-xs text-muted">Friends</span>
+          </span>
+          <X size={20} className="text-muted" />
+        </div>
+        <div className="flex-1 space-y-1 overflow-hidden px-4 py-3 text-[15px] leading-snug">
+          <p className="pb-2 text-center text-[11px] text-muted">Today</p>
+          <div className="flex flex-col items-end">
+            <div className="max-w-[80%] rounded-[20px] rounded-br-md px-3.5 py-2 text-white" style={{ background: "linear-gradient(135deg, #fa51a2, #fb7822)" }}>
+              Off to <span className={cn(link, "decoration-white/70")}>Portugal</span> in May! You were there last spring, any must-dos? 😊
+            </div>
+            <span className="mx-2 -mt-1.5 flex items-center gap-0.5 rounded-full bg-surface px-1 py-0.5 shadow-sm ring-1 ring-line">
+              <ReactionIcon kind="dreamy" size={18} />
+            </span>
+          </div>
+          <div className="flex flex-col items-start pt-2">
+            <div className="max-w-[80%] rounded-[20px] rounded-bl-md bg-surface px-3.5 py-2 ring-1 ring-line">
+              Yes!! Take tram 28 early in the morning, and go to Sintra on a weekday ☀️
+            </div>
+          </div>
+          <div className="flex flex-col items-start pt-1">
+            <div className="max-w-[80%] rounded-[20px] rounded-bl-md bg-surface px-3.5 py-2 ring-1 ring-line">
+              And the custard tarts in Belém. Trust me 🤤
+            </div>
+            <span className="mx-2 -mt-1.5 flex items-center gap-0.5 rounded-full bg-surface px-1 py-0.5 shadow-sm ring-1 ring-accent/50">
+              <ReactionIcon kind="love" size={18} />
+            </span>
+          </div>
+          <div className="flex flex-col items-end pt-2">
+            <div className="max-w-[80%] rounded-[20px] rounded-br-md px-3.5 py-2 text-white" style={{ background: "linear-gradient(135deg, #fa51a2, #fb7822)" }}>
+              Saving all of this 🙌
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 border-t border-line bg-surface/80 px-3 pb-8 pt-2 md:pb-3">
+          <MapPin size={20} className="text-accent" />
+          <span className="flex-1 rounded-full border border-line bg-canvas px-4 py-2.5 text-sm text-muted">Message…</span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-full text-white" style={{ background: "linear-gradient(135deg, #fa51a2, #fb7822)" }}>
+            <ArrowUp size={18} />
+          </span>
+        </div>
+      </div>
+    </>
+  );
+}

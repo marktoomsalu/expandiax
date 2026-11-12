@@ -1,7 +1,9 @@
-// Builds the App Store screenshot sets:
-//   iphone-6.9/  1290×2796   iPhone 6.9" display
-//   iphone-6.5/  1284×2778   iPhone 6.5" display
-//   ipad-13/     2064×2752   iPad 13" display
+// Builds the store screenshot sets:
+//   iphone-6.9/         1290×2796   App Store, iPhone 6.9" display
+//   iphone-6.5/         1284×2778   App Store, iPhone 6.5" display
+//   ipad-13/            2064×2752   App Store, iPad 13" display
+//   google-play-phone/  1296×2304   Google Play phone screenshots (exactly 9:16, as Play requires)
+//   google-play/        feature graphic 1024×500 + app icon 512×512
 //
 //   1. npm run dev -- -p 3010        (in another terminal)
 //   2. node scripts/appstore-screenshots.mjs
@@ -29,6 +31,13 @@ const DEVICES = {
     frame: { width: 1000, bezel: 26, top: 700, cornerPt: 55, island: true },
     type: { headline: 128, headlineTop: 190, sub: 44, subTop: 490, logoLift: 40 },
   },
+  // Pixel-style: punch-hole camera, flatter corners, Android status bar.
+  android: {
+    screen: { width: 412, height: 915, scale: 3 },
+    query: "?os=android",
+    frame: { width: 700, bezel: 22, top: 680, cornerPt: 30, island: false, punchHole: true },
+    type: { headline: 128, headlineTop: 190, sub: 44, subTop: 490, logoLift: 40 },
+  },
   tablet: {
     screen: { width: 1032, height: 1376, scale: 2 },
     frame: { width: 1560, bezel: 30, top: 740, cornerPt: 18, island: false },
@@ -40,6 +49,7 @@ const SETS = [
   { dir: "iphone-6.9", device: "phone", slide: { width: 1290, height: 2796 } },
   { dir: "iphone-6.5", device: "phone", slide: { width: 1284, height: 2778 } },
   { dir: "ipad-13", device: "tablet", slide: { width: 2064, height: 2752 } },
+  { dir: "google-play-phone", device: "android", slide: { width: 1296, height: 2304 } },
 ];
 
 const SLIDES = [
@@ -59,10 +69,14 @@ const SLIDES = [
     headline: "Every country.<br><em>One map.</em>",
     sub: "Watch your world light up as you go.",
     tilt: -3,
+    // World Connect, the way it shows up in the app: two friends, the countries they share.
     float: {
-      html: `<div class="float photo-card"><img src="https://picsum.photos/id/1015/600/420"><div><b>🇳🇴 Norway</b><span>May 2025 · 3 photos</span></div></div>`,
-      phone: "left:40px;top:1880px;transform:rotate(-6deg)",
-      tablet: "left:70px;top:1880px;transform:rotate(-6deg)",
+      // Maria's and Emma's faces from the sample screens, kept with this script.
+      html: `<div class="float connect"><span class="faces"><img src="${pathToFileURL(path.join(ROOT, "scripts/appstore-assets/maria.jpg")).href}"><img src="${pathToFileURL(path.join(ROOT, "scripts/appstore-assets/emma.jpg")).href}"></span><div><b>You &amp; Emma</b><span>23 countries in common</span></div></div>`,
+      phone: "left:44px;top:2010px;transform:rotate(-4deg)",
+      // Play's 9:16 slide is shorter: the card sits higher so it isn't cut off.
+      android: "left:40px;top:1700px;transform:rotate(-4deg)",
+      tablet: "left:80px;top:1480px;transform:rotate(-4deg)",
     },
   },
   {
@@ -75,15 +89,16 @@ const SLIDES = [
     float: {
       html: `<div class="float sticker"><img src="https://picsum.photos/id/195/200/200"><div><b>Summer Static</b><span>The Northern Lights</span></div><i class="eq"><s></s><s></s><s></s></i></div>`,
       phone: "right:36px;top:1990px",
+      android: "right:36px;top:1840px",
       tablet: "right:80px;top:1860px",
     },
   },
   {
-    file: "04-find-you-again",
-    screen: "then",
+    file: "04-ask-who-has-been",
+    screen: "chat",
     bg: "dark",
-    headline: "Memories that<br><em>find you again.</em>",
-    sub: "Anniversaries and favourites,<br>brought back when they matter.",
+    headline: "Ask the people<br><em>who&rsquo;ve been there.</em>",
+    sub: "Chat with friends, or send a postcard<br>to anyone who knows the place.",
     tilt: -3,
   },
   {
@@ -223,6 +238,7 @@ html,body{margin:0;width:${set.slide.width}px;height:${set.slide.height}px;overf
   transform:rotate(${s.tilt}deg);transform-origin:50% 30%}
 .device img.screen{display:block;width:100%;border-radius:${radius}px}
 .island{position:absolute;top:${frame.bezel + Math.round(11 * pt)}px;left:50%;width:${Math.round(126 * pt)}px;height:${Math.round(37 * pt)}px;margin-left:-${Math.round(63 * pt)}px;border-radius:999px;background:#000}
+.punch{position:absolute;top:${frame.bezel + Math.round(13 * pt) - Math.round(5 * pt)}px;left:50%;width:${Math.round(10 * pt)}px;height:${Math.round(10 * pt)}px;margin-left:-${Math.round(5 * pt)}px;border-radius:999px;background:#050507;box-shadow:inset 0 0 0 2px #1c1c22}
 .camera{position:absolute;top:${Math.round(frame.bezel / 2) - 6}px;left:50%;width:12px;height:12px;margin-left:-6px;border-radius:999px;background:#1d1d24;box-shadow:inset 0 0 0 3px #111}
 .btn{position:absolute;width:10px;border-radius:4px;background:#2a2a30}
 .float{position:absolute;z-index:5;box-shadow:0 40px 90px rgba(0,0,0,.45),0 12px 30px rgba(0,0,0,.3)}
@@ -242,6 +258,13 @@ html,body{margin:0;width:${set.slide.width}px;height:${set.slide.height}px;overf
 .toast div{display:flex;flex-direction:column;gap:4px}
 .toast b{font-size:36px;font-weight:600}
 .toast span{font-size:28px;color:#6b6b75}
+.connect{display:flex;align-items:center;gap:24px;padding:18px 40px 18px 18px;border-radius:999px;background:rgba(24,10,22,.74);backdrop-filter:blur(18px);border:2px solid rgba(255,255,255,.16)}
+.connect .faces{display:flex;align-items:center}
+.connect .faces img{width:88px;height:88px;border-radius:999px;object-fit:cover;border:5px solid #fa51a2;box-shadow:0 0 24px rgba(250,81,162,.45)}
+.connect .faces img+img{margin-left:-26px;border-color:#9b5bd6;box-shadow:0 0 24px rgba(155,91,214,.45)}
+.connect div{display:flex;flex-direction:column;gap:4px}
+.connect b{font-size:36px;font-weight:600}
+.connect span{font-size:28px;color:#ffc93d}
 .eq{display:flex;align-items:flex-end;gap:6px;height:40px;margin-left:10px}
 .eq s{display:block;width:8px;border-radius:4px;background:#fff}
 .eq s:nth-child(1){height:55%}.eq s:nth-child(2){height:100%}.eq s:nth-child(3){height:70%}
@@ -256,18 +279,65 @@ html,body{margin:0;width:${set.slide.width}px;height:${set.slide.height}px;overf
         ? `<span class="btn" style="left:-8px;top:360px;height:130px"></span>
     <span class="btn" style="left:-8px;top:540px;height:130px"></span>
     <span class="btn" style="right:-8px;top:460px;height:200px"></span>`
-        : `<span class="btn" style="right:-8px;top:160px;height:110px"></span>`
+        : set.device === "android"
+          ? `<span class="btn" style="right:-8px;top:340px;height:110px"></span>
+    <span class="btn" style="right:-8px;top:500px;height:190px"></span>`
+          : `<span class="btn" style="right:-8px;top:160px;height:110px"></span>`
     }
     <img class="screen" src="${screenUrl}">
-    ${frame.island ? `<span class="island"></span>` : `<span class="camera"></span>`}
+    ${frame.island ? `<span class="island"></span>` : frame.punchHole ? `<span class="punch"></span>` : `<span class="camera"></span>`}
   </div>
-  ${s.float ? s.float.html.replace('class="float', `style="${s.float[set.device]}" class="float`) : ""}
+  ${s.float ? s.float.html.replace('class="float', `style="${s.float[set.device] ?? s.float.phone}" class="float`) : ""}
 </div></body></html>`;
+}
+
+// ---------- Google Play extras ----------
+
+const fontFaces = () => `
+@font-face{font-family:Fraunces;font-weight:600;src:url(${font("fraunces/files/fraunces-latin-600-normal.woff2")})}
+@font-face{font-family:Fraunces;font-weight:400;font-style:italic;src:url(${font("fraunces/files/fraunces-latin-400-italic.woff2")})}
+@font-face{font-family:Inter;font-weight:500;src:url(${font("inter/files/inter-latin-500-normal.woff2")})}`;
+
+// 1024×500, shown at the top of the Play listing. Kept simple and legible
+// at small sizes; nothing important near the edges.
+function featureGraphicHtml() {
+  const shot = (slug) => pathToFileURL(screenFile("android", slug)).href;
+  const wordmark = pathToFileURL(path.join(ROOT, "public/wordmark.svg")).href;
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${fontFaces()}
+*{box-sizing:border-box}html,body{margin:0;width:1024px;height:500px;overflow:hidden}
+.c{position:relative;width:100%;height:100%;overflow:hidden;color:#fff;font-family:Inter,sans-serif;background:
+  radial-gradient(45% 80% at 82% 110%, rgba(250,81,162,.65) 0%, rgba(244,63,94,.28) 45%, transparent 75%),
+  radial-gradient(30% 50% at 100% 0%, rgba(249,115,22,.28), transparent 70%),
+  linear-gradient(115deg,#150512 0%,#230b20 60%,#2a0c24 100%)}
+.t{position:absolute;left:64px;top:0;bottom:0;width:520px;display:flex;flex-direction:column;justify-content:center}
+.t img{height:34px;width:auto;align-self:flex-start;filter:brightness(0) invert(1)}
+h1{margin:22px 0 0;font-family:Fraunces,serif;font-weight:600;font-size:60px;line-height:1.02;letter-spacing:-.02em}
+h1 em{font-weight:400;font-style:italic;background:linear-gradient(90deg,#ff7ab8,#ff8a5c);-webkit-background-clip:text;background-clip:text;color:transparent}
+p{margin:18px 0 0;font-weight:500;font-size:22px;line-height:1.35;color:rgba(255,255,255,.8)}
+.ph{position:absolute;width:196px;padding:6px;border-radius:22px;background:linear-gradient(145deg,#3a3a40,#16161a 40%,#0c0c0f);box-shadow:0 0 0 1.5px #4a4a52,0 30px 60px rgba(0,0,0,.5)}
+.ph img{display:block;width:100%;border-radius:17px}
+</style></head><body><div class="c">
+<div class="t"><img src="${wordmark}"><h1>Your world,<br><em>remembered.</em></h1><p>Every country, concert and memory,<br>in one beautiful place.</p></div>
+<div class="ph" style="left:640px;top:96px;transform:rotate(-6deg)"><img src="${shot("world")}"></div>
+<div class="ph" style="left:790px;top:56px;z-index:2"><img src="${shot("feed")}"></div>
+</div></body></html>`;
+}
+
+// 512×512 store icon: the app icon on its own background, no transparency.
+function iconHtml() {
+  const icon = pathToFileURL(path.join(ROOT, "public/icon-512.png")).href;
+  return `<!doctype html><html><head><style>html,body{margin:0;width:512px;height:512px;overflow:hidden;background:#2b0b2e}img{display:block;width:512px;height:512px}</style></head><body><img src="${icon}"></body></html>`;
 }
 
 // ---------- run ----------
 
-rmSync(OUT, { recursive: true, force: true });
+// Only clear what this script produces — other files in the folder (like a
+// LinkedIn cover) are left alone.
+// SLIDES_ONLY=1: keep the screens captured last time and just rebuild the slides.
+const SLIDES_ONLY = !!process.env.SLIDES_ONLY;
+if (!SLIDES_ONLY) rmSync(path.join(OUT, "screens"), { recursive: true, force: true });
+for (const set of SETS) rmSync(path.join(OUT, set.dir), { recursive: true, force: true });
+rmSync(path.join(OUT, "google-play"), { recursive: true, force: true });
 const htmlDir = path.join(tmpdir(), "appstore-slides");
 mkdirSync(htmlDir, { recursive: true });
 
@@ -278,17 +348,28 @@ try {
   await cdp.send("Runtime.enable");
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
 
-  for (const device of [...new Set(SETS.map((s) => s.device))]) {
+  for (const device of SLIDES_ONLY ? [] : [...new Set(SETS.map((s) => s.device))]) {
     console.log(`Screens (${device}):`);
     mkdirSync(path.join(OUT, "screens", device), { recursive: true });
     const { screen } = DEVICES[device];
     for (const slug of [...new Set(SLIDES.map((s) => s.screen))]) {
       await capture(cdp, {
-        url: `${BASE}/appstore-screens/${slug}`,
+        url: `${BASE}/appstore-screens/${slug}${DEVICES[device].query ?? ""}`,
         ...screen,
         file: screenFile(device, slug),
         settleMs: slug === "world" ? 9000 : 2500,
       });
+    }
+  }
+
+  // Photos in the floating cards go into the slide itself, so none can be
+  // missing when it's captured.
+  for (const s of SLIDES) {
+    if (!s.float) continue;
+    for (const url of new Set(s.float.html.match(/https:\/\/picsum\.photos\/[^"]+/g) ?? [])) {
+      const r = await fetch(url);
+      const data = `data:${r.headers.get("content-type") ?? "image/jpeg"};base64,${Buffer.from(await r.arrayBuffer()).toString("base64")}`;
+      s.float.html = s.float.html.split(url).join(data);
     }
   }
 
@@ -306,6 +387,16 @@ try {
         settleMs: 500,
       });
     }
+  }
+  console.log("Google Play extras:");
+  mkdirSync(path.join(OUT, "google-play"), { recursive: true });
+  for (const [name, html, width, height] of [
+    ["feature-graphic", featureGraphicHtml(), 1024, 500],
+    ["app-icon", iconHtml(), 512, 512],
+  ]) {
+    const file = path.join(htmlDir, `play-${name}.html`);
+    writeFileSync(file, html);
+    await capture(cdp, { url: pathToFileURL(file).href, width, height, scale: 1, file: path.join(OUT, "google-play", `${name}.png`), settleMs: 500 });
   }
   cdp.close();
 } finally {
