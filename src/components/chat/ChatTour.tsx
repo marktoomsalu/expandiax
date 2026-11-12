@@ -80,8 +80,8 @@ export function ChatTour() {
 
   if (!open) return null;
   const row = (Icon: typeof Mail, title: string, text: string) => (
-    <li className="flex gap-3">
-      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-[#fa8fc4]" aria-hidden>
+    <li className="flex items-center gap-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-[#fa8fc4]" aria-hidden>
         <Icon size={17} />
       </span>
       <span className="text-sm leading-snug text-white/80">
@@ -123,19 +123,24 @@ export function ChatTour() {
 
       <div className="absolute inset-x-4 mx-auto max-w-md" style={{ top: "calc(env(safe-area-inset-top) + 76px)" }}>
         <div className="rounded-[28px] p-6 text-white shadow-2xl" style={{ background: "radial-gradient(120% 90% at 50% 0%, #4a1450 0%, #2b0b2e 55%, #12041a 100%)" }}>
-          <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg" style={{ background: "linear-gradient(135deg, #fa51a2, #fb7822)" }} aria-hidden>
-              <MessageCircle size={24} />
+          <div className="flex items-center gap-5">
+            <span
+              className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white"
+              style={{ background: "linear-gradient(135deg, #fa51a2, #fb7822)", boxShadow: "0 0 32px rgba(250,81,162,0.55)" }}
+              aria-hidden
+            >
+              <MessageCircle size={27} />
+              <span className="absolute -right-2.5 -top-2 rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#2b0b2e] shadow">New</span>
             </span>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/55">New</p>
-              <h2 id="chat-tour-h" className="font-serif text-3xl leading-tight">
+              <h2 id="chat-tour-h" className="font-serif text-[2rem] leading-none">
                 Chat
               </h2>
+              <p className="mt-1.5 text-sm text-white/70">Ask the people who&rsquo;ve been there.</p>
             </div>
           </div>
           <ul className="mt-5 space-y-3.5">
-            {row(MessageCircle, "Friends:", "write any time, about anything.")}
+            {row(MessageCircle, "Friends:", "write any time, about your trips, plans or anything else.")}
             {row(Mail, "Anyone else:", "send a postcard about a place they’ve been. If they write back, you can keep talking.")}
             {row(Heart, "Hold a message", "to react with ExpandiaX’s own reactions.")}
             {row(MapPin, "Name a country", "and it becomes a link to it.")}
