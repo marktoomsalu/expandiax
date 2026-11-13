@@ -38,15 +38,19 @@ type VisitLike = {
   date_precision?: "year" | "month" | "day" | null;
 };
 
-export function formatVisitRange(v: VisitLike) {
+export function formatVisitRange(v: VisitLike & { is_current?: boolean }) {
   const precision = v.date_precision ?? (v.visited_from ? "day" : "year");
+  // A stay still going on: "Since March 2024".
+  if (v.is_current) return `Since ${precision === "year" || !v.visited_from ? v.year : precision === "month" ? formatMonthYear(v.visited_from) : formatDate(v.visited_from)}`;
   if (precision === "year" || !v.visited_from) return String(v.year);
   if (precision === "month") return formatMonthYear(v.visited_from);
   if (!v.visited_to || v.visited_to === v.visited_from) return formatDate(v.visited_from);
   return `${formatDate(v.visited_from)} – ${formatDate(v.visited_to)}`;
 }
 
-export function visitSortKey(v: { year: number; visited_from: string | null; visited_to: string | null }) {
+export function visitSortKey(v: { year: number; visited_from: string | null; visited_to: string | null; is_current?: boolean }) {
+  // Somewhere you still live is the most recent of all.
+  if (v.is_current) return "9999-12-31";
   return v.visited_to ?? v.visited_from ?? `${v.year}-12-31`;
 }
 

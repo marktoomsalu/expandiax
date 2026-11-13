@@ -2,8 +2,10 @@
 
 import { AudiencePicker } from "./AudiencePicker";
 import { audienceOf, type Audience } from "@/lib/audience";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { newDraftId, useDraft, useDraftFiles } from "@/lib/drafts";
+import { DraftRestored } from "./Drafts";
 import Image from "next/image";
 import { Music2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -109,6 +111,38 @@ export function EventForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A draft on this device as you go: leaving the app or a failed upload
+  // never loses what's written (lib/drafts). New events each get their own
+  // (?draft=…, so it can be found again); an event being edited has one.
+  const params = useSearchParams();
+  const [draftId] = useState(() => params.get("draft") ?? newDraftId());
+  const draftKey = event ? `event-edit:${event.id}` : `event-new:${draftId}`;
+  const initial = useMemo(() => JSON.stringify(f), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const hasContent = event
+    ? JSON.stringify(f) !== initial
+    : !!(f.title.trim() || f.subtitle.trim() || f.venue.trim() || f.review.trim() || f.highlight.trim() || f.notes.trim() || pendingMedia.length);
+  const draft = useDraft({
+    meta: {
+      key: draftKey,
+      kind: "event",
+      title: f.title.trim() || "A new event",
+      href: event ? `/events/${event.id}/edit` : `/events/new?draft=${draftId}`,
+      editing: !!event,
+      files: pendingMedia.length,
+    },
+    value: { f },
+    hasContent,
+    restore: (d: { f: typeof f }) => setF((cur) => ({ ...cur, ...d.f })),
+  });
+  useDraftFiles(draftKey, pendingMedia, (files) => setPendingMedia(files.map((x) => ({ ...x, previewUrl: URL.createObjectURL(x.file) }))), !event);
+  // Its own address as soon as there's something in it, so it's found again after a reload.
+  useEffect(() => {
+    if (event || !hasContent || params.get("draft")) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("draft", draftId);
+    window.history.replaceState(window.history.state, "", url);
+  }, [event, hasContent, params, draftId]);
+
   const set = <K extends keyof typeof f>(key: K, value: (typeof f)[K]) =>
     setF((cur) => ({ ...cur, [key]: value }));
 
@@ -176,6 +210,7 @@ export function EventForm({
       }
       setSaved(true);
       setBusy(false);
+      draft.discard();
       tapSuccess();
       router.refresh();
       return;
@@ -192,8 +227,10 @@ export function EventForm({
       return;
     }
     askForPush("memory", 2500);
-    // Saved: the "I was there" details have done their job.
+    // Saved: the "I was there" details have done their job, and so has the
+    // draft (its photos are in the upload queue now, kept there until they're in).
     clearPrefill();
+    draft.discard();
 
     // The event opens straight away; its photos and videos follow in the
     // background, the best landscape photo becoming its cover.
@@ -227,6 +264,15 @@ export function EventForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-8">
+      {draft.restoredAt && (
+        <DraftRestored
+          at={draft.restoredAt}
+          onDiscard={() => {
+            draft.discard();
+            window.location.href = event ? `/events/${event.id}/edit` : "/events/new";
+          }}
+        />
+      )}
       {prefilledFrom !== null && (
         <p className="rounded-xl border border-accent/30 bg-accent-soft/50 px-4 py-3 text-sm">
           The details are filled in{prefilledFrom ? ` from ${prefilledFrom}’s memory` : ""} - add your own photos and rating.
@@ -251,7 +297,7 @@ export function EventForm({
           />
         ) : (
           <div>
-            <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={photoCap} videoCap={videoCap} onFirstAdd={prefillDateFromPhoto} />
+            <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={photoCap} videoCap={videoCap} onFirstAdd={prefillDateFromPhoto} videoQuality={videoQuality} />
             {pendingMedia.some((p) => p.kind === "video") && (
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-xs text-muted">Video upload quality</span>
@@ -485,9 +531,16 @@ export function EventForm({
             <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.is_favourite} onChange={(e) => set("is_favourite", e.target.checked)} />
             My favourite event
           </label>
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-            <input type="checkbox" className="h-4 w-4 accent-[rgb(var(--accent))]" checked={f.share_to_feed} onChange={(e) => set("share_to_feed", e.target.checked)} />
-            Show in followers&rsquo; feeds
+          {/* Never in feeds when only you can see it. */}
+          <label className={cn("flex items-center gap-2.5 text-sm", f.audience === "only_me" ? "cursor-not-allowed opacity-50" : "cursor-pointer")}>
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-[rgb(var(--accent))]"
+              checked={f.audience !== "only_me" && f.share_to_feed}
+              disabled={f.audience === "only_me"}
+              onChange={(e) => set("share_to_feed", e.target.checked)}
+            />
+            Show in feed
           </label>
         </div>
       </section>
@@ -502,6 +555,20 @@ export function EventForm({
       <button type="submit" className="btn-accent w-full" disabled={busy}>
         {busy ? "Saving…" : event ? "Save changes" : "Save event"}
       </button>
+      {!event && (
+        // Not finished? Keep it for later (say, photos once there's better internet).
+        <button
+          type="button"
+          className="btn-ghost -mt-5 w-full justify-center"
+          disabled={busy || !hasContent}
+          onClick={() => {
+            draft.saveNow();
+            router.push("/events");
+          }}
+        >
+          Save as draft
+        </button>
+      )}
     </form>
   );
 }

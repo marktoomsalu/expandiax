@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDraft } from "@/lib/drafts";
+import { DraftRestored } from "./Drafts";
 import { useRouter } from "next/navigation";
 import { Calendar, Check, Lock, MapPin, MessageSquareText, Music2, PenLine } from "lucide-react";
 import { AudiencePicker } from "./AudiencePicker";
@@ -52,7 +54,10 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
   const [year, setYear] = useState(String(visit.year));
   const [month, setMonth] = useState(visit.date_precision === "month" && visit.visited_from ? visit.visited_from.slice(5, 7) : "");
   const [visitedFrom, setVisitedFrom] = useState(visit.date_precision === "day" ? visit.visited_from ?? "" : "");
-  const [visitedTo, setVisitedTo] = useState(visit.date_precision === "day" ? visit.visited_to ?? "" : "");
+  const [visitedTo, setVisitedTo] = useState(visit.date_precision === "day" && !visit.is_current ? visit.visited_to ?? "" : "");
+  // "I still live here": a stay with a start and no end yet.
+  const [ongoing, setOngoing] = useState(!!visit.is_current);
+  const current = kind === "lived" && ongoing;
   const [datesSavedAt, setDatesSavedAt] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,16 +116,17 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
     let to: string | null = null;
     if (precision === "day" && visitedFrom) {
       from = visitedFrom;
-      to = visitedTo || visitedFrom;
+      to = current ? null : visitedTo || visitedFrom;
     } else if (precision === "month" && month) {
       const lastDay = new Date(y, Number(month), 0).getDate();
       from = `${year}-${month}-01`;
-      to = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+      to = current ? null : `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
     }
 
     const { error: err } = await supabase
       .from("country_visits")
-      .update({ year: y, visited_from: from, visited_to: to, date_precision: precision })
+      // is_current only goes along when it's (or was) on, so this works before migration 074 too.
+      .update({ year: y, visited_from: from, visited_to: to, date_precision: precision, ...(current || visit.is_current ? { is_current: current } : {}) })
       .eq("id", visit.id);
     setBusy(false);
     if (err) {
@@ -144,6 +150,45 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
     } else router.refresh();
   }
 
+  // Name, type and dates are saved with "Save"; until then they're kept as a
+  // draft on this device (the memory itself saves as it's typed).
+  const fields = { title, titleTouched, kind, precision, year, month, visitedFrom, visitedTo, ongoing };
+  const initialFields = useMemo(() => JSON.stringify(fields), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const draft = useDraft({
+    meta: {
+      key: `trip-edit:${visit.id}`,
+      kind: "trip",
+      title: (titleTouched && title.trim()) || `${kind === "lived" ? "Your stay" : "Your trip"} in ${country.name}`,
+      href: `/my-world/${country.code.toLowerCase()}/visits/${visit.id}/edit`,
+      editing: true,
+    },
+    value: fields,
+    hasContent: JSON.stringify(fields) !== initialFields,
+    restore: (d: typeof fields) => {
+      setTitle(d.title);
+      setTitleTouched(d.titleTouched);
+      setKind(d.kind);
+      setPrecision(d.precision);
+      setYear(d.year);
+      setMonth(d.month);
+      setVisitedFrom(d.visitedFrom);
+      setVisitedTo(d.visitedTo);
+      setOngoing(d.ongoing);
+    },
+  });
+
+  // "Show in feed": on the profile either way; this says whether it's also
+  // posted to followers' feeds. Never for "Only me".
+  const [inFeed, setInFeed] = useState(visit.show_in_feed !== false);
+  async function setShowInFeed(next: boolean) {
+    setInFeed(next);
+    const { error: err } = await supabase.from("country_visits").update({ show_in_feed: next }).eq("id", visit.id);
+    if (err) {
+      setInFeed(!next);
+      setError("Could not change that. Try again.");
+    } else router.refresh();
+  }
+
   async function saveTrip() {
     if (memoryDebounce.current) clearTimeout(memoryDebounce.current);
     if (!(await persistDates())) return;
@@ -153,6 +198,7 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
       setError("Could not save the name. Try again.");
       return;
     }
+    draft.discard();
     router.push(`/my-world/${country.code.toLowerCase()}/visits/${visit.id}`);
     router.refresh();
   }
@@ -185,14 +231,23 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
 
   return (
     <div className="space-y-3">
+      {draft.restoredAt && (
+        <DraftRestored
+          at={draft.restoredAt}
+          onDiscard={() => {
+            draft.discard();
+            window.location.reload();
+          }}
+        />
+      )}
       <Basket icon={PenLine} title="Name & type" hint="Give it a name, and say whether it was a trip or somewhere you lived.">
         <label htmlFor="trip-title" className="sr-only">Name</label>
         <input
           id="trip-title"
           className="field"
           maxLength={80}
-          placeholder={kind === "lived" ? `Lived in ${cities[0]?.city_name ?? country.name}` : `e.g. ${country.name} Road Trip`}
-          value={titleTouched ? title : suggestTripName(kind, cities.map((c) => c.city_name), country.name)}
+          placeholder={kind === "lived" ? `e.g. My time in ${cities[0]?.city_name ?? country.name}` : `e.g. ${country.name} Road Trip`}
+          value={titleTouched ? title : suggestTripName(kind, cities.map((c) => c.city_name), country.name, current)}
           onChange={(e) => {
             setTitle(e.target.value);
             setTitleTouched(true);
@@ -202,11 +257,28 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
         <TripKindToggle value={kind} onChange={setKind} className="mt-2" />
       </Basket>
 
-      <Basket icon={Lock} title="Who can see it" hint="Your country stays on your map either way.">
+      <Basket id="visibility" icon={Lock} title="Who can see it" hint="Your country stays on your map either way.">
         <AudiencePicker value={audience} onChange={(next) => void setVisibility(next)} />
+        <label className={`mt-3 flex items-start gap-2.5 text-sm ${audience === "only_me" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-[rgb(var(--accent))]"
+            checked={audience !== "only_me" && inFeed}
+            disabled={audience === "only_me"}
+            onChange={(e) => void setShowInFeed(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium">Show in feed</span>
+            <span className="block text-xs text-muted">
+              {audience === "only_me"
+                ? "Only you can see this, so it isn't posted to anyone's feed."
+                : `Posted to your ${audience === "friends" ? "friends'" : "followers'"} feeds. Off: it stays on your profile, just not in feeds.`}
+            </span>
+          </span>
+        </label>
       </Basket>
 
-      <Basket icon={Calendar} title="When" hint="Set the dates for your trip.">
+      <Basket icon={Calendar} title="When" hint={kind === "lived" ? "When you lived there, or since when, if you still do." : "Set the dates for your trip."}>
         <VisitDateFields
           precision={precision}
           onPrecisionChange={dates.setPrecision}
@@ -218,12 +290,14 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
           onVisitedFromChange={dates.setVisitedFrom}
           visitedTo={visitedTo}
           onVisitedToChange={dates.setVisitedTo}
+          ongoing={current}
+          onOngoingChange={kind === "lived" ? setOngoing : undefined}
         />
-        {dates.suggested && <SuggestedDatesNote hint="tap Save trip to keep them." />}
+        {dates.suggested && <SuggestedDatesNote hint="tap Save to keep them." />}
         {!busy && datesSavedAgo && <p role="status" className="mt-2 text-xs text-accent">{datesSavedAgo}</p>}
       </Basket>
 
-      <Basket icon={MessageSquareText} title="Quick memory" hint="What made this trip special?">
+      <Basket icon={MessageSquareText} title={kind === "lived" ? "Your time there" : "Quick memory"} hint={kind === "lived" ? "What was (or is) life there like?" : "What made this trip special?"}>
         <label htmlFor="visit-memory" className="sr-only">Memory</label>
         <textarea
           id="visit-memory"
@@ -259,7 +333,7 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
       {/* Save stays at hand at the bottom while editing (the tab bar steps aside here). */}
       <div className="sticky bottom-0 z-30 -mx-5 bg-gradient-to-t from-canvas via-canvas/95 to-canvas/0 px-5 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-4">
         <button type="button" onClick={saveTrip} disabled={busy || memorySaving} className="btn-accent w-full justify-center !py-3.5 text-base font-semibold shadow-lg shadow-accent/25">
-          <Check size={18} /> {busy ? "Saving…" : "Save trip"}
+          <Check size={18} /> {busy ? "Saving…" : kind === "lived" ? "Save stay" : "Save trip"}
         </button>
       </div>
     </div>

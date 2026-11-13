@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EventList } from "@/components/EventList";
 import { StatCard } from "@/components/StatCard";
@@ -11,6 +11,7 @@ import type { Event, EventMedia } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { loadDreamEvents } from "@/lib/dreams";
 import { DreamEvents } from "@/components/dreams/DreamEvents";
+import { DraftsList } from "@/components/Drafts";
 
 export const metadata = { title: "Events" };
 
@@ -59,23 +60,30 @@ export default async function EventsPage() {
         <div>
           <p className="eyebrow">Events</p>
           <h1 className="mt-2 text-3xl md:text-4xl">
-            {events.length === 0 ? "Nothing logged yet." : `${events.length} moment${events.length === 1 ? "" : "s"} to remember.`}
+            {events.length === 0 ? "Nothing logged yet." : `You've collected ${events.length} moment${events.length === 1 ? "" : "s"}.`}
           </h1>
         </div>
-        <Link href="/events/new" className="btn-accent"><Plus size={17} /> Add event</Link>
+        <div className="flex flex-wrap gap-2">
+          {/* Not only for remembering: what's coming up, the same as in Explore. */}
+          <Link href="/explore/events" className="btn-ghost"><Sparkles size={16} className="text-accent" /> Discover events</Link>
+          <Link href="/events/new" className="btn-accent"><Plus size={17} /> Add event</Link>
+        </div>
       </div>
 
-      <DreamEvents dreams={dreams} />
+      <DraftsList kind="event" className="mt-8" />
 
       {events.length === 0 ? (
-        <div className="mt-10">
-          <EmptyState
-            title="Every unforgettable moment starts somewhere."
-            body="Add the first event you never want to forget - a concert, a festival, a match, a wedding, anything."
-            actionLabel="Add your first event"
-            actionHref="/events/new"
-          />
-        </div>
+        <>
+          <div className="mt-10">
+            <EmptyState
+              title="Every unforgettable moment starts somewhere."
+              body="Add the first event you never want to forget - a concert, a festival, a match, a wedding, anything."
+              actionLabel="Add your first event"
+              actionHref="/events/new"
+            />
+          </div>
+          <DreamEvents dreams={dreams} />
+        </>
       ) : (
         <>
           <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -129,6 +137,9 @@ export default async function EventsPage() {
               )}
             </section>
           </div>
+
+          {/* What you've been to first; what you're dreaming of after. */}
+          <DreamEvents dreams={dreams} />
 
           <section className="mt-12" aria-labelledby="all-h">
             <h2 id="all-h" className="text-xl">All events</h2>

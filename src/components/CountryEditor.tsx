@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Calendar, ChevronRight, MapPinPlus, MessageSquareText, Plus, Rss, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { newDraftId, useDraft, useDraftFiles } from "@/lib/drafts";
+import { DraftRestored, DraftsList } from "./Drafts";
+import { Calendar, ChevronRight, MapPinPlus, MessageSquareText, Plus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { enqueueUploads } from "@/lib/uploadQueue";
 import { byTimeTaken } from "@/lib/photoDates";
@@ -23,6 +25,57 @@ import { tapSuccess } from "@/lib/haptics";
 import { askForPush } from "@/lib/pushAsk";
 
 type Meta = { code: string; name: string; flag: string; capital: string };
+
+// A trip being added is kept on this device as it's written (lib/drafts):
+// leaving the app or a failed upload never loses it, and "Save as draft"
+// keeps it for later. Each new trip has its own draft (?draft=…).
+type TripDraftFields = {
+  precision: DatePrecision;
+  year: string;
+  month: string;
+  visitedFrom: string;
+  visitedTo: string;
+  highlight: string;
+  audience: Audience;
+  kind: TripKind;
+  ongoing: boolean;
+  title: string;
+  titleTouched: boolean;
+};
+
+function useTripDraft(
+  scope: "trip-new" | "trip-add",
+  meta: Meta,
+  fields: TripDraftFields,
+  files: PendingItem[],
+  apply: (d: TripDraftFields) => void,
+  setFiles: (items: PendingItem[]) => void
+) {
+  const params = useSearchParams();
+  const [draftId] = useState(() => params.get("draft") ?? newDraftId());
+  const key = `${scope}:${meta.code}:${draftId}`;
+  const hasContent = !!(fields.highlight.trim() || (fields.titleTouched && fields.title.trim()) || fields.year || fields.visitedFrom || files.length);
+  const draft = useDraft({
+    meta: {
+      key,
+      kind: "trip",
+      title: (fields.titleTouched && fields.title.trim()) || `${fields.kind === "lived" ? "A stay" : "A trip"} in ${meta.name}`,
+      href: `/my-world/${meta.code.toLowerCase()}?draft=${draftId}#${scope === "trip-new" ? "add" : "add-trip"}`,
+      files: files.length,
+    },
+    value: fields,
+    hasContent,
+    restore: apply,
+  });
+  useDraftFiles(key, files, (found) => setFiles(found.map((x) => ({ ...x, previewUrl: URL.createObjectURL(x.file) }))));
+  useEffect(() => {
+    if (!hasContent || params.get("draft")) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("draft", draftId);
+    window.history.replaceState(window.history.state, "", url);
+  }, [hasContent, params, draftId]);
+  return { draft, hasContent };
+}
 
 // Shared by both "first trip to a country" and "add another trip" below:
 // hands the chosen photos and videos to the background upload queue, so the
@@ -76,6 +129,9 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
   const [highlight, setHighlight] = useState("");
   const [audience, setAudience] = useState<Audience>("everyone");
   const [kind, setKind] = useState<TripKind>("trip");
+  // "I still live here" (only for a stay): a start date and no end.
+  const [ongoing, setOngoing] = useState(false);
+  const current = kind === "lived" && ongoing;
   const [title, setTitle] = useState("");
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   // When the chosen photos were taken (read on the device) fills the dates by
@@ -89,8 +145,28 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
   const places = foundPlaces.filter((p) => !leftOut.includes(p.key));
   // Until they type a name, the trip is named after its places.
   const [titleTouched, setTitleTouched] = useState(false);
-  const shownTitle = titleTouched ? title : suggestTripName(kind, places.map((p) => p.name), meta.name);
+  const shownTitle = titleTouched ? title : suggestTripName(kind, places.map((p) => p.name), meta.name, current);
   const coverIndex = useBestCover(photoFiles);
+  const { draft, hasContent } = useTripDraft(
+    "trip-new",
+    meta,
+    { precision, year, month, visitedFrom, visitedTo, highlight, audience, kind, ongoing, title, titleTouched },
+    pendingMedia,
+    (d) => {
+      setPrecision(d.precision);
+      setYear(d.year);
+      setMonth(d.month);
+      setVisitedFrom(d.visitedFrom);
+      setVisitedTo(d.visitedTo);
+      setHighlight(d.highlight);
+      setAudience(d.audience);
+      setKind(d.kind);
+      setOngoing(d.ongoing);
+      setTitle(d.title);
+      setTitleTouched(d.titleTouched);
+    },
+    setPendingMedia
+  );
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,12 +218,12 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
     let datePrecision: DatePrecision = "year";
     if (precision === "day" && visitedFrom) {
       from = visitedFrom;
-      to = visitedTo || visitedFrom;
+      to = current ? null : visitedTo || visitedFrom;
       datePrecision = "day";
     } else if (precision === "month" && month) {
       const lastDay = new Date(y, Number(month), 0).getDate();
       from = `${year}-${month}-01`;
-      to = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+      to = current ? null : `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
       datePrecision = "month";
     }
 
@@ -163,6 +239,8 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
         title: titleTouched ? title.trim().slice(0, 80) : "",
         kind,
         ...(audience !== "everyone" ? { audience } : {}),
+        // Only sent when on, so adding works before migration 074 too.
+        ...(current ? { is_current: true } : {}),
       })
       .select("id")
       .single();
@@ -186,6 +264,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
       placeOf: (file) => placeIds.get(places.find((pl) => pl.photos.some((i) => photoFiles[i] === file))?.key ?? ""),
     });
 
+    draft.discard();
     tapSuccess();
     router.push(`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}?created=1`);
     router.refresh();
@@ -193,6 +272,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-sm space-y-6 text-left">
+      {draft.restoredAt && <DraftRestored at={draft.restoredAt} onDiscard={() => { draft.discard(); window.location.href = `/my-world/${meta.code.toLowerCase()}`; }} />}
       <div>
         <TripKindToggle value={kind} onChange={setKind} />
         <label htmlFor="first-title" className="sr-only">Name (optional)</label>
@@ -216,7 +296,7 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
       </div>
       <div className="border-t border-line pt-5">
         <p className="eyebrow mb-3">Photos & videos</p>
-        <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP} videoCap={VIDEO_CAP} />
+        <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP} videoCap={VIDEO_CAP} videoQuality={videoQuality} />
         {pendingMedia.some((p) => p.kind === "video") && (
           <div className="mt-2 flex items-center gap-2">
             <span className="text-xs text-muted">Video upload quality</span>
@@ -251,6 +331,8 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
           onVisitedFromChange={dates.setVisitedFrom}
           visitedTo={visitedTo}
           onVisitedToChange={dates.setVisitedTo}
+          ongoing={current}
+          onOngoingChange={kind === "lived" ? setOngoing : undefined}
         />
         {dates.suggested && <SuggestedDatesNote />}
       </div>
@@ -272,6 +354,17 @@ export function AddCountryForm({ meta }: { meta: Meta }) {
       <button type="submit" className="btn-accent w-full justify-center" disabled={busy}>
         <MapPinPlus size={17} />
         {busy ? "Adding…" : `Add ${meta.name} to your map`}
+      </button>
+      <button
+        type="button"
+        className="btn-ghost -mt-3 w-full justify-center"
+        disabled={busy || !hasContent}
+        onClick={() => {
+          draft.saveNow();
+          router.push("/my-world");
+        }}
+      >
+        Save as draft
       </button>
       {error && (
         <p role="alert" className="text-sm text-red-800 dark:text-red-400">
@@ -295,6 +388,10 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
   const [highlight, setHighlight] = useState("");
   const [audience, setAudience] = useState<Audience>("everyone");
   const [kind, setKind] = useState<TripKind>("trip");
+  // "I still live here" (only for a stay): a start date and no end.
+  const [ongoing, setOngoing] = useState(false);
+  const current = kind === "lived" && ongoing;
+  const [adding, setAdding] = useState(trips.length === 0);
   const [title, setTitle] = useState("");
   const [pendingMedia, setPendingMedia] = useState<PendingItem[]>([]);
   // When the chosen photos were taken (read on the device) fills the dates by
@@ -308,14 +405,33 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
   const places = foundPlaces.filter((p) => !leftOut.includes(p.key));
   // Until they type a name, the trip is named after its places.
   const [titleTouched, setTitleTouched] = useState(false);
-  const shownTitle = titleTouched ? title : suggestTripName(kind, places.map((p) => p.name), meta.name);
+  const shownTitle = titleTouched ? title : suggestTripName(kind, places.map((p) => p.name), meta.name, current);
   const coverIndex = useBestCover(photoFiles);
+  const { draft, hasContent } = useTripDraft(
+    "trip-add",
+    meta,
+    { precision, year, month, visitedFrom, visitedTo, highlight, audience, kind, ongoing, title, titleTouched },
+    pendingMedia,
+    (d) => {
+      setPrecision(d.precision);
+      setYear(d.year);
+      setMonth(d.month);
+      setVisitedFrom(d.visitedFrom);
+      setVisitedTo(d.visitedTo);
+      setHighlight(d.highlight);
+      setAudience(d.audience);
+      setKind(d.kind);
+      setOngoing(d.ongoing);
+      setTitle(d.title);
+      setTitleTouched(d.titleTouched);
+      setAdding(true);
+    },
+    setPendingMedia
+  );
   const [videoQuality, setVideoQuality] = useState<"standard" | "hd">("standard");
   const [addingVisit, setAddingVisit] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const [adding, setAdding] = useState(trips.length === 0);
-  const [feedBusy, setFeedBusy] = useState(false);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -343,12 +459,12 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
 
     if (precision === "day" && visitedFrom) {
       from = visitedFrom;
-      to = visitedTo || visitedFrom;
+      to = current ? null : visitedTo || visitedFrom;
       datePrecision = "day";
     } else if (precision === "month" && month) {
       const lastDay = new Date(y, Number(month), 0).getDate();
       from = `${year}-${month}-01`;
-      to = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+      to = current ? null : `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
       datePrecision = "month";
     }
 
@@ -365,6 +481,7 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
         kind,
         // "everyone" is the column's default, so it's only sent when it differs.
         ...(audience !== "everyone" ? { audience } : {}),
+        ...(current ? { is_current: true } : {}),
       })
       .select("id")
       .single();
@@ -386,18 +503,9 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
       placeOf: (file) => placeIds.get(places.find((pl) => pl.photos.some((i) => photoFiles[i] === file))?.key ?? ""),
     });
 
+    draft.discard();
     tapSuccess();
     router.push(`/my-world/${meta.code.toLowerCase()}/visits/${inserted.id}?created=1`);
-    router.refresh();
-  }
-
-  async function toggleShareToFeed() {
-    setFeedBusy(true);
-    await supabase
-      .from("visited_countries")
-      .update({ share_to_feed: !data.share_to_feed })
-      .eq("id", data.id);
-    setFeedBusy(false);
     router.refresh();
   }
 
@@ -439,6 +547,8 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
           </button>
         </div>
 
+        <DraftsList kind="trip" match={`:${meta.code}:`} className="mt-4" />
+
         {trips.length > 0 && (
           <ol className="mt-4">
             {trips.map((t, i) => (
@@ -466,6 +576,7 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
           </button>
         ) : (
           <form id="add-trip" onSubmit={addVisit} className="mt-4 scroll-mt-6 space-y-6 rounded-2xl border border-line bg-surface px-5 py-6 shadow-sm">
+            {draft.restoredAt && <DraftRestored at={draft.restoredAt} onDiscard={() => { draft.discard(); window.location.href = `/my-world/${meta.code.toLowerCase()}`; }} />}
             <div className="flex items-center justify-between gap-3">
               <p className="flex items-center gap-2 font-serif text-xl">
                 <Plus size={18} className="text-accent" aria-hidden /> {trips.length ? `Another trip or stay in ${meta.name}` : `Your first trip to ${meta.name}`}
@@ -499,7 +610,7 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
             </div>
             <div className="border-t border-line pt-5">
               <p className="eyebrow mb-3">Photos & videos</p>
-              <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP} videoCap={VIDEO_CAP} />
+              <PendingMediaPicker items={pendingMedia} onChange={setPendingMedia} photoCap={PHOTO_CAP} videoCap={VIDEO_CAP} videoQuality={videoQuality} />
               {pendingMedia.some((p) => p.kind === "video") && (
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-xs text-muted">Video upload quality</span>
@@ -534,6 +645,8 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
                 onVisitedFromChange={dates.setVisitedFrom}
                 visitedTo={visitedTo}
                 onVisitedToChange={dates.setVisitedTo}
+                ongoing={current}
+                onOngoingChange={kind === "lived" ? setOngoing : undefined}
               />
               {dates.suggested && <SuggestedDatesNote />}
             </div>
@@ -556,59 +669,45 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
             <button type="submit" className="btn-accent w-full justify-center !py-2.5 text-sm" disabled={addingVisit}>
               <Plus size={15} /> {addingVisit ? "Adding…" : kind === "lived" ? "Add this stay" : "Add this trip"}
             </button>
+            <button
+              type="button"
+              className="btn-ghost -mt-3 w-full justify-center !py-2 text-sm"
+              disabled={addingVisit || !hasContent}
+              onClick={() => {
+                draft.saveNow();
+                setAdding(false);
+              }}
+            >
+              Save as draft
+            </button>
           </form>
         )}
       </section>
 
       {afterTrips}
 
-      {/* Who sees it, and the way out */}
-      <section aria-labelledby="settings-h" className="card px-5 py-5">
-        <h2 id="settings-h" className="font-serif text-lg">{meta.name} settings</h2>
-        <div className="mt-4 space-y-4">
-          {!data.is_public && (
-            // Left from when a whole country could be "Only me": now each trip
-            // chooses for itself, so the country can only be shown again.
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">Hidden from everyone</p>
-                <p className="text-xs text-muted">
-                  {meta.name} is hidden from your map for others. Show it, then choose &ldquo;Only me&rdquo; on the trips you want to keep to yourself.
-                </p>
-              </div>
-              <button type="button" onClick={toggleOnlyMe} disabled={privacyBusy} className={cn(pill, "border-accent bg-accent-soft text-accent")}>
-                Show {meta.name}
-              </button>
-            </div>
-          )}
-          <p className="text-xs text-muted">
-            Who sees each trip or stay is chosen on the trip itself: open it, or use its &hellip; menu above.
-          </p>
-          {data.is_public && (
-            <div className="flex items-center justify-between gap-4 border-t border-line pt-4">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">In your followers&rsquo; feeds</p>
-                <p className="text-xs text-muted">New trips and photos show up for people who follow you.</p>
-              </div>
-              <button
-                type="button"
-                onClick={toggleShareToFeed}
-                disabled={feedBusy}
-                aria-pressed={data.share_to_feed}
-                className={cn(pill, data.share_to_feed ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-accent")}
-              >
-                <Rss size={13} />
-                {data.share_to_feed ? "In feed" : "Not in feed"}
-              </button>
-            </div>
-          )}
-          <div className="border-t border-line pt-4">
-            <button type="button" className="text-sm font-medium text-red-700 hover:underline dark:text-red-400" onClick={() => setConfirmRemove(true)}>
-              Remove {meta.name} from my map
-            </button>
+      {/* Left from when a whole country could be hidden: now each trip chooses
+          for itself, so the country can only be shown again. */}
+      {!data.is_public && (
+        <div className="card flex items-center justify-between gap-4 px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Hidden from everyone</p>
+            <p className="text-xs text-muted">
+              {meta.name} is hidden from your map for others. Show it, then choose &ldquo;Only me&rdquo; on the trips you want to keep to yourself.
+            </p>
           </div>
+          <button type="button" onClick={toggleOnlyMe} disabled={privacyBusy} className={cn(pill, "border-accent bg-accent-soft text-accent")}>
+            Show {meta.name}
+          </button>
         </div>
-      </section>
+      )}
+
+      {/* Who sees each trip, and whether it's in feeds, is set on the trip (its … menu). The way out stays here. */}
+      <div className="border-t border-line pt-5 text-center">
+        <button type="button" className="text-sm font-medium text-red-700 hover:underline dark:text-red-400" onClick={() => setConfirmRemove(true)}>
+          Remove {meta.name} from my map
+        </button>
+      </div>
 
       <ConfirmDialog
         open={confirmRemove}

@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronRight, Home, Image as ImageIcon, Lock, MoreHorizontal, Plane, Trash2, Users } from "lucide-react";
-import { AUDIENCES, type Audience } from "@/lib/audience";
+import { ChevronRight, Eye, Home, Image as ImageIcon, Lock, MoreHorizontal, Pencil, Plane, SquareArrowOutUpRight, Trash2, Users } from "lucide-react";
+import type { Audience } from "@/lib/audience";
 import { createClient } from "@/lib/supabase/client";
 import type { StockPhoto } from "@/lib/stockPhotos";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,8 @@ export type StayView = {
   id: string;
   name: string;
   kind: "trip" | "lived";
+  /** A stay still going on ("I still live here"). */
+  current?: boolean;
   places: string | null; // "Bled, Slovenia"
   when: string; // "8 – 10 Aug 2025"
   length: string | null; // "3 days"
@@ -63,12 +65,6 @@ export function StayRow({
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [menu]);
-
-  async function setAudience(next: Audience) {
-    setMenu(false);
-    await createClient().from("country_visits").update({ audience: next }).eq("id", stay.id);
-    router.refresh();
-  }
 
   async function remove() {
     setRemoving(true);
@@ -121,6 +117,9 @@ export function StayRow({
           <span className="pointer-events-none min-w-0 flex-1">
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate font-serif text-base leading-tight sm:text-lg">{stay.name}</span>
+              {stay.current && (
+                <span className="inline-flex shrink-0 items-center rounded-full bg-[#fa51a2]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#d6337f] dark:text-[#ff7cbd]">Now</span>
+              )}
               {stay.audience !== "everyone" && (
                 <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-raised px-1.5 py-0.5 text-[10px] font-medium text-muted">
                   {stay.audience === "friends" ? <Users size={9} aria-hidden /> : <Lock size={9} aria-hidden />}
@@ -151,24 +150,19 @@ export function StayRow({
               <MoreHorizontal size={18} />
             </button>
             {menu && (
-              <div className="absolute right-0 top-9 z-10 w-48 overflow-hidden rounded-xl border border-line bg-surface py-1 text-sm shadow-xl">
-                <Link href={`${href}/edit`} className="block px-4 py-2.5 hover:bg-raised">
-                  Edit
+              <div className="absolute right-0 top-9 z-10 w-52 overflow-hidden rounded-xl border border-line bg-surface py-1 text-sm shadow-xl">
+                <Link href={href} className="flex items-center gap-2 px-4 py-2.5 hover:bg-raised">
+                  <SquareArrowOutUpRight size={15} /> Open
                 </Link>
-                <p className="border-t border-line px-4 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted">Who can see it</p>
-                {AUDIENCES.map(({ value, label, icon: Icon }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => void setAudience(value)}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-raised"
-                    aria-pressed={stay.audience === value}
-                  >
-                    <Icon size={15} className={stay.audience === value ? "text-accent" : undefined} />
-                    <span className="flex-1">{label}</span>
-                    {stay.audience === value && <Check size={14} className="text-accent" aria-hidden />}
-                  </button>
-                ))}
+                <Link href={`${href}/edit`} className="flex items-center gap-2 px-4 py-2.5 hover:bg-raised">
+                  <Pencil size={15} /> Edit
+                </Link>
+                {/* Who can see it and Show in feed, together on the edit page. */}
+                <Link href={`${href}/edit#visibility`} className="flex items-center gap-2 px-4 py-2.5 hover:bg-raised">
+                  <Eye size={15} />
+                  <span className="flex-1">Visibility</span>
+                  <span className="text-xs text-muted">{stay.audience === "everyone" ? "Everyone" : stay.audience === "friends" ? "Friends" : "Only me"}</span>
+                </Link>
                 <div className="border-t border-line" />
                 <button
                   type="button"
@@ -184,11 +178,14 @@ export function StayRow({
             )}
           </div>
           )}
-          <ChevronRight
-            size={16}
-            className={cn("pointer-events-none shrink-0 text-muted transition-transform duration-200", expand?.open && "rotate-90 text-accent")}
-            aria-hidden
-          />
+          {/* Opening in place (someone else's page) shows which way it goes; your own cards just open on tap. */}
+          {expand && (
+            <ChevronRight
+              size={16}
+              className={cn("pointer-events-none shrink-0 text-muted transition-transform duration-200", expand.open && "rotate-90 text-accent")}
+              aria-hidden
+            />
+          )}
         </div>
         {expand?.open && children}
       </div>

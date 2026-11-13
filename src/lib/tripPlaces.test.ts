@@ -136,3 +136,24 @@ describe("suggestTripName", () => {
     expect(suggestTripName("lived", ["Ljubljana", "Bled"], "Slovenia")).toBe("Lived in Ljubljana");
   });
 });
+
+describe("a stay still going on (I still live here)", () => {
+  const base = { id: "v", title: "", kind: "lived" as const, visited_to: null, is_current: true };
+  it("says since when", () => {
+    expect(stayWhen({ ...base, year: 2024, visited_from: "2024-03-01", date_precision: "month" })).toBe("Since Mar 2024");
+    expect(stayWhen({ ...base, year: 2024, visited_from: "2024-03-14", date_precision: "day" })).toBe("Since 14 Mar 2024");
+    expect(stayWhen({ ...base, year: 2024, visited_from: null, date_precision: "year" })).toBe("Since 2024");
+  });
+  it("counts how long so far", () => {
+    expect(stayLength({ ...base, visited_from: "2000-01-01", date_precision: "day" })).toMatch(/^\d+ years so far$/);
+    expect(stayLength({ ...base, visited_from: null, date_precision: "year" })).toBeNull();
+  });
+  it("is named as living there", () => {
+    expect(tripName({ ...base }, "Italy")).toBe("Living in Italy");
+    expect(tripName({ ...base, is_current: false }, "Italy")).toBe("Lived in Italy");
+    expect(tripName({ ...base }, "Italy", ["Milan"])).toBe("Living in Milan");
+  });
+  it("shows on the country line", () => {
+    expect(countrySummary([{ ...base, year: 2024, visited_from: "2024-03-01" }], 1, 0)).toBe("1 place · Living here since 2024");
+  });
+});

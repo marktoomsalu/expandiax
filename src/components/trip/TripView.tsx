@@ -5,7 +5,7 @@ import type { Country } from "@/lib/countries";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { describeDays } from "@/lib/photoDates";
 import { tripTitle } from "@/lib/tripTitle";
-import { daysBetween, mediaByPlace, orderStops, shortDays, tripName } from "@/lib/tripPlaces";
+import { daysBetween, mediaByPlace, orderStops, shortDays, stayLength, tripName } from "@/lib/tripPlaces";
 import { QueuedMedia } from "@/components/UploadQueue";
 import { PlacesMap } from "@/components/PlacesMap";
 import { PhotoGallery } from "@/components/PhotoGallery";
@@ -59,10 +59,15 @@ export function TripView({
   const cover = images.find((m) => m.id === coverId) ?? images[0];
   const stock = cover ? null : stockPhotoFor(meta.code, visit.id);
   const name = tripName(visit, meta.name, stops.map((s) => s.city_name));
-  const when = visit.date_precision === "day" && visit.visited_from ? describeDays(visit.visited_from, visit.visited_to ?? visit.visited_from) : tripTitle(visit).headline;
-  const days = visit.date_precision === "day" && visit.visited_from ? daysBetween(visit.visited_from, visit.visited_to ?? visit.visited_from) : null;
   const mapped = stops.filter((s) => s.lat != null && s.lng != null);
   const lived = visit.kind === "lived";
+  // Somewhere you lived reads as a time in your life, not a trip: "Since
+  // March 2024 · 1 year so far", "My time in Italy", "Where you lived".
+  const current = lived && !!visit.is_current;
+  const when =
+    visit.date_precision === "day" && visit.visited_from && !current ? describeDays(visit.visited_from, visit.visited_to ?? visit.visited_from) : tripTitle(visit).headline;
+  const days = !lived && visit.date_precision === "day" && visit.visited_from ? daysBetween(visit.visited_from, visit.visited_to ?? visit.visited_from) : null;
+  const howLong = lived ? stayLength(visit) : null;
   const noun = lived ? "stay" : "trip";
   const words = visit.highlight.trim();
   const empty = !words && media.length === 0;
@@ -102,14 +107,15 @@ export function TripView({
         )}
         <div className="absolute inset-x-0 bottom-0 mx-auto max-w-3xl px-5 pb-6 text-white">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/75">
-            {lived ? <Home size={13} aria-hidden /> : <span aria-hidden>{meta.flag}</span>} {lived ? "Lived here" : `${meta.name} trip`}
+            {lived ? <Home size={13} aria-hidden /> : <span aria-hidden>{meta.flag}</span>} {current ? `Living in ${meta.name}` : lived ? `My time in ${meta.name}` : `${meta.name} trip`}
+            {current && <span className="rounded-full bg-[#fa51a2] px-2 py-0.5 text-[10px] tracking-[0.15em] text-white">Now</span>}
           </p>
           <h1 className="mt-2 font-serif text-4xl leading-tight drop-shadow-md sm:text-5xl">{name}</h1>
           <p className="mt-2 flex items-center gap-2 text-sm text-white/85">
             <CalendarDays size={15} aria-hidden /> {when}
           </p>
           <p className="mt-1 text-sm text-white/75">
-            {[stops.length ? `${stops.length} ${stops.length === 1 ? "place" : "places"}` : null, days ? `${days} ${days === 1 ? "day" : "days"}` : null, photos ? `${photos} ${photos === 1 ? "photo" : "photos"}` : null]
+            {[howLong, stops.length ? `${stops.length} ${stops.length === 1 ? "place" : "places"}` : null, days ? `${days} ${days === 1 ? "day" : "days"}` : null, photos ? `${photos} ${photos === 1 ? "photo" : "photos"}` : null]
               .filter(Boolean)
               .join(" · ")}
           </p>
@@ -136,8 +142,8 @@ export function TripView({
               <Plus size={24} aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block font-serif text-xl">Add memory to this {noun}</span>
-              <span className="block text-sm text-white/85">Photos, videos, the story and the song.</span>
+              <span className="block font-serif text-xl">{lived ? "Add memories of your time here" : `Add memory to this ${noun}`}</span>
+              <span className="block text-sm text-white/85">{lived ? "Photos, videos, what life there was like, and its song." : "Photos, videos, the story and the song."}</span>
             </span>
             <ChevronRight size={20} className="shrink-0 text-white/80" aria-hidden />
           </Link>
@@ -176,7 +182,7 @@ export function TripView({
           <section className="mt-8" aria-labelledby="places-h">
             <div className="flex items-center justify-between gap-3">
               <h2 id="places-h" className="font-serif text-2xl">
-                Cities &amp; regions visited
+                {lived ? (owner ? "Where you lived & explored" : "Where they lived & explored") : "Cities & regions visited"}
               </h2>
               {owner && (
                 <Link href={`${base}/edit#places`} className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-accent hover:underline">
@@ -190,7 +196,9 @@ export function TripView({
               </Link>
             ) : (
               <>
-                <p className="mt-0.5 text-sm text-muted">The cities, towns and regions of this {noun}, in order. Tap one to see its photos.</p>
+                <p className="mt-0.5 text-sm text-muted">
+                  {lived ? `Where ${owner ? "you" : "they"} lived, and the cities, towns and regions ${owner ? "you" : "they"} got to know from there.` : `The cities, towns and regions of this ${noun}, in order.`} Tap one to see its photos.
+                </p>
                 <TripPlaceCards
                   places={stops.map((s) => {
                     const own = perPlace.get(s.id) ?? [];

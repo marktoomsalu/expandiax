@@ -22,7 +22,7 @@ import { readPhotoFacts, savePlaces } from "./PhotoPlaceSuggestion";
 import { PhotoArranger } from "./PhotoArranger";
 import { placeByTime } from "@/lib/mediaOrder";
 import { pickCover } from "@/lib/photoPrepare";
-import { hasNativePhotoPicker, pickNativePhotos, type PickProgress } from "@/lib/nativePhotoPicker";
+import { hasNativePhotoPicker, pickNativePhotos, useNativePickerVideos, type PickProgress } from "@/lib/nativePhotoPicker";
 
 const never = () => () => {};
 
@@ -73,22 +73,26 @@ export function MediaUploader(props: Props) {
   // The app's own picker (build 10+): it closes at once and photos follow from iCloud.
   const nativePicker = useSyncExternalStore(never, hasNativePhotoPicker, () => false);
   const [fetching, setFetching] = useState<PickProgress | null>(null);
+  // From build 11 the app's picker takes videos too: no waiting while iOS hands a video over.
+  const nativeVideos = useNativePickerVideos();
 
   async function pickNative() {
-    if (photoRemaining <= 0) {
+    const videosLeft = nativeVideos ? videoRemaining : 0;
+    if (photoRemaining <= 0 && videosLeft <= 0) {
       setError(`You can keep up to ${photoCap} photos here. Remove one to add another.`);
       return;
     }
     setError(null);
     try {
       const { files, failed } = await pickNativePhotos(
-        photoRemaining,
+        Math.max(0, photoRemaining) + Math.max(0, videosLeft),
         (n) => n && setFetching({ total: n, done: 0, fraction: 0 }),
-        setFetching
+        setFetching,
+        { videos: nativeVideos, videoQuality }
       );
-      if (failed) setError(`${failed} ${failed === 1 ? "photo" : "photos"} couldn't be downloaded from iCloud. Try those again.`);
+      if (failed) setError(`${failed} couldn't be downloaded from iCloud. Try ${failed === 1 ? "that one" : "those"} again.`);
       if (files.length) {
-        window.dispatchEvent(new CustomEvent<File[]>("expandiax:photos-picked", { detail: files }));
+        window.dispatchEvent(new CustomEvent<File[]>("expandiax:photos-picked", { detail: files.filter((f) => f.type.startsWith("image/")) }));
         await addAndUpload(files);
       }
     } finally {
@@ -340,9 +344,9 @@ export function MediaUploader(props: Props) {
             </>
           )}
           {nativePicker ? (
-            <button type="button" onClick={() => void pickNative()} className={cn(tile, photoRemaining <= 0 && "pointer-events-none opacity-40")}>
+            <button type="button" onClick={() => void pickNative()} className={cn(tile, photoRemaining <= 0 && (!nativeVideos || videoRemaining <= 0) && "pointer-events-none opacity-40")}>
               <ImagePlus size={24} className="shrink-0 text-accent" aria-hidden />
-              {tileText("Add photos", "From your library")}
+              {tileText(nativeVideos ? "Add photos or videos" : "Add photos", "From your library")}
             </button>
           ) : (
             <label
@@ -432,7 +436,7 @@ export function MediaUploader(props: Props) {
         </div>
       )}
 
-      {nativePicker && videoRemaining > 0 && (
+      {nativePicker && !nativeVideos && videoRemaining > 0 && (
         <label htmlFor={`${table}-media-input`} className="mt-3 inline-block cursor-pointer text-sm font-medium text-accent hover:underline">
           Add a video
         </label>
@@ -532,9 +536,9 @@ export function MediaUploader(props: Props) {
               was the main source of the native picker feeling slower than web.
             */}
             {nativePicker ? (
-              <button type="button" onClick={() => void pickNative()} className={cn("btn-ghost !py-2 text-sm", photoRemaining <= 0 && "pointer-events-none opacity-40")}>
+              <button type="button" onClick={() => void pickNative()} className={cn("btn-ghost !py-2 text-sm", photoRemaining <= 0 && (!nativeVideos || videoRemaining <= 0) && "pointer-events-none opacity-40")}>
                 <ImagePlus size={16} />
-                Add photos
+                {nativeVideos ? "Add photos or videos" : "Add photos"}
               </button>
             ) : (
               <label

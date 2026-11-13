@@ -32,7 +32,9 @@ export function PostTile({
   const first = (ctx.mediaByKey.get(key) ?? []).find((m) => m.type === "image");
   const cover = ownPhoto !== undefined ? ownPhoto : ((ctx.mediaByKey.get(key) ?? []).find((m) => m.url === post.cover_url && m.type === "image") ?? first);
   const coverUrl = cover?.url ?? (ownPhoto === undefined && post.cover_media_type !== "video" ? post.cover_url : null);
-  const stock = !coverUrl && post.kind === "country" ? stockPhotoFor(post.country_code, post.actor_id) : null;
+  // Only a video (no photo, no artist picture): its first frame stands in.
+  const videoUrl = !coverUrl && ownPhoto === undefined && post.cover_media_type === "video" ? post.cover_url : null;
+  const stock = !coverUrl && !videoUrl && post.kind === "country" ? stockPhotoFor(post.country_code, post.actor_id) : null;
   const meta = countryByCode(post.country_code);
   const comments = showComments ? (ctx.commentsByKey.get(key)?.length ?? 0) : 0;
   const when = post.visit_date ? (post.visit_date_precision === "month" ? formatMonthYear(post.visit_date) : formatDate(post.visit_date)) : post.visit_year ? String(post.visit_year) : null;
@@ -52,6 +54,8 @@ export function PostTile({
               className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               style={cover ? { objectPosition: focalPosition({ focal_x: cover.focalX ?? null, focal_y: cover.focalY ?? null }) } : undefined}
             />
+          ) : videoUrl ? (
+            <video src={`${videoUrl}#t=0.1`} preload="metadata" muted playsInline className="pointer-events-none absolute inset-0 h-full w-full object-cover" aria-hidden />
           ) : stock ? (
             <div className="absolute inset-0" style={{ backgroundColor: stock.color }}>
               <StockImage photo={stock} aspect="2:1" sizes="(min-width: 640px) 50vw, 100vw" />

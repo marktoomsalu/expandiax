@@ -1,3 +1,4 @@
+import { DraftsList } from "@/components/Drafts";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FirstFriends } from "@/components/FirstFriends";
@@ -143,6 +144,8 @@ export default async function MyWorldPage() {
           <span className="shrink-0 text-xs font-semibold text-accent">Add →</span>
         </Link>
       )}
+      <DraftsList kind="trip" className="mt-6" />
+
       <div className="mt-8">
         <MapNavigator visitedCodes={codes} visitCounts={visitCounts} homeCode={profile?.home_country_code} livedCodes={livedCodes} dreamCodes={dreamCodes} />
       </div>

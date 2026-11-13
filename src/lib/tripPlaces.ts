@@ -4,7 +4,9 @@
 
 import type { CountryCity, CountryVisit } from "@/lib/types";
 
-type Visit = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "title" | "kind">;
+type Visit = Pick<CountryVisit, "id" | "year" | "visited_from" | "visited_to" | "date_precision" | "title" | "kind" | "is_current">;
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
 type City = Pick<CountryCity, "id" | "country_visit_id" | "city_name" | "arrived" | "departed" | "position" | "lat" | "lng">;
 type Media = { id: string; country_visit_id: string; city_id: string | null; media_type: "image" | "video"; public_url?: string };
 
@@ -29,8 +31,16 @@ export function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY) + 1;
 }
 
-/** "1 day", "3 days", "1 week", "2 weeks", "9 months", "2 years" — only for exact dates. */
-export function stayLength(v: Pick<Visit, "visited_from" | "visited_to" | "date_precision">): string | null {
+/**
+ * "1 day", "3 days", "1 week", "2 weeks", "9 months", "2 years" — only for
+ * exact dates. A stay still going on counts to today: "1 year so far".
+ */
+export function stayLength(v: Pick<Visit, "visited_from" | "visited_to" | "date_precision" | "is_current">): string | null {
+  if (v.is_current && v.visited_from && v.date_precision !== "year") {
+    const days = Math.max(1, daysBetween(v.visited_from, todayIso()));
+    const length = days < 7 ? `${days} ${days === 1 ? "day" : "days"}` : days < 28 ? `${Math.round(days / 7)} ${Math.round(days / 7) === 1 ? "week" : "weeks"}` : days < 365 ? `${Math.max(1, Math.round(days / 30.4))} ${Math.max(1, Math.round(days / 30.4)) === 1 ? "month" : "months"}` : `${Math.floor(days / 365)} ${Math.floor(days / 365) === 1 ? "year" : "years"}`;
+    return `${length} so far`;
+  }
   if (v.date_precision !== "day" || !v.visited_from) return null;
   const days = daysBetween(v.visited_from, v.visited_to ?? v.visited_from);
   if (days < 7) return `${days} ${days === 1 ? "day" : "days"}`;
@@ -87,19 +97,20 @@ export function mediaByPlace<M extends Media>(stops: City[], media: M[]): Map<st
  * "Bled & Piran", "Ljubljana, Bled & Piran", "Around Slovenia" (4+), or
  * "Lived in Ljubljana". Empty when there are no places to go on.
  */
-export function suggestTripName(kind: Visit["kind"], places: string[], country: string): string {
+export function suggestTripName(kind: Visit["kind"], places: string[], country: string, current = false): string {
   const names = places.map((p) => p.trim()).filter(Boolean);
   if (!names.length) return "";
-  if (kind === "lived") return `Lived in ${names[0]}`;
+  if (kind === "lived") return `${current ? "Living in" : "Lived in"} ${names[0]}`;
   if (names.length === 1) return names[0];
   if (names.length <= 3) return `${names.slice(0, -1).join(", ")} & ${names.at(-1)}`;
   return `Around ${country}`;
 }
 
-/** "Slovenia Road Trip" if named; else from its places; else "Trip to Slovenia" / "Lived in Slovenia". */
-export function tripName(v: Pick<Visit, "title" | "kind">, country: string, places: string[] = []): string {
+/** "Slovenia Road Trip" if named; else from its places; else "Trip to Slovenia" / "Lived in Slovenia" / "Living in Slovenia". */
+export function tripName(v: Pick<Visit, "title" | "kind"> & { is_current?: boolean }, country: string, places: string[] = []): string {
   if (v.title.trim()) return v.title.trim();
-  return suggestTripName(v.kind, places, country) || (v.kind === "lived" ? `Lived in ${country}` : `Trip to ${country}`);
+  const current = v.kind === "lived" && !!v.is_current;
+  return suggestTripName(v.kind, places, country, current) || (v.kind === "lived" ? `${current ? "Living in" : "Lived in"} ${country}` : `Trip to ${country}`);
 }
 
 export type CountryPlace = {
@@ -180,7 +191,12 @@ export function dayLabel(tripStart: string | null, from: string | null, to: stri
  * "8 – 10 Aug 2025", "30 Aug – 2 Sep 2025" — and months only for long stays,
  * "Sep 2025 – Jun 2026".
  */
-export function stayWhen(v: Pick<Visit, "year" | "visited_from" | "visited_to" | "date_precision">): string {
+export function stayWhen(v: Pick<Visit, "year" | "visited_from" | "visited_to" | "date_precision" | "is_current">): string {
+  if (v.is_current) {
+    if (v.date_precision === "year" || !v.visited_from) return `Since ${v.year}`;
+    const [sy, sm, sd] = v.visited_from.split("-").map(Number);
+    return v.date_precision === "month" ? `Since ${SHORT_MONTHS[sm - 1]} ${sy}` : `Since ${sd} ${SHORT_MONTHS[sm - 1]} ${sy}`;
+  }
   if (v.date_precision === "year" || !v.visited_from) return String(v.year);
   const [ay, am, ad] = v.visited_from.split("-").map(Number);
   if (v.date_precision === "month") return `${SHORT_MONTHS[am - 1]} ${ay}`;
@@ -200,7 +216,7 @@ export function stayMonth(v: Pick<Visit, "visited_from" | "date_precision">): st
 }
 
 /** "5 trips · 3 places · Lived here 2025 – 2026" — the line under a country's name. */
-export function countrySummary(visits: Pick<Visit, "year" | "visited_from" | "visited_to" | "kind">[], places: number, memories: number): string {
+export function countrySummary(visits: Pick<Visit, "year" | "visited_from" | "visited_to" | "kind" | "is_current">[], places: number, memories: number): string {
   const trips = visits.filter((v) => v.kind !== "lived").length;
   const lived = visits.filter((v) => v.kind === "lived");
   const parts: string[] = [];
@@ -211,7 +227,9 @@ export function countrySummary(visits: Pick<Visit, "year" | "visited_from" | "vi
     const years = lived.flatMap((v) => [v.visited_from ? Number(v.visited_from.slice(0, 4)) : v.year, v.visited_to ? Number(v.visited_to.slice(0, 4)) : v.year]);
     const a = Math.min(...years);
     const b = Math.max(...years);
-    parts.push(a === b ? `Lived here ${a}` : `Lived here ${a} – ${b}`);
+    // Still living there: "Living here since 2024".
+    if (lived.some((v) => v.is_current)) parts.push(`Living here since ${a}`);
+    else parts.push(a === b ? `Lived here ${a}` : `Lived here ${a} – ${b}`);
   }
   return parts.join(" · ");
 }

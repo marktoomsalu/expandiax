@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft, ChevronRight, Compass, MapPin, Plus } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { territoryByCode, territoryToMeta } from "@/lib/territories";
@@ -114,9 +114,36 @@ export default async function ManageCountryPage({ params }: { params: { code: st
         </div>
       </div>
 
-      <div className="mt-10">
+      {/* Two different things: look around (nothing gets added), or put it on your map. */}
+      <div className="mt-8 grid gap-3 sm:grid-cols-2">
+        <Link
+          href={`/explore/country/${meta.code.toLowerCase()}`}
+          className="group flex items-start gap-3.5 rounded-2xl border border-line bg-surface p-4 shadow-sm transition-colors hover:border-accent"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+            <Compass size={20} aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1 font-serif text-lg leading-tight">
+              Explore {meta.name} <ChevronRight size={16} className="text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </span>
+            <span className="mt-0.5 block text-xs text-muted">Who&rsquo;s been, where they went and what they did. Ask them for tips. Nothing is added to your map.</span>
+          </span>
+        </Link>
+        <a href="#add" className="group flex items-start gap-3.5 rounded-2xl border border-accent/40 bg-accent-soft/40 p-4 shadow-sm transition-colors hover:border-accent">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-white">
+            <Plus size={20} aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-serif text-lg leading-tight">Add to My World</span>
+            <span className="mt-0.5 block text-xs text-muted">Been here? Add your trip, or a time you lived here, with its photos.</span>
+          </span>
+        </a>
+      </div>
+
+      <div id="add" className="mt-8 scroll-mt-24">
         <div className="card px-6 py-10 text-center">
-          <h2 className="font-serif text-2xl">Not on your map yet.</h2>
+          <h2 className="font-serif text-2xl">Been to {meta.name}? Add it to your map</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
             Add your first trip - photos and a soundtrack live with it, right after.
           </p>

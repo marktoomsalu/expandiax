@@ -19,7 +19,8 @@ import { EarlyExplorerBadge } from "@/components/EarlyExplorerBadge";
 import { SignOutButton } from "@/components/SignOutButton";
 import { TOTAL_COUNTRIES, countryByCode } from "@/lib/countries";
 import { isTerritoryCode, TOTAL_TERRITORIES } from "@/lib/territories";
-import { hexToRgbTriplet } from "@/lib/utils";
+import { hexToRgbTriplet, visitSortKey } from "@/lib/utils";
+import { MemoryNudge } from "@/components/MemoryNudge";
 import { evaluateBadges, isEarlyExplorer } from "@/lib/badges";
 import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@/lib/stats";
 import { TOTAL_US_STATES } from "@/lib/usStates";
@@ -221,6 +222,19 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   const recentEvents = eventPosts.slice(0, 3);
   const postCtx = await loadPostContext(supabase, viewer?.id ?? null, recentEvents);
 
+  // Your own memories still without photos: each opens straight where they go.
+  const own = isOwnProfile && !preview;
+  const waitingCountries = own
+    ? countries
+        .filter((c) => c.country_media.length === 0 && c.country_visits.length > 0)
+        .map((c) => {
+          const latest = [...c.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)))[0];
+          const m = countryByCode(c.country_code);
+          return { key: c.id, label: `${m?.flag ?? ""} ${m?.name ?? c.country_name}`.trim(), href: `/my-world/${c.country_code.toLowerCase()}/visits/${latest.id}/edit#photos` };
+        })
+    : [];
+  const waitingEvents = own ? events.filter((e) => e.event_media.length === 0).map((e) => ({ key: e.id, label: e.title, href: `/events/${e.id}/edit` })) : [];
+
   // The two counters open the full lists: yours in My World and Events,
   // someone else's on their own list pages.
   const stat = (value: React.ReactNode, label: string, href: string) => (
@@ -360,6 +374,8 @@ export default async function PublicProfilePage({ params, searchParams }: { para
         {stat(countryCodes.length, "Countries", isOwnProfile ? "/my-world" : `/u/${profile.username}/countries`)}
         {stat(events.length, "Events", isOwnProfile ? "/events" : `/u/${profile.username}/events`)}
       </div>
+
+      <MemoryNudge countries={waitingCountries} events={waitingEvents} />
 
       {/* Map */}
       <div className="mt-10 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">

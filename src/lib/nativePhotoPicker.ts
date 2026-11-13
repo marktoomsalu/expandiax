@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 
 // The iPhone app's own photo picker (ios/App/App/PhotoPickerPlugin.swift):
@@ -6,9 +7,11 @@ import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor
 // app builds that have it (from build 10); elsewhere the page's file input.
 
 interface PhotoPickerNative {
-  pick(options: { limit: number }): Promise<{ items: { id: string }[] }>;
+  pick(options: { limit: number; videos?: boolean; videoQuality?: "standard" | "hd" }): Promise<{ items: { id: string }[] }>;
+  features(): Promise<{ videos?: boolean }>;
   addListener(event: "progress", fn: (e: { id: string; fraction: number }) => void): Promise<PluginListenerHandle>;
-  addListener(event: "loaded", fn: (e: { id: string; name: string; data: string }) => void): Promise<PluginListenerHandle>;
+  addListener(event: "chunk", fn: (e: { id: string; index: number; data: string }) => void): Promise<PluginListenerHandle>;
+  addListener(event: "loaded", fn: (e: { id: string; name: string; data?: string; type?: string; chunked?: boolean; chunks?: number }) => void): Promise<PluginListenerHandle>;
   addListener(event: "failed", fn: (e: { id: string; message: string }) => void): Promise<PluginListenerHandle>;
 }
 
@@ -18,11 +21,25 @@ export const hasNativePhotoPicker = () => Capacitor.getPlatform() === "ios" && C
 
 export type PickProgress = { total: number; done: number; fraction: number };
 
-function toFile(name: string, base64: string): File {
+let videoSupport: Promise<boolean> | null = null;
+/** Whether this app build's picker can also pick videos (build 11 on); older ones only do photos. */
+export function nativePickerTakesVideos(): Promise<boolean> {
+  if (!hasNativePhotoPicker()) return Promise.resolve(false);
+  videoSupport ??= Native.features()
+    .then((f) => !!f.videos)
+    .catch(() => false);
+  return videoSupport;
+}
+
+function bytesOf(base64: string): Uint8Array {
   const bin = atob(base64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new File([bytes], name, { type: "image/jpeg", lastModified: Date.now() });
+  return bytes;
+}
+
+function toFile(name: string, base64: string): File {
+  return new File([bytesOf(base64) as BlobPart], name, { type: "image/jpeg", lastModified: Date.now() });
 }
 
 /**
@@ -33,9 +50,13 @@ function toFile(name: string, base64: string): File {
 export async function pickNativePhotos(
   limit: number,
   onPicked: (count: number) => void,
-  onProgress: (p: PickProgress) => void
+  onProgress: (p: PickProgress) => void,
+  /** Videos too (only for builds whose picker takes them: nativePickerTakesVideos). */
+  opts: { videos?: boolean; videoQuality?: "standard" | "hd" } = {}
 ): Promise<{ files: File[]; failed: number }> {
   const fractions = new Map<string, number>();
+  // A video arrives in pieces, in order, then "loaded" says it's all there.
+  const parts = new Map<string, BlobPart[]>();
   const files = new Map<string, File>();
   const failed = new Set<string>();
   let ids: string[] | null = null;
@@ -55,8 +76,18 @@ export async function pickNativePhotos(
       fractions.set(id, fraction);
       report();
     }),
-    Native.addListener("loaded", ({ id, name, data }) => {
-      files.set(id, toFile(name, data));
+    Native.addListener("chunk", ({ id, data }) => {
+      const list = parts.get(id) ?? [];
+      list.push(bytesOf(data) as BlobPart);
+      parts.set(id, list);
+    }),
+    Native.addListener("loaded", ({ id, name, data, type, chunked }) => {
+      if (chunked) {
+        files.set(id, new File(parts.get(id) ?? [], name, { type: type ?? "video/mp4", lastModified: Date.now() }));
+        parts.delete(id);
+      } else if (data) {
+        files.set(id, toFile(name, data));
+      }
       report();
     }),
     Native.addListener("failed", ({ id }) => {
@@ -65,7 +96,7 @@ export async function pickNativePhotos(
     }),
   ]);
   try {
-    const { items } = await Native.pick({ limit });
+    const { items } = await Native.pick({ limit, ...(opts.videos ? { videos: true, videoQuality: opts.videoQuality ?? "standard" } : {}) });
     ids = items.map((i) => i.id);
     onPicked(ids.length);
     if (!ids.length) return { files: [], failed: 0 };
@@ -76,4 +107,17 @@ export async function pickNativePhotos(
   } finally {
     await Promise.all(handles.map((h) => h.remove()));
   }
+}
+
+/** For components: whether the app's picker takes videos too (false until known, and on the web). */
+export function useNativePickerVideos(): boolean {
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void nativePickerTakesVideos().then((v) => live && setOk(v));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return ok;
 }

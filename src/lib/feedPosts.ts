@@ -44,12 +44,14 @@ export async function loadPostContext(supabase: Supabase, viewerId: string | nul
       ? supabase.from("event_media").select("id, event_id, public_url, media_type, display_order, caption, focal_x, focal_y").in("event_id", eventRefIds)
       : Promise.resolve({ data: [] as (MediaRow & { event_id: string })[] }),
     countryRefIds.length
-      ? supabase.from("country_visits").select("id, visited_country_id, year, visited_from, visited_to").in("visited_country_id", countryRefIds)
-      : Promise.resolve({ data: [] as { id: string; visited_country_id: string; year: number; visited_from: string | null; visited_to: string | null }[] }),
+      ? supabase.from("country_visits").select("*").in("visited_country_id", countryRefIds)
+      : Promise.resolve({ data: [] as VisitRow[] }),
   ]).then((r) => signMedia(r));
-  const tripKey = (v: { year: number; visited_from: string | null; visited_to: string | null }) => v.visited_to ?? v.visited_from ?? `${v.year}-12-31`;
+  type VisitRow = { id: string; visited_country_id: string; year: number; visited_from: string | null; visited_to: string | null; show_in_feed?: boolean; is_current?: boolean };
+  // A stay still going on is the latest; trips kept out of feeds aren't the post.
+  const tripKey = (v: VisitRow) => (v.is_current ? "9999" : v.visited_to ?? v.visited_from ?? `${v.year}-12-31`);
   const latest = new Map<string, { id: string; key: string }>();
-  for (const v of visitRows ?? []) {
+  for (const v of ((visitRows ?? []) as VisitRow[]).filter((x) => x.show_in_feed !== false)) {
     const had = latest.get(v.visited_country_id);
     if (!had || tripKey(v) > had.key) latest.set(v.visited_country_id, { id: v.id, key: tripKey(v) });
   }

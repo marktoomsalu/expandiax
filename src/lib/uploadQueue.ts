@@ -145,7 +145,8 @@ async function run(id: string) {
       }
       file = await preparePhoto(file);
     } else {
-      if ((target.videoQuality ?? "standard") === "standard") {
+      // Already made small by the app's own picker (build 11+): no second pass.
+      if ((target.videoQuality ?? "standard") === "standard" && !file.name.endsWith(".expandiax.mp4")) {
         file = await oneVideoAtATime(async () => {
           const { compressVideo } = await import("@/lib/videoCompress");
           return compressVideo(file, (pct) => update(id, { progress: pct })).catch(() => file);

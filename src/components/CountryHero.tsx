@@ -8,14 +8,13 @@ import { ArrowLeft, Globe2, Heart, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { StockPhoto } from "@/lib/stockPhotos";
 import { cn } from "@/lib/utils";
-import { ShareButton } from "./ShareButton";
 import { StockCredit } from "./StockCredit";
 import { StockImage } from "./StockImage";
 
 /**
  * The top of your own country page: your best photo of the place (or a
  * credited stock one until you add yours), the country, how much you've
- * kept, and Share · Public page · Mark as favourite (a heart in Countries,
+ * kept, and Explore <country> · Mark as favourite (a heart in Countries,
  * and it comes back more often in One to remember).
  */
 export function CountryHero({
@@ -114,14 +113,11 @@ export function CountryHero({
           </div>
         ) : (
         <div className="mt-4 flex items-center gap-x-4">
-          <ShareButton kind="country" targetId={visitedCountryId} title={`${flag} ${name}`} compact className="!text-white/90 hover:!text-white" />
+          {/* Sharing a country comes back once its shared picture looks the part. */}
           {publicHref && (
-            <>
-              <span className="h-4 w-px bg-white/25" aria-hidden />
-              <Link href={publicHref} className={action}>
-                <Globe2 size={16} className="text-accent" /> Public page
-              </Link>
-            </>
+            <Link href={publicHref} className={action}>
+              <Globe2 size={16} className="text-accent" /> Explore {name}
+            </Link>
           )}
           <span className="h-4 w-px bg-white/25" aria-hidden />
           <button

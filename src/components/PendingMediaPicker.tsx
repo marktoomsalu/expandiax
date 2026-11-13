@@ -2,7 +2,7 @@
 
 import { useRef, useState, useSyncExternalStore } from "react";
 import { Loader2, X } from "lucide-react";
-import { hasNativePhotoPicker, pickNativePhotos, type PickProgress } from "@/lib/nativePhotoPicker";
+import { hasNativePhotoPicker, pickNativePhotos, useNativePickerVideos, type PickProgress } from "@/lib/nativePhotoPicker";
 
 const never = () => () => {};
 import { classifyFile, validateFile } from "@/lib/media";
@@ -24,6 +24,7 @@ export function PendingMediaPicker({
   photoCap,
   videoCap,
   onFirstAdd,
+  videoQuality = "standard",
 }: {
   items: PendingItem[];
   onChange: (items: PendingItem[]) => void;
@@ -31,6 +32,8 @@ export function PendingMediaPicker({
   videoCap: number;
   /** Fires with the first file of the first-ever batch — e.g. EXIF date prefill. */
   onFirstAdd?: (file: File) => void;
+  /** How the app's picker prepares videos ("standard": made small on the phone). */
+  videoQuality?: "standard" | "hd";
 }) {
   const [error, setError] = useState<string | null>(null);
   const [converting, setConverting] = useState(false);
@@ -38,17 +41,23 @@ export function PendingMediaPicker({
   // The app's own picker (build 10+): it closes at once and photos follow from iCloud.
   const nativePicker = useSyncExternalStore(never, hasNativePhotoPicker, () => false);
   const [fetching, setFetching] = useState<PickProgress | null>(null);
+  // From build 11 the app's picker takes videos too: no waiting while iOS hands a video over.
+  const nativeVideos = useNativePickerVideos();
 
   async function pickNative() {
-    const left = photoCap - items.filter((i) => i.kind === "image").length;
-    if (left <= 0) {
+    const photosLeft = photoCap - items.filter((i) => i.kind === "image").length;
+    const videosLeft = nativeVideos ? videoCap - items.filter((i) => i.kind === "video").length : 0;
+    if (photosLeft <= 0 && videosLeft <= 0) {
       setError(`You can add up to ${photoCap} photos here.`);
       return;
     }
     setError(null);
     try {
-      const { files, failed } = await pickNativePhotos(left, (n) => n && setFetching({ total: n, done: 0, fraction: 0 }), setFetching);
-      if (failed) setError(`${failed} ${failed === 1 ? "photo" : "photos"} couldn't be downloaded from iCloud. Try those again.`);
+      const { files, failed } = await pickNativePhotos(Math.max(0, photosLeft) + Math.max(0, videosLeft), (n) => n && setFetching({ total: n, done: 0, fraction: 0 }), setFetching, {
+        videos: nativeVideos,
+        videoQuality,
+      });
+      if (failed) setError(`${failed} couldn't be downloaded from iCloud. Try ${failed === 1 ? "that one" : "those"} again.`);
       if (files.length) addFiles(files);
     } finally {
       setFetching(null);
@@ -143,7 +152,7 @@ export function PendingMediaPicker({
         className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-card border border-dashed border-line bg-surface disabled:opacity-50"
       >
         <span className="text-sm text-muted">
-          {nativePicker
+          {nativePicker && !nativeVideos
             ? items.length > 0
               ? "Add more photos"
               : "Add photos (optional)"
@@ -152,7 +161,7 @@ export function PendingMediaPicker({
               : "Add photos or videos (optional)"}
         </span>
       </button>
-      {nativePicker && videoCount < videoCap && (
+      {nativePicker && !nativeVideos && videoCount < videoCap && (
         <button type="button" onClick={() => inputRef.current?.click()} className="mt-2 text-sm font-medium text-accent hover:underline">
           Add a video
         </button>

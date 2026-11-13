@@ -15,6 +15,9 @@ type Props = {
   onVisitedFromChange: (v: string) => void;
   visitedTo: string;
   onVisitedToChange: (v: string) => void;
+  /** Somewhere you lived: "I still live here" (no end date). Only shown when onOngoingChange is given. */
+  ongoing?: boolean;
+  onOngoingChange?: (v: boolean) => void;
 };
 
 /** The Year only / Month / Exact date toggle + matching inputs, shared by the quick "add a visit" form and the visit edit page. */
@@ -29,9 +32,28 @@ export function VisitDateFields({
   onVisitedFromChange,
   visitedTo,
   onVisitedToChange,
+  ongoing = false,
+  onOngoingChange,
 }: Props) {
   return (
     <div className="space-y-2">
+      {onOngoingChange && (
+        <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-raised/50 px-3 py-2.5 text-sm">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-[rgb(var(--accent))]"
+            checked={ongoing}
+            onChange={(e) => {
+              onOngoingChange(e.target.checked);
+              if (e.target.checked) onVisitedToChange("");
+            }}
+          />
+          <span>
+            <span className="font-medium">I still live here</span>
+            <span className="block text-xs text-muted">Just say when it started; there&rsquo;s no end date yet.</span>
+          </span>
+        </label>
+      )}
       <div className="flex flex-wrap items-center gap-1.5">
         {(["year", "month", "day"] as const).map((p) => (
           <button
@@ -82,8 +104,8 @@ export function VisitDateFields({
           <>
             <DateField
               id="date-from-input"
-              label="Start date"
-              placeholder="Start date"
+              label={ongoing ? "Moved here on" : "Start date"}
+              placeholder={ongoing ? "Moved here on" : "Start date"}
               className="min-w-[9rem] flex-1 !py-2"
               value={visitedFrom}
               onChange={(v) => {
@@ -93,8 +115,8 @@ export function VisitDateFields({
                 if (v && visitedTo && visitedTo < v) onVisitedToChange("");
               }}
             />
-            {/* Opens on the start date's month, not today's. */}
-            <DateField
+            {/* Opens on the start date's month, not today's. No end while you still live there. */}
+            {!ongoing && <DateField
               id="date-to-input"
               label="End date (optional)"
               placeholder="End date"
@@ -104,7 +126,7 @@ export function VisitDateFields({
               openTo={visitedFrom || undefined}
               clearable
               onChange={onVisitedToChange}
-            />
+            />}
           </>
         )}
       </div>

@@ -37,6 +37,7 @@ export function buildCountryView(visited: VisitedCountryFull, meta: { code: stri
       id: v.id,
       name: tripName(v, meta.name, stops),
       kind: v.kind,
+      current: v.kind === "lived" && !!v.is_current,
       places: stops.length ? listCities(stops) : v.highlight.trim() || null,
       when: stayWhen(v),
       length: stayLength(v),

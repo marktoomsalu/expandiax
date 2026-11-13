@@ -2,7 +2,7 @@
 // "September 2026" with "7–8 September", instead of one long
 // "7 September 2026 – 8 September 2026".
 
-type Visit = { year: number; visited_from: string | null; visited_to: string | null; date_precision?: "year" | "month" | "day" | null };
+type Visit = { year: number; visited_from: string | null; visited_to: string | null; date_precision?: "year" | "month" | "day" | null; is_current?: boolean };
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const SHORT = MONTHS.map((m) => m.slice(0, 3));
@@ -14,6 +14,12 @@ const parts = (iso: string) => {
 
 export function tripTitle(v: Visit): { headline: string; days: string | null } {
   const precision = v.date_precision ?? (v.visited_from ? "day" : "year");
+  // A stay still going on: "Since March 2024".
+  if (v.is_current) {
+    if (precision === "year" || !v.visited_from) return { headline: `Since ${v.year}`, days: null };
+    const s = parts(v.visited_from);
+    return { headline: `Since ${MONTHS[s.m]} ${s.y}`, days: precision === "day" ? `From ${s.d} ${MONTHS[s.m]}` : null };
+  }
   if (precision === "year" || !v.visited_from) return { headline: String(v.year), days: null };
   const a = parts(v.visited_from);
   if (precision === "month") return { headline: `${MONTHS[a.m]} ${a.y}`, days: null };

@@ -63,6 +63,10 @@ export type CountryVisit = {
   is_public: boolean;
   // Who sees it (migration 062): "everyone" (Feed), "friends" (mutual follows) or "only_me".
   audience?: "everyone" | "friends" | "only_me";
+  // Migration 074: false = on the profile, but not posted to followers' feeds.
+  show_in_feed?: boolean;
+  // Migration 074: "I still live here", a stay with no end date yet.
+  is_current?: boolean;
   cover_media_id: string | null;
   year: number;
   visited_from: string | null;
