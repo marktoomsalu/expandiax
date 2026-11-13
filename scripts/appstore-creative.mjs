@@ -69,7 +69,7 @@ ${card("photo-1548678967-f1aec58f6fb2", "🇬🇷", "Greece", "right:-70px;top:1
 <div style="position:absolute;left:1097px;top:493px;width:1646px;height:661px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
   <img src="${file("public/wordmark.svg")}" style="height:92px;filter:brightness(0) invert(1)">
   <h1 style="margin-top:44px;font-size:168px;line-height:1">Your world, <em>remembered.</em></h1>
-  <p style="margin-top:40px;font-size:50px">Every country, every trip, every night worth keeping.</p>
+  <p style="margin-top:40px;font-size:50px">Every country, every trip, every day worth keeping.</p>
 </div>
 </div></body></html>`;
 
