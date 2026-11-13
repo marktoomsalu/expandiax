@@ -64,7 +64,7 @@ export function ThenCard({ m }: { m: ThenMemory }) {
         ) : m.stock ? (
           <div className="absolute inset-0" style={{ backgroundColor: m.stock.color }}>
             <StockImage photo={m.stock} aspect="4:3" sizes="(min-width: 640px) 672px, 100vw" className="transition-transform duration-700 ease-out group-hover:scale-[1.03]" />
-            <StockCredit photo={m.stock} linked={false} className="absolute bottom-2.5 right-3" />
+            <StockCredit photo={m.stock} linked={false} corner className="absolute bottom-2.5 right-3" />
           </div>
         ) : (
           <div className="absolute inset-0" style={{ backgroundImage: `linear-gradient(135deg, ${m.gradient[0]} 0%, ${m.gradient[1]} 100%)` }}>

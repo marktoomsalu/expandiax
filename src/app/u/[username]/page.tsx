@@ -198,9 +198,17 @@ export default async function PublicProfilePage({ params, searchParams }: { para
     video_count: e.event_media.filter((m) => m.media_type === "video").length,
   }));
   // Friends who joined through their invite link count for the Friends badges (migration 071; 0 before it).
-  const { data: invitedRaw } = await supabase.rpc("invite_count", { p_user: profile.id });
+  // …and friends they've met with World Connect (migration 073; 0 before it).
+  const [{ data: invitedRaw }, { data: connectsRaw }] = await Promise.all([
+    supabase.rpc("invite_count", { p_user: profile.id }),
+    supabase.rpc("world_connect_count", { p_user: profile.id }),
+  ]);
   const invitedCount = typeof invitedRaw === "number" ? invitedRaw : 0;
-  const badges = evaluateBadges(buildAllTimeStats(statCountries, statEvents), invitedCount).filter((b) => b.isUnlocked);
+  const badges = evaluateBadges(buildAllTimeStats(statCountries, statEvents), {
+    invitedFriends: invitedCount,
+    worldConnects: typeof connectsRaw === "number" ? connectsRaw : 0,
+    antarctica: territories.some((t) => t.country_code === "AQ"),
+  }).filter((b) => b.isUnlocked);
 
   // Recent trips and events: their latest posts (as in the feed), not
   // copies of My World. Four each, to know whether there are more.
@@ -246,7 +254,7 @@ export default async function PublicProfilePage({ params, searchParams }: { para
           <div className="absolute inset-0 bg-gradient-to-br from-[#2b0b2e] via-[#7c1d6f] to-[#fb7822]" aria-hidden />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-canvas/30 to-canvas" aria-hidden />
-        {!profile.cover_url && coverStock && <StockCredit photo={coverStock} className="absolute right-4 top-3 !text-white/70" />}
+        {!profile.cover_url && coverStock && <StockCredit photo={coverStock} corner className="absolute right-4 top-3 !text-white/70" />}
       </div>
       </div>
     <div className="mx-auto -mt-20 max-w-shell px-5 pb-12 sm:-mt-24">
@@ -398,17 +406,12 @@ export default async function PublicProfilePage({ params, searchParams }: { para
       {/* Recent trips: their latest trip posts */}
       {recentTrips.length > 0 && (
         <section className="mt-14" aria-labelledby="mem-h">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="eyebrow">Travel</p>
-              <h2 id="mem-h" className="mt-1 text-2xl md:text-3xl">Recent trips</h2>
-            </div>
-            {trips.length > 3 && (
-              <Link href={`/u/${profile.username}/posts/trips`} className="text-sm text-accent underline-offset-4 hover:underline">
-                See more
-              </Link>
-            )}
-          </div>
+          <p className="eyebrow">Travel</p>
+          <h2 id="mem-h" className="mt-1 text-2xl md:text-3xl">
+            <Link href={`/u/${profile.username}/posts/trips`} className="group inline-flex items-center gap-1.5 hover:text-accent">
+              Recent trips <ChevronRight size={22} className="text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent" aria-hidden />
+            </Link>
+          </h2>
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {recentTrips.map(({ trip, item, media, dateLabel }) => (
               <PostTile
@@ -422,29 +425,34 @@ export default async function PublicProfilePage({ params, searchParams }: { para
               />
             ))}
           </ul>
+          {trips.length > 3 && (
+          <Link href={`/u/${profile.username}/posts/trips`} className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-accent underline-offset-4 hover:underline">
+            See more <ChevronRight size={15} aria-hidden />
+          </Link>
+          )}
         </section>
       )}
 
       {/* Recent events: their latest event posts */}
       {recentEvents.length > 0 && (
         <section className="mt-14" aria-labelledby="conc-h">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="eyebrow">Music &amp; moments</p>
-              <h2 id="conc-h" className="mt-1 text-2xl md:text-3xl">Recent events</h2>
-            </div>
-            {eventPosts.length > 3 && (
-              <Link href={`/u/${profile.username}/posts/events`} className="text-sm text-accent underline-offset-4 hover:underline">
-                See more
-              </Link>
-            )}
-          </div>
+          <p className="eyebrow">Music &amp; moments</p>
+          <h2 id="conc-h" className="mt-1 text-2xl md:text-3xl">
+            <Link href={`/u/${profile.username}/posts/events`} className="group inline-flex items-center gap-1.5 hover:text-accent">
+              Recent events <ChevronRight size={22} className="text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent" aria-hidden />
+            </Link>
+          </h2>
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {recentEvents.map((post) => (
               // The event's own page: its artist picture, photos, likes and comments.
               <PostTile key={post.ref_id} post={post} ctx={postCtx} href={`/u/${profile.username}/events/${post.ref_id}`} />
             ))}
           </ul>
+          {eventPosts.length > 3 && (
+          <Link href={`/u/${profile.username}/posts/events`} className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-accent underline-offset-4 hover:underline">
+            See more <ChevronRight size={15} aria-hidden />
+          </Link>
+          )}
         </section>
       )}
 
@@ -460,7 +468,7 @@ export default async function PublicProfilePage({ params, searchParams }: { para
           )}
           {isOwnProfile && (
             <Link href="/stats#badges" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent">
-              See all badges and what&rsquo;s next <ChevronRight size={14} aria-hidden />
+              See all badges &amp; what&rsquo;s left to unlock <ChevronRight size={14} aria-hidden />
             </Link>
           )}
           {badges.length > 0 && (

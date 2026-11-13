@@ -56,7 +56,7 @@ export function PostTile({
             <div className="absolute inset-0" style={{ backgroundColor: stock.color }}>
               <StockImage photo={stock} aspect="2:1" sizes="(min-width: 640px) 50vw, 100vw" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" aria-hidden />
-              <StockCredit photo={stock} linked={false} className="absolute bottom-2.5 right-3" />
+              <StockCredit photo={stock} linked={false} corner className="absolute bottom-2.5 right-3" />
             </div>
           ) : (
             <div className="flex h-full items-center justify-center px-4 text-center font-serif text-2xl italic text-canvas/90 dark:text-ink/90">{post.title}</div>

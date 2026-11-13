@@ -371,7 +371,7 @@ export function FeedMemoryCard(p: Props) {
               </span>
             )}
             {!hasMedia && p.stock && (
-              <span className="pointer-events-auto ml-auto self-start rounded-full bg-black/35 px-2.5 py-1.5 backdrop-blur-sm">
+              <span className="pointer-events-auto ml-auto max-w-[62%] self-start rounded-2xl bg-black/35 px-2.5 py-1.5 text-right backdrop-blur-sm">
                 <StockCredit photo={p.stock} />
               </span>
             )}

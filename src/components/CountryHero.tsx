@@ -75,7 +75,7 @@ export function CountryHero({
           <ArrowLeft size={15} /> {visitor?.backLabel ?? "My World"}
         </Link>
         {!photo && stock && (
-          <span className="rounded-full bg-black/35 px-2.5 py-1.5 backdrop-blur-sm">
+          <span className="max-w-[62%] rounded-2xl bg-black/35 px-2.5 py-1.5 text-right backdrop-blur-sm">
             <StockCredit photo={stock} />
           </span>
         )}

@@ -90,7 +90,7 @@ describe("Friends badges", () => {
     newestYear: null,
   };
   it("count friends who joined, in three levels", () => {
-    const byId = (n: number) => Object.fromEntries(evaluateBadges(empty, n).filter((b) => b.group === "friends").map((b) => [b.id, b]));
+    const byId = (n: number) => Object.fromEntries(evaluateBadges(empty, { invitedFriends: n }).filter((b) => b.group === "friends").map((b) => [b.id, b]));
     expect(byId(3)["friends-5"]).toMatchObject({ current: 3, isUnlocked: false, unit: "friends joined" });
     expect(byId(12)["friends-5"].isUnlocked).toBe(true);
     expect(byId(12)["friends-10"].isUnlocked).toBe(true);
@@ -102,5 +102,12 @@ describe("Friends badges", () => {
       expect("href" in b.action || "addCountry" in b.action).toBe(true);
     }
     expect(evaluateBadges(empty).find((b) => b.id === "friends-5")?.action).toEqual({ label: "Invite friends", href: "/invite" });
+  });
+  it("Antarctica and World Connect", () => {
+    const by = (extras: Parameters<typeof evaluateBadges>[1]) => Object.fromEntries(evaluateBadges(empty, extras).map((b) => [b.id, b.isUnlocked]));
+    expect(by({})["antarctica"]).toBe(false);
+    expect(by({ antarctica: true })["antarctica"]).toBe(true);
+    expect(by({})["world-connect"]).toBe(false);
+    expect(by({ worldConnects: 2 })["world-connect"]).toBe(true);
   });
 });

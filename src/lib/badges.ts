@@ -5,7 +5,7 @@ import {
   BookOpen, CalendarCheck, Archive, Library,
   Music2, PartyPopper, Trophy, Presentation, Heart, Sparkles, Award,
   Star, Camera, Gem, CalendarDays, Hourglass,
-  Users, HeartHandshake, Medal,
+  Users, HeartHandshake, Medal, Snowflake, Sparkle,
 } from "lucide-react";
 import type { AllTimeStats } from "./stats";
 import { TOTAL_COUNTRIES } from "./countries";
@@ -24,8 +24,13 @@ export const BADGE_GROUP_LABELS: Record<BadgeGroup, string> = {
 /** In the order they're shown. */
 export const BADGE_GROUPS: BadgeGroup[] = ["countries", "events", "friends", "continents", "types", "curation"];
 
-/** What everything is counted from: your archive, and friends who joined with your invite. */
-export type BadgeStats = AllTimeStats & { invitedFriends: number };
+/**
+ * What everything is counted from: your archive, friends who joined with
+ * your invite, the friends you've connected with by World Connect, and
+ * whether Antarctica (a territory, not counted as a country) is on your map.
+ */
+export type BadgeExtras = { invitedFriends?: number; worldConnects?: number; antarctica?: boolean };
+export type BadgeStats = AllTimeStats & Required<BadgeExtras>;
 
 /** How to get a locked badge: a page, or the Add a country sheet. */
 export type BadgeAction = { label: string; href: string } | { label: string; addCountry: true };
@@ -89,6 +94,7 @@ export const BADGES: BadgeDef[] = [
   def("continents-3", "Continental", "Set foot on 3 continents.", Layers, "continents", 3, (s) => s.continentsVisited),
   def("continents-5", "Hemisphere Hopper", "Set foot on 5 continents.", Orbit, "continents", 5, (s) => s.continentsVisited),
   def("continents-6", "All Six", "Set foot on every continent.", Globe, "continents", 6, (s) => s.continentsVisited),
+  def("antarctica", "Polar Explorer", "Set foot on Antarctica.", Snowflake, "continents", 1, (s) => (s.antarctica ? 1 : 0), { action: { label: "Add Antarctica", addCountry: true } }),
 
   def("events-1", "First Memory", "Log your first event.", BookOpen, "events", 1, (s) => s.totalEvents),
   def("events-10", "Regular", "Log 10 events.", CalendarCheck, "events", 10, (s) => s.totalEvents),
@@ -129,11 +135,14 @@ export const BADGES: BadgeDef[] = [
   def("friends-5", "Connector", "Bring 5 friends to ExpandiaX.", Users, "friends", 5, (s) => s.invitedFriends),
   def("friends-10", "Ambassador", "Bring 10 friends to ExpandiaX.", HeartHandshake, "friends", 10, (s) => s.invitedFriends),
   def("friends-25", "Trailblazer", "Bring 25 friends to ExpandiaX.", Medal, "friends", 25, (s) => s.invitedFriends),
+  def("world-connect", "Worlds Collide", "Connect with a friend using World Connect.", Sparkle, "friends", 1, (s) => s.worldConnects, {
+    action: { label: "Open World Connect", href: "/touch" },
+  }),
 ];
 
-/** Every badge, with how far along you are. Friends who joined with your invite link count for the Friends badges. */
-export function evaluateBadges(stats: AllTimeStats, invitedFriends = 0): EvaluatedBadge[] {
-  const all: BadgeStats = { ...stats, invitedFriends };
+/** Every badge, with how far along you are. */
+export function evaluateBadges(stats: AllTimeStats, extras: BadgeExtras = {}): EvaluatedBadge[] {
+  const all: BadgeStats = { ...stats, invitedFriends: extras.invitedFriends ?? 0, worldConnects: extras.worldConnects ?? 0, antarctica: extras.antarctica ?? false };
   return BADGES.map(({ progress, ...b }) => {
     const current = Math.min(progress(all), b.target);
     return { ...b, current, isUnlocked: current >= b.target };

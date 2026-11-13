@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { StatCard } from "@/components/StatCard";
+import { StatDrills, type Drill, type DrillItem, type StatTile } from "@/components/StatDrills";
 import { BadgeGrid } from "@/components/BadgeGrid";
 import { EarlyExplorerBadge } from "@/components/EarlyExplorerBadge";
 import { WorldMap } from "@/components/WorldMap";
 import { EmptyState } from "@/components/EmptyState";
 import { YearByYear } from "@/components/YearByYear";
-import { CONTINENT_COLORS, TOTAL_COUNTRIES, continentCounts } from "@/lib/countries";
-import { isTerritoryCode } from "@/lib/territories";
-import { EVENT_TYPES } from "@/lib/events";
+import { CONTINENT_COLORS, CONTINENTS, TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
+import { TOTAL_TERRITORIES, isTerritoryCode, territoryByCode, territoryFlag } from "@/lib/territories";
+import { EVENT_TYPES, eventTypeMeta } from "@/lib/events";
+import { formatDate } from "@/lib/utils";
 import { evaluateBadges } from "@/lib/badges";
 import {
   buildAllTimeStats,
@@ -63,8 +64,12 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
     supabase.from("profiles").select("signup_number").eq("id", user.id).single(),
   ]);
 
-  const { data: invitedRaw } = await supabase.rpc("invite_count", { p_user: user.id });
+  const [{ data: invitedRaw }, { data: connectsRaw }] = await Promise.all([
+    supabase.rpc("invite_count", { p_user: user.id }),
+    supabase.rpc("world_connect_count", { p_user: user.id }),
+  ]);
   const invitedCount = typeof invitedRaw === "number" ? invitedRaw : 0;
+  const worldConnects = typeof connectsRaw === "number" ? connectsRaw : 0;
 
   const countryRows = (countriesData ?? []) as CountryRow[];
   const eventRows = (eventsData ?? []) as EventRow[];
@@ -118,7 +123,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
   const totalLikes = (countryLikes ?? 0) + (eventLikes ?? 0);
   const yearStats = selectedYear !== null ? buildYearStats(selectedYear, countries, events) : null;
 
-  const badges = evaluateBadges(allTime, invitedCount);
+  const badges = evaluateBadges(allTime, { invitedFriends: invitedCount, worldConnects, antarctica: allCodes.includes("AQ") });
   const unlockedCount = badges.filter((b) => b.isUnlocked).length;
   const repeated = mostRepeatedTitle(events);
   const topRatedAllTime =
@@ -129,6 +134,82 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
     : allCodes;
   const scopeContinents = continentCounts(yearStats ? yearStats.countryCodes : countries.map((c) => c.country_code));
   const scopeEventsByType = yearStats ? yearStats.eventsByType : allTime.eventsByType;
+
+  // ---- What's behind each number (StatDrills), for the period picked ----
+  const inScope = (c: CountryRow) => selectedYear === null || c.country_visits.some((v) => v.year === selectedYear);
+  const yearsOf = (c: CountryRow) => [...new Set(c.country_visits.map((v) => v.year))].sort((a, b) => b - a).join(" · ");
+  const lastYear = (c: CountryRow) => Math.max(0, ...c.country_visits.map((v) => v.year));
+  const scopeCountryRows = realCountryRows.filter(inScope);
+  const scopeTerritoryRows = countryRows.filter((c) => isTerritoryCode(c.country_code) && inScope(c));
+  const countryItem = (c: CountryRow): DrillItem => {
+    const meta = countryByCode(c.country_code);
+    return { key: c.id, primary: meta?.name ?? c.country_code, flag: meta?.flag, secondary: yearsOf(c) || undefined, href: `/my-world/${c.country_code.toLowerCase()}` };
+  };
+  const byRecent = (a: CountryRow, b: CountryRow) => lastYear(b) - lastYear(a) || (countryByCode(a.country_code)?.name ?? "").localeCompare(countryByCode(b.country_code)?.name ?? "");
+  const scopeEventRows = (yearStats ? eventRows.filter((e) => e.event_date.startsWith(String(selectedYear))) : eventRows).slice().sort((a, b) => b.event_date.localeCompare(a.event_date));
+  const period = selectedYear === null ? "" : ` in ${selectedYear}`;
+
+  const drills: Record<string, Drill> = {
+    countries: { title: `Countries${period}`, items: scopeCountryRows.slice().sort(byRecent).map(countryItem), empty: "No countries yet." },
+    territories: {
+      title: `Territories${period}`,
+      items: scopeTerritoryRows.map((c) => {
+        const t = territoryByCode(c.country_code);
+        return { key: c.id, primary: t?.name ?? c.country_code, flag: territoryFlag(c.country_code), secondary: yearsOf(c) || undefined, href: `/my-world/${c.country_code.toLowerCase()}` };
+      }),
+      empty: "No territories yet: places like Greenland, Gibraltar or Antarctica count here.",
+    },
+    continents: {
+      title: `By continent${period}`,
+      groups: CONTINENTS.map((name) => ({
+        name,
+        color: CONTINENT_COLORS[name],
+        items: scopeCountryRows.filter((c) => countryByCode(c.country_code)?.continent === name).sort(byRecent).map(countryItem),
+      })).filter((g) => g.items.length > 0),
+    },
+    events: {
+      title: `Events${period}`,
+      items: scopeEventRows.map((e) => ({
+        key: e.id,
+        primary: e.title,
+        flag: countryByCode(e.country_code)?.flag,
+        secondary: `${eventTypeMeta(e.event_type).label} · ${formatDate(e.event_date)}`,
+        href: `/events/${e.id}`,
+      })),
+      empty: "No events yet.",
+    },
+    memories: {
+      title: "Where your photos and videos are",
+      items: [
+        ...scopeCountryRows.map((c) => ({ c, n: c.country_media?.length ?? 0 })).filter((x) => x.n > 0).map(({ c, n }) => ({ ...countryItem(c), secondary: `${n} ${n === 1 ? "photo or video" : "photos & videos"}`, n })),
+        ...scopeEventRows
+          .map((e) => ({ e, n: (e.event_media ?? []).length }))
+          .filter((x) => x.n > 0)
+          .map(({ e, n }) => ({ key: e.id, primary: e.title, flag: countryByCode(e.country_code)?.flag, secondary: `${n} ${n === 1 ? "photo or video" : "photos & videos"}`, href: `/events/${e.id}`, n })),
+      ]
+        .sort((a, b) => b.n - a.n)
+        .slice(0, 30)
+        .map((x): DrillItem => ({ key: x.key, primary: x.primary, flag: x.flag, secondary: x.secondary, href: x.href })),
+      empty: "No photos or videos yet.",
+    },
+  };
+
+  const tiles: StatTile[] = yearStats
+    ? [
+        { key: "countries", label: "Countries", value: yearStats.countryCodes.length, detail: `${yearStats.newCountryCodes.length} new to you`, drill: drills.countries },
+        { key: "territories", label: "Territories", value: scopeTerritoryRows.length, detail: "this year", drill: drills.territories },
+        { key: "continents", label: "Continents", value: `${yearStats.continentsVisited}/6`, detail: "touched this year", drill: drills.continents },
+        { key: "events", label: "Events logged", value: yearStats.events.length, detail: "this year", drill: drills.events },
+        { key: "memories", label: "Memories added", value: yearStats.photos + yearStats.videos, detail: "photos & videos", drill: drills.memories },
+      ]
+    : [
+        { key: "countries", label: "Countries", value: allTime.totalCountries, detail: `of ${TOTAL_COUNTRIES} recognised countries`, drill: drills.countries },
+        { key: "territories", label: "Territories", value: scopeTerritoryRows.length, detail: `of ${TOTAL_TERRITORIES} territories`, drill: drills.territories },
+        { key: "continents", label: "Continents", value: `${allTime.continentsVisited}/6`, detail: "visited", drill: drills.continents },
+        { key: "events", label: "Events logged", value: allTime.totalEvents, detail: "across every type", drill: drills.events },
+        { key: "memories", label: "Memories added", value: allTime.totalPhotos + allTime.totalVideos, detail: "photos & videos", drill: drills.memories },
+      ];
+  tiles.push({ key: "likes", label: "Likes received", value: totalLikes, detail: selectedYear !== null ? `in ${selectedYear}, only you see this` : "only you see this" });
 
   const yearBreakdown = years.map((y) => {
     const ys = buildYearStats(y, countries, events);
@@ -175,24 +256,8 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
             ))}
           </div>
 
-          <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
-            {yearStats ? (
-              <>
-                <StatCard label="Countries" value={yearStats.countryCodes.length} detail={`${yearStats.newCountryCodes.length} new to you`} />
-                <StatCard label="Continents" value={`${yearStats.continentsVisited}/6`} detail="touched this year" />
-                <StatCard label="Events logged" value={yearStats.events.length} detail="this year" />
-                <StatCard label="Memories added" value={yearStats.photos + yearStats.videos} detail="photos & videos" />
-              </>
-            ) : (
-              <>
-                <StatCard label="Countries" value={allTime.totalCountries} detail={`of ${TOTAL_COUNTRIES} recognised countries`} />
-                <StatCard label="Continents" value={`${allTime.continentsVisited}/6`} detail="visited" />
-                <StatCard label="Events logged" value={allTime.totalEvents} detail="across every type" />
-                <StatCard label="Memories added" value={allTime.totalPhotos + allTime.totalVideos} detail="photos & videos" />
-              </>
-            )}
-            <StatCard className="col-span-2 lg:col-span-1" label="Likes received" value={totalLikes} detail={selectedYear !== null ? `in ${selectedYear}, only you see this` : "only you see this"} />
-          </div>
+          {/* Tap a number to see what's behind it. */}
+          <StatDrills tiles={tiles} className="mt-8" />
 
           <div className="mt-8 overflow-hidden rounded-card border border-line bg-surface p-1.5 sm:p-3">
             <WorldMap visitedCodes={scopeCodes} interactive={false} />
@@ -278,7 +343,8 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
             </section>
           )}
 
-          <section id="badges" className="mt-12 border-t border-line pt-10">
+          {/* Opened at #badges: room for the header above it, so nothing's cut off. */}
+          <section id="badges" className="mt-12 scroll-mt-[calc(env(safe-area-inset-top)+76px)] border-t border-line pt-10">
             <div className="flex items-baseline justify-between">
               <h2 className="text-xl">Badges</h2>
               <p className="text-sm text-muted">{unlockedCount}/{badges.length} unlocked</p>

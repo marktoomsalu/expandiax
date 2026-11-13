@@ -81,7 +81,7 @@ export function TripView({
           )}
         </div>
         {stock && (
-          <span className="absolute bottom-3 right-4 rounded-full bg-black/35 px-2.5 py-1 backdrop-blur-sm">
+          <span className="absolute bottom-3 right-4 max-w-[62%] rounded-2xl bg-black/35 px-2.5 py-1 text-right backdrop-blur-sm">
             <StockCredit photo={stock} />
           </span>
         )}

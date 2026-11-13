@@ -38,12 +38,12 @@ export function YearByYear({ years }: { years: Year[] }) {
                 <span className="flex-1">
                   <span className="block space-y-1.5">
                     <Bar value={y.countries} max={maxCountries} tone="bg-accent" />
-                    <Bar value={y.events} max={maxEvents} tone="bg-ink/35" />
+                    <Bar value={y.events} max={maxEvents} tone="bg-[#fb7822]" />
                   </span>
                   {shown && (
                     <span className="mt-1.5 flex gap-3 text-xs font-medium">
                       <span className="text-accent">{count(y.countries, "country", "countries")}</span>
-                      <span className="text-ink/70">{count(y.events, "event", "events")}</span>
+                      <span className="text-[#e8660f] dark:text-[#fb9a4b]">{count(y.events, "event", "events")}</span>
                     </span>
                   )}
                 </span>
@@ -54,7 +54,7 @@ export function YearByYear({ years }: { years: Year[] }) {
       </ul>
       <p className="mt-3 flex items-center gap-4 px-2 text-xs text-muted">
         <span className="flex items-center gap-1.5"><span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-accent" /> Countries</span>
-        <span className="flex items-center gap-1.5"><span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-ink/35" /> Events</span>
+        <span className="flex items-center gap-1.5"><span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-[#fb7822]" /> Events</span>
         <span className="ml-auto">Tap a year for numbers</span>
       </p>
     </>
