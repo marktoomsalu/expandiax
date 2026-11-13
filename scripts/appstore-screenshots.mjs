@@ -2,6 +2,7 @@
 //   iphone-6.9/         1290×2796   App Store, iPhone 6.9" display
 //   iphone-6.5/         1284×2778   App Store, iPhone 6.5" display
 //   iphone-6.3/         1206×2622   App Store, iPhone 6.1"/6.3" display
+//   iphone-6.1/         1179×2556   App Store, iPhone 6.1"/6.3" display (the other accepted size)
 //   ipad-13/            2064×2752   App Store, iPad 13" display
 //   google-play-phone/  1296×2304   Google Play phone screenshots (exactly 9:16, as Play requires)
 //   google-play/        feature graphic 1024×500 + app icon 512×512
@@ -50,6 +51,7 @@ const SETS = [
   { dir: "iphone-6.9", device: "phone", slide: { width: 1290, height: 2796 } },
   { dir: "iphone-6.5", device: "phone", slide: { width: 1284, height: 2778 } },
   { dir: "iphone-6.3", device: "phone", slide: { width: 1206, height: 2622 } },
+  { dir: "iphone-6.1", device: "phone", slide: { width: 1179, height: 2556 } },
   { dir: "ipad-13", device: "tablet", slide: { width: 2064, height: 2752 } },
   { dir: "google-play-phone", device: "android", slide: { width: 1296, height: 2304 } },
 ];
