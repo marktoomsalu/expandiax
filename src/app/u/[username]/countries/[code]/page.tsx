@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 import { ArrowLeft, ArrowRight, Pencil } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
+import { locatePlaces } from "@/lib/locatePlaces";
 import { territoryByCode, territoryToMeta } from "@/lib/territories";
 import { RatingStars } from "@/components/Rating";
 import { ReportButton } from "@/components/ReportButton";
@@ -110,6 +111,7 @@ export default async function PublicCountryPage({
 
   const country = data as VisitedCountryFull | null;
   if (!country) notFound();
+  country.country_cities = await locatePlaces(supabase, country.country_cities, meta.code);
 
 
   // The same page the owner sees on My World, read-only: their stays and

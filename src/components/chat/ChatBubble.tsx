@@ -144,7 +144,8 @@ function ChatBubbleInner({ me }: { me: string }) {
     if (id) openChat({ view: "conversation", conversationId: id });
   }, [path]);
 
-  if (HIDDEN.some((p) => path === p || path.startsWith(`${p}/`))) return null;
+  // Not over the editing screens either (they keep their own Save at the bottom).
+  if (HIDDEN.some((p) => path === p || path.startsWith(`${p}/`)) || /\/edit$/.test(path) || path === "/events/new") return null;
   const first = chat.unread[0];
   const face = first ? chat.people[otherOf(first, me)] : null;
 

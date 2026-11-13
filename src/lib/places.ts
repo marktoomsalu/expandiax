@@ -53,3 +53,22 @@ export async function searchPlaces(query: string, limit = 6): Promise<Place[]> {
     })
     .slice(0, limit);
 }
+
+/**
+ * Where a named place in a country is, for putting it on a map: the biggest
+ * town of that name there, or else any spot of that name (a region, a
+ * national park, the Cliffs of Moher).
+ */
+export async function locateName(name: string, countryCode: string): Promise<{ lat: number; lng: number } | null> {
+  const q = name.trim();
+  if (q.length < 2) return null;
+  const params = new URLSearchParams({ name: q, count: "10", language: "en", format: "json" });
+  const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`, { next: { revalidate: 60 * 60 * 24 * 7 } });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { results?: OpenMeteoPlace[] };
+  const here = (data.results ?? [])
+    .filter((r) => r.country_code?.toUpperCase() === countryCode.toUpperCase() && Number.isFinite(r.latitude) && Number.isFinite(r.longitude))
+    .sort((a, b) => (b.population ?? 0) - (a.population ?? 0));
+  const best = here.find((r) => placeFromOpenMeteo(r)) ?? here[0];
+  return best ? { lat: best.latitude, lng: best.longitude } : null;
+}

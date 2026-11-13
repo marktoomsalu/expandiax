@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -30,6 +30,20 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
   const active = (href: string) =>
     href === "/" ? path === "/" : path === href || path.startsWith(href + "/");
 
+  // Typing anywhere (a field has focus): the bottom bar steps aside.
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const isField = (t: EventTarget | null) => t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !["checkbox", "radio", "button", "submit", "range", "file", "color"].includes(t.type));
+    const on = (e: FocusEvent) => isField(e.target) && setTyping(true);
+    const off = () => setTimeout(() => setTyping(isField(document.activeElement)), 0);
+    document.addEventListener("focusin", on);
+    document.addEventListener("focusout", off);
+    return () => {
+      document.removeEventListener("focusin", on);
+      document.removeEventListener("focusout", off);
+    };
+  }, []);
+
   // /start is a full-screen, immersive flow with no site chrome at all
   // until there's an account to actually navigate around with — see
   // SiteChrome.tsx, which hides the page-end footer the same way.
@@ -39,6 +53,10 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
   // should lead away from it by accident — no tab bar, no logo link, no
   // "back to start" (Home and the logo would restart the flow from zero).
   const signingUp = path === "/sign-up";
+  // While editing (a trip, an event) or typing anywhere, the bottom bar steps
+  // aside: more room, and nothing between you and the keyboard.
+  const editing = /\/edit$/.test(path) || path === "/events/new";
+  const hideBar = signingUp || editing || typing;
 
   const leftLinks = [
     { href: "/feed", label: "Feed", icon: Rss },
@@ -100,7 +118,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
           bar, never bleeding into content above it. pointer-events-none:
           purely decorative, must never block taps on the real content
           showing through it. */}
-      {!signingUp && (
+      {!hideBar && (
         <>
       <div
         aria-hidden

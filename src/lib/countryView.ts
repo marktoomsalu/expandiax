@@ -29,11 +29,10 @@ export function buildCountryView(visited: VisitedCountryFull, meta: { code: stri
   // The country's picture: the one chosen, else the latest trip's (the same order as the My World card).
   const heroPhoto = orderCountryMedia(images, visits, visited.cover_media_id)[0];
   const cities = visited.country_cities ?? [];
-  const trips: StayView[] = visits.map((v, i) => {
+  const trips: StayView[] = visits.map((v) => {
     const media = visited.country_media.filter((m) => m.country_visit_id === v.id);
     const cover = tripCover(v.id, v.cover_media_id);
     const stops = orderStops(cities.filter((c) => c.country_visit_id === v.id)).map((c) => c.city_name);
-    const prev = visits[i - 1];
     return {
       id: v.id,
       name: tripName(v, meta.name, stops),
@@ -41,9 +40,9 @@ export function buildCountryView(visited: VisitedCountryFull, meta: { code: stri
       places: stops.length ? listCities(stops) : v.highlight.trim() || null,
       when: stayWhen(v),
       length: stayLength(v),
-      // The year shows where it changes; the month on every row that has one.
-      railTop: !prev || prev.year !== v.year ? String(v.year) : null,
-      railBottom: stayMonth(v),
+      // Every row says when: the month (when known) over the year, "Jul / 2024".
+      railTop: stayMonth(v),
+      railBottom: String(v.year),
       photos: media.filter((m) => m.media_type === "image").length,
       audience: audienceOf(v.audience ?? (v.is_public === false ? "only_me" : "everyone")),
       photo: cover?.public_url ?? null,

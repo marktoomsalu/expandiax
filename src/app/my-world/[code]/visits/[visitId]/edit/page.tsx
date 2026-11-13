@@ -1,3 +1,4 @@
+import { ScrollToTop } from "@/components/ScrollToTop";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
@@ -59,6 +60,7 @@ export default async function EditVisitPage({
 
   return (
     <div className="mx-auto max-w-2xl px-5 pb-16 pt-6">
+      <ScrollToTop />
       <div className="flex items-center gap-4">
         <Link
           href={`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`}

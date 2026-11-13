@@ -15,7 +15,8 @@ import { StockImage } from "./StockImage";
 /**
  * The top of your own country page: your best photo of the place (or a
  * credited stock one until you add yours), the country, how much you've
- * kept, and Share · Public page · Favourite.
+ * kept, and Share · Public page · Mark as favourite (a heart in Countries,
+ * and it comes back more often in One to remember).
  */
 export function CountryHero({
   visitedCountryId,
@@ -49,6 +50,8 @@ export function CountryHero({
   const router = useRouter();
   const [favourite, setFavourite] = useState(initialFavourite);
   const [busy, setBusy] = useState(false);
+  // What a favourite does, said once right after tapping (it isn't obvious).
+  const [said, setSaid] = useState<string | null>(null);
 
   async function toggleFavourite() {
     setBusy(true);
@@ -56,6 +59,10 @@ export function CountryHero({
     setFavourite(next);
     const { error } = await createClient().from("visited_countries").update({ is_favourite: next }).eq("id", visitedCountryId);
     if (error) setFavourite(!next);
+    else {
+      setSaid(next ? `${name} is one of your favourites: it gets a heart in Countries and comes back more often in One to remember.` : `${name} is no longer one of your favourites.`);
+      setTimeout(() => setSaid(null), 5000);
+    }
     setBusy(false);
     router.refresh();
   }
@@ -117,11 +124,23 @@ export function CountryHero({
             </>
           )}
           <span className="h-4 w-px bg-white/25" aria-hidden />
-          <button type="button" onClick={toggleFavourite} disabled={busy} aria-pressed={favourite} className={action}>
+          <button
+            type="button"
+            onClick={toggleFavourite}
+            disabled={busy}
+            aria-pressed={favourite}
+            title={favourite ? "One of your favourite countries" : "Mark as one of your favourite countries"}
+            className={action}
+          >
             <Heart size={16} className={cn(favourite && "fill-accent text-accent")} />
-            Favourite
+            {favourite ? "A favourite" : "Mark as favourite"}
           </button>
         </div>
+        )}
+        {said && (
+          <p role="status" className="mt-3 max-w-md rounded-xl bg-black/45 px-3 py-2 text-xs leading-snug text-white/90 backdrop-blur">
+            {said}
+          </p>
         )}
       </div>
     </div>

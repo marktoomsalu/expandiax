@@ -12,6 +12,7 @@ import { buildCountryView } from "@/lib/countryView";
 import { CountryPlaces } from "@/components/CountryPlaces";
 import type { VisitedCountryFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
+import { locatePlaces } from "@/lib/locatePlaces";
 
 export default async function ManageCountryPage({ params }: { params: { code: string } }) {
   const country = countryByCode(params.code);
@@ -35,6 +36,8 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   ]).then((r) => signMedia(r));
 
   const visited = data as VisitedCountryFull | null;
+  // Every place of every trip on the map, even ones saved without coordinates.
+  if (visited) visited.country_cities = await locatePlaces(supabase, visited.country_cities, meta.code);
   if (visited && profile) {
     const { visits, cities, heroPhoto, trips, places } = buildCountryView(visited, meta);
     const base = `/my-world/${meta.code.toLowerCase()}`;

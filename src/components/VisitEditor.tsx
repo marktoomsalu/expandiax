@@ -249,16 +249,19 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
         <SoundtrackPicker table="country_visits" recordId={visit.id} initialTrackId={visit.spotify_track_id} />
       </Basket>
 
-      <Basket id="places" icon={MapPin} title="Places" hint="Where you went, in order - each with its own dates.">
+      <Basket id="places" icon={MapPin} title="Cities & regions visited" hint="The cities, towns and regions you went to, in order - each with its own dates.">
         <TripPlacesEditor visitId={visit.id} visitedCountryId={visit.visited_country_id} countryCode={country.code} initial={cities} />
       </Basket>
 
 
       {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
 
-      <button type="button" onClick={saveTrip} disabled={busy || memorySaving} className="btn-accent w-full justify-center !py-3.5 text-base font-semibold">
-        <Check size={18} /> {busy ? "Saving…" : "Save trip"}
-      </button>
+      {/* Save stays at hand at the bottom while editing (the tab bar steps aside here). */}
+      <div className="sticky bottom-0 z-30 -mx-5 bg-gradient-to-t from-canvas via-canvas/95 to-canvas/0 px-5 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-4">
+        <button type="button" onClick={saveTrip} disabled={busy || memorySaving} className="btn-accent w-full justify-center !py-3.5 text-base font-semibold shadow-lg shadow-accent/25">
+          <Check size={18} /> {busy ? "Saving…" : "Save trip"}
+        </button>
+      </div>
     </div>
   );
 }

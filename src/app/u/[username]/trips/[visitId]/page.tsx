@@ -1,3 +1,4 @@
+import { locatePlaces } from "@/lib/locatePlaces";
 import { notFound, redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
@@ -47,6 +48,7 @@ export default async function TripPage({ params }: Props) {
   // Your own trip: the one trip page in My World (same tools, and Back
   // leads to your country under Countries), wherever you came from.
   if (mine) redirect(`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`);
+  visit.country_cities = await locatePlaces(supabase, visit.country_cities, meta.code);
   const countryId = visit.visited_countries.id;
   const [{ data: like }, { data: comments }] = await Promise.all([
     user ? supabase.from("likes").select("target_id").eq("user_id", user.id).eq("kind", "country").eq("target_id", countryId).maybeSingle() : Promise.resolve({ data: null }),
@@ -61,8 +63,8 @@ export default async function TripPage({ params }: Props) {
       owner={mine}
       country={{
         href: `/u/${person.username}/countries/${meta.code.toLowerCase()}`,
-        label: mine ? `Your ${meta.name}` : `${first}’s ${meta.name}`,
-        allTrips: mine ? `All your trips in ${meta.name}` : `All of ${first}’s trips in ${meta.name}`,
+        label: mine ? `All trips to ${meta.name}` : `${first}’s trips to ${meta.name}`,
+        allTrips: mine ? `All your trips to ${meta.name}` : `All of ${first}’s trips to ${meta.name}`,
       }}
       social={{ liked: !!like, comments: (comments ?? []) as CommentWithAuthor[] }}
     />

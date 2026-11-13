@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { signMedia } from "@/lib/signedMedia";
+import { locatePlaces } from "@/lib/locatePlaces";
 import { TripView, type TripVisit } from "@/components/trip/TripView";
 
 export const metadata = { title: "Trip" };
@@ -24,14 +25,16 @@ export default async function VisitPage({ params, searchParams }: { params: { co
       .maybeSingle()
   );
   if (!data) notFound();
+  const trip = data as TripVisit;
+  trip.country_cities = await locatePlaces(supabase, trip.country_cities, meta.code);
 
   return (
     <TripView
-      visit={data as TripVisit}
+      visit={trip}
       meta={meta}
       owner
       created={!!searchParams.created}
-      country={{ href: `/my-world/${meta.code.toLowerCase()}`, label: meta.name, allTrips: `All your trips in ${meta.name}` }}
+      country={{ href: `/my-world/${meta.code.toLowerCase()}`, label: `All trips to ${meta.name}`, allTrips: `All your trips to ${meta.name}` }}
     />
   );
 }

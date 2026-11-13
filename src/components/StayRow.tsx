@@ -19,8 +19,8 @@ export type StayView = {
   places: string | null; // "Bled, Slovenia"
   when: string; // "8 – 10 Aug 2025"
   length: string | null; // "3 days"
-  railTop: string | null; // "2025" — only where the year changes
-  railBottom: string | null; // "AUG"
+  railTop: string | null; // "Jul" (when the month is known)
+  railBottom: string | null; // "2024", on every row
   photos: number;
   /** Who sees it: Feed (everyone), Friends, or Only me. */
   audience: Audience;
@@ -87,7 +87,7 @@ export function StayRow({
       {/* Timeline rail */}
       <div className="relative flex w-11 shrink-0 flex-col items-center pt-4 text-center">
         {stay.railTop && <span className="text-[11px] font-semibold leading-tight">{stay.railTop}</span>}
-        {stay.railBottom && <span className="text-[10px] uppercase leading-tight text-muted">{stay.railBottom}</span>}
+        {stay.railBottom && <span className={cn("leading-tight", stay.railTop ? "text-[10px] text-muted" : "text-[11px] font-semibold")}>{stay.railBottom}</span>}
         <span className={cn("absolute right-0 top-0 w-px bg-line", first ? "top-6" : "top-0", last ? "h-6" : "bottom-0")} aria-hidden />
         <span
           className={cn("absolute -right-[5px] top-6 h-2.5 w-2.5 rounded-full ring-2 ring-canvas", stay.kind === "lived" ? "bg-[#fa51a2]" : "bg-[#fb7822]")}

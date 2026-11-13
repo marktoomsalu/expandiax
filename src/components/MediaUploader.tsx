@@ -3,7 +3,7 @@
 import { useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Camera as CameraIcon, ImagePlus, Loader2, MapPin, Move, Star, Trash2 } from "lucide-react";
+import { Camera as CameraIcon, ImagePlus, Loader2, MapPin, Move, Trash2 } from "lucide-react";
 import { Camera } from "@capacitor/camera";
 import { createClient } from "@/lib/supabase/client";
 import { classifyFile, focalPosition, validateFile } from "@/lib/media";
@@ -281,10 +281,15 @@ export function MediaUploader(props: Props) {
     router.refresh();
   }
 
-  // A new order from dragging: each photo gets its new position.
+  // A new order from dragging: each photo gets its new position, and the
+  // first photo is the cover (that's the only way to choose it: no star).
   async function reorder(ids: string[]) {
     const changed = ids.flatMap((id, idx) => (items.find((m) => m.id === id)?.display_order !== idx ? [{ id, idx }] : []));
-    await Promise.all(changed.map((c) => supabase.from(table).update({ display_order: c.idx }).eq("id", c.id)));
+    const firstPhoto = ids.map((id) => items.find((m) => m.id === id)).find((m) => m?.media_type === "image");
+    await Promise.all([
+      ...changed.map((c) => supabase.from(table).update({ display_order: c.idx }).eq("id", c.id)),
+      ...(coverTable && firstPhoto && firstPhoto.id !== coverId ? [supabase.from(coverTable).update({ cover_media_id: firstPhoto.id }).eq("id", parentId)] : []),
+    ]);
     router.refresh();
   }
 
@@ -294,13 +299,8 @@ export function MediaUploader(props: Props) {
     router.refresh();
   }
 
-  async function setCover(item: MediaItem) {
-    if (!coverTable) return;
-    await supabase.from(coverTable).update({ cover_media_id: item.id }).eq("id", parentId);
-    router.refresh();
-  }
-
-  const sorted = [...items].sort((a, b) => a.display_order - b.display_order);
+  // The cover is always the first photo shown (even where it was chosen before this rule).
+  const sorted = [...items].sort((a, b) => (a.id === coverId ? -1 : b.id === coverId ? 1 : a.display_order - b.display_order));
   const byId = new Map(sorted.map((m) => [m.id, m]));
 
   const tile =
@@ -361,6 +361,9 @@ export function MediaUploader(props: Props) {
           {photoCount}/{photoCap} photos · {videoCount}/{videoCap} videos
         </p>
       </div>
+      {sorted.length > 1 && (
+        <p className="mt-0.5 text-xs text-muted">Drag to reorder{coverTable ? ". The first photo is the cover." : "."}</p>
+      )}
 
       {sorted.length > 0 && (
         <div className="mt-4">
@@ -368,7 +371,6 @@ export function MediaUploader(props: Props) {
             items={sorted.map((m) => ({ id: m.id, thumb: m.media_type === "image" ? m.public_url : null, isVideo: m.media_type === "video" }))}
             coverId={coverId ?? null}
             onReorder={(ids) => void reorder(ids)}
-            onCover={coverTable ? (id) => { const m = byId.get(id); if (m && m.media_type === "image") void setCover(m); } : undefined}
             renderTile={(id) => {
               const m = byId.get(id)!;
               return (
@@ -413,11 +415,6 @@ export function MediaUploader(props: Props) {
                   )}
                   <div className="flex items-center justify-between border-t border-line px-1.5 py-1">
                     <div className="flex">
-                      {coverTable && m.media_type === "image" && coverId !== m.id && (
-                        <button type="button" aria-label="Use as cover photo" title="Use as cover photo" className="p-1.5 text-muted hover:text-accent" onClick={() => setCover(m)}>
-                          <Star size={14} />
-                        </button>
-                      )}
                       {m.media_type === "image" && (
                         <button type="button" aria-label="Reposition photo" title="Reposition photo" className="p-1.5 text-muted hover:text-accent" onClick={() => setToReposition(m)}>
                           <Move size={14} />
