@@ -14,7 +14,7 @@ const QUIET = ["/touch", "/start", "/sign-in", "/sign-up", "/onboarding", "/join
 type Spot = { x: number; y: number; size: number };
 
 /**
- * The chat's welcome, once, after "What's new" and the World Connect card:
+ * The chat's welcome, once, right after "What's new" (the World Connect card comes after it):
  * everything else dims, the chat bubble in the corner lights up ("Your
  * chats live here"), and a card says how chat works. Only in the new app,
  * once 1.1 is on the App Store.
