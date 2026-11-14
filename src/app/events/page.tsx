@@ -12,6 +12,7 @@ import { signMedia } from "@/lib/signedMedia";
 import { loadDreamEvents } from "@/lib/dreams";
 import { DreamEvents } from "@/components/dreams/DreamEvents";
 import { DraftsList } from "@/components/Drafts";
+import { MemoryNudge } from "@/components/MemoryNudge";
 
 export const metadata = { title: "Events" };
 
@@ -71,6 +72,9 @@ export default async function EventsPage() {
       </div>
 
       <DraftsList kind="event" className="mt-8" />
+
+      {/* Events with no photos or videos of their own yet: each opens where they're added. */}
+      <MemoryNudge events={events.filter((e) => e.event_media.length === 0).map((e) => ({ key: e.id, label: e.title, href: `/events/${e.id}/edit` }))} />
 
       {events.length === 0 ? (
         <>

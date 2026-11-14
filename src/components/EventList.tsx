@@ -8,6 +8,7 @@ import type { Event, EventMedia, EventType } from "@/lib/types";
 import { countryByCode } from "@/lib/countries";
 import { EVENT_TYPES, eventTypeMeta } from "@/lib/events";
 import { RatingStars } from "./Rating";
+import { CardPhotos } from "./CardPhotos";
 import { formatDate } from "@/lib/utils";
 
 type Row = Event & { event_media: EventMedia[] };
@@ -78,9 +79,11 @@ export function EventList({ events, hrefBase, editable }: { events: Row[]; hrefB
       ) : (
         <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((e) => {
-            const cover =
-              e.event_media.find((m) => m.id === e.cover_media_id) ??
-              e.event_media.filter((m) => m.media_type === "image").sort((a, b) => a.display_order - b.display_order)[0];
+            // Its photos, the cover first, then in their order: swiped through like the country cards.
+            const photos = e.event_media
+              .filter((m) => m.media_type === "image")
+              .sort((a, b) => (a.id === e.cover_media_id ? -1 : b.id === e.cover_media_id ? 1 : a.display_order - b.display_order));
+            const cover = photos[0];
             const meta = countryByCode(e.country_code);
             const typeMeta = eventTypeMeta(e.event_type);
             const TypeIcon = typeMeta.icon;
@@ -88,7 +91,13 @@ export function EventList({ events, hrefBase, editable }: { events: Row[]; hrefB
               <li key={e.id}>
                 <Link href={`${hrefBase}/${e.id}`} className="card group block overflow-hidden transition-shadow hover:shadow-lg">
                   <div className="relative aspect-[3/4] bg-ink/90">
-                    {cover ? (
+                    {photos.length > 1 ? (
+                      <CardPhotos
+                        photos={photos.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || e.title }))}
+                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        dotsClassName="top-4"
+                      />
+                    ) : cover ? (
                       <Image
                         src={cover.public_url}
                         alt={cover.caption || e.title}
@@ -109,8 +118,8 @@ export function EventList({ events, hrefBase, editable }: { events: Row[]; hrefB
                         {e.title}
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" aria-hidden />
-                    <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-canvas/90 px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide text-muted">
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" aria-hidden />
+                    <span className="pointer-events-none absolute left-3 top-3 flex items-center gap-1 rounded-full bg-canvas/90 px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide text-muted">
                       <TypeIcon size={11} /> {typeMeta.label}
                     </span>
                     {e.is_favourite && (
@@ -119,7 +128,7 @@ export function EventList({ events, hrefBase, editable }: { events: Row[]; hrefB
                     {editable && !e.is_public && (
                       <span className="absolute right-3 top-10 rounded-full bg-canvas/90 px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide text-muted">Private</span>
                     )}
-                    <div className="absolute inset-x-0 bottom-0 px-4 pb-4 pt-12 text-white">
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-4 pt-12 text-white">
                       <p className="font-serif text-xl leading-snug drop-shadow-sm">{e.title}</p>
                       {e.subtitle && <p className="text-sm italic text-white/80">{e.subtitle}</p>}
                       <p className="mt-1.5 text-xs text-white/75">
