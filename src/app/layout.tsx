@@ -56,17 +56,17 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  let navUser: { id: string; username: string } | null = null;
+  let navUser: { id: string; username: string; joinedAt: string } | null = null;
   let unreadNotifications = 0;
   try {
     const supabase = createClient();
     const user = await getAuthUser();
     if (user) {
       const [{ data: profile }, { count }] = await Promise.all([
-        supabase.from("profiles").select("username").eq("id", user.id).single(),
+        supabase.from("profiles").select("username, created_at").eq("id", user.id).single(),
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false),
       ]);
-      if (profile) navUser = { id: user.id, username: profile.username };
+      if (profile) navUser = { id: user.id, username: profile.username, joinedAt: profile.created_at };
       unreadNotifications = count ?? 0;
     }
   } catch {
@@ -87,11 +87,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {navUser && <PushAskSheet />}
           {navUser && <UploadQueueWatcher userId={navUser.id} />}
           {/* Before the World Connect card: "What's new" goes first. Both wait for 1.1 on the App Store. */}
-          {navUser && <WhatsNew />}
+          {navUser && <WhatsNew joinedAt={navUser.joinedAt} />}
           {navUser && <UpdatePrompt />}
           {navUser && <GlobeTouchListener />}
           {/* After the World Connect card: the chat tour, pointing at the bubble. */}
-          {navUser && <ChatTour />}
+          {navUser && <ChatTour joinedAt={navUser.joinedAt} />}
           {navUser && <ChatBubble me={navUser.id} />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
           <SiteChrome>{children}</SiteChrome>

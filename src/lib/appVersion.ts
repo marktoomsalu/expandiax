@@ -4,6 +4,17 @@
 // review or TestFlight.
 
 export const FEATURES_VERSION = "1.1";
+/** When 1.1 came out on the App Store. */
+export const FEATURES_RELEASED_AT = "2026-11-14T16:15:20Z";
+
+/**
+ * "What's new" is for people who were here before 1.1 (they updated, or
+ * already had an account): someone who joins after it has nothing "new",
+ * it's simply how the app is.
+ */
+export function joinedBeforeFeatures(joinedAt: string | null | undefined): boolean {
+  return !!joinedAt && Date.parse(joinedAt) < Date.parse(FEATURES_RELEASED_AT);
+}
 
 /** -1, 0 or 1, for versions like "1.0", "1.1", "1.10.2". */
 export function compareVersions(a: string, b: string): number {

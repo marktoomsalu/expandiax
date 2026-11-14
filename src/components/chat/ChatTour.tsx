@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Heart, MapPin, Mail, MessageCircle } from "lucide-react";
 import { hasGlobeTouch } from "@/lib/globeTouch";
 import { isTouchAsked } from "@/lib/globeTouchReady";
-import { featuresReleased } from "@/lib/appVersion";
+import { featuresReleased, joinedBeforeFeatures } from "@/lib/appVersion";
 import { claimIntro, introHolder, onIntroChange, releaseIntro } from "@/lib/introQueue";
 import { openChat } from "@/lib/chat";
 import { tapLight } from "@/lib/haptics";
@@ -21,13 +21,14 @@ type Spot = { x: number; y: number; size: number };
  * chats live here"), and a card says how chat works. Only in the new app,
  * once 1.1 is on the App Store.
  */
-export function ChatTour() {
+export function ChatTour({ joinedAt }: { joinedAt: string }) {
   const path = usePathname();
   const [spot, setSpot] = useState<Spot | null>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!hasGlobeTouch()) return;
+    // Part of "what's new": only for people who were here before 1.1.
+    if (!hasGlobeTouch() || !joinedBeforeFeatures(joinedAt)) return;
     let alive = true;
     const tryOpen = async () => {
       if (open || QUIET.some((p) => window.location.pathname.startsWith(p))) return;

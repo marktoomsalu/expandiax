@@ -15,7 +15,8 @@ export async function GET() {
       return null;
     }
   };
-  const found = (await Promise.all([look(""), look("ee")])).filter((v): v is string => !!v);
+  // Apple's listings update country by country (the US and UK first): the newest one counts.
+  const found = (await Promise.all([look(""), look("ee"), look("us"), look("gb")])).filter((v): v is string => !!v);
   const ios = found.sort(compareVersions).at(-1) ?? null;
   return NextResponse.json({ ios }, { headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=600" } });
 }

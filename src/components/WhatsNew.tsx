@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageCircle, Sparkles } from "lucide-react";
 import { hasGlobeTouch } from "@/lib/globeTouch";
-import { featuresReleased } from "@/lib/appVersion";
+import { featuresReleased, joinedBeforeFeatures } from "@/lib/appVersion";
 import { claimIntro, releaseIntro } from "@/lib/introQueue";
 import { tapLight } from "@/lib/haptics";
 
@@ -12,16 +12,17 @@ const SEEN_KEY = "expandiax:whats-new:1.1";
 const QUIET = ["/touch", "/start", "/sign-in", "/sign-up", "/onboarding", "/join"];
 
 /**
- * Once, in the new iPhone app (1.1), when 1.1 is out on the App Store:
- * what's new, Chat and World Connect. It goes before the World Connect card
- * (lib/introQueue), which follows with its spotlight and Turn on.
+ * Once, in the new iPhone app (1.1), when 1.1 is out on the App Store, for
+ * people who were here before it (not new members, for whom nothing is
+ * new): what's new, Chat and World Connect. It goes before the World
+ * Connect card (lib/introQueue), which follows with its spotlight and Turn on.
  */
-export function WhatsNew() {
+export function WhatsNew({ joinedAt }: { joinedAt: string }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!hasGlobeTouch() || QUIET.some((p) => path.startsWith(p))) return;
+    if (!hasGlobeTouch() || !joinedBeforeFeatures(joinedAt) || QUIET.some((p) => path.startsWith(p))) return;
     try {
       if (localStorage.getItem(SEEN_KEY)) return;
     } catch {
