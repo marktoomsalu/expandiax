@@ -25,6 +25,16 @@ function Wordmark({ linked }: { linked: boolean }) {
 
 export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unreadNotifications?: number }) {
   const path = usePathname();
+  // Opening Notifications reads them all: the count goes at once (and comes
+  // back only with a newer count from the server).
+  const [unread, setUnread] = useState(unreadNotifications);
+  useEffect(() => setUnread(unreadNotifications), [unreadNotifications]);
+  useEffect(() => {
+    const read = () => setUnread(0);
+    window.addEventListener("expandiax:notifications-read", read);
+    return () => window.removeEventListener("expandiax:notifications-read", read);
+  }, []);
+  const shownUnread = path === "/notifications" ? 0 : unread;
   const [addOpen, setAddOpen] = useState(false);
   const addCountry = useRef<AddCountrySheetHandle>(null);
   const active = (href: string) =>
@@ -80,9 +90,9 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
             {user && (
               <Link href="/notifications" aria-label="Notifications" className="relative flex h-11 w-11 items-center justify-center text-white/70 hover:text-white">
                 <Bell size={21} />
-                {unreadNotifications > 0 && (
+                {shownUnread > 0 && (
                   <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-semibold text-white">
-                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                    {shownUnread > 9 ? "9+" : shownUnread}
                   </span>
                 )}
               </Link>

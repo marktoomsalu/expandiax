@@ -45,6 +45,7 @@ export default async function AllEventsPage({
     .eq("user_id", profile.id)
     .eq("is_public", true)
     .order("event_date", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(limit));
 
   const events = (data ?? []) as EventRow[];

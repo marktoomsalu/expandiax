@@ -40,9 +40,10 @@ export function EventList({ events, hrefBase, editable }: { events: Row[]; hrefB
     });
     return filtered.sort((a, b) => {
       if (sort === "top") return (b.rating ?? 0) - (a.rating ?? 0) || b.event_date.localeCompare(a.event_date);
-      return sort === "newest"
-        ? b.event_date.localeCompare(a.event_date)
-        : a.event_date.localeCompare(b.event_date);
+      // When it happened (the same day: the one added last first in "newest").
+      const when = (e: Row) => e.event_date || e.created_at.slice(0, 10);
+      const byDate = when(b).localeCompare(when(a)) || b.created_at.localeCompare(a.created_at);
+      return sort === "newest" ? byDate : -byDate;
     });
   }, [events, query, type, year, country, sort]);
 

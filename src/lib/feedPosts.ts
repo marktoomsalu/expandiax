@@ -78,7 +78,14 @@ export async function loadUserPosts(supabase: Supabase, actorId: string, opts: {
   let q = supabase.from("feed_events").select("*").eq("actor_id", actorId);
   if (opts.kind) q = q.eq("kind", opts.kind);
   const from = opts.offset ?? 0;
-  const { data } = await signMedia(await q.order("created_at", { ascending: false }).range(from, from + opts.limit - 1));
+  // When it happened, newest first (as trips are); the same day, the one
+  // added last first; no date at all, by when it was added.
+  const { data } = await signMedia(
+    await q
+      .order("visit_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .range(from, from + opts.limit - 1)
+  );
   return (data ?? []) as FeedEvent[];
 }
 

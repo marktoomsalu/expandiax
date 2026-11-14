@@ -1,3 +1,4 @@
+import { NotificationsSeen } from "@/components/NotificationsSeen";
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
@@ -40,10 +41,10 @@ export default async function NotificationsPage() {
     .limit(50);
   const notifications = (rows ?? []) as NotificationWithActor[];
 
-  const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
-  if (unreadIds.length > 0) {
-    await supabase.from("notifications").update({ read: true }).in("id", unreadIds);
-  }
+  // Opening this page reads them all: every unread one (not just the 50
+  // shown), so the bell's count goes. The ones that were new still look new
+  // here this time (they were read in above, before this).
+  await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
 
   const countryIds = notifications.filter((n) => n.target_kind === "country" && n.target_id).map((n) => n.target_id!);
   const eventIds = notifications.filter((n) => n.target_kind === "event" && n.target_id).map((n) => n.target_id!);
@@ -114,6 +115,7 @@ export default async function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-10">
+      <NotificationsSeen />
       <p className="eyebrow">Notifications</p>
       <h1 className="mt-2 text-3xl md:text-4xl">What&rsquo;s happened lately.</h1>
 

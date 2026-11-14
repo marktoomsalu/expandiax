@@ -29,6 +29,7 @@ export default async function EventsPage() {
       .select("*, event_media!event_media_event_id_fkey(*)")
       .eq("user_id", user.id)
       .order("event_date", { ascending: false })
+      .order("created_at", { ascending: false })
       .then((r) => signMedia(r)),
     loadDreamEvents(supabase, user.id),
   ]);
