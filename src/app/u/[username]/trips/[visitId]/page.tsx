@@ -5,6 +5,7 @@ import { countryByCode } from "@/lib/countries";
 import { signMedia } from "@/lib/signedMedia";
 import { TripView, type TripVisit } from "@/components/trip/TripView";
 import type { CommentWithAuthor } from "@/lib/types";
+import { loadCollaborators, namesTogether } from "@/lib/collab";
 
 type Props = { params: { username: string; visitId: string } };
 
@@ -19,10 +20,15 @@ async function load(username: string, visitId: string) {
       .from("country_visits")
       .select("*, visited_countries!inner(id, user_id, country_code), country_media!country_media_country_visit_id_fkey(*), country_cities(*)")
       .eq("id", visitId)
-      .eq("visited_countries.user_id", person.id)
       .maybeSingle()
   );
-  return data ? { person, visit: data as TripVisit } : null;
+  if (!data) return null;
+  const visit = data as TripVisit;
+  // Theirs, or a trip they're a collaborator on (one shared post, migration 075).
+  const collaborators = await loadCollaborators(supabase, "trip", visit.id);
+  const accepted = collaborators.filter((c) => c.status === "accepted");
+  if (visit.visited_countries.user_id !== person.id && !accepted.some((c) => c.user_id === person.id)) return null;
+  return { person, visit, accepted };
 }
 
 export async function generateMetadata({ params }: Props) {
@@ -39,15 +45,24 @@ export async function generateMetadata({ params }: Props) {
 export default async function TripPage({ params }: Props) {
   const got = await load(params.username, params.visitId);
   if (!got) notFound();
-  const { person, visit } = got;
+  const { person, visit, accepted } = got;
   const meta = countryByCode(visit.visited_countries.country_code);
   if (!meta) notFound();
   const supabase = createClient();
   const user = await getAuthUser();
   const mine = user?.id === person.id;
-  // Your own trip: the one trip page in My World (same tools, and Back
-  // leads to your country under Countries), wherever you came from.
-  if (mine) redirect(`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`);
+  // Your own trip (or one shared with you): the one trip page in My World
+  // (same tools, and Back leads to your country under Countries), wherever you came from.
+  if (user && (user.id === visit.visited_countries.user_id || accepted.some((c) => c.user_id === user.id))) {
+    redirect(`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`);
+  }
+  // Who else was there, besides the person whose page this is.
+  let ownerName = "";
+  if (visit.visited_countries.user_id !== person.id) {
+    const { data: o } = await supabase.from("profiles").select("display_name").eq("id", visit.visited_countries.user_id).maybeSingle();
+    ownerName = o?.display_name ?? "";
+  }
+  const together = namesTogether([ownerName, ...accepted.filter((c) => c.user_id !== person.id).map((c) => c.person?.display_name ?? "")].filter(Boolean));
   visit.country_cities = await locatePlaces(supabase, visit.country_cities, meta.code);
   const countryId = visit.visited_countries.id;
   const [{ data: like }, { data: comments }] = await Promise.all([
@@ -61,6 +76,7 @@ export default async function TripPage({ params }: Props) {
       visit={visit}
       meta={meta}
       owner={mine}
+      together={together || null}
       country={{
         href: `/u/${person.username}/countries/${meta.code.toLowerCase()}`,
         label: mine ? `All trips to ${meta.name}` : `${first}’s trips to ${meta.name}`,

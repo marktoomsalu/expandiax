@@ -19,13 +19,13 @@ type NotificationRow = {
   user_id: string;
   actor_id: string;
   kind: PushKind;
-  target_kind: "country" | "event" | "question" | "conversation" | null;
+  target_kind: "country" | "event" | "question" | "conversation" | "trip" | null;
   target_id: string | null;
   comment_body: string | null;
 };
 
 type PushKind = NotificationKind | "message" | "postcard";
-const PUSHED: PushKind[] = ["message", "postcard", "like", "comment", "follow", "follow_request", "follow_accepted", "question", "answer", "invite_joined"];
+const PUSHED: PushKind[] = ["message", "postcard", "like", "comment", "follow", "follow_request", "follow_accepted", "question", "answer", "invite_joined", "collab_invite", "collab_accepted"];
 
 // Which Settings switch each kind of notification answers to.
 const CATEGORY: Record<PushKind, "push_followers" | "push_messages" | "push_activity"> = {
@@ -37,6 +37,8 @@ const CATEGORY: Record<PushKind, "push_followers" | "push_messages" | "push_acti
   follow_request: "push_followers",
   follow_accepted: "push_followers",
   invite_joined: "push_followers",
+  collab_invite: "push_activity",
+  collab_accepted: "push_activity",
   question: "push_messages",
   answer: "push_messages",
 };
@@ -96,6 +98,9 @@ export async function POST(request: NextRequest) {
     const onComments = kind === "comment" ? "#comments" : "";
     if (record.target_kind === "country" && country && me) return `/u/${me}/countries/${country.country_code.toLowerCase()}`;
     if (record.target_kind === "event" && record.target_id && me) return `/u/${me}/events/${record.target_id}${onComments}`;
+    // A shared trip or event: an invitation opens Notifications (to accept or decline); an acceptance opens it.
+    if (kind === "collab_invite") return "/notifications";
+    if (kind === "collab_accepted" && record.target_kind === "trip") return "/notifications";
     if (record.target_kind === "question" && question && record.target_id) return `/explore/country/${question.country_code.toLowerCase()}#q-${record.target_id}`;
     if ((kind.startsWith("follow") || kind === "invite_joined") && actor?.username) return kind === "follow_request" ? "/notifications" : `/u/${actor.username}`;
     return "/notifications";
@@ -173,7 +178,7 @@ export async function POST(request: NextRequest) {
     name: actorName,
     others: others(Math.max(1, count - 1)),
     count: String(count),
-    thing: record.target_kind === "country" ? "trip" : "event",
+    thing: record.target_kind === "country" || record.target_kind === "trip" ? "trip" : "event",
     place: countryByCode(question?.country_code)?.name ?? "a place you've been",
     text: record.comment_body ?? "",
   };

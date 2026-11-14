@@ -20,6 +20,8 @@ import { formatDate } from "@/lib/utils";
 import { focalPosition } from "@/lib/media";
 import type { CommentWithAuthor, Event, EventFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
+import { loadCollaborators, namesTogether } from "@/lib/collab";
+import { Users } from "lucide-react";
 
 export async function generateMetadata({
   params,
@@ -38,7 +40,6 @@ export async function generateMetadata({
     .from("events")
     .select("title, subtitle, city, country_name, cover_media_id, event_media!event_media_event_id_fkey(id, public_url, media_type)")
     .eq("id", params.id)
-    .eq("user_id", profile.id)
     .maybeSingle();
   if (!event) return { title: "Event" };
 
@@ -74,13 +75,24 @@ export default async function PublicEventPage({
     .from("events")
     .select("*, event_media!event_media_event_id_fkey(*)")
     .eq("id", params.id)
-    .eq("user_id", profile.id)
     .maybeSingle());
   const event = data as EventFull | null;
   if (!event) notFound();
+  // Theirs, or an event they're a collaborator on (one shared post, migration 075).
+  const collaborators = (await loadCollaborators(supabase, "event", event.id)).filter((c) => c.status === "accepted");
+  if (event.user_id !== profile.id && !collaborators.some((c) => c.user_id === profile.id)) notFound();
 
   const viewer = await getAuthUser();
   const isOwnProfile = viewer?.id === profile.id;
+  // Editing: its owner, or a collaborator given edit rights.
+  const canEdit = !!viewer && (viewer.id === event.user_id || collaborators.some((c) => c.user_id === viewer.id && c.can_edit));
+  // Who else was there, besides the person whose page this is.
+  let ownerName = "";
+  if (event.user_id !== profile.id) {
+    const { data: o } = await supabase.from("profiles").select("display_name").eq("id", event.user_id).maybeSingle();
+    ownerName = o?.display_name ?? "";
+  }
+  const together = namesTogether([ownerName, ...collaborators.filter((c) => c.user_id !== profile.id).map((c) => c.person?.display_name ?? "")].filter(Boolean));
 
   const [{ data: sameTitle }, { data: commentRows }] = await Promise.all([
     supabase
@@ -136,6 +148,11 @@ export default async function PublicEventPage({
               <MapPin size={14} aria-hidden /> {[event.venue, event.city, meta?.name].filter(Boolean).join(", ")}
             </span>
             <RatingStars value={event.rating} tone="light" />
+            {together && (
+              <span className="inline-flex items-center gap-1.5">
+                <Users size={14} aria-hidden /> with {together}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -145,10 +162,14 @@ export default async function PublicEventPage({
           <Link href={`/u/${profile.username}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
             <ArrowLeft size={15} /> {profile.display_name}&rsquo;s archive
           </Link>
-          {isOwnProfile ? (
+          {canEdit ? (
             <Link href={`/events/${event.id}/edit`} className="inline-flex items-center gap-1.5 text-sm text-accent underline-offset-4 hover:underline">
               <Pencil size={14} /> Edit
             </Link>
+          ) : isOwnProfile ? (
+            <span className="inline-flex items-center gap-1.5 text-sm text-muted">
+              <Users size={14} aria-hidden /> Shared with you
+            </span>
           ) : (
             viewer && (
               <IWasThereButton
@@ -248,7 +269,7 @@ export default async function PublicEventPage({
         <section className="mt-12 border-t border-line pt-8" aria-labelledby="comments-h">
           <h2 id="comments-h" className="text-xl">Comments</h2>
           <div className="mt-4">
-            <CommentSection kind="event" targetId={event.id} posterId={profile.id} initialComments={comments} />
+            <CommentSection kind="event" targetId={event.id} posterId={event.user_id} initialComments={comments} />
           </div>
         </section>
 

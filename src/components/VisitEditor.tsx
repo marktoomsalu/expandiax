@@ -42,7 +42,18 @@ function useSavedAgo(savedAt: number | null) {
   return savedAt === null ? null : savedAgoLabel(savedAt, now);
 }
 
-export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; cities: CountryCity[]; country: TripCountry }) {
+export function VisitEditor({
+  visit,
+  cities,
+  country,
+  isOwner = true,
+}: {
+  visit: CountryVisit;
+  cities: CountryCity[];
+  country: TripCountry;
+  /** false: a collaborator with edit rights, who can change the trip but not who sees it. */
+  isOwner?: boolean;
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [title, setTitle] = useState(visit.title ?? "");
@@ -257,6 +268,7 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
         <TripKindToggle value={kind} onChange={setKind} className="mt-2" />
       </Basket>
 
+      {isOwner && (
       <Basket id="visibility" icon={Lock} title="Who can see it" hint="Your country stays on your map either way.">
         <AudiencePicker value={audience} onChange={(next) => void setVisibility(next)} />
         <label className={`mt-3 flex items-start gap-2.5 text-sm ${audience === "only_me" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
@@ -277,6 +289,7 @@ export function VisitEditor({ visit, cities, country }: { visit: CountryVisit; c
           </span>
         </label>
       </Basket>
+      )}
 
       <Basket icon={Calendar} title="When" hint={kind === "lived" ? "When you lived there, or since when, if you still do." : "Set the dates for your trip."}>
         <VisitDateFields

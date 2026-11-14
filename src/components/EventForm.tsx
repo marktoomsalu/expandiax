@@ -43,10 +43,13 @@ export function EventForm({
   event,
   recentArtists = [],
   userId,
+  isOwner = true,
 }: {
   event?: EventFull;
   recentArtists?: RecentArtist[];
   userId: string;
+  /** false: a collaborator with edit rights (migration 075): the details and photos, not who sees it. */
+  isOwner?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -521,6 +524,8 @@ export function EventForm({
           </div>
         </div>
 
+        {isOwner && (
+        <>
         <div>
           <p className="mb-2 text-sm font-medium">Who can see it</p>
           <AudiencePicker value={f.audience} onChange={(v) => set("audience", v)} />
@@ -543,6 +548,8 @@ export function EventForm({
             Show in feed
           </label>
         </div>
+        </>
+        )}
       </section>
 
       {error && (

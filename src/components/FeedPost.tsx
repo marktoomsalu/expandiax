@@ -24,6 +24,7 @@ export function FeedPost({
   actionLabel: ownAction,
   hideWhen = false,
   href: ownHref,
+  tripId,
 }: {
   item: FeedEvent;
   ctx: PostContext;
@@ -37,6 +38,8 @@ export function FeedPost({
   hideWhen?: boolean;
   /** Where tapping it goes (a single trip's page); otherwise worked out below. */
   href?: string;
+  /** The one trip this post is (lib/userTrips), for who shared it. */
+  tripId?: string;
 }) {
   const actor = ctx.actors.get(item.actor_id);
   if (!actor) return null;
@@ -86,6 +89,7 @@ export function FeedPost({
         stock={item.kind === "country" && media.length === 0 ? stockPhotoFor(item.country_code, item.actor_id) : null}
         priority={index === 0}
         actor={actor}
+        together={(item.kind === "event" ? ctx.collabs.get(key) : ctx.collabs.get(`trip:${tripId ?? trip ?? ""}`)) ?? undefined}
         actionLabel={ownAction ?? (item.kind === "country" ? "added a country" : `logged a ${typeLabel}`)}
         when={hideWhen ? "" : formatRelative(item.created_at)}
         actions={<LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={ctx.likedByMe.has(key)} />}

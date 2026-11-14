@@ -21,6 +21,12 @@ function tripMedia(visit: CountryVisit, country: TripCountry, all: CountryMedia[
   return [...own].sort((a, b) => (a.id === coverId ? -1 : b.id === coverId ? 1 : a.display_order - b.display_order));
 }
 
+/** A trip shared with someone (migration 075), as one of theirs. */
+export function sharedTrip(visit: CountryVisit & { visited_countries: TripCountry; country_media: CountryMedia[] }): Trip {
+  const { visited_countries: country, country_media, ...rest } = visit;
+  return { visit: rest as CountryVisit, country, media: tripMedia(rest as CountryVisit, country, country_media ?? []) };
+}
+
 /** Every trip in these countries (as the profile loads them), newest first. */
 export function tripsOf(countries: (TripCountry & { country_visits: CountryVisit[]; country_media: CountryMedia[] })[]): Trip[] {
   return countries

@@ -5,6 +5,23 @@ import { visitSortKey } from "./utils";
 import { orderStops, placesInCountry, stayLength, stayMonth, stayWhen, tripName } from "./tripPlaces";
 import type { StayView } from "@/components/StayRow";
 import type { VisitedCountryFull } from "./types";
+import type { CollabTrip } from "./collabData";
+
+/**
+ * A country with the trips there shared with this person added (migration
+ * 075), and which those are: they join its timeline, places and photos.
+ */
+export function withSharedTrips(visited: VisitedCountryFull, shared: CollabTrip[]) {
+  const info = new Map(shared.map((t) => [t.id, t.collab]));
+  if (!shared.length) return { merged: visited, info };
+  const merged: VisitedCountryFull = {
+    ...visited,
+    country_visits: [...visited.country_visits, ...shared],
+    country_media: [...visited.country_media, ...shared.flatMap((t) => t.country_media)],
+    country_cities: [...visited.country_cities, ...shared.flatMap((t) => t.country_cities)],
+  };
+  return { merged, info };
+}
 
 /** "Kotor", "Kotor & Budva", "Kotor, Budva & Perast", "Kotor, Budva & 3 more". */
 export function listCities(cities: string[]): string {
@@ -19,7 +36,12 @@ export function listCities(cities: string[]): string {
  * the country's picture. Used for your own country page and for the same
  * page as others see it.
  */
-export function buildCountryView(visited: VisitedCountryFull, meta: { code: string; name: string }) {
+export function buildCountryView(
+  visited: VisitedCountryFull,
+  meta: { code: string; name: string },
+  /** Trips shared with them (withSharedTrips): whose each is, and whether they may edit it. */
+  shared?: Map<string, CollabTrip["collab"]>
+) {
   const visits = [...visited.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
   const images = visited.country_media.filter((m) => m.media_type === "image").sort((a, b) => a.display_order - b.display_order);
   const tripCover = (visitId: string, coverId: string | null) => {
@@ -38,6 +60,7 @@ export function buildCountryView(visited: VisitedCountryFull, meta: { code: stri
       name: tripName(v, meta.name, stops),
       kind: v.kind,
       current: v.kind === "lived" && !!v.is_current,
+      collab: shared?.get(v.id),
       places: stops.length ? listCities(stops) : v.highlight.trim() || null,
       when: stayWhen(v),
       length: stayLength(v),

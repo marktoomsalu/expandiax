@@ -13,6 +13,8 @@ import { CountryPlaces } from "@/components/CountryPlaces";
 import type { VisitedCountryFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { locatePlaces } from "@/lib/locatePlaces";
+import { withSharedTrips } from "@/lib/countryView";
+import { collabTripsOf } from "@/lib/collabData";
 
 export default async function ManageCountryPage({ params }: { params: { code: string } }) {
   const country = countryByCode(params.code);
@@ -39,7 +41,9 @@ export default async function ManageCountryPage({ params }: { params: { code: st
   // Every place of every trip on the map, even ones saved without coordinates.
   if (visited) visited.country_cities = await locatePlaces(supabase, visited.country_cities, meta.code);
   if (visited && profile) {
-    const { visits, cities, heroPhoto, trips, places } = buildCountryView(visited, meta);
+    // With the trips here that are shared with you (migration 075).
+    const { merged, info } = withSharedTrips(visited, await collabTripsOf(supabase, user.id, meta.code));
+    const { visits, cities, heroPhoto, trips, places } = buildCountryView(merged, meta, info);
     const base = `/my-world/${meta.code.toLowerCase()}`;
     // A place opens on its most recent trip, scrolled to that place.
     const placeHref = (cityIds: string[]) => {

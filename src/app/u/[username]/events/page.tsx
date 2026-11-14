@@ -1,3 +1,4 @@
+import { collabEventsOf } from "@/lib/collabData";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
@@ -48,7 +49,11 @@ export default async function AllEventsPage({
     .order("created_at", { ascending: false })
     .limit(limit));
 
-  const events = (data ?? []) as EventRow[];
+  // With the events shared with them (migration 075), in the order they happened.
+  const shared = (await collabEventsOf(supabase, profile.id)).filter((e) => e.is_public);
+  const events = [...((data ?? []) as EventRow[]), ...(shared as EventRow[])]
+    .sort((a, b) => b.event_date.localeCompare(a.event_date) || b.created_at.localeCompare(a.created_at))
+    .slice(0, limit);
 
   return (
     <div className="mx-auto max-w-shell px-5 py-10">

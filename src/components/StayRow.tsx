@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Eye, Home, Image as ImageIcon, Lock, MoreHorizontal, Pencil, Plane, SquareArrowOutUpRight, Trash2, Users } from "lucide-react";
+import { ChevronRight, Eye, Home, Image as ImageIcon, Lock, LogOut, MoreHorizontal, Pencil, Plane, SquareArrowOutUpRight, Trash2, Users } from "lucide-react";
 import type { Audience } from "@/lib/audience";
 import { createClient } from "@/lib/supabase/client";
 import type { StockPhoto } from "@/lib/stockPhotos";
@@ -18,6 +18,8 @@ export type StayView = {
   kind: "trip" | "lived";
   /** A stay still going on ("I still live here"). */
   current?: boolean;
+  /** Shared with this person (migration 075): whose it is, whether they may edit it, and their part (to leave). */
+  collab?: { ownerName: string; canEdit: boolean; collabId: string };
   places: string | null; // "Bled, Slovenia"
   when: string; // "8 – 10 Aug 2025"
   length: string | null; // "3 days"
@@ -68,6 +70,14 @@ export function StayRow({
 
   async function remove() {
     setRemoving(true);
+    // Shared with you: leaving takes it off your page; it stays for everyone else.
+    if (stay.collab) {
+      await createClient().rpc("remove_collab", { p_id: stay.collab.collabId });
+      setConfirm(false);
+      setRemoving(false);
+      router.refresh();
+      return;
+    }
     const supabase = createClient();
     const { error } = await supabase.from("country_visits").delete().eq("id", stay.id);
     // The files go too, not just their rows.
@@ -117,6 +127,11 @@ export function StayRow({
           <span className="pointer-events-none min-w-0 flex-1">
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate font-serif text-base leading-tight sm:text-lg">{stay.name}</span>
+              {stay.collab && (
+                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                  <Users size={9} aria-hidden /> with {stay.collab.ownerName.split(" ")[0]}
+                </span>
+              )}
               {stay.current && (
                 <span className="inline-flex shrink-0 items-center rounded-full bg-[#fa51a2]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#d6337f] dark:text-[#ff7cbd]">Now</span>
               )}
@@ -154,26 +169,47 @@ export function StayRow({
                 <Link href={href} className="flex items-center gap-2 px-4 py-2.5 hover:bg-raised">
                   <SquareArrowOutUpRight size={15} /> Open
                 </Link>
-                <Link href={`${href}/edit`} className="flex items-center gap-2 px-4 py-2.5 hover:bg-raised">
-                  <Pencil size={15} /> Edit
-                </Link>
-                {/* Who can see it and Show in feed, together on the edit page. */}
-                <Link href={`${href}/edit#visibility`} className="flex items-center gap-2 px-4 py-2.5 hover:bg-raised">
-                  <Eye size={15} />
-                  <span className="flex-1">Visibility</span>
-                  <span className="text-xs text-muted">{stay.audience === "everyone" ? "Everyone" : stay.audience === "friends" ? "Friends" : "Only me"}</span>
-                </Link>
-                <div className="border-t border-line" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenu(false);
-                    setConfirm(true);
-                  }}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-red-700 hover:bg-raised dark:text-red-400"
-                >
-                  <Trash2 size={15} /> Remove
-                </button>
+                {(!stay.collab || stay.collab.canEdit) && (
+                  <Link href={`${href}/edit`} className="flex items-center gap-2 px-4 py-2.5 hover:bg-raised">
+                    <Pencil size={15} /> Edit
+                  </Link>
+                )}
+                {stay.collab ? (
+                  // Shared with you: who sees it is its owner's to say; you can leave it.
+                  <>
+                    <div className="border-t border-line" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenu(false);
+                        setConfirm(true);
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-red-700 hover:bg-raised dark:text-red-400"
+                    >
+                      <LogOut size={15} /> Leave
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* Who can see it and Show in feed, together on the edit page. */}
+                    <Link href={`${href}/edit#visibility`} className="flex items-center gap-2 px-4 py-2.5 hover:bg-raised">
+                      <Eye size={15} />
+                      <span className="flex-1">Visibility</span>
+                      <span className="text-xs text-muted">{stay.audience === "everyone" ? "Everyone" : stay.audience === "friends" ? "Friends" : "Only me"}</span>
+                    </Link>
+                    <div className="border-t border-line" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenu(false);
+                        setConfirm(true);
+                      }}
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-red-700 hover:bg-raised dark:text-red-400"
+                    >
+                      <Trash2 size={15} /> Remove
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -193,9 +229,9 @@ export function StayRow({
       {!readOnly && (
       <ConfirmDialog
         open={confirm}
-        title={`Remove ${stay.name}?`}
-        body="Its places, photos and notes will be deleted from your archive. This cannot be undone."
-        confirmLabel="Remove"
+        title={stay.collab ? `Leave ${stay.name}?` : `Remove ${stay.name}?`}
+        body={stay.collab ? `It comes off your profile and Countries. It stays ${stay.collab.ownerName.split(" ")[0]}'s, and for everyone else on it.` : "Its places, photos and notes will be deleted from your archive. This cannot be undone."}
+        confirmLabel={stay.collab ? "Leave" : "Remove"}
         busy={removing}
         onConfirm={remove}
         onCancel={() => setConfirm(false)}

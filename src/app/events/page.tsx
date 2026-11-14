@@ -13,6 +13,7 @@ import { loadDreamEvents } from "@/lib/dreams";
 import { DreamEvents } from "@/components/dreams/DreamEvents";
 import { DraftsList } from "@/components/Drafts";
 import { MemoryNudge } from "@/components/MemoryNudge";
+import { collabEventsOf } from "@/lib/collabData";
 
 export const metadata = { title: "Events" };
 
@@ -23,7 +24,7 @@ export default async function EventsPage() {
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const [{ data }, dreams] = await Promise.all([
+  const [{ data }, dreams, shared] = await Promise.all([
     supabase
       .from("events")
       .select("*, event_media!event_media_event_id_fkey(*)")
@@ -32,9 +33,13 @@ export default async function EventsPage() {
       .order("created_at", { ascending: false })
       .then((r) => signMedia(r)),
     loadDreamEvents(supabase, user.id),
+    collabEventsOf(supabase, user.id),
   ]);
 
-  const events = (data ?? []) as Row[];
+  // Yours, and the ones shared with you (migration 075), in the order they happened.
+  const events = [...((data ?? []) as Row[]), ...shared].sort(
+    (a, b) => b.event_date.localeCompare(a.event_date) || b.created_at.localeCompare(a.created_at)
+  ) as Row[];
 
   const uniqueTitles = new Set(events.map((e) => e.title)).size;
   const uniqueCountries = new Set(events.map((e) => e.country_code)).size;
@@ -75,7 +80,7 @@ export default async function EventsPage() {
       <DraftsList kind="event" className="mt-8" />
 
       {/* Events with no photos or videos of their own yet: each opens where they're added. */}
-      <MemoryNudge events={events.filter((e) => e.event_media.length === 0).map((e) => ({ key: e.id, label: e.title, href: `/events/${e.id}/edit` }))} />
+      <MemoryNudge events={events.filter((e) => e.user_id === user.id && e.event_media.length === 0).map((e) => ({ key: e.id, label: e.title, href: `/events/${e.id}/edit` }))} />
 
       {events.length === 0 ? (
         <>

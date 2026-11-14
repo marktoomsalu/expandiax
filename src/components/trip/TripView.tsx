@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, CalendarDays, ChevronRight, Home, MapPin, MessageSquareText, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronRight, Home, MapPin, MessageSquareText, Pencil, Plus, Users } from "lucide-react";
 import type { Country } from "@/lib/countries";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { describeDays } from "@/lib/photoDates";
@@ -39,6 +39,9 @@ export function TripView({
   country,
   created = false,
   social = null,
+  canEdit = owner,
+  together = null,
+  yours = owner,
 }: {
   visit: TripVisit;
   meta: Country;
@@ -47,6 +50,12 @@ export function TripView({
   country: { href: string; label: string; allTrips: string };
   created?: boolean;
   social?: { liked: boolean; comments: CommentWithAuthor[] } | null;
+  /** Its owner, or a collaborator given edit rights (migration 075). */
+  canEdit?: boolean;
+  /** Who else shared it: "Melody & Anna" (shown as "with Melody & Anna"). */
+  together?: string | null;
+  /** The viewer's own memory (theirs, or shared with them): "Where you lived". */
+  yours?: boolean;
 }) {
   const base = `/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`;
   const stops = orderStops(visit.country_cities);
@@ -76,7 +85,7 @@ export function TripView({
   return (
     <div>
       {/* Edit, always in reach: it floats just under the header while you scroll. */}
-      {owner && (
+      {canEdit && (
         <div className="pointer-events-none fixed inset-x-0 z-30 mx-auto flex max-w-3xl justify-end px-5" style={{ top: "calc(env(safe-area-inset-top) + 57px + 20px)" }}>
           <Link
             href={`${base}/edit`}
@@ -114,6 +123,11 @@ export function TripView({
           <p className="mt-2 flex items-center gap-2 text-sm text-white/85">
             <CalendarDays size={15} aria-hidden /> {when}
           </p>
+          {together && (
+            <p className="mt-1 flex items-center gap-2 text-sm text-white/85">
+              <Users size={15} aria-hidden /> with {together}
+            </p>
+          )}
           <p className="mt-1 text-sm text-white/75">
             {[howLong, stops.length ? `${stops.length} ${stops.length === 1 ? "place" : "places"}` : null, days ? `${days} ${days === 1 ? "day" : "days"}` : null, photos ? `${photos} ${photos === 1 ? "photo" : "photos"}` : null]
               .filter(Boolean)
@@ -123,7 +137,7 @@ export function TripView({
       </div>
 
       <div className="mx-auto max-w-3xl px-5 pb-16 pt-6">
-        {owner && created && (
+        {canEdit && created && (
           <p role="status" className="mb-5 rounded-2xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm">
             Added to your map. Add places, photos and the story whenever you like -{" "}
             <Link href={`${base}/edit`} className="font-medium text-accent hover:underline">
@@ -133,10 +147,10 @@ export function TripView({
           </p>
         )}
 
-        {owner && <QueuedMedia parentId={visit.id} />}
+        {canEdit && <QueuedMedia parentId={visit.id} />}
 
         {/* Nothing written and no photos yet: one clear way to start. */}
-        {owner && empty && (
+        {canEdit && empty && (
           <Link href={`${base}/edit`} className="mt-2 flex items-center gap-4 rounded-2xl bg-accent px-5 py-5 text-white shadow-lg shadow-accent/25 transition-transform active:scale-[0.99]">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20">
               <Plus size={24} aria-hidden />
@@ -178,13 +192,13 @@ export function TripView({
         )}
 
         {/* Cities, towns and regions */}
-        {(stops.length > 0 || owner) && (
+        {(stops.length > 0 || canEdit) && (
           <section className="mt-8" aria-labelledby="places-h">
             <div className="flex items-center justify-between gap-3">
               <h2 id="places-h" className="font-serif text-2xl">
-                {lived ? (owner ? "Where you lived & explored" : "Where they lived & explored") : "Cities & regions visited"}
+                {lived ? (yours ? "Where you lived & explored" : "Where they lived & explored") : "Cities & regions visited"}
               </h2>
-              {owner && (
+              {canEdit && (
                 <Link href={`${base}/edit#places`} className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-accent hover:underline">
                   <Plus size={16} aria-hidden /> Add place
                 </Link>
@@ -197,7 +211,7 @@ export function TripView({
             ) : (
               <>
                 <p className="mt-0.5 text-sm text-muted">
-                  {lived ? `Where ${owner ? "you" : "they"} lived, and the cities, towns and regions ${owner ? "you" : "they"} got to know from there.` : `The cities, towns and regions of this ${noun}, in order.`} Tap one to see its photos.
+                  {lived ? `Where ${yours ? "you" : "they"} lived, and the cities, towns and regions ${yours ? "you" : "they"} got to know from there.` : `The cities, towns and regions of this ${noun}, in order.`} Tap one to see its photos.
                 </p>
                 <TripPlaceCards
                   places={stops.map((s) => {

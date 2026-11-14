@@ -7,6 +7,8 @@ import { DeleteEventButton } from "@/components/DeleteEventButton";
 import { dedupeRecentArtists } from "@/lib/events";
 import type { EventFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
+import { loadCollaborators } from "@/lib/collab";
+import { CollaboratorsManager } from "@/components/CollaboratorsManager";
 
 export const metadata = { title: "Edit event" };
 
@@ -27,7 +29,6 @@ export default async function EditEventPage({
       .from("events")
       .select("*, event_media!event_media_event_id_fkey(*)")
       .eq("id", params.id)
-      .eq("user_id", user.id)
       .maybeSingle(),
     supabase
       .from("events")
@@ -41,6 +42,10 @@ export default async function EditEventPage({
 
   const event = data as EventFull | null;
   if (!event) notFound();
+  // Yours, or shared with you with edit rights (migration 075).
+  const isOwner = event.user_id === user.id;
+  const collaborators = await loadCollaborators(supabase, "event", event.id);
+  if (!isOwner && !collaborators.some((c) => c.user_id === user.id && c.status === "accepted" && c.can_edit)) notFound();
 
   const recentArtists = dedupeRecentArtists(artistRows ?? []);
 
@@ -72,12 +77,21 @@ export default async function EditEventPage({
       </div>
 
       <div className="mt-8">
-        <EventForm event={event} recentArtists={recentArtists} userId={user.id} />
+        <EventForm event={event} recentArtists={recentArtists} userId={user.id} isOwner={isOwner} />
       </div>
 
-      <div className="mt-12 border-t border-line pt-6">
-        <DeleteEventButton eventId={event.id} mediaPaths={event.event_media.map((m) => m.storage_path)} />
-      </div>
+      {/* Who was there: one shared post (migration 075). */}
+      <section id="collaborators" className="mt-10 scroll-mt-24 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5">
+        <h2 className="font-serif text-lg">Who was there with you</h2>
+        <p className="mb-3 text-xs text-muted">{isOwner ? "Share this event with people who were there: one post on all your profiles." : "This event is shared between you."}</p>
+        <CollaboratorsManager kind="event" targetId={event.id} me={user.id} isOwner={isOwner} initial={collaborators} />
+      </section>
+
+      {isOwner && (
+        <div className="mt-12 border-t border-line pt-6">
+          <DeleteEventButton eventId={event.id} mediaPaths={event.event_media.map((m) => m.storage_path)} />
+        </div>
+      )}
     </div>
   );
 }

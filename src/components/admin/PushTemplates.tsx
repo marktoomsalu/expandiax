@@ -27,6 +27,7 @@ const GROUPS: { label: string; note: string; kinds: [string, string][] }[] = [
       ["follow_request_many", "…more requests before they've looked"],
       ["follow_accepted", "Their follow request is accepted"],
       ["invite_joined", "A friend joins through their invite link"],
+      ["collab_invite", "Someone invites them to share a trip or event"],
     ],
   },
   {
@@ -38,6 +39,7 @@ const GROUPS: { label: string; note: string; kinds: [string, string][] }[] = [
       ["question", "Someone asks them about a place they've been"],
       ["answer", "Someone answers their question"],
       ["answer_many", "…more people answer before they've looked"],
+      ["collab_accepted", "Someone accepts their invitation to a shared trip or event"],
     ],
   },
   {

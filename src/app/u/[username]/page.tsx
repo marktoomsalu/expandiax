@@ -10,7 +10,8 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { WorldMapLink } from "@/components/WorldMapLink";
 import { PostTile } from "@/components/PostTile";
 import { loadPostContext, loadUserPosts } from "@/lib/feedPosts";
-import { tripAsPost, tripsOf } from "@/lib/userTrips";
+import { sharedTrip, tripAsPost, tripsOf } from "@/lib/userTrips";
+import { collabEventsOf, collabTripsOf } from "@/lib/collabData";
 import { FollowButton } from "@/components/FollowButton";
 import { ReportButton } from "@/components/ReportButton";
 import { BlockButton } from "@/components/BlockButton";
@@ -19,7 +20,7 @@ import { EarlyExplorerBadge } from "@/components/EarlyExplorerBadge";
 import { SignOutButton } from "@/components/SignOutButton";
 import { TOTAL_COUNTRIES, countryByCode } from "@/lib/countries";
 import { isTerritoryCode, TOTAL_TERRITORIES } from "@/lib/territories";
-import { hexToRgbTriplet } from "@/lib/utils";
+import { hexToRgbTriplet, visitSortKey } from "@/lib/utils";
 import { evaluateBadges, isEarlyExplorer } from "@/lib/badges";
 import { buildAllTimeStats, type CountryStatInput, type EventStatInput } from "@/lib/stats";
 import { TOTAL_US_STATES } from "@/lib/usStates";
@@ -172,7 +173,13 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   const realCountries = countries.filter((c) => !isTerritoryCode(c.country_code));
   const territories = countries.filter((c) => isTerritoryCode(c.country_code));
   // The preview shows only events for everyone, as someone who doesn't follow you sees them.
-  const events = ((eventsData ?? []) as EventRow[]).filter((e) => !preview || (e.audience ?? "everyone") === "everyone");
+  // Theirs, and the trips and events shared with them (migration 075), as the viewer may see them.
+  const [sharedEvents, sharedTrips] = await Promise.all([collabEventsOf(supabase, profile.id), collabTripsOf(supabase, profile.id)]);
+  const forPreview = <T extends { audience?: string | null }>(x: T) => !preview || (x.audience ?? "everyone") === "everyone";
+  const events = [...((eventsData ?? []) as EventRow[]), ...(sharedEvents as EventRow[])]
+    .filter(forPreview)
+    .sort((a, b) => b.event_date.localeCompare(a.event_date) || b.created_at.localeCompare(a.created_at));
+  const sharedTripList = sharedTrips.filter(forPreview);
   const usStates = (usStatesData ?? []) as VisitedUSState[];
   const codes = countries.map((c) => c.country_code);
   const countryCodes = realCountries.map((c) => c.country_code);
@@ -180,11 +187,14 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   const { visitCounts, livedCodes } = mapStays(countries);
   const home = countryByCode(profile.home_country_code);
 
+  // A shared trip counts as a visit to its country (which accepting put on their map).
+  const sharedYears = new Map<string, number[]>();
+  for (const t of sharedTripList) sharedYears.set(t.visited_countries.country_code, [...(sharedYears.get(t.visited_countries.country_code) ?? []), t.year]);
   const statCountries: CountryStatInput[] = realCountries.map((c) => ({
     country_code: c.country_code,
     is_favourite: c.is_favourite,
     photo_count: c.country_media.length,
-    visits: c.country_visits.map((v) => ({ year: v.year })),
+    visits: [...c.country_visits.map((v) => ({ year: v.year })), ...(sharedYears.get(c.country_code) ?? []).map((year) => ({ year }))],
   }));
   const statEvents: EventStatInput[] = events.map((e) => ({
     id: e.id,
@@ -215,9 +225,11 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   // Recent trips: one card per trip (its own dates and photos), newest by
   // when it happened. Recent events: their latest event posts.
   // (country_visits(*) is loaded in full; VisitLite is just what the rest of the page uses.)
-  const trips = tripsOf(countries as unknown as Parameters<typeof tripsOf>[0]);
+  const trips = [...tripsOf(countries as unknown as Parameters<typeof tripsOf>[0]), ...sharedTripList.map((t) => sharedTrip(t))].sort((a, b) =>
+    visitSortKey(b.visit).localeCompare(visitSortKey(a.visit))
+  );
   const recentTrips = trips.slice(0, 3).map((t) => ({ trip: t, ...tripAsPost(t) }));
-  const eventPosts = await loadUserPosts(supabase, profile.id, { kind: "event", limit: 4 });
+  const eventPosts = await loadUserPosts(supabase, profile.id, { kind: "event", limit: 4, alsoEvents: sharedEvents.map((e) => e.id) });
   const recentEvents = eventPosts.slice(0, 3);
   const postCtx = await loadPostContext(supabase, viewer?.id ?? null, recentEvents);
 

@@ -2,7 +2,8 @@ import { NotificationsSeen } from "@/components/NotificationsSeen";
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { Clock, Heart, HelpCircle, MessageCircle, MessagesSquare, PartyPopper, UserCheck, UserPlus } from "lucide-react";
+import { Clock, Heart, HelpCircle, MessageCircle, MessagesSquare, PartyPopper, UserCheck, UserPlus, Users } from "lucide-react";
+import { CollabInviteActions } from "@/components/CollabInviteActions";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { FollowRequestActions } from "@/components/FollowRequestActions";
@@ -22,6 +23,8 @@ const ICONS = {
   question: HelpCircle,
   answer: MessagesSquare,
   invite_joined: PartyPopper,
+  collab_invite: Users,
+  collab_accepted: Users,
 };
 
 export default async function NotificationsPage() {
@@ -61,6 +64,22 @@ export default async function NotificationsPage() {
       : Promise.resolve({ data: [] as { id: string; country_code: string }[] }),
   ]);
   const questionById = new Map((questionRows ?? []).map((r) => [r.id, r]));
+
+  // Shared trips and events (migration 075): what each invitation is about,
+  // and which invitations are still open (to accept or decline).
+  const tripIds = notifications.filter((n) => n.target_kind === "trip" && n.target_id).map((n) => n.target_id!);
+  const collabEventIds = notifications.filter((n) => n.kind.startsWith("collab_") && n.target_kind === "event" && n.target_id).map((n) => n.target_id!);
+  const [{ data: tripRows }, { data: collabEventRows }, { data: openInvites }] = await Promise.all([
+    tripIds.length
+      ? supabase.from("country_visits").select("id, title, kind, visited_countries!inner(user_id, country_code, country_name)").in("id", tripIds)
+      : Promise.resolve({ data: [] as unknown[] }),
+    collabEventIds.length ? supabase.from("events").select("id, title, user_id").in("id", collabEventIds) : Promise.resolve({ data: [] as unknown[] }),
+    supabase.from("post_collaborators").select("id, kind, target_id").eq("user_id", user.id).eq("status", "invited"),
+  ]);
+  type TripRow = { id: string; title: string; kind: string; visited_countries: { user_id: string; country_code: string; country_name: string } | { user_id: string; country_code: string; country_name: string }[] };
+  const tripById = new Map(((tripRows ?? []) as TripRow[]).map((r) => [r.id, { ...r, vc: Array.isArray(r.visited_countries) ? r.visited_countries[0] : r.visited_countries }]));
+  const collabEventById = new Map(((collabEventRows ?? []) as { id: string; title: string; user_id: string }[]).map((r) => [r.id, r]));
+  const openInvite = new Map(((openInvites ?? []) as { id: string; kind: string; target_id: string }[]).map((r) => [`${r.kind}:${r.target_id}`, r.id]));
   const countryById = new Map((countryRows ?? []).map((r) => [r.id, r]));
   const eventById = new Map((eventRows ?? []).map((r) => [r.id, r]));
 
@@ -104,6 +123,23 @@ export default async function NotificationsPage() {
       if (!e) return null;
       return { label: e.title, href: `/u/${username}/events/${n.target_id}` };
     }
+    // A shared trip: yours (someone accepted) opens in My World; someone else's on their page.
+    if (n.target_kind === "trip" && n.target_id) {
+      const tr = tripById.get(n.target_id);
+      if (!tr?.vc) return null;
+      const meta = countryByCode(tr.vc.country_code);
+      const label = tr.title?.trim() || `${tr.kind === "lived" ? "Lived in" : "Trip to"} ${tr.vc.country_name}`;
+      const href =
+        tr.vc.user_id === user!.id || n.kind === "collab_accepted"
+          ? `/my-world/${tr.vc.country_code.toLowerCase()}/visits/${n.target_id}`
+          : `/u/${n.actor?.username ?? username}/trips/${n.target_id}`;
+      return { label: `${meta?.flag ?? ""} ${label}`.trim(), href };
+    }
+    if (n.kind.startsWith("collab_") && n.target_kind === "event" && n.target_id) {
+      const ev = collabEventById.get(n.target_id);
+      if (!ev) return null;
+      return { label: ev.title, href: n.kind === "collab_accepted" ? `/u/${username}/events/${n.target_id}` : `/u/${n.actor?.username ?? username}/events/${n.target_id}` };
+    }
     if (n.target_kind === "question" && n.target_id) {
       const q = questionById.get(n.target_id);
       const meta = q ? countryByCode(q.country_code) : null;
@@ -146,6 +182,19 @@ export default async function NotificationsPage() {
               text = <>wants to follow you</>;
             } else if (n.kind === "follow_accepted") {
               text = <>accepted your follow request</>;
+            } else if (n.kind === "collab_invite") {
+              text = (
+                <>
+                  invited you to share {n.target_kind === "trip" ? "their trip" : "their event"}{" "}
+                  {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : ""}. Accept, and it&rsquo;s on your profile too, as one shared post.
+                </>
+              );
+            } else if (n.kind === "collab_accepted") {
+              text = (
+                <>
+                  is now a collaborator on {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : n.target_kind === "trip" ? "your trip" : "your event"}
+                </>
+              );
             } else if (n.kind === "invite_joined") {
               text = <>joined ExpandiaX with your invite 🎉 You now follow each other.</>;
             } else if (n.kind === "question" || n.kind === "answer") {
@@ -203,6 +252,9 @@ export default async function NotificationsPage() {
                     {text}
                   </p>
                   <p className="mt-1 text-xs text-muted">{formatRelative(n.created_at)}</p>
+                  {n.kind === "collab_invite" && n.target_id && openInvite.has(`${n.target_kind}:${n.target_id}`) && (
+                    <CollabInviteActions collabId={openInvite.get(`${n.target_kind}:${n.target_id}`)!} openHref={t?.href ?? "/notifications"} />
+                  )}
                   {n.kind === "follow_request" && pendingRequesterIds.has(n.actor_id) && (
                     <FollowRequestActions requesterId={n.actor_id} />
                   )}

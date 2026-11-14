@@ -1,3 +1,4 @@
+import { collabEventsOf, collabTripsOf } from "@/lib/collabData";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -71,8 +72,14 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
   const invitedCount = typeof invitedRaw === "number" ? invitedRaw : 0;
   const worldConnects = typeof connectsRaw === "number" ? connectsRaw : 0;
 
-  const countryRows = (countriesData ?? []) as CountryRow[];
-  const eventRows = (eventsData ?? []) as EventRow[];
+  // With the trips and events shared with you (migration 075): a shared
+  // trip is a visit to its country, a shared event one of your events.
+  const [sharedEvents, sharedTrips] = await Promise.all([collabEventsOf(supabase, user.id), collabTripsOf(supabase, user.id)]);
+  const countryRows = ((countriesData ?? []) as CountryRow[]).map((c) => {
+    const more = sharedTrips.filter((t) => t.visited_countries.country_code === c.country_code);
+    return more.length ? { ...c, country_visits: [...c.country_visits, ...more.map((t) => ({ year: t.year, visited_from: t.visited_from, visited_to: t.visited_to }))] } : c;
+  });
+  const eventRows = [...((eventsData ?? []) as EventRow[]), ...(sharedEvents as unknown as EventRow[])];
 
   // Territories (Greenland, Gibraltar, etc.) share this table but stay out
   // of every count-based stat/badge below — same rule as My World and the

@@ -1,3 +1,6 @@
+import { visitSortKey } from "@/lib/utils";
+import { loadMyCollabs } from "@/lib/collab";
+import { collabTripsOf } from "@/lib/collabData";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -5,7 +8,7 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { loadPostContext, loadUserPosts } from "@/lib/feedPosts";
 import { FeedPost } from "@/components/FeedPost";
 import { LoadMore } from "@/components/LoadMore";
-import { tripAsPost, tripsOf } from "@/lib/userTrips";
+import { sharedTrip, tripAsPost, tripsOf } from "@/lib/userTrips";
 import { signMedia } from "@/lib/signedMedia";
 
 type Props = { params: { username: string; kind: string }; searchParams?: { limit?: string } };
@@ -26,17 +29,27 @@ export default async function UserPostsPage({ params, searchParams }: Props) {
   if (!profile) notFound();
   const limit = Math.min(Math.max(Number(searchParams?.limit) || PAGE, PAGE), 200);
   // Trips one by one, newest by when they happened; events newest posted first.
+  // With what's shared with them (migration 075): one post, on each profile.
+  const shared = await loadMyCollabs(supabase, profile.id);
+  const sharedTrips = which.kind === "country" ? await collabTripsOf(supabase, profile.id) : [];
   const [user, fetched, countries] = await Promise.all([
     getAuthUser(),
-    which.kind === "event" ? loadUserPosts(supabase, profile.id, { kind: "event", limit: limit + 1 }) : Promise.resolve([]),
+    which.kind === "event"
+      ? loadUserPosts(supabase, profile.id, { kind: "event", limit: limit + 1, alsoEvents: shared.filter((c) => c.kind === "event").map((c) => c.target_id) })
+      : Promise.resolve([]),
     which.kind === "country"
       ? signMedia(await supabase.from("visited_countries").select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(*)").eq("user_id", profile.id)).then((r) => r.data ?? [])
       : Promise.resolve([]),
   ]);
-  const trips = which.kind === "country" ? tripsOf(countries as Parameters<typeof tripsOf>[0]).map((t) => ({ key: t.visit.id, ...tripAsPost(t) })) : [];
+  const trips =
+    which.kind === "country"
+      ? [...tripsOf(countries as Parameters<typeof tripsOf>[0]), ...sharedTrips.map((t) => sharedTrip(t))]
+          .sort((a, b) => visitSortKey(b.visit).localeCompare(visitSortKey(a.visit)))
+          .map((t) => ({ key: t.visit.id, ...tripAsPost(t) }))
+      : [];
   const all = which.kind === "country" ? trips.map((t) => t.item) : fetched;
   const posts = all.slice(0, limit);
-  const ctx = await loadPostContext(supabase, user?.id ?? null, posts);
+  const ctx = await loadPostContext(supabase, user?.id ?? null, posts, trips.slice(0, limit).map((t) => t.key));
   const mine = user?.id === profile.id;
 
   return (
@@ -51,7 +64,7 @@ export default async function UserPostsPage({ params, searchParams }: Props) {
         <>
           <ul className="mt-6 space-y-8">
             {which.kind === "country"
-              ? trips.slice(0, limit).map((t, i) => <FeedPost key={t.key} item={t.item} ctx={ctx} index={i} media={t.media} dateLabel={t.dateLabel} actionLabel={t.actionLabel} hideWhen href={`/u/${profile.username}/trips/${t.key}`} />)
+              ? trips.slice(0, limit).map((t, i) => <FeedPost key={t.key} item={t.item} ctx={ctx} index={i} media={t.media} dateLabel={t.dateLabel} actionLabel={t.actionLabel} hideWhen tripId={t.key} href={`/u/${profile.username}/trips/${t.key}`} />)
               : posts.map((p, i) => <FeedPost key={`${p.kind}:${p.ref_id}`} item={p} ctx={ctx} index={i} />)}
           </ul>
           <LoadMore href={`/u/${profile.username}/posts/${params.kind}?limit=${limit + PAGE}`} shown={limit} more={all.length > limit} />

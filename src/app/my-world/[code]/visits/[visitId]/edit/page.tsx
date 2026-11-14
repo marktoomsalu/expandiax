@@ -16,6 +16,8 @@ import { tripTitle } from "@/lib/tripTitle";
 import { orderStops } from "@/lib/tripPlaces";
 import type { CountryCity, CountryMedia, CountryVisit } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
+import { loadCollaborators } from "@/lib/collab";
+import { CollaboratorsManager } from "@/components/CollaboratorsManager";
 
 type VisitRow = CountryVisit & {
   visited_countries: { id: string; user_id: string; country_code: string; is_public: boolean; share_to_feed: boolean };
@@ -42,13 +44,17 @@ export default async function EditVisitPage({
       .from("country_visits")
       .select("*, visited_countries!inner(id, user_id, country_code, is_public, share_to_feed), country_media!country_media_country_visit_id_fkey(*), country_cities(*)")
       .eq("id", params.visitId)
-      .eq("visited_countries.user_id", user.id)
       .eq("visited_countries.country_code", meta.code)
       .maybeSingle()
   );
 
   if (!data) notFound();
   const visit = data as VisitRow;
+  // Yours, or shared with you with edit rights (a collaborator who can edit).
+  const isOwner = visit.visited_countries.user_id === user.id;
+  const collaborators = await loadCollaborators(supabase, "trip", visit.id);
+  const meAsCollab = collaborators.find((c) => c.user_id === user.id && c.status === "accepted");
+  if (!isOwner && !meAsCollab?.can_edit) notFound();
   const images = visit.country_media.filter((m) => m.media_type === "image").sort((a, b) => a.display_order - b.display_order);
   const cover = images.find((m) => m.id === visit.cover_media_id) ?? images[0];
   const stock = cover ? null : stockPhotoFor(meta.code, visit.id);
@@ -134,6 +140,7 @@ export default async function EditVisitPage({
       <div className="mt-6">
         <VisitEditor
           visit={visit}
+          isOwner={isOwner}
           cities={stops}
           country={{
             id: visit.visited_countries.id,
@@ -145,9 +152,18 @@ export default async function EditVisitPage({
         />
       </div>
 
-      <div className="mt-8 flex items-center justify-center">
-        <ShareButton kind="country" targetId={visit.visited_country_id} title={`${meta.flag} ${meta.name}`} />
-      </div>
+      {/* Who was there: one shared post (migration 075). */}
+      <section id="collaborators" className="mt-3 scroll-mt-24 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5">
+        <h2 className="font-serif text-lg">Who was there with you</h2>
+        <p className="mb-3 text-xs text-muted">{isOwner ? "Share this trip with people who were there: one post on all your profiles." : "This trip is shared between you."}</p>
+        <CollaboratorsManager kind="trip" targetId={visit.id} me={user.id} isOwner={isOwner} initial={collaborators} />
+      </section>
+
+      {isOwner && (
+        <div className="mt-8 flex items-center justify-center">
+          <ShareButton kind="country" targetId={visit.visited_country_id} title={`${meta.flag} ${meta.name}`} />
+        </div>
+      )}
     </div>
   );
 }

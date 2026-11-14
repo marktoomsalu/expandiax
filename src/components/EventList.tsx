@@ -11,7 +11,10 @@ import { RatingStars } from "./Rating";
 import { CardPhotos } from "./CardPhotos";
 import { formatDate } from "@/lib/utils";
 
-type Row = Event & { event_media: EventMedia[] };
+import { Users } from "lucide-react";
+
+/** `collab`: an event shared with this person (migration 075), and whose it is. */
+type Row = Event & { event_media: EventMedia[]; collab?: { ownerName: string } };
 
 export function EventList({ events, hrefBase, editable }: { events: Row[]; hrefBase: string; editable?: boolean }) {
   const [query, setQuery] = useState("");
@@ -123,6 +126,11 @@ export function EventList({ events, hrefBase, editable }: { events: Row[]; hrefB
                     <span className="pointer-events-none absolute left-3 top-3 flex items-center gap-1 rounded-full bg-canvas/90 px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide text-muted">
                       <TypeIcon size={11} /> {typeMeta.label}
                     </span>
+                    {e.collab && (
+                      <span className="pointer-events-none absolute left-3 top-10 inline-flex items-center gap-1 rounded-full bg-canvas/90 px-2.5 py-1 text-[0.625rem] font-semibold text-accent">
+                        <Users size={10} aria-hidden /> with {e.collab.ownerName.split(" ")[0]}
+                      </span>
+                    )}
                     {e.is_favourite && (
                       <span className="absolute right-3 top-3 rounded-full bg-canvas/90 px-2.5 py-1 text-[0.625rem] font-semibold uppercase tracking-wide text-accent">Favourite</span>
                     )}

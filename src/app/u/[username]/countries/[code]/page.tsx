@@ -1,4 +1,5 @@
-import { buildCountryView } from "@/lib/countryView";
+import { buildCountryView, withSharedTrips } from "@/lib/countryView";
+import { collabTripsOf } from "@/lib/collabData";
 import { countrySummary } from "@/lib/tripPlaces";
 import { CountryHero } from "@/components/CountryHero";
 import { CountryPlaces } from "@/components/CountryPlaces";
@@ -109,15 +110,17 @@ export default async function PublicCountryPage({
       .order("event_date", { ascending: false }),
   ]).then((r) => signMedia(r));
 
-  const country = data as VisitedCountryFull | null;
-  if (!country) notFound();
+  const own = data as VisitedCountryFull | null;
+  if (!own) notFound();
+  // With the trips here shared with them (migration 075), as the viewer may see them.
+  const { merged: country, info: sharedInfo } = withSharedTrips(own, await collabTripsOf(supabase, profile.id, meta.code));
   country.country_cities = await locatePlaces(supabase, country.country_cities, meta.code);
 
 
   // The same page the owner sees on My World, read-only: their stays and
   // trips on a timeline, the places, and each trip's photos and notes below.
   // Row-level security has already left out anything they keep to themselves.
-  const { heroPhoto, trips, places, cities } = buildCountryView(country, meta);
+  const { heroPhoto, trips, places, cities } = buildCountryView(country, meta, sharedInfo);
   const stock = heroPhoto ? null : stockPhotoFor(meta.code, profile.id);
   const tripById = new Map(trips.map((t) => [t.id, t]));
   const visitsNewest = [...country.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));

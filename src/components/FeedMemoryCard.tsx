@@ -101,6 +101,8 @@ type Props = {
   stock?: StockPhoto | null;
   priority?: boolean;
   actor: { username: string; display_name: string; avatar_url: string | null };
+  /** Shared with these people (a collab post, migration 075): "Mark & Melody". */
+  together?: { username: string; display_name: string }[];
   actionLabel: string;
   when: string;
   /** Left side of the actions row (e.g. Like). */
@@ -361,6 +363,18 @@ export function FeedMemoryCard(p: Props) {
               <Link href={`/u/${p.actor.username}`} className="pointer-events-auto text-sm font-semibold hover:underline">
                 {p.actor.display_name}
               </Link>
+              {p.together && p.together.length > 0 && (
+                <span className="text-sm font-semibold">
+                  {" & "}
+                  {p.together.length === 1 ? (
+                    <Link href={`/u/${p.together[0].username}`} className="pointer-events-auto hover:underline">
+                      {p.together[0].display_name}
+                    </Link>
+                  ) : (
+                    `${p.together.length} others`
+                  )}
+                </span>
+              )}
               <p className="text-xs text-white/75">
                 {p.when ? `${p.actionLabel} · ${p.when}` : p.actionLabel}
               </p>

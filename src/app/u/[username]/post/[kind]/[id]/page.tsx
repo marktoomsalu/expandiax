@@ -38,10 +38,15 @@ export default async function PostPage({ params }: Props) {
   const asTrip = trip ? tripAsPost(trip) : null;
   const post = asTrip?.item ?? eventPost;
   if (!post) notFound();
-  const ctx = await loadPostContext(supabase, user?.id ?? null, [post]);
-  const actor = ctx.actors.get(post.actor_id);
-  if (!actor || actor.username !== params.username.toLowerCase()) notFound();
-  const mine = user?.id === post.actor_id;
+  const ctx = await loadPostContext(supabase, user?.id ?? null, [post], kind === "country" ? [params.id] : []);
+  const owner = ctx.actors.get(post.actor_id);
+  if (!owner) notFound();
+  // The owner's, or shared with the person whose page this is (migration 075).
+  const sharedWith = ctx.collabs.get(kind === "country" ? `trip:${params.id}` : `event:${post.ref_id}`) ?? [];
+  const pageOf = owner.username === params.username.toLowerCase() ? owner : sharedWith.find((p) => p.username === params.username.toLowerCase());
+  if (!pageOf) notFound();
+  const actor = pageOf;
+  const mine = user?.id === post.actor_id || (!!user && user.id === pageOf.id);
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-6">
@@ -51,7 +56,7 @@ export default async function PostPage({ params }: Props) {
         </Link>
         {mine && (
           <Link
-            href={kind === "country" ? `/my-world/${post.country_code.toLowerCase()}/visits/${params.id}` : `/events/${post.ref_id}/edit`}
+            href={kind === "country" ? `/my-world/${post.country_code.toLowerCase()}/visits/${params.id}` : `/events/${post.ref_id}`}
             className="btn-ghost !gap-1.5 !px-3.5 !py-2 text-sm"
           >
             <Pencil size={14} aria-hidden /> {kind === "country" ? "Edit in My World" : "Edit event"}
@@ -59,7 +64,7 @@ export default async function PostPage({ params }: Props) {
         )}
       </div>
       <ul className="mt-4">
-        <FeedPost item={post} ctx={ctx} media={asTrip?.media} dateLabel={asTrip?.dateLabel} actionLabel={asTrip?.actionLabel} hideWhen={!!asTrip} href={asTrip ? `/u/${actor.username}/trips/${params.id}` : undefined} />
+        <FeedPost item={post} ctx={ctx} media={asTrip?.media} dateLabel={asTrip?.dateLabel} actionLabel={asTrip?.actionLabel} hideWhen={!!asTrip} tripId={asTrip ? params.id : undefined} href={asTrip ? `/u/${actor.username}/trips/${params.id}` : undefined} />
       </ul>
     </div>
   );

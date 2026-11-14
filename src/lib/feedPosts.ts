@@ -1,3 +1,4 @@
+import { loadCollaboratorsFor, type CollabPerson } from "@/lib/collab";
 import type { createClient } from "@/lib/supabase/server";
 import { signMedia } from "@/lib/signedMedia";
 import type { CommentWithAuthor, FeedEvent, Profile } from "@/lib/types";
@@ -20,13 +21,15 @@ export type PostContext = {
   mediaByKey: Map<string, RawMedia[]>;
   /** A country post's latest trip (that the viewer may see): where tapping it goes. */
   latestTrip: Map<string, string>;
+  /** Who shared a post with its owner (migration 075), by "event:<id>" or "trip:<visit id>". */
+  collabs: Map<string, CollabPerson[]>;
 };
 
 export const postKey = (item: Pick<FeedEvent, "kind" | "ref_id">) => `${item.kind}:${item.ref_id}`;
 
 /** Likes, comments, photos and posters for these posts. */
-export async function loadPostContext(supabase: Supabase, viewerId: string | null, items: FeedEvent[]): Promise<PostContext> {
-  const ctx: PostContext = { actors: new Map(), likedByMe: new Set(), commentsByKey: new Map(), mediaByKey: new Map(), latestTrip: new Map() };
+export async function loadPostContext(supabase: Supabase, viewerId: string | null, items: FeedEvent[], extraTripIds?: string[]): Promise<PostContext> {
+  const ctx: PostContext = { actors: new Map(), likedByMe: new Set(), commentsByKey: new Map(), mediaByKey: new Map(), latestTrip: new Map(), collabs: new Map() };
   if (!items.length) return ctx;
   const actorIds = [...new Set(items.map((i) => i.actor_id))];
   const refIds = items.map((i) => i.ref_id);
@@ -70,12 +73,25 @@ export async function loadPostContext(supabase: Supabase, viewerId: string | nul
   for (const row of countryMediaRows ?? []) add(`country:${row.visited_country_id}`, row);
   for (const row of eventMediaRows ?? []) add(`event:${row.event_id}`, row);
   for (const list of ctx.mediaByKey.values()) list.sort((a, b) => a.displayOrder - b.displayOrder);
+  // Shared posts: everyone who was there, for the header ("Mark & Melody").
+  const [eventCollabs, tripCollabs] = await Promise.all([
+    loadCollaboratorsFor(supabase, "event", eventRefIds),
+    loadCollaboratorsFor(supabase, "trip", [...ctx.latestTrip.values(), ...(extraTripIds ?? [])]),
+  ]);
+  for (const [key, list] of [...eventCollabs, ...tripCollabs]) ctx.collabs.set(key, list.flatMap((c) => (c.person ? [c.person] : [])));
   return ctx;
 }
 
 /** Someone's posts, newest first: trips ("country") or events, or both. */
-export async function loadUserPosts(supabase: Supabase, actorId: string, opts: { kind?: "country" | "event"; limit: number; offset?: number }) {
-  let q = supabase.from("feed_events").select("*").eq("actor_id", actorId);
+export async function loadUserPosts(
+  supabase: Supabase,
+  actorId: string,
+  /** alsoEvents: events shared with them (migration 075), which are posts of theirs too. */
+  opts: { kind?: "country" | "event"; limit: number; offset?: number; alsoEvents?: string[] }
+) {
+  let q = supabase.from("feed_events").select("*");
+  const shared = (opts.alsoEvents ?? []).filter((id) => /^[0-9a-f-]{36}$/.test(id));
+  q = shared.length ? q.or(`actor_id.eq.${actorId},and(kind.eq.event,ref_id.in.(${shared.join(",")}))`) : q.eq("actor_id", actorId);
   if (opts.kind) q = q.eq("kind", opts.kind);
   const from = opts.offset ?? 0;
   // When it happened, newest first (as trips are); the same day, the one
