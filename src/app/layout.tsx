@@ -89,7 +89,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {/* Before the World Connect card: "What's new" goes first. Both wait for 1.1 on the App Store. */}
           {navUser && <WhatsNew joinedAt={navUser.joinedAt} />}
           {navUser && <UpdatePrompt />}
-          {navUser && <GlobeTouchListener />}
+          {navUser && <GlobeTouchListener joinedAt={navUser.joinedAt} />}
           {/* After the World Connect card: the chat tour, pointing at the bubble. */}
           {navUser && <ChatTour joinedAt={navUser.joinedAt} />}
           {navUser && <ChatBubble me={navUser.id} />}

@@ -6,7 +6,9 @@ import { App } from "@capacitor/app";
 import { getServerState, getState, hasGlobeTouch, startTouch, stopTouch, subscribe } from "@/lib/globeTouch";
 import { WORLD_CONNECT_BUTTON_ID } from "./WorldConnectButton";
 import { isTouchAsked, isTouchReady, setTouchAsked, setTouchReady } from "@/lib/globeTouchReady";
-import { introHolder, onIntroChange } from "@/lib/introQueue";
+import { TOUR, introHolder, markTourSeen, onIntroChange, tourSeen } from "@/lib/introQueue";
+import { joinedBeforeFeatures } from "@/lib/appVersion";
+import { chatState, chatSubscribe } from "@/lib/chat";
 
 // Screens where a "turn it on" card would be in the way.
 const QUIET = ["/touch", "/start", "/sign-in", "/sign-up"];
@@ -22,21 +24,37 @@ const QUIET = ["/touch", "/start", "/sign-in", "/sign-up"];
  * needs a real approach (see decideTouch), so phones lying side by side
  * never share.
  */
-export function GlobeTouchListener() {
+export function GlobeTouchListener({ joinedAt }: { joinedAt: string }) {
   const path = usePathname();
   const router = useRouter();
   const touch = useSyncExternalStore(subscribe, () => getState().touch, () => getServerState().touch);
   const onScreen = path === "/touch";
   const [ready, setReady] = useState(false);
   const [asking, setAsking] = useState(false);
-  // "What's new" first: this card waits while it's open (lib/introQueue).
+  // Never on top of another welcome card (lib/introQueue), nor over the chat.
   const waiting = useSyncExternalStore(onIntroChange, () => introHolder() !== null, () => false);
+  const chatOpen = useSyncExternalStore(chatSubscribe, () => chatState().open, () => false);
+  // Someone who was here before 1.1 gets this card as the last step of its
+  // tour (after What's new and the chat tour), even if they'd answered it
+  // before; someone new gets it the first time, as before.
+  const updater = joinedBeforeFeatures(joinedAt);
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const next = () => setStep((n) => n + 1);
+    window.addEventListener("expandiax:intro-done", next);
+    return () => window.removeEventListener("expandiax:intro-done", next);
+  }, []);
 
   useEffect(() => {
     if (!hasGlobeTouch()) return;
     if (isTouchReady()) setReady(true);
-    else if (!isTouchAsked() && !QUIET.includes(path)) setAsking(true);
-  }, [path]);
+    if (QUIET.includes(path) || chatOpen) return;
+    const due = updater ? !tourSeen(TOUR.worldConnect) && tourSeen(TOUR.chat) : !isTouchReady() && !isTouchAsked();
+    if (!due) return;
+    // A moment after the chat (or the card before) closes, not in the same instant.
+    const t = setTimeout(() => setAsking(true), 600);
+    return () => clearTimeout(t);
+  }, [path, chatOpen, step, updater]);
 
   useEffect(() => {
     if (!ready || onScreen) return;
@@ -55,13 +73,12 @@ export function GlobeTouchListener() {
     if (touch && !onScreen && getState().touch) router.push("/touch");
   }, [touch, onScreen, router]);
 
-  if (!asking || waiting) return null;
+  if (!asking || waiting || chatOpen) return null;
 
   const answer = (on: boolean) => {
     setTouchAsked();
-    // The next welcome card (the chat tour) may follow.
-    window.dispatchEvent(new Event("expandiax:intro-done"));
     setAsking(false);
+    markTourSeen(TOUR.worldConnect);
     if (on) {
       setTouchReady();
       setReady(true);

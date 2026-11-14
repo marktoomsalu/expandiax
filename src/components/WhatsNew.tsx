@@ -5,17 +5,16 @@ import { usePathname } from "next/navigation";
 import { MessageCircle, Sparkles } from "lucide-react";
 import { hasGlobeTouch } from "@/lib/globeTouch";
 import { featuresReleased, joinedBeforeFeatures } from "@/lib/appVersion";
-import { claimIntro, releaseIntro } from "@/lib/introQueue";
+import { TOUR, claimIntro, markTourSeen, releaseIntro, tourSeen } from "@/lib/introQueue";
 import { tapLight } from "@/lib/haptics";
 
-const SEEN_KEY = "expandiax:whats-new:1.1";
 const QUIET = ["/touch", "/start", "/sign-in", "/sign-up", "/onboarding", "/join"];
 
 /**
  * Once, in the new iPhone app (1.1), when 1.1 is out on the App Store, for
  * people who were here before it (not new members, for whom nothing is
  * new): what's new, Chat and World Connect. It goes before the World
- * Connect card (lib/introQueue), which follows with its spotlight and Turn on.
+ * chat tour and then the World Connect card (lib/introQueue TOUR).
  */
 export function WhatsNew({ joinedAt }: { joinedAt: string }) {
   const path = usePathname();
@@ -23,12 +22,8 @@ export function WhatsNew({ joinedAt }: { joinedAt: string }) {
 
   useEffect(() => {
     if (!hasGlobeTouch() || !joinedBeforeFeatures(joinedAt) || QUIET.some((p) => path.startsWith(p))) return;
-    try {
-      if (localStorage.getItem(SEEN_KEY)) return;
-    } catch {
-      return;
-    }
-    // Hold the World Connect card back while we find out.
+    if (tourSeen(TOUR.whatsNew)) return;
+    // Hold the other welcome cards back while we find out.
     if (!claimIntro("whats-new")) return;
     let alive = true;
     void featuresReleased().then((out) => {
@@ -44,13 +39,10 @@ export function WhatsNew({ joinedAt }: { joinedAt: string }) {
 
   function close() {
     tapLight();
-    try {
-      localStorage.setItem(SEEN_KEY, "1");
-    } catch {
-      // Shows again next time; harmless.
-    }
     setOpen(false);
     releaseIntro("whats-new");
+    // Next: the chat tour, then World Connect.
+    markTourSeen(TOUR.whatsNew);
   }
 
   if (!open) return null;

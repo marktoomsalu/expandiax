@@ -4,13 +4,11 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Heart, MapPin, Mail, MessageCircle } from "lucide-react";
 import { hasGlobeTouch } from "@/lib/globeTouch";
-import { isTouchAsked } from "@/lib/globeTouchReady";
 import { featuresReleased, joinedBeforeFeatures } from "@/lib/appVersion";
-import { claimIntro, introHolder, onIntroChange, releaseIntro } from "@/lib/introQueue";
+import { TOUR, claimIntro, introHolder, markTourSeen, onIntroChange, releaseIntro, tourSeen } from "@/lib/introQueue";
 import { openChat } from "@/lib/chat";
 import { tapLight } from "@/lib/haptics";
 
-const SEEN_KEY = "expandiax:chat-tour:1.1";
 const QUIET = ["/touch", "/start", "/sign-in", "/sign-up", "/onboarding", "/join"];
 
 type Spot = { x: number; y: number; size: number };
@@ -32,13 +30,9 @@ export function ChatTour({ joinedAt }: { joinedAt: string }) {
     let alive = true;
     const tryOpen = async () => {
       if (open || QUIET.some((p) => window.location.pathname.startsWith(p))) return;
-      try {
-        if (localStorage.getItem(SEEN_KEY)) return;
-      } catch {
-        return;
-      }
-      // After the World Connect card, and never on top of another welcome card.
-      if (!isTouchAsked() || introHolder()) return;
+      if (tourSeen(TOUR.chat)) return;
+      // Right after What's new (World Connect comes after this), never on top of another welcome card.
+      if (!tourSeen(TOUR.whatsNew) || introHolder()) return;
       if (!(await featuresReleased()) || !alive) return;
       // The bubble has to be on screen to point at it.
       if (!document.querySelector(".chat-bubble")) return;
@@ -69,14 +63,11 @@ export function ChatTour({ joinedAt }: { joinedAt: string }) {
 
   function close(thenOpenChat: boolean) {
     tapLight();
-    try {
-      localStorage.setItem(SEEN_KEY, "1");
-    } catch {
-      // Fine.
-    }
     setOpen(false);
     releaseIntro("chat-tour");
     if (thenOpenChat) openChat();
+    // World Connect is next: straight away, or once the chat is closed again.
+    markTourSeen(TOUR.chat);
   }
 
   if (!open) return null;
