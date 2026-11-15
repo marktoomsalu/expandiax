@@ -21,6 +21,8 @@ import {
   stopTouch,
   subscribe,
   type TouchState,
+  phoneWord,
+  sameKindOfPhone,
 } from "@/lib/globeTouch";
 import { compareGlobes, type GlobeCountry } from "@/lib/globeTouchLogic";
 import { setTouchAsked, setTouchReady, isTouchReady } from "@/lib/globeTouchReady";
@@ -296,16 +298,16 @@ function Intro({ me, myCountries, size, onStart }: { me: TouchMe; myCountries: G
         <TouchGlobe size={size} colors={colors} spin={0.7} />
       </div>
       <p className="max-w-xs text-base text-white/80">
-        Hold your iPhone close to a friend&rsquo;s. Your worlds connect: the countries you share, where each of you has been, and you can follow each other right there.
+        Hold your {phoneWord()} close to a friend&rsquo;s. Your worlds connect: the countries you share, where each of you has been, and you can follow each other right there.
       </p>
       <ul className="mt-5 space-y-2 text-left text-sm text-white/60">
-        <li className="flex gap-2"><Smartphone size={16} className="mt-0.5 shrink-0" /> Your friend opens ExpandiaX too.</li>
+        <li className="flex gap-2"><Smartphone size={16} className="mt-0.5 shrink-0" /> Your friend opens ExpandiaX too, on {sameKindOfPhone()} like yours.</li>
         <li className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0" /> Only what you show on your globe is shared, and only when your phones meet.</li>
       </ul>
       <button type="button" onClick={onStart} className="touch-cta mt-auto w-full">
         Start
       </button>
-      <p className="mt-3 text-xs text-white/45">Your iPhone will ask to find devices nearby. That&rsquo;s how it feels your friend&rsquo;s phone.</p>
+      <p className="mt-3 text-xs text-white/45">Your {phoneWord()} will ask to find devices nearby. That&rsquo;s how it feels your friend&rsquo;s phone.</p>
       <span className="sr-only">{me.display_name}</span>
     </div>
   );
@@ -338,8 +340,9 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
   const met = size * 0.1 - orb * 0.55;
   const orbTop = linked ? (meters == null ? -orb * 0.5 : far + (met - far) * c) : -orb * 1.5;
 
-  let title = "Hold your iPhone close to a friend’s";
-  let sub = "They just need to open ExpandiaX. Then bring your phones close.";
+  let title = `Hold your ${phoneWord()} close to a friend’s`;
+  // Without distance (Android, older iPhones) it's the knock that connects.
+  let sub = state.preciseDistance ? "They just need to open ExpandiaX. Then bring your phones close." : "They just need to open ExpandiaX. Then tap your phones together, gently.";
   if (linked && meters == null && !state.preciseDistance) {
     title = "A friend is nearby";
     sub = "Tap your phones together, gently.";
@@ -620,10 +623,10 @@ function Unsupported() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
       <p className="touch-eyebrow">World Connect</p>
-      <p className="mt-3 font-serif text-3xl">{android ? "Coming to Android" : "Made for iPhone"}</p>
+      <p className="mt-3 font-serif text-3xl">{android ? "Update ExpandiaX" : "Made for iPhone"}</p>
       <p className="mt-3 max-w-xs text-white/70">
         {android
-          ? "World Connect works between iPhones for now. Android is on its way."
+          ? "World Connect needs the newest ExpandiaX from Google Play. Then tap two Android phones together to connect your worlds."
           : "Hold two iPhones close in the ExpandiaX app to connect your worlds. Update the app if you don’t see it yet."}
       </p>
     </div>

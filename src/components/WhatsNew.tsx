@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageCircle, Sparkles } from "lucide-react";
-import { hasGlobeTouch } from "@/lib/globeTouch";
+import { hasGlobeTouch, phoneWord } from "@/lib/globeTouch";
 import { featuresReleased, joinedBeforeFeatures } from "@/lib/appVersion";
 import { TOUR, claimIntro, markTourSeen, releaseIntro, tourSeen } from "@/lib/introQueue";
 import { tapLight } from "@/lib/haptics";
@@ -72,7 +72,7 @@ export function WhatsNew({ joinedAt }: { joinedAt: string }) {
         </h2>
         <ul className="mt-6 space-y-5">
           {feature(MessageCircle, "Chat", "Write to friends any time, or send anyone a postcard about a place they’ve been. Your chats live in the bubble in the corner.", "#fa51a2", "#fb7822")}
-          {feature(Sparkles, "World Connect", "Hold your iPhone close to a friend’s: see the countries you share, and follow each other in a second.", "#7c1d6f", "#fa51a2")}
+          {feature(Sparkles, "World Connect", `Hold your ${phoneWord()} close to a friend’s: see the countries you share, and follow each other in a second.`, "#7c1d6f", "#fa51a2")}
         </ul>
         <button
           type="button"

@@ -2,8 +2,9 @@ import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor
 import { APPROACH_WINDOW_MS, TOUCH_METERS, approachProgress, decideTouch, isFreshBumpPair, randomCode, type Reading } from "./globeTouchLogic";
 
 // Touch globes, the phone side. The native plugin (ios/App/App/
-// GlobeTouchPlugin.swift) links nearby iPhones and measures the distance
-// between them; everything else is here, so it can change with a website
+// GlobeTouchPlugin.swift; android/app/src/main/java/com/expandiax/app/
+// GlobeTouchPlugin.java) links nearby phones (and on iPhone measures the
+// distance between them); everything else is here, so it can change with a website
 // deploy: what counts as a touch, and what the phones say to each other.
 //
 // What the phones say, as JSON over the encrypted link:
@@ -91,9 +92,14 @@ export function subscribe(fn: () => void) {
 export const getState = () => state;
 export const getServerState = () => initial;
 
-/** Whether this app build has the native part (iPhone app from version 1.1). */
+/**
+ * Whether this app build has the native part: the iPhone app from version
+ * 1.1 (Multipeer + Nearby Interaction), and the Android app from 1.1 (Nearby
+ * Connections + knocks; android/.../GlobeTouchPlugin.java). iPhones find
+ * iPhones and Androids find Androids. Chat comes with the same builds.
+ */
 export function hasGlobeTouch(): boolean {
-  return Capacitor.getPlatform() === "ios" && Capacitor.isPluginAvailable("GlobeTouch");
+  return (Capacitor.getPlatform() === "ios" || Capacitor.getPlatform() === "android") && Capacitor.isPluginAvailable("GlobeTouch");
 }
 
 function say(message: Record<string, unknown>, peerId?: string) {
@@ -220,3 +226,8 @@ export function closeness(s: TouchState): { peer: TouchPeer | null; value: numbe
   const any = best ?? Object.values(s.peers)[0] ?? null;
   return { peer: any, value: best?.meters != null ? approachProgress(best.meters) : 0 };
 }
+
+/** "iPhone" or "phone": what to call the phone in World Connect's words. */
+export const phoneWord = () => (Capacitor.getPlatform() === "android" ? "phone" : "iPhone");
+/** Who it connects with: the same kind of phone (Multipeer and Nearby Connections can't meet). */
+export const sameKindOfPhone = () => (Capacitor.getPlatform() === "android" ? "an Android phone" : "an iPhone");

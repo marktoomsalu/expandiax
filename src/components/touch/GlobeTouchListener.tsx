@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { App } from "@capacitor/app";
-import { getServerState, getState, hasGlobeTouch, startTouch, stopTouch, subscribe } from "@/lib/globeTouch";
+import { getServerState, getState, hasGlobeTouch, startTouch, stopTouch, subscribe, phoneWord, sameKindOfPhone } from "@/lib/globeTouch";
 import { WORLD_CONNECT_BUTTON_ID } from "./WorldConnectButton";
 import { isTouchAsked, isTouchReady, setTouchAsked, setTouchReady } from "@/lib/globeTouchReady";
 import { TOUR, introHolder, markTourSeen, onIntroChange, tourSeen } from "@/lib/introQueue";
@@ -147,7 +147,7 @@ export function WorldConnectIntro({ onAnswer }: { onAnswer: (on: boolean) => voi
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/55">New</p>
           <h2 id="world-connect-h" className="mt-1 font-serif text-3xl">World Connect</h2>
           <p className="mx-auto mt-3 max-w-xs text-white/80">
-            Tap the button up here and hold your iPhone close to a friend&rsquo;s. They just need to open ExpandiaX. You&rsquo;ll see the countries you&rsquo;ve both been to, and you can follow each other right away.
+            Tap the button up here and hold your {phoneWord()} close to a friend&rsquo;s. They just need to open ExpandiaX on {sameKindOfPhone()}. You&rsquo;ll see the countries you&rsquo;ve both been to, and you can follow each other right away.
           </p>
           <button
             type="button"
@@ -160,7 +160,7 @@ export function WorldConnectIntro({ onAnswer }: { onAnswer: (on: boolean) => voi
           <button type="button" onClick={() => onAnswer(false)} className="mt-3 w-full rounded-full py-3 text-white/70">
             Not now
           </button>
-          <p className="mt-2 text-xs text-white/45">Your iPhone will ask to find devices nearby. Nothing is shared until two phones meet.</p>
+          <p className="mt-2 text-xs text-white/45">Your {phoneWord()} will ask to find devices nearby. Nothing is shared until two phones meet.</p>
         </div>
       </div>
       <style>{`.world-connect-pulse{animation:wc-pulse 1.6s ease-out infinite}@keyframes wc-pulse{from{transform:scale(1);opacity:1}to{transform:scale(1.7);opacity:0}}@media (prefers-reduced-motion:reduce){.world-connect-pulse{animation:none}}`}</style>
