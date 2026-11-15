@@ -61,22 +61,26 @@ import java.util.UUID;
 @CapacitorPlugin(
     name = "GlobeTouch",
     permissions = {
-        // Android 13 and newer.
+        // Android 13 and newer. (Nearby still needs location, precise, to scan
+        // for phones over Bluetooth; the app never reads or keeps it.)
         @Permission(alias = "nearby33", strings = {
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_ADVERTISE,
             Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.NEARBY_WIFI_DEVICES
+            Manifest.permission.NEARBY_WIFI_DEVICES,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
         }),
         // Android 12.
         @Permission(alias = "nearby31", strings = {
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_ADVERTISE,
             Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION
         }),
         // Android 11 and older: Bluetooth scanning needs location.
-        @Permission(alias = "nearbyOld", strings = { Manifest.permission.ACCESS_FINE_LOCATION })
+        @Permission(alias = "nearbyOld", strings = { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION })
     }
 )
 public class GlobeTouchPlugin extends Plugin implements SensorEventListener {
@@ -124,6 +128,14 @@ public class GlobeTouchPlugin extends Plugin implements SensorEventListener {
     private void afterPermission(PluginCall call) {
         if (getPermissionState(alias()) == PermissionState.GRANTED) {
             begin(call);
+        } else if (getContext().checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            && getContext().checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            // "Approximate" was chosen: Nearby can't search with that.
+            JSObject e = new JSObject();
+            e.put("reason", "location");
+            e.put("message", "World Connect needs precise location to find phones nearby.");
+            notifyListeners("unavailable", e);
+            call.reject("Precise location was not allowed.");
         } else {
             // Without the radios: say so, and still feel knocks (nothing to pair them with, though).
             JSObject e = new JSObject();

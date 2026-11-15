@@ -391,7 +391,20 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
 
       {state.problem === "network" && (
         <Notice>
-          ExpandiaX can&rsquo;t look for phones nearby. Turn on <b>Local Network</b> in Settings &rsaquo; ExpandiaX.
+          {typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) ? (
+            <>
+              ExpandiaX can&rsquo;t look for phones nearby. Allow <b>Nearby devices</b> and <b>Location</b> in Settings &rsaquo; Apps &rsaquo; ExpandiaX &rsaquo; Permissions, and turn on Bluetooth.
+            </>
+          ) : (
+            <>
+              ExpandiaX can&rsquo;t look for phones nearby. Turn on <b>Local Network</b> in Settings &rsaquo; ExpandiaX.
+            </>
+          )}
+        </Notice>
+      )}
+      {state.problem === "location" && (
+        <Notice>
+          To find phones nearby, Android needs <b>precise location</b> for ExpandiaX (Settings &rsaquo; Apps &rsaquo; ExpandiaX &rsaquo; Permissions &rsaquo; Location). Your location is never read or kept.
         </Notice>
       )}
       {state.problem === "distance" && (

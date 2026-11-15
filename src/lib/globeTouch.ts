@@ -28,7 +28,7 @@ interface GlobeTouchNative {
   addListener(event: "message", fn: (e: { peerId: string; data: string }) => void): Promise<PluginListenerHandle>;
   addListener(event: "distance", fn: (e: { peerId: string; meters: number; direction?: Vec }) => void): Promise<PluginListenerHandle>;
   addListener(event: "bump", fn: (e: { strength: number; at: number }) => void): Promise<PluginListenerHandle>;
-  addListener(event: "unavailable", fn: (e: { reason: "network" | "distance"; message: string }) => void): Promise<PluginListenerHandle>;
+  addListener(event: "unavailable", fn: (e: { reason: "network" | "distance" | "location"; message: string }) => void): Promise<PluginListenerHandle>;
 }
 
 const Native = registerPlugin<GlobeTouchNative>("GlobeTouch");
@@ -52,7 +52,8 @@ export type TouchState = {
   /** Started from the Touch globes screen, or quietly while using the app. */
   mode: "screen" | "background";
   preciseDistance: boolean;
-  problem: "network" | "distance" | null;
+  /** What's in the way: the radios, the distance chip (iPhone), or precise location (Android's Nearby needs it to search). */
+  problem: "network" | "distance" | "location" | null;
   myCode: string;
   peers: Record<string, TouchPeer>;
   touch: Touch | null;
@@ -195,7 +196,8 @@ export async function startTouch(mode: TouchState["mode"]): Promise<void> {
       const { preciseDistance } = await Native.start({ motion: true, bumpThreshold: mode === "screen" ? 1.6 : 2.2 });
       set({ status: "searching", preciseDistance });
     } catch {
-      set({ status: "unavailable" });
+      // A permission said no: stay, and say what to allow (rather than "not available here").
+      set({ status: state.problem ? "searching" : "unavailable" });
     }
   })();
   await starting;
