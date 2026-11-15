@@ -8,7 +8,8 @@ import { BADGES } from "@/lib/badges";
 import { InviteShare } from "@/components/invite/InviteShare";
 
 // The Friends badges, in order: Connector 5, Ambassador 10, Trailblazer 25.
-const LEVELS = BADGES.filter((b) => b.group === "friends");
+// The invite badges only (Worlds Collide is earned with World Connect, not by inviting).
+const LEVELS = BADGES.filter((b) => b.group === "friends" && b.id !== "world-connect");
 
 export const metadata = { title: "Invite friends" };
 
