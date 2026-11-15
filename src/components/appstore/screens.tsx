@@ -70,7 +70,9 @@ export function FeedScreen() {
           gradient={flagGradientColors("GR")}
           priority
           actor={EMMA}
-          actionLabel="added a country"
+          // A shared trip (collab post): one post, both of them.
+          together={[{ username: "lukas", display_name: "Lukas" }]}
+          actionLabel="shared a trip"
           when="2h"
           actions={<LikeButton kind="country" targetId={NO_ID} initialLiked />}
         />

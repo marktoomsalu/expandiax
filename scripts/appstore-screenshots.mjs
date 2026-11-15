@@ -339,9 +339,15 @@ function iconHtml() {
 // LinkedIn cover) are left alone.
 // SLIDES_ONLY=1: keep the screens captured last time and just rebuild the slides.
 const SLIDES_ONLY = !!process.env.SLIDES_ONLY;
-if (!SLIDES_ONLY) rmSync(path.join(OUT, "screens"), { recursive: true, force: true });
-for (const set of SETS) rmSync(path.join(OUT, set.dir), { recursive: true, force: true });
-rmSync(path.join(OUT, "google-play"), { recursive: true, force: true });
+// ONLY=google-play-phone (comma-separated): just these sets (and, for Google
+// Play, its feature graphic and icon); everything else is left as it is.
+const ONLY = process.env.ONLY ? process.env.ONLY.split(",").map((s) => s.trim()) : null;
+const sets = ONLY ? SETS.filter((s) => ONLY.includes(s.dir)) : SETS;
+const withPlayExtras = !ONLY || ONLY.includes("google-play-phone") || ONLY.includes("google-play");
+const devices = [...new Set(sets.map((s) => s.device))];
+if (!SLIDES_ONLY) for (const d of devices) rmSync(path.join(OUT, "screens", d), { recursive: true, force: true });
+for (const set of sets) rmSync(path.join(OUT, set.dir), { recursive: true, force: true });
+if (withPlayExtras) rmSync(path.join(OUT, "google-play"), { recursive: true, force: true });
 const htmlDir = path.join(tmpdir(), "appstore-slides");
 mkdirSync(htmlDir, { recursive: true });
 
@@ -352,7 +358,7 @@ try {
   await cdp.send("Runtime.enable");
   await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
 
-  for (const device of SLIDES_ONLY ? [] : [...new Set(SETS.map((s) => s.device))]) {
+  for (const device of SLIDES_ONLY ? [] : devices) {
     console.log(`Screens (${device}):`);
     mkdirSync(path.join(OUT, "screens", device), { recursive: true });
     const { screen } = DEVICES[device];
@@ -377,7 +383,7 @@ try {
     }
   }
 
-  for (const set of SETS) {
+  for (const set of sets) {
     console.log(`Slides (${set.dir}):`);
     mkdirSync(path.join(OUT, set.dir), { recursive: true });
     for (const s of SLIDES) {
@@ -392,16 +398,19 @@ try {
       });
     }
   }
-  console.log("Google Play extras:");
-  mkdirSync(path.join(OUT, "google-play"), { recursive: true });
-  for (const [name, html, width, height] of [
-    ["feature-graphic", featureGraphicHtml(), 1024, 500],
-    ["app-icon", iconHtml(), 512, 512],
-  ]) {
-    const file = path.join(htmlDir, `play-${name}.html`);
-    writeFileSync(file, html);
-    await capture(cdp, { url: pathToFileURL(file).href, width, height, scale: 1, file: path.join(OUT, "google-play", `${name}.png`), settleMs: 500 });
+  if (withPlayExtras) {
+    console.log("Google Play extras:");
+    mkdirSync(path.join(OUT, "google-play"), { recursive: true });
+    for (const [name, html, width, height] of [
+      ["feature-graphic", featureGraphicHtml(), 1024, 500],
+      ["app-icon", iconHtml(), 512, 512],
+    ]) {
+      const file = path.join(htmlDir, `play-${name}.html`);
+      writeFileSync(file, html);
+      await capture(cdp, { url: pathToFileURL(file).href, width, height, scale: 1, file: path.join(OUT, "google-play", `${name}.png`), settleMs: 500 });
+    }
   }
+
   cdp.close();
 } finally {
   const exited = new Promise((r) => chrome.proc.once("exit", r));
