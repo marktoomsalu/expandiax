@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { PageTransition } from "./PageTransition";
-import { AppStoreBadge } from "./AppStoreBadge";
+import { StoreBadges } from "./AppStoreBadge";
 import { cn } from "@/lib/utils";
 
 // /start is a full-screen, immersive flow (its own cold-open/fork/reveal
@@ -32,7 +32,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
               </p>
               <div className="flex flex-col items-start gap-3 sm:items-end">
                 <p>Your world, remembered.</p>
-                <AppStoreBadge height={36} />
+                <StoreBadges height={36} className="sm:justify-end" />
               </div>
             </div>
             <div className="mt-6 flex flex-col items-start justify-between gap-3 border-t border-line pt-6 text-xs text-muted sm:flex-row sm:items-center">

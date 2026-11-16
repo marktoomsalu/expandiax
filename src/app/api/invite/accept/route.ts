@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ status: "signed_out" }, { status: 401 });
   const body = (await request.json().catch(() => ({}))) as { username?: string };
-  // Typed, or the join page's cookie, or (installed from the App Store
+  // Typed, or the join page's cookie, or (installed from the App Store or Google Play
   // straight from an invite link) the click noted for this phone.
   let username = (body.username ?? decodeURIComponent(request.cookies.get(INVITE_COOKIE)?.value ?? "")).trim().replace(/^@/, "");
   if (!username) username = (await claimInviteClick(request.headers).catch(() => null)) ?? "";

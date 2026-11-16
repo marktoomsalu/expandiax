@@ -3,20 +3,20 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { AppStoreBadge } from "@/components/AppStoreBadge";
+import { StoreBadges } from "@/components/AppStoreBadge";
 import { FollowButton } from "@/components/FollowButton";
 import { RememberInvite } from "@/components/invite/RememberInvite";
 import { Camera, Globe2, Lock, Ticket } from "lucide-react";
 import type { ProfileVisibility } from "@/lib/types";
-import { APP_STORE_URL } from "@/lib/appStore";
+import { APP_STORE_URL, playStoreUrl } from "@/lib/appStore";
 import { isNativeUserAgent } from "@/lib/nativeApp";
 import { noteInviteClick } from "@/lib/inviteClicks";
 
 // Link previews (iMessage, WhatsApp…) fetch the page with these: they get the page, not a redirect.
 const PREVIEW_BOT = /bot|crawl|spider|facebookexternalhit|facebot|whatsapp|telegram|slack|discord|skype|linkedin|pinterest|embedly|preview|vkshare|quora/i;
 // Apps' own built-in browsers (Messenger, Instagram, Facebook, TikTok…) can't
-// follow an automatic jump to the App Store (the page stays blank); there the
-// invite page shows, and tapping its App Store button works.
+// follow an automatic jump to the App Store or Google Play (the page stays
+// blank); there the invite page shows, and tapping its store button works.
 const IN_APP_BROWSER = /FBAN|FBAV|FBIOS|FB_IAB|FBSV|Messenger|Instagram|Snapchat|TikTok|musical_ly|BytedanceWebview|LinkedInApp|Twitter|Line\/|GSA\/|Pinterest|WhatsApp/i;
 
 type Props = { params: { username: string } };
@@ -52,15 +52,17 @@ export default async function JoinPage({ params }: Props) {
   const inviter = await inviterOf(params.username);
   if (!inviter) notFound();
   const user = await getAuthUser();
-  // On an iPhone, without the app (the app opens these links itself) and
-  // not signed in on the website: straight to the App Store, remembering
-  // the invite for after the install.
+  // On a phone, without the app (the app opens these links itself) and not
+  // signed in on the website: straight to the App Store or Google Play,
+  // remembering the invite for after the install.
   const h = headers();
   const ua = h.get("user-agent") ?? "";
-  const iphone = !user && /iPhone|iPad|iPod/.test(ua) && !isNativeUserAgent(ua) && !PREVIEW_BOT.test(ua);
-  if (iphone) {
+  const visitor = !user && !isNativeUserAgent(ua) && !PREVIEW_BOT.test(ua);
+  const phone = !visitor ? null : /iPhone|iPad|iPod/.test(ua) ? "ios" : /Android/.test(ua) ? "android" : null;
+  const storeUrl = phone === "android" ? playStoreUrl("invite") : APP_STORE_URL;
+  if (phone) {
     await noteInviteClick(inviter.id, h).catch(() => {});
-    if (!IN_APP_BROWSER.test(ua)) redirect(APP_STORE_URL);
+    if (!IN_APP_BROWSER.test(ua)) redirect(storeUrl);
   }
   const first = inviter.display_name.trim().split(" ")[0];
 
@@ -109,13 +111,13 @@ export default async function JoinPage({ params }: Props) {
 
         {!user ? (
           <div className="mt-8 flex w-full flex-col items-center gap-4">
-            {iphone ? (
+            {phone ? (
               <>
-                {/* On an iPhone, in an app's own browser: the App Store first. */}
-                <a href={APP_STORE_URL} className="w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]" style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}>
+                {/* On a phone, in an app's own browser: the store first. */}
+                <a href={storeUrl} className="w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]" style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}>
                   Join ExpandiaX
                 </a>
-                <p className="-mt-1 text-xs text-white/55">Free on the App Store. Sign up and you&rsquo;ll follow {first} straight away.</p>
+                <p className="-mt-1 text-xs text-white/55">Free on {phone === "android" ? "Google Play" : "the App Store"}. Sign up and you&rsquo;ll follow {first} straight away.</p>
                 <Link href="/start" className="text-sm text-white/70 underline">
                   Or join on the web
                 </Link>
@@ -125,7 +127,7 @@ export default async function JoinPage({ params }: Props) {
                 <Link href="/start" className="w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]" style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}>
                   Join ExpandiaX
                 </Link>
-                <AppStoreBadge height={44} />
+                <StoreBadges height={44} className="justify-center" />
               </>
             )}
             <p className="text-xs text-white/50">

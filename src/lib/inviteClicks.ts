@@ -2,21 +2,26 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Invite links on an iPhone go straight to the App Store, and the App Store
-// passes nothing on. So that the friend is still connected after installing,
-// the click is noted as a fingerprint: a one-way hash of the network address
-// and the iOS version (never the address itself), kept 24 hours. Signing up
-// on the same network and iOS version soon after claims it (migration 072).
+// Invite links on a phone go straight to the App Store or Google Play, and
+// neither passes anything on. So that the friend is still connected after
+// installing, the click is noted as a fingerprint: a one-way hash of the
+// network address and the phone's system (never the address itself), kept 24
+// hours. Signing up on the same network and system soon after claims it
+// (migration 072).
 
 const HOURS = 24;
 
-/** The phone's network and iOS version, scrambled beyond recovery. */
+/** The phone's network and system, scrambled beyond recovery. On an iPhone the
+ *  system is its iOS version; on Android just "android", because Chrome
+ *  reports the same made-up Android version on every phone while the app
+ *  reports the real one, so a version would never match. */
 export function fingerprint(headers: Headers): string | null {
   const ip = (headers.get("x-forwarded-for") ?? headers.get("x-real-ip") ?? "").split(",")[0].trim();
   if (!ip) return null;
-  const ios = headers.get("user-agent")?.match(/OS (\d+[_\d]*) like Mac OS X/)?.[1] ?? "";
+  const ua = headers.get("user-agent") ?? "";
+  const system = /Android/.test(ua) ? "android" : ua.match(/OS (\d+[_\d]*) like Mac OS X/)?.[1] ?? "";
   const salt = process.env.INVITE_SALT ?? process.env.PUSH_WEBHOOK_SECRET ?? "expandiax";
-  return createHash("sha256").update(`${salt}|${ip}|${ios}`).digest("hex");
+  return createHash("sha256").update(`${salt}|${ip}|${system}`).digest("hex");
 }
 
 export async function noteInviteClick(inviterId: string, headers: Headers) {
