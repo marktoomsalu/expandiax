@@ -44,12 +44,15 @@ export function EventForm({
   recentArtists = [],
   userId,
   isOwner = true,
+  beforeSave,
 }: {
   event?: EventFull;
   recentArtists?: RecentArtist[];
   userId: string;
   /** false: a collaborator with edit rights (migration 075): the details and photos, not who sees it. */
   isOwner?: boolean;
+  /** Just above Save: "Who was there?" (the people it's shared with). */
+  beforeSave?: React.ReactNode;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -551,6 +554,8 @@ export function EventForm({
         </>
         )}
       </section>
+
+      {beforeSave}
 
       {error && (
         <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">

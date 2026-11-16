@@ -8,7 +8,7 @@ import { dedupeRecentArtists } from "@/lib/events";
 import type { EventFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { loadCollaborators } from "@/lib/collab";
-import { CollaboratorsManager } from "@/components/CollaboratorsManager";
+import { WhoWasThere } from "@/components/CollaboratorsManager";
 
 export const metadata = { title: "Edit event" };
 
@@ -77,15 +77,14 @@ export default async function EditEventPage({
       </div>
 
       <div className="mt-8">
-        <EventForm event={event} recentArtists={recentArtists} userId={user.id} isOwner={isOwner} />
+        <EventForm
+          event={event}
+          recentArtists={recentArtists}
+          userId={user.id}
+          isOwner={isOwner}
+          beforeSave={<WhoWasThere kind="event" targetId={event.id} me={user.id} isOwner={isOwner} initial={collaborators} />}
+        />
       </div>
-
-      {/* Who was there: one shared post (migration 075). */}
-      <section id="collaborators" className="mt-10 scroll-mt-24 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5">
-        <h2 className="font-serif text-lg">Who was there with you</h2>
-        <p className="mb-3 text-xs text-muted">{isOwner ? "Share this event with people who were there: one post on all your profiles." : "This event is shared between you."}</p>
-        <CollaboratorsManager kind="event" targetId={event.id} me={user.id} isOwner={isOwner} initial={collaborators} />
-      </section>
 
       {isOwner && (
         <div className="mt-12 border-t border-line pt-6">

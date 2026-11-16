@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, LogOut, Pencil, Search, UserPlus, X } from "lucide-react";
+import { Check, Loader2, LogOut, Pencil, Search, UserPlus, Users, X } from "lucide-react";
+import { Basket } from "./Basket";
 import { createClient } from "@/lib/supabase/client";
 import type { CollabKind, CollabPerson, Collaborator } from "@/lib/collab";
 import { cn } from "@/lib/utils";
@@ -86,7 +87,7 @@ export function CollaboratorsManager({
     const { data, error: err } = await supabase.rpc("invite_collaborator", { p_kind: kind, p_target: targetId, p_user: p.id });
     setBusy(null);
     if (err || (data !== "ok" && data !== null)) {
-      setError(data === "too_many" ? "That's the most people one post can have." : data === "blocked" ? "You can't invite this person." : "Couldn't send the invitation. Try again.");
+      setError(data === "too_many" ? "That's the most people one post can have." : data === "blocked" ? "You can't add this person." : "Couldn't add them. Try again.");
       return;
     }
     setQ("");
@@ -135,7 +136,7 @@ export function CollaboratorsManager({
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{c.person?.display_name ?? "Someone"}</span>
                 <span className="block text-xs text-muted">
-                  {c.status === "invited" ? "Invited, hasn't answered yet" : c.can_edit ? "Collaborator · can edit" : "Collaborator"}
+                  {c.status === "invited" ? "Waiting for them to accept" : c.can_edit ? "Can edit" : "On this post"}
                 </span>
               </span>
               {isOwner && c.status === "accepted" && (
@@ -161,21 +162,21 @@ export function CollaboratorsManager({
             </li>
           ))}
         </ul>
-      ) : (
-        isOwner && <p className="text-sm text-muted">Were you there with someone on ExpandiaX? Invite them, and this {noun} is on their profile too, as one shared post.</p>
-      )}
+      ) : null}
 
       {isOwner && (
         <div>
-          <label htmlFor={`collab-search-${targetId}`} className="sr-only">Invite someone</label>
+          <label htmlFor={`collab-search-${targetId}`} className="sr-only">Add someone who was there</label>
           <div className="relative">
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
             <input
               id={`collab-search-${targetId}`}
               className="field !pl-9"
-              placeholder="Invite someone who was there"
+              placeholder="Search by name"
               value={q}
               onChange={(e) => setQ(e.target.value)}
+              // Inside the event form: Enter searches, it doesn't save the form.
+              onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
               autoComplete="off"
             />
           </div>
@@ -195,12 +196,12 @@ export function CollaboratorsManager({
                       <span className="block truncate text-xs text-muted">@{p.username}</span>
                     </span>
                     {taken.has(p.id) ? (
-                      <Check size={16} className="text-accent" aria-label="Already invited" />
+                      <Check size={16} className="text-accent" aria-label="Already added" />
                     ) : busy === p.id ? (
                       <Loader2 size={16} className="animate-spin text-accent" />
                     ) : (
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent">
-                        <UserPlus size={14} aria-hidden /> Invite
+                        <UserPlus size={14} aria-hidden /> Add
                       </span>
                     )}
                   </button>
@@ -208,9 +209,9 @@ export function CollaboratorsManager({
               ))}
             </ul>
           )}
-          <p className="mt-1.5 text-xs text-muted">
-            They&rsquo;re asked first. Collaborators can see and share it; give someone &ldquo;Can edit&rdquo; to let them add photos and change the details. Only you can delete it or change who sees it.
-          </p>
+          {people.some((c) => c.status === "accepted") && (
+            <p className="mt-1.5 text-xs text-muted">&ldquo;Can edit&rdquo; lets them add photos and change the details.</p>
+          )}
         </div>
       )}
 
@@ -222,5 +223,22 @@ export function CollaboratorsManager({
 
       {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
     </div>
+  );
+}
+
+/**
+ * The "Who was there?" box on a trip or event's edit page, just above Save:
+ * add the people who were there, and it's one post on all their profiles.
+ */
+export function WhoWasThere(props: { kind: CollabKind; targetId: string; me: string; isOwner: boolean; initial: Collaborator[] }) {
+  return (
+    <Basket
+      id="collaborators"
+      icon={Users}
+      title="Who was there?"
+      hint={props.isOwner ? "Add them and it\u2019s on their profile too, as one post. They accept first." : `This ${props.kind} is shared between you.`}
+    >
+      <CollaboratorsManager {...props} />
+    </Basket>
   );
 }

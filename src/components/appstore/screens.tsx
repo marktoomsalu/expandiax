@@ -71,7 +71,7 @@ export function FeedScreen() {
           priority
           actor={EMMA}
           // A shared trip (collab post): one post, both of them.
-          together={[{ username: "lukas", display_name: "Lukas" }]}
+          together={[{ username: "lukas", display_name: "Lukas", avatar_url: photo(91, 160, 160) }]}
           actionLabel="shared a trip"
           when="2h"
           actions={<LikeButton kind="country" targetId={NO_ID} initialLiked />}

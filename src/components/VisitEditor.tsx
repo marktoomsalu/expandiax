@@ -47,12 +47,15 @@ export function VisitEditor({
   cities,
   country,
   isOwner = true,
+  beforeSave,
 }: {
   visit: CountryVisit;
   cities: CountryCity[];
   country: TripCountry;
   /** false: a collaborator with edit rights, who can change the trip but not who sees it. */
   isOwner?: boolean;
+  /** Just above Save: "Who was there?" (the people it's shared with). */
+  beforeSave?: React.ReactNode;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -340,6 +343,7 @@ export function VisitEditor({
         <TripPlacesEditor visitId={visit.id} visitedCountryId={visit.visited_country_id} countryCode={country.code} initial={cities} />
       </Basket>
 
+      {beforeSave}
 
       {error && <p role="alert" className="text-sm text-red-800 dark:text-red-400">{error}</p>}
 

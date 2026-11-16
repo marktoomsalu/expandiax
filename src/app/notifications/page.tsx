@@ -185,14 +185,14 @@ export default async function NotificationsPage() {
             } else if (n.kind === "collab_invite") {
               text = (
                 <>
-                  invited you to share {n.target_kind === "trip" ? "their trip" : "their event"}{" "}
-                  {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : ""}. Accept, and it&rsquo;s on your profile too, as one shared post.
+                  added you to {n.target_kind === "trip" ? "their trip" : "their event"}{" "}
+                  {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : ""}. Accept, and it&rsquo;s on your profile too.
                 </>
               );
             } else if (n.kind === "collab_accepted") {
               text = (
                 <>
-                  is now a collaborator on {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : n.target_kind === "trip" ? "your trip" : "your event"}
+                  accepted, and is now on {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : n.target_kind === "trip" ? "your trip" : "your event"}
                 </>
               );
             } else if (n.kind === "invite_joined") {

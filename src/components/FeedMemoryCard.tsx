@@ -102,7 +102,7 @@ type Props = {
   priority?: boolean;
   actor: { username: string; display_name: string; avatar_url: string | null };
   /** Shared with these people (a collab post, migration 075): "Mark & Melody". */
-  together?: { username: string; display_name: string }[];
+  together?: { username: string; display_name: string; avatar_url?: string | null }[];
   actionLabel: string;
   when: string;
   /** Left side of the actions row (e.g. Like). */
@@ -348,17 +348,27 @@ export function FeedMemoryCard(p: Props) {
         {/* Poster */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-4">
           <div className="flex items-center gap-2.5">
-            <Link
-              href={`/u/${p.actor.username}`}
-              aria-label={p.actor.display_name}
-              className="pointer-events-auto flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/20 font-serif text-sm text-white ring-2 ring-white/70"
-            >
-              {p.actor.avatar_url ? (
-                <Image src={p.actor.avatar_url} alt="" width={36} height={36} className="h-full w-full object-cover" />
-              ) : (
-                p.actor.display_name.charAt(0)
-              )}
-            </Link>
+            {/* Shared post: everyone's picture, overlapping (like a collab on Instagram). */}
+            <div className="flex shrink-0 -space-x-3">
+              {[p.actor, ...(p.together ?? []).slice(0, 2)].map((person, i, all) => (
+                <Link
+                  key={person.username}
+                  href={`/u/${person.username}`}
+                  aria-label={person.display_name}
+                  style={{ zIndex: all.length - i }}
+                  className={cn(
+                    "pointer-events-auto relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-500 font-serif text-sm text-white ring-2",
+                    all.length > 1 ? "ring-white" : "ring-white/70"
+                  )}
+                >
+                  {person.avatar_url ? (
+                    <Image src={person.avatar_url} alt="" width={36} height={36} className="h-full w-full object-cover" />
+                  ) : (
+                    person.display_name.charAt(0)
+                  )}
+                </Link>
+              ))}
+            </div>
             <div className="min-w-0 leading-tight text-white drop-shadow">
               <Link href={`/u/${p.actor.username}`} className="pointer-events-auto text-sm font-semibold hover:underline">
                 {p.actor.display_name}

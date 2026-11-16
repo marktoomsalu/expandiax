@@ -53,7 +53,7 @@ export function CollabInviteActions({ collabId, openHref }: { collabId: string; 
           {busy === "no" ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />} Decline
         </button>
       </div>
-      {error && <p className="mt-1.5 text-xs text-red-800 dark:text-red-400">That invitation is no longer open.</p>}
+      {error && <p className="mt-1.5 text-xs text-red-800 dark:text-red-400">This is no longer open.</p>}
     </div>
   );
 }

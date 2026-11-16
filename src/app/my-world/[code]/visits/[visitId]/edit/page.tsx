@@ -17,7 +17,7 @@ import { orderStops } from "@/lib/tripPlaces";
 import type { CountryCity, CountryMedia, CountryVisit } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { loadCollaborators } from "@/lib/collab";
-import { CollaboratorsManager } from "@/components/CollaboratorsManager";
+import { WhoWasThere } from "@/components/CollaboratorsManager";
 
 type VisitRow = CountryVisit & {
   visited_countries: { id: string; user_id: string; country_code: string; is_public: boolean; share_to_feed: boolean };
@@ -141,6 +141,7 @@ export default async function EditVisitPage({
         <VisitEditor
           visit={visit}
           isOwner={isOwner}
+          beforeSave={<WhoWasThere kind="trip" targetId={visit.id} me={user.id} isOwner={isOwner} initial={collaborators} />}
           cities={stops}
           country={{
             id: visit.visited_countries.id,
@@ -151,13 +152,6 @@ export default async function EditVisitPage({
           }}
         />
       </div>
-
-      {/* Who was there: one shared post (migration 075). */}
-      <section id="collaborators" className="mt-3 scroll-mt-24 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5">
-        <h2 className="font-serif text-lg">Who was there with you</h2>
-        <p className="mb-3 text-xs text-muted">{isOwner ? "Share this trip with people who were there: one post on all your profiles." : "This trip is shared between you."}</p>
-        <CollaboratorsManager kind="trip" targetId={visit.id} me={user.id} isOwner={isOwner} initial={collaborators} />
-      </section>
 
       {isOwner && (
         <div className="mt-8 flex items-center justify-center">
