@@ -56,6 +56,8 @@ export default async function VisitPage({ params, searchParams }: { params: { co
     ? await supabase.from("post_collaborators").select("id, target_id").eq("kind", "trip").eq("own_target_id", trip.id).eq("user_id", user.id).maybeSingle()
     : { data: null };
   const earlier = linkRow ? await findOwnMatch(supabase, user.id, "trip", linkRow.target_id as string, [trip.id]) : null;
+  // Joined someone's trip you'd already logged yourself: link that one, never a new copy.
+  const alreadyMine = !isOwner && mine && !mine.own_target_id ? await findOwnMatch(supabase, user.id, "trip", trip.id) : null;
   const myJournal = journals?.find((j) => j.user_id === user.id);
   const ownerJournal = !isOwner ? journals?.find((j) => j.user_id === trip.visited_countries.user_id && j.is_shared) : null;
 
@@ -74,7 +76,11 @@ export default async function VisitPage({ params, searchParams }: { params: { co
           {linkRow && earlier && <UseExistingButton collabId={linkRow.id as string} match={earlier} kind="trip" countryCode={meta.code} />}
           {/* You joined someone's memory: make it your own, linked. */}
           {!isOwner && mine && !mine.own_target_id && (
-            <MakeItMineButton collabId={mine.id} kind="trip" ownerName={ownerName} countryCode={meta.code} />
+            alreadyMine ? (
+              <UseExistingButton collabId={mine.id} match={alreadyMine} kind="trip" countryCode={meta.code} />
+            ) : (
+              <MakeItMineButton collabId={mine.id} kind="trip" ownerName={ownerName} countryCode={meta.code} />
+            )
           )}
         </>
       }

@@ -79,7 +79,7 @@ export async function loadMyCollabs(
   return (rows ?? []).filter((r) => !r.own_target_id);
 }
 
-export type MomentPerson = { person: CollabPerson; href: string; own: boolean; current: boolean };
+export type MomentPerson = { person: CollabPerson; /** Null when the viewer can't open theirs (private, or gone). */ href: string | null; own: boolean; current: boolean };
 export type Moment = {
   kind: CollabKind;
   /** The original trip or event, its poster first. */
@@ -106,8 +106,16 @@ export async function loadMoment(supabase: SupabaseClient, kind: CollabKind, id:
   const { data: owner } = await supabase.from("profiles").select(PERSON).eq("id", ownerId).maybeSingle();
   const memories: MomentPerson[] = [];
   if (owner) memories.push({ person: owner as CollabPerson, href: hrefFor((owner as CollabPerson).username, originId), own: false, current: originId === id });
+  // Own memories the viewer can actually open (one that's private, or was deleted, gets no link).
+  const ownIds = people.flatMap((c) => (c.own_target_id ? [c.own_target_id] : []));
+  const { data: visible } = ownIds.length
+    ? await supabase.from(kind === "trip" ? "country_visits" : "events").select("id").in("id", ownIds)
+    : { data: [] as { id: string }[] };
+  const canOpen = new Set((visible ?? []).map((r) => r.id as string));
   for (const c of people) {
-    if (c.own_target_id) memories.push({ person: c.person!, href: hrefFor(c.person!.username, c.own_target_id), own: true, current: c.own_target_id === id });
+    if (c.own_target_id) {
+      memories.push({ person: c.person!, href: canOpen.has(c.own_target_id) ? hrefFor(c.person!.username, c.own_target_id) : null, own: true, current: c.own_target_id === id });
+    }
   }
   return { kind, originId, memories, joined: people.filter((c) => !c.own_target_id).map((c) => c.person!) };
 }

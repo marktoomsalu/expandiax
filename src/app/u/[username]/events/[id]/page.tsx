@@ -136,6 +136,7 @@ export default async function PublicEventPage({
       ? await supabase.from("post_collaborators").select("id, target_id").eq("kind", "event").eq("own_target_id", event.id).eq("user_id", viewer.id).maybeSingle()
       : { data: null };
   const earlier = linkRow && viewer ? await findOwnMatch(supabase, viewer.id, "event", linkRow.target_id as string, [event.id]) : null;
+  const alreadyMine = myPart?.status === "accepted" && !myPart.own_target_id && viewer ? await findOwnMatch(supabase, viewer.id, "event", event.id) : null;
   const comments = (commentRows ?? []) as CommentWithAuthor[];
 
   const media = [...event.event_media].sort((a, b) => a.display_order - b.display_order);
@@ -228,7 +229,11 @@ export default async function PublicEventPage({
             </MomentInviteCard>
           </section>
         ) : myPart?.status === "accepted" && !myPart.own_target_id ? (
-          <MakeItMineButton collabId={myPart.id} kind="event" ownerName={ownerFull} />
+          alreadyMine ? (
+            <UseExistingButton collabId={myPart.id} match={alreadyMine} kind="event" />
+          ) : (
+            <MakeItMineButton collabId={myPart.id} kind="event" ownerName={ownerFull} />
+          )
         ) : (
           viewer &&
           viewer.id !== event.user_id &&

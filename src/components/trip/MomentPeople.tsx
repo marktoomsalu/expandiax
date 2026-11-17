@@ -42,13 +42,17 @@ export function MomentPeople({ moment, noun }: { moment: Moment; noun: "trip" | 
           );
           const cls = "inline-flex h-10 items-center gap-2 rounded-full pl-1.5 pr-3.5 text-sm font-medium";
           return m.current ? (
-            <span key={m.href} aria-current="page" className={cn(cls, "bg-brand-purple text-white")}>
+            <span key={m.person.id} aria-current="page" className={cn(cls, "bg-brand-purple text-white")}>
               {label}
             </span>
-          ) : (
-            <Link key={m.href} href={m.href} className={cn(cls, "border border-line bg-surface hover:border-accent")}>
+          ) : m.href ? (
+            <Link key={m.person.id} href={m.href} className={cn(cls, "border border-line bg-surface hover:border-accent")}>
               {label}
             </Link>
+          ) : (
+            <span key={m.person.id} title={`${first(m.person)}'s memory is private`} className={cn(cls, "border border-line bg-surface text-muted")}>
+              {label}
+            </span>
           );
         })}
       </div>
