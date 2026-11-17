@@ -80,7 +80,7 @@ export default async function EventsPage() {
       <DraftsList kind="event" className="mt-8" />
 
       {/* Events with no photos or videos of their own yet: each opens where they're added. */}
-      <MemoryNudge events={events.filter((e) => e.user_id === user.id && e.event_media.length === 0).map((e) => ({ key: e.id, label: e.title, href: `/events/${e.id}/edit` }))} />
+      <MemoryNudge events={events.filter((e) => e.user_id === user.id && e.event_media.length === 0 && !(e as { memory_reminder_off?: boolean }).memory_reminder_off).map((e) => ({ id: e.id, label: e.title, href: `/events/${e.id}/edit` }))} />
 
       {events.length === 0 ? (
         <>
