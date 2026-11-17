@@ -22,7 +22,7 @@ function Avatar({ p, size = 36 }: { p: CollabPerson | null; size?: number }) {
   );
 }
 
-type Link = { id: string; token: string; name: string };
+type Link = { id: string; token: string; name: string; sent_at?: string | null };
 const MAX = 20;
 const DISMISSED = "expandiax:companions-no";
 
@@ -74,14 +74,14 @@ export function CollaboratorsManager({
   // Links sent to people not on ExpandiaX yet (migration 078).
   useEffect(() => {
     if (!isOwner) return;
-    void supabase
-      .from("moment_invites")
-      .select("id, token, name")
-      .eq("kind", kind)
-      .eq("target_id", targetId)
-      .is("claimed_by", null)
-      .order("created_at", { ascending: true })
-      .then(({ data, error: err }) => !err && setLinks((data ?? []) as Link[]));
+    const load = (fields: string) =>
+      supabase.from("moment_invites").select(fields).eq("kind", kind).eq("target_id", targetId).is("claimed_by", null).order("created_at", { ascending: true });
+    void (async () => {
+      // sent_at arrives with migration 079.
+      let { data, error: err } = await load("id, token, name, sent_at");
+      if (err) ({ data, error: err } = await load("id, token, name"));
+      if (!err) setLinks((data ?? []) as unknown as Link[]);
+    })();
   }, [isOwner, kind, targetId, supabase]);
 
   useEffect(() => {
@@ -114,7 +114,7 @@ export function CollaboratorsManager({
     router.refresh();
   }
 
-  const count = people.length + links.length;
+  const count = people.filter((p) => p.status !== "declined").length + links.length;
   const full = count >= MAX;
 
   async function invite(p: { id: string }) {
@@ -168,16 +168,21 @@ export function CollaboratorsManager({
   }
 
   const linkUrl = (token: string) => `${window.location.origin}/join/${myUsername ?? ""}?m=${token}`;
+  // Sent only once it's really been shared (the share sheet finished) or copied.
   async function shareLink(l: Link) {
     const url = linkUrl(l.token);
-    const text = `I added you to our ${noun} on ExpandiaX. Join and see it:`;
+    const text = `You were part of this memory! I added you to our ${noun} on ExpandiaX 💌`;
     try {
       if (navigator.share) await navigator.share({ text, url });
       else {
         await navigator.clipboard.writeText(`${text} ${url}`);
         setShared(l.id);
       }
-    } catch {}
+    } catch {
+      return; // Closed the share sheet: not sent.
+    }
+    setLinks((cur) => cur.map((x) => (x.id === l.id ? { ...x, sent_at: x.sent_at ?? new Date().toISOString() } : x)));
+    await supabase.rpc("mark_moment_invite_sent", { p_id: l.id });
   }
 
   async function createLink() {
@@ -203,13 +208,15 @@ export function CollaboratorsManager({
     await supabase.from("moment_invites").delete().eq("id", l.id);
   }
 
-  const taken = new Set(people.map((p) => p.user_id));
+  const taken = new Set(people.filter((p) => p.status !== "declined").map((p) => p.user_id));
   const mine = people.find((p) => p.user_id === me);
   const suggested = isOwner ? suggestions.filter((s) => !taken.has(s.id) && !noThanks.includes(`${targetId}:${s.id}`)) : [];
   const status = (c: Collaborator) =>
     c.status === "invited"
-      ? "Waiting for them to choose"
-      : c.own_target_id
+      ? "Invitation sent · waiting for them to choose"
+      : c.status === "declined"
+        ? "Declined"
+        : c.own_target_id
         ? "Their own memory, linked"
         : "Joined your memory";
 
@@ -243,6 +250,11 @@ export function CollaboratorsManager({
                 <span className="block truncate text-sm font-medium">{c.person?.display_name ?? "Someone"}</span>
                 <span className="block text-xs text-muted">{status(c)}</span>
               </span>
+              {isOwner && c.status === "declined" && !full && (
+                <button type="button" onClick={() => c.person && void invite(c.person)} disabled={busy === c.person?.id} className="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-medium text-muted hover:text-ink">
+                  Invite again
+                </button>
+              )}
               {isOwner && c.status === "accepted" && !c.own_target_id && (
                 <button
                   type="button"
@@ -272,11 +284,19 @@ export function CollaboratorsManager({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{l.name || "Someone new"}</span>
-                <span className="block text-xs text-muted">{shared === l.id ? "Link copied" : "Not on ExpandiaX yet · link sent"}</span>
+                <span className="block text-xs text-muted">
+                  {shared === l.id ? "Link copied · paste it to them" : l.sent_at ? "Invitation sent · not on ExpandiaX yet" : "Not on ExpandiaX yet · not sent"}
+                </span>
               </span>
-              <button type="button" onClick={() => void shareLink(l)} aria-label="Send the link again" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-ink">
-                <Share2 size={14} />
-              </button>
+              {l.sent_at ? (
+                <button type="button" onClick={() => void shareLink(l)} aria-label="Send the invitation again" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-ink">
+                  <Share2 size={14} />
+                </button>
+              ) : (
+                <button type="button" onClick={() => void shareLink(l)} className="btn-accent shrink-0 !px-3 !py-1.5 text-xs">
+                  <Share2 size={12} /> Send invite
+                </button>
+              )}
               <button type="button" onClick={() => void dropLink(l)} aria-label="Remove the link" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-ink">
                 <X size={15} />
               </button>
@@ -322,7 +342,7 @@ export function CollaboratorsManager({
                       <Loader2 size={16} className="animate-spin text-accent" />
                     ) : (
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent">
-                        <UserPlus size={14} aria-hidden /> Add
+                        <UserPlus size={14} aria-hidden /> Invite
                       </span>
                     )}
                   </button>
@@ -352,7 +372,7 @@ export function CollaboratorsManager({
                   }}
                 />
                 <button type="button" onClick={() => void createLink()} disabled={busy === "link"} className="btn-accent !px-3.5 text-sm">
-                  {busy === "link" ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Send link
+                  {busy === "link" ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Invite
                 </button>
               </div>
             ) : (
@@ -396,7 +416,7 @@ export function WhoWasThere(props: {
       title={props.kind === "trip" ? "Who was with you?" : "Who went with you?"}
       hint={
         props.isOwner
-          ? "Add them: each can join your memory (no post of their own needed) or create their own, linked to yours."
+          ? "Invite them: each can join your memory (no post of their own needed) or link their own."
           : `You're on this ${props.kind}.`
       }
     >

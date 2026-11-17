@@ -6,7 +6,8 @@ import { locatePlaces } from "@/lib/locatePlaces";
 import { TripView, type TripVisit } from "@/components/trip/TripView";
 import { loadCollaborators, loadMoment, namesTogether } from "@/lib/collab";
 import { MomentPeople } from "@/components/trip/MomentPeople";
-import { MakeItMineButton } from "@/components/CollabInviteActions";
+import { MakeItMineButton, UseExistingButton } from "@/components/CollabInviteActions";
+import { findOwnMatch } from "@/lib/companions";
 import { stayLinks } from "@/lib/stayLinks";
 import { JournalSection } from "@/components/trip/JournalSection";
 
@@ -50,6 +51,11 @@ export default async function VisitPage({ params, searchParams }: { params: { co
     supabase.from("trip_journals").select("user_id, body, is_shared").eq("visit_id", trip.id),
     loadMoment(supabase, "trip", trip.id, (username, id) => `/u/${username}/trips/${id}`),
   ]);
+  // Your own memory of someone's trip, made when you'd already logged it yourself: offer the earlier one.
+  const { data: linkRow } = isOwner
+    ? await supabase.from("post_collaborators").select("id, target_id").eq("kind", "trip").eq("own_target_id", trip.id).eq("user_id", user.id).maybeSingle()
+    : { data: null };
+  const earlier = linkRow ? await findOwnMatch(supabase, user.id, "trip", linkRow.target_id as string, [trip.id]) : null;
   const myJournal = journals?.find((j) => j.user_id === user.id);
   const ownerJournal = !isOwner ? journals?.find((j) => j.user_id === trip.visited_countries.user_id && j.is_shared) : null;
 
@@ -65,6 +71,7 @@ export default async function VisitPage({ params, searchParams }: { params: { co
       moment={
         <>
           {moment && <MomentPeople moment={moment} noun="trip" />}
+          {linkRow && earlier && <UseExistingButton collabId={linkRow.id as string} match={earlier} kind="trip" countryCode={meta.code} />}
           {/* You joined someone's memory: make it your own, linked. */}
           {!isOwner && mine && !mine.own_target_id && (
             <MakeItMineButton collabId={mine.id} kind="trip" ownerName={ownerName} countryCode={meta.code} />

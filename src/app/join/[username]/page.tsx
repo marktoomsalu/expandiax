@@ -12,6 +12,7 @@ import { APP_STORE_URL, playStoreUrl } from "@/lib/appStore";
 import { isNativeUserAgent } from "@/lib/nativeApp";
 import { noteInviteClick } from "@/lib/inviteClicks";
 import { claimMomentInvite, loadMomentInvite } from "@/lib/momentInvites";
+import { MomentInviteCard } from "@/components/MomentInviteCard";
 
 // Link previews (iMessage, WhatsApp…) fetch the page with these: they get the page, not a redirect.
 const PREVIEW_BOT = /bot|crawl|spider|facebookexternalhit|facebot|whatsapp|telegram|slack|discord|skype|linkedin|pinterest|embedly|preview|vkshare|quora/i;
@@ -36,12 +37,15 @@ export async function generateMetadata({ params, searchParams }: Props) {
   const first = (p?.display_name ?? "A friend").trim().split(" ")[0];
   // A link to a trip or event (migration 078): "Mark added you to Portugal 2025".
   const moment = p ? await loadMomentInvite(searchParams.m, p.id) : null;
-  const title = moment ? `${first} added you to ${moment.title}` : `${first} invited you to ExpandiaX`;
-  const description = "Your travels and memories, remembered.";
+  const title = moment ? `${first} wants to share a memory with you 💌` : `${first} invited you to ExpandiaX`;
+  const description = moment ? `You were part of this memory: ${moment.title}. Unlock it on ExpandiaX.` : "Your travels and memories, remembered.";
   // ExpandiaX's own picture in the preview (not anyone's photo), App Store
   // style: the logo, "Your world, remembered." and the app on two phones.
   // It reads as the app's own invitation, which is what makes people trust it.
-  const image = { url: "https://expandiax.com/invite-preview.jpg", width: 1200, height: 630, alt: "ExpandiaX: Your world, remembered." };
+  // A trip or event: its own picture instead, the cover blurred (/api/og/moment).
+  const image = moment
+    ? { url: `https://expandiax.com/api/og/moment/${moment.token}`, width: 1200, height: 630, alt: `${first} wants to share a memory with you: ${moment.title}` }
+    : { url: "https://expandiax.com/invite-preview.jpg", width: 1200, height: 630, alt: "ExpandiaX: Your world, remembered." };
   return {
     title: { absolute: title },
     description,
@@ -81,55 +85,64 @@ export default async function JoinPage({ params, searchParams }: Props) {
       <div aria-hidden className="join-stars absolute inset-0 opacity-60" />
       <div className="relative mx-auto flex max-w-md flex-col items-center px-6 pb-16 pt-14 text-center text-white">
         {!user && <RememberInvite username={inviter.username} moment={moment?.token} />}
-        <span className="join-halo relative flex h-32 w-32 items-center justify-center rounded-full p-1" style={{ background: "conic-gradient(from 200deg, #fa51a2, #fb7822, #fa51a2)" }}>
-          <span className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#2b0b2e] font-serif text-5xl">
-            {inviter.avatar_url ? <Image src={inviter.avatar_url} alt="" fill sizes="128px" className="object-cover" priority /> : first.charAt(0)}
-          </span>
-        </span>
-        <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-white/55">Let&rsquo;s collect memories together</p>
-        <h1 className="mt-2 font-serif text-4xl leading-tight">
-          {first} invited you
-          <br />
-          <span className="italic text-[#fa8fc4]">to ExpandiaX</span>
-        </h1>
-        <p className="mt-4 max-w-xs text-white/75">
-          The places you&rsquo;ve been and the moments you never want to forget, all in one place. Join and you&rsquo;ll automatically follow each other, so you can start sharing memories right away.
-        </p>
-
-        {/* Added to a trip or event: what's waiting, without showing it yet. */}
-        {moment && (
-          <div className="mt-6 w-full rounded-2xl bg-white/[0.1] p-4 text-left ring-1 ring-[#fa51a2]/50 backdrop-blur">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">{first} added you to</p>
-            <p className="mt-1 font-serif text-2xl leading-tight">{moment.title}</p>
-            <p className="mt-1 text-sm text-white/75">
-              {moment.when}
-              {moment.photos > 0 ? ` · ${moment.photos} ${moment.photos === 1 ? "photo" : "photos"}, yours to see when you join` : ""}
-            </p>
-            <p className="mt-3 text-sm text-white/80">After joining, put it on your profile in one tap, or create your own memory of it.</p>
+        {moment ? (
+          // Added to a trip or event: someone sharing a memory, its photos waiting behind the blur.
+          <div className="w-full text-left">
+            <MomentInviteCard
+              cover={moment.cover}
+              inviter={moment.ownerName}
+              inviterAvatar={moment.ownerAvatar}
+              title={moment.title}
+              when={moment.when}
+              place={moment.place}
+              photos={moment.photos}
+              flag={moment.flag}
+            >
+              <p className="text-sm text-white/80">
+                Join ExpandiaX to see it. Then put it on your profile in one tap, or link your own memory of it. You and {first} follow each other straight away.
+              </p>
+            </MomentInviteCard>
           </div>
-        )}
-
-        {/* What's waiting on the other side: a little curiosity, no spoilers. */}
-        <div className="mt-6 w-full rounded-2xl bg-white/[0.07] p-4 text-left ring-1 ring-white/15 backdrop-blur">
-          <p className="text-sm font-semibold">
-            Join {first} on ExpandiaX and discover
+        ) : (
+          <>
+          <span className="join-halo relative flex h-32 w-32 items-center justify-center rounded-full p-1" style={{ background: "conic-gradient(from 200deg, #fa51a2, #fb7822, #fa51a2)" }}>
+            <span className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#2b0b2e] font-serif text-5xl">
+              {inviter.avatar_url ? <Image src={inviter.avatar_url} alt="" fill sizes="128px" className="object-cover" priority /> : first.charAt(0)}
+            </span>
+          </span>
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-white/55">Let&rsquo;s collect memories together</p>
+          <h1 className="mt-2 font-serif text-4xl leading-tight">
+            {first} invited you
+            <br />
+            <span className="italic text-[#fa8fc4]">to ExpandiaX</span>
+          </h1>
+          <p className="mt-4 max-w-xs text-white/75">
+            The places you&rsquo;ve been and the moments you never want to forget, all in one place. Join and you&rsquo;ll automatically follow each other, so you can start sharing memories right away.
           </p>
-          <ul className="mt-3 space-y-2.5">
-            {[
-              { icon: Globe2, text: `How many countries ${first} has explored` },
-              { icon: Ticket, text: `The events ${first} loved most` },
-              { icon: Camera, text: `The memories ${first} has shared` },
-            ].map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-3 text-sm text-white/85">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#fa51a2] to-[#fb7822] text-white" aria-hidden>
-                  <Icon size={15} />
-                </span>
-                <span className="flex-1">{text}</span>
-                <Lock size={13} className="shrink-0 text-white/40" aria-label="After you join" />
-              </li>
-            ))}
-          </ul>
-        </div>
+
+          {/* What's waiting on the other side: a little curiosity, no spoilers. */}
+          <div className="mt-6 w-full rounded-2xl bg-white/[0.07] p-4 text-left ring-1 ring-white/15 backdrop-blur">
+            <p className="text-sm font-semibold">
+              Join {first} on ExpandiaX and discover
+            </p>
+            <ul className="mt-3 space-y-2.5">
+              {[
+                { icon: Globe2, text: `How many countries ${first} has explored` },
+                { icon: Ticket, text: `The events ${first} loved most` },
+                { icon: Camera, text: `The memories ${first} has shared` },
+              ].map(({ icon: Icon, text }) => (
+                <li key={text} className="flex items-center gap-3 text-sm text-white/85">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#fa51a2] to-[#fb7822] text-white" aria-hidden>
+                    <Icon size={15} />
+                  </span>
+                  <span className="flex-1">{text}</span>
+                  <Lock size={13} className="shrink-0 text-white/40" aria-label="After you join" />
+                </li>
+              ))}
+            </ul>
+          </div>
+          </>
+        )}
 
         {!user ? (
           <div className="mt-8 flex w-full flex-col items-center gap-4">
@@ -137,7 +150,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
               <>
                 {/* On a phone, in an app's own browser: the store first. */}
                 <a href={storeUrl} className="w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]" style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}>
-                  Join ExpandiaX
+                  {moment ? "Unlock this memory" : "Join ExpandiaX"}
                 </a>
                 <p className="-mt-1 text-xs text-white/55">Free on {phone === "android" ? "Google Play" : "the App Store"}. Sign up and you&rsquo;ll follow {first} straight away.</p>
                 <Link href="/start" className="text-sm text-white/70 underline">
@@ -147,7 +160,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
             ) : (
               <>
                 <Link href="/start" className="w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]" style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}>
-                  Join ExpandiaX
+                  {moment ? "Unlock this memory" : "Join ExpandiaX"}
                 </Link>
                 <StoreBadges height={44} className="justify-center" />
               </>

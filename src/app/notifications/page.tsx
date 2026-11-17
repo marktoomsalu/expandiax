@@ -4,6 +4,9 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { Clock, Heart, HelpCircle, MessageCircle, MessagesSquare, PartyPopper, UserCheck, UserPlus, Users } from "lucide-react";
 import { AddRequesterButton, CollabInviteActions } from "@/components/CollabInviteActions";
+import { MomentInviteCard } from "@/components/MomentInviteCard";
+import { findOwnMatch } from "@/lib/companions";
+import { invitePreview } from "@/lib/invitePreview";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { FollowRequestActions } from "@/components/FollowRequestActions";
@@ -81,6 +84,15 @@ export default async function NotificationsPage() {
   const tripById = new Map(((tripRows ?? []) as TripRow[]).map((r) => [r.id, { ...r, vc: Array.isArray(r.visited_countries) ? r.visited_countries[0] : r.visited_countries }]));
   const collabEventById = new Map(((collabEventRows ?? []) as { id: string; title: string; user_id: string }[]).map((r) => [r.id, r]));
   const openInvite = new Map(((openInvites ?? []) as { id: string; kind: string; target_id: string }[]).map((r) => [`${r.kind}:${r.target_id}`, r.id]));
+  // Each open invitation as a card (its cover, blurred), and your own log of the same trip or event, if any.
+  const inviteExtras = new Map<string, { preview: Awaited<ReturnType<typeof invitePreview>>; match: Awaited<ReturnType<typeof findOwnMatch>> }>(
+    await Promise.all(
+      ((openInvites ?? []) as { kind: "trip" | "event"; target_id: string }[]).slice(0, 6).map(async (r) => {
+        const [preview, match] = await Promise.all([invitePreview(supabase, r.kind, r.target_id), findOwnMatch(supabase, user.id, r.kind, r.target_id)]);
+        return [`${r.kind}:${r.target_id}`, { preview, match }] as const;
+      })
+    )
+  );
   const countryById = new Map((countryRows ?? []).map((r) => [r.id, r]));
   const eventById = new Map((eventRows ?? []).map((r) => [r.id, r]));
 
@@ -261,13 +273,28 @@ export default async function NotificationsPage() {
                   </p>
                   <p className="mt-1 text-xs text-muted">{formatRelative(n.created_at)}</p>
                   {n.kind === "collab_invite" && n.target_id && openInvite.has(`${n.target_kind}:${n.target_id}`) && (
-                    <CollabInviteActions
-                      collabId={openInvite.get(`${n.target_kind}:${n.target_id}`)!}
-                      kind={n.target_kind === "trip" ? "trip" : "event"}
-                      ownerName={actorName}
-                      countryCode={n.target_kind === "trip" ? tripById.get(n.target_id)?.vc?.country_code : null}
-                      openHref={t?.href ?? "/notifications"}
-                    />
+                    <div className="mt-3">
+                      <MomentInviteCard
+                        cover={inviteExtras.get(`${n.target_kind}:${n.target_id}`)?.preview?.cover ?? null}
+                        inviter={actorName}
+                        inviterAvatar={actor?.avatar_url}
+                        title={inviteExtras.get(`${n.target_kind}:${n.target_id}`)?.preview?.title ?? t?.label ?? ""}
+                        when={inviteExtras.get(`${n.target_kind}:${n.target_id}`)?.preview?.when ?? ""}
+                        place={inviteExtras.get(`${n.target_kind}:${n.target_id}`)?.preview?.place}
+                        photos={inviteExtras.get(`${n.target_kind}:${n.target_id}`)?.preview?.photos}
+                        flag={inviteExtras.get(`${n.target_kind}:${n.target_id}`)?.preview?.flag}
+                      >
+                        <p className="text-sm font-medium">Unlock this memory: choose how it goes on your profile.</p>
+                        <CollabInviteActions
+                          collabId={openInvite.get(`${n.target_kind}:${n.target_id}`)!}
+                          kind={n.target_kind === "trip" ? "trip" : "event"}
+                          ownerName={actorName}
+                          countryCode={n.target_kind === "trip" ? tripById.get(n.target_id)?.vc?.country_code : null}
+                          match={inviteExtras.get(`${n.target_kind}:${n.target_id}`)?.match ?? null}
+                          openHref={t?.href ?? "/notifications"}
+                        />
+                      </MomentInviteCard>
+                    </div>
                   )}
                   {n.kind === "collab_request" && n.target_id && n.actor_id && (
                     <AddRequesterButton kind={n.target_kind === "trip" ? "trip" : "event"} targetId={n.target_id} userId={n.actor_id} name={actorName} />

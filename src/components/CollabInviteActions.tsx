@@ -26,12 +26,15 @@ export function CollabInviteActions({
   ownerName,
   countryCode,
   openHref,
+  match = null,
 }: {
   collabId: string;
   kind: "trip" | "event";
   ownerName: string;
   countryCode?: string | null;
   openHref: string;
+  /** Your own trip or event of the same thing, already logged: linked instead of making a second one. */
+  match?: { id: string; label: string } | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"join" | "own" | "no" | null>(null);
@@ -54,13 +57,16 @@ export function CollabInviteActions({
   async function own() {
     setBusy("own");
     setError(false);
-    const { data, error: err } = await createClient().rpc("make_own_memory", { p_id: collabId });
+    const { data, error: err } = match
+      ? await createClient().rpc("link_existing_memory", { p_id: collabId, p_own: match.id })
+      : await createClient().rpc("make_own_memory", { p_id: collabId });
     if (err || !data) {
       setBusy(null);
       return setError(true);
     }
     tapSuccess();
-    router.push(ownMemoryEditHref(kind, data as string, countryCode));
+    // Linked your own: back to it as it was. A new one: to finish it.
+    router.push(match && kind === "trip" ? `/my-world/${(countryCode ?? "").toLowerCase()}/visits/${data}` : ownMemoryEditHref(kind, data as string, countryCode));
     router.refresh();
   }
 
@@ -104,10 +110,21 @@ export function CollabInviteActions({
           {busy === "own" ? <Loader2 size={17} className="animate-spin" /> : <Images size={17} aria-hidden />}
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold">Create my own memory</span>
-          <span className="block text-xs leading-snug text-muted">
-            Your own {noun}, linked to {first}&rsquo;s{kind === "trip" ? ", with the dates and places filled in" : ""}. You choose your own photos and videos.
-          </span>
+          {match ? (
+            <>
+              <span className="block text-sm font-semibold">Link my own {noun}</span>
+              <span className="block text-xs leading-snug text-muted">
+                You already have it: {match.label}. It stays as it is, with your photos, and is linked to {first}&rsquo;s. One {noun}, not two.
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="block text-sm font-semibold">Create my own memory</span>
+              <span className="block text-xs leading-snug text-muted">
+                Your own {noun}, linked to {first}&rsquo;s{kind === "trip" ? ", with the dates and places filled in" : ""}. You choose your own photos and videos.
+              </span>
+            </>
+          )}
         </span>
       </button>
       <button type="button" onClick={() => void decline()} disabled={!!busy} className="px-1 py-1.5 text-sm text-muted hover:text-ink">
@@ -190,5 +207,38 @@ export function AddRequesterButton({ kind, targetId, userId, name }: { kind: "tr
       {state === "full" && <p className="mt-1.5 text-xs text-muted">This already has 20 people, the most it can have.</p>}
       {state === "error" && <p className="mt-1.5 text-xs text-red-800 dark:text-red-400">Couldn&rsquo;t add them. Try again.</p>}
     </div>
+  );
+}
+
+/**
+ * On your own memory of someone's trip or event, when you'd already logged
+ * it before: use that one instead (what's in this one moves over, and this
+ * one goes), so it's one, not two (migration 079).
+ */
+export function UseExistingButton({ collabId, match, kind, countryCode }: { collabId: string; match: { id: string; label: string }; kind: "trip" | "event"; countryCode?: string | null }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  async function go() {
+    setBusy(true);
+    setError(false);
+    const { data, error: err } = await createClient().rpc("link_existing_memory", { p_id: collabId, p_own: match.id });
+    if (err || !data) {
+      setBusy(false);
+      return setError(true);
+    }
+    tapSuccess();
+    router.push(kind === "trip" ? `/my-world/${(countryCode ?? "").toLowerCase()}/visits/${data}` : `/events/${data}/edit`);
+    router.refresh();
+  }
+  return (
+    <section className="mt-6 rounded-2xl border border-accent/40 bg-accent-soft/40 p-4">
+      <p className="font-medium">Is this the same {kind} as your {match.label}?</p>
+      <p className="mt-0.5 text-sm text-muted">Use that one instead: it stays your {kind}, linked to this one, and anything here moves over. Then it counts once, not twice.</p>
+      <button type="button" onClick={() => void go()} disabled={busy} className="btn-accent mt-3 !py-2 text-sm">
+        {busy && <Loader2 size={14} className="animate-spin" />} Use my earlier {kind}
+      </button>
+      {error && <p className="mt-1.5 text-xs text-red-800 dark:text-red-400">That didn&rsquo;t work. Try again.</p>}
+    </section>
   );
 }

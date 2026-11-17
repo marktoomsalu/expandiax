@@ -82,3 +82,49 @@ export async function alsoThere(supabase: SupabaseClient, viewerId: string | nul
   const { data: ps } = await supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", [...found.keys()]);
   return (ps ?? []).map((p) => ({ person: p as Omit<Companion, "reason">, eventId: found.get(p.id as string)! }));
 }
+
+export type OwnMatch = { id: string; label: string };
+
+/**
+ * Added to someone's trip or event you've already logged yourself: yours,
+ * so it can be linked instead of making a second one (migration 079). A
+ * trip matches in the same country when the dates overlap (or, with only a
+ * year, the same year); an event when it's the same one.
+ */
+export async function findOwnMatch(supabase: SupabaseClient, userId: string, kind: "trip" | "event", targetId: string, exclude: string[] = []): Promise<OwnMatch | null> {
+  if (kind === "event") {
+    const { data: t } = await supabase.from("events").select(EVENT_FIELDS).eq("id", targetId).maybeSingle();
+    if (!t) return null;
+    const target = t as TogetherEvent;
+    const day = Date.parse(`${target.event_date}T00:00:00Z`);
+    const around = (d: number) => new Date(day + d * 86_400_000).toISOString().slice(0, 10);
+    const { data } = await supabase.from("events").select(EVENT_FIELDS).eq("user_id", userId).gte("event_date", around(-3)).lte("event_date", around(3));
+    const mine = ((data ?? []) as TogetherEvent[]).find((e) => e.id !== targetId && !exclude.includes(e.id) && sameEvent(target, e));
+    return mine ? { id: mine.id, label: `${mine.title}, ${formatDate(mine.event_date)}` } : null;
+  }
+  type V = { id: string; title: string; kind: "trip" | "lived"; year: number; visited_from: string | null; visited_to: string | null; date_precision: DatePrecision; is_current?: boolean };
+  const { data: t } = await supabase
+    .from("country_visits")
+    .select("id, title, kind, year, visited_from, visited_to, date_precision, visited_countries!inner(country_code, country_name)")
+    .eq("id", targetId)
+    .maybeSingle();
+  if (!t) return null;
+  const vc = (Array.isArray(t.visited_countries) ? t.visited_countries[0] : t.visited_countries) as { country_code: string; country_name: string };
+  const { data } = await supabase
+    .from("country_visits")
+    .select("id, title, kind, year, visited_from, visited_to, date_precision, is_current, visited_countries!inner(user_id, country_code)")
+    .eq("visited_countries.user_id", userId)
+    .eq("visited_countries.country_code", vc.country_code);
+  const target = t as unknown as V;
+  const range = tripRange(target);
+  const mine = ((data ?? []) as unknown as V[]).filter((v) => v.id !== targetId && !exclude.includes(v.id));
+  const hit =
+    mine.find((v) => {
+      const r = tripRange(v);
+      return range && r ? !!tripOverlap({ user_id: "", country_code: vc.country_code, ...range }, { user_id: "", country_code: vc.country_code, ...r }) : v.year === target.year;
+    }) ?? null;
+  if (!hit) return null;
+  const { tripTitle } = await import("./tripTitle");
+  const name = hit.title?.trim() || `${vc.country_name} ${hit.kind === "lived" ? "stay" : "trip"}`;
+  return { id: hit.id, label: `${name}, ${tripTitle(hit).headline}` };
+}

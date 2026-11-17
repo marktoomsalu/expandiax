@@ -16,7 +16,7 @@ export type Collaborator = {
   target_id: string;
   owner_id: string;
   user_id: string;
-  status: "invited" | "accepted";
+  status: "invited" | "accepted" | "declined";
   can_edit: boolean;
   /** They made their own memory of it, linked to this one (migration 078): its id. */
   own_target_id?: string | null;

@@ -15,7 +15,10 @@ import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { CommentSection } from "@/components/CommentSection";
 import { IWasThereButton } from "@/components/IWasThereButton";
 import { MomentPeople } from "@/components/trip/MomentPeople";
-import { CollabInviteActions, MakeItMineButton, RequestCollabButton } from "@/components/CollabInviteActions";
+import { CollabInviteActions, MakeItMineButton, RequestCollabButton, UseExistingButton } from "@/components/CollabInviteActions";
+import { MomentInviteCard } from "@/components/MomentInviteCard";
+import { findOwnMatch } from "@/lib/companions";
+import { invitePreview } from "@/lib/invitePreview";
 import { alsoThere } from "@/lib/companions";
 import type { TogetherEvent } from "@/lib/together";
 import { PhotoGallery } from "@/components/PhotoGallery";
@@ -122,6 +125,17 @@ export default async function PublicEventPage({
   // Friends who logged this same concert or game themselves: "also there", not on this post.
   const together_ = [event.user_id, ...(moment?.memories.map((m) => m.person.id) ?? []), ...(moment?.joined.map((p) => p.id) ?? [])];
   const also = await alsoThere(supabase, viewer?.id ?? null, event as unknown as TogetherEvent, together_);
+  // Invited: the invitation card, and your own log of the same event if you have one.
+  const [match, preview] =
+    myPart?.status === "invited" && viewer
+      ? await Promise.all([findOwnMatch(supabase, viewer.id, "event", event.id), invitePreview(supabase, "event", event.id)])
+      : [null, null];
+  // Your own memory of someone's event, when you'd already logged it yourself.
+  const { data: linkRow } =
+    viewer && viewer.id === event.user_id
+      ? await supabase.from("post_collaborators").select("id, target_id").eq("kind", "event").eq("own_target_id", event.id).eq("user_id", viewer.id).maybeSingle()
+      : { data: null };
+  const earlier = linkRow && viewer ? await findOwnMatch(supabase, viewer.id, "event", linkRow.target_id as string, [event.id]) : null;
   const comments = (commentRows ?? []) as CommentWithAuthor[];
 
   const media = [...event.event_media].sort((a, b) => a.display_order - b.display_order);
@@ -205,10 +219,13 @@ export default async function PublicEventPage({
         </div>
 
         {moment && <MomentPeople moment={moment} noun="event" />}
+        {linkRow && earlier && <UseExistingButton collabId={linkRow.id as string} match={earlier} kind="event" />}
         {myPart?.status === "invited" ? (
-          <section className="mt-6 rounded-2xl border border-accent/40 bg-accent-soft/40 p-4">
-            <p className="font-medium">{ownerFull.split(" ")[0]} added you to this {typeMeta.label.toLowerCase()}. Did you go together?</p>
-            <CollabInviteActions collabId={myPart.id} kind="event" ownerName={ownerFull} openHref={`/u/${profile.username}/events/${event.id}`} />
+          <section className="mt-6">
+            <MomentInviteCard cover={preview?.cover ?? null} inviter={ownerFull} title={preview?.title ?? event.title} when={preview?.when ?? ""} place={preview?.place} photos={preview?.photos} flag={preview?.flag}>
+              <p className="text-sm font-medium">Unlock this memory: did you go together?</p>
+              <CollabInviteActions collabId={myPart.id} kind="event" ownerName={ownerFull} match={match} openHref={`/u/${profile.username}/events/${event.id}`} />
+            </MomentInviteCard>
           </section>
         ) : myPart?.status === "accepted" && !myPart.own_target_id ? (
           <MakeItMineButton collabId={myPart.id} kind="event" ownerName={ownerFull} />

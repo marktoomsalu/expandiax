@@ -8,6 +8,9 @@ import type { CommentWithAuthor } from "@/lib/types";
 import { loadCollaborators, loadMoment, namesTogether } from "@/lib/collab";
 import { MomentPeople } from "@/components/trip/MomentPeople";
 import { CollabInviteActions, RequestCollabButton } from "@/components/CollabInviteActions";
+import { MomentInviteCard } from "@/components/MomentInviteCard";
+import { findOwnMatch } from "@/lib/companions";
+import { invitePreview } from "@/lib/invitePreview";
 import { stayLinks } from "@/lib/stayLinks";
 import { JournalSection } from "@/components/trip/JournalSection";
 
@@ -85,6 +88,10 @@ export default async function TripPage({ params }: Props) {
     supabase.from("profiles").select("display_name").eq("id", ownerId).maybeSingle(),
   ]);
   const ownerFirst = (owner?.display_name ?? person.display_name) as string;
+  const [match, preview] =
+    myPart?.status === "invited" && user
+      ? await Promise.all([findOwnMatch(supabase, user.id, "trip", visit.id), invitePreview(supabase, "trip", visit.id)])
+      : [null, null];
   const onIt = !!moment?.memories.some((m) => m.person.id === user?.id) || !!moment?.joined.some((p) => p.id === user?.id);
 
   return (
@@ -103,9 +110,11 @@ export default async function TripPage({ params }: Props) {
         <>
           {moment && <MomentPeople moment={moment} noun="trip" />}
           {myPart?.status === "invited" ? (
-            <section className="mt-6 rounded-2xl border border-accent/40 bg-accent-soft/40 p-4">
-              <p className="font-medium">{ownerFirst.split(" ")[0]} added you to this trip. Were you there?</p>
-              <CollabInviteActions collabId={myPart.id} kind="trip" ownerName={ownerFirst} countryCode={meta.code} openHref={`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`} />
+            <section className="mt-6">
+              <MomentInviteCard cover={preview?.cover ?? null} inviter={ownerFirst} title={preview?.title ?? meta.name} when={preview?.when ?? ""} place={preview?.place} photos={preview?.photos} flag={meta.flag}>
+                <p className="text-sm font-medium">Unlock this memory: choose how it goes on your profile.</p>
+                <CollabInviteActions collabId={myPart.id} kind="trip" ownerName={ownerFirst} countryCode={meta.code} match={match} openHref={`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`} />
+              </MomentInviteCard>
             </section>
           ) : (
             user &&
