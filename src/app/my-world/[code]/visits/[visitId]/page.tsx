@@ -5,6 +5,8 @@ import { signMedia } from "@/lib/signedMedia";
 import { locatePlaces } from "@/lib/locatePlaces";
 import { TripView, type TripVisit } from "@/components/trip/TripView";
 import { loadCollaborators, namesTogether } from "@/lib/collab";
+import { stayLinks } from "@/lib/stayLinks";
+import { JournalSection } from "@/components/trip/JournalSection";
 
 export const metadata = { title: "Trip" };
 
@@ -39,6 +41,14 @@ export default async function VisitPage({ params, searchParams }: { params: { co
     ownerName = o?.display_name ?? "";
   }
   const together = namesTogether([ownerName, ...others].filter(Boolean));
+  const base = `/my-world/${meta.code.toLowerCase()}/visits`;
+  const [links, { data: journals }] = await Promise.all([
+    stayLinks(supabase, trip, meta.name, (id) => `${base}/${id}`),
+    // Yours, and (on a trip shared with you) its owner's if they shared it. None before migration 076.
+    supabase.from("trip_journals").select("user_id, body, is_shared").eq("visit_id", trip.id),
+  ]);
+  const myJournal = journals?.find((j) => j.user_id === user.id);
+  const ownerJournal = !isOwner ? journals?.find((j) => j.user_id === trip.visited_countries.user_id && j.is_shared) : null;
 
   return (
     <TripView
@@ -49,6 +59,15 @@ export default async function VisitPage({ params, searchParams }: { params: { co
       together={together || null}
       yours
       created={!!searchParams.created}
+      duringStay={links.duringStay}
+      tripsDuring={links.tripsDuring}
+      journal={
+        <JournalSection
+          mine={myJournal ? { body: myJournal.body, shared: myJournal.is_shared } : null}
+          editHref={isOwner || mine?.can_edit ? `${base}/${trip.id}/edit#journal` : null}
+          theirs={ownerJournal ? { body: ownerJournal.body, by: ownerName.split(" ")[0] } : null}
+        />
+      }
       country={{ href: `/my-world/${meta.code.toLowerCase()}`, label: `All trips to ${meta.name}`, allTrips: `All your trips to ${meta.name}` }}
     />
   );

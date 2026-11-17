@@ -29,7 +29,7 @@ type CountryRow = {
   id: string;
   country_code: string;
   is_favourite: boolean;
-  country_visits: { year: number; visited_from: string | null; visited_to: string | null }[];
+  country_visits: { year: number; visited_from: string | null; visited_to: string | null; kind?: string | null }[];
   country_media: { id: string }[];
 };
 
@@ -53,7 +53,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
     supabase
       .from("visited_countries")
       .select(
-        "id, country_code, is_favourite, country_visits(year, visited_from, visited_to), country_media!country_media_visited_country_id_fkey(id)"
+        "id, country_code, is_favourite, country_visits(year, visited_from, visited_to, kind), country_media!country_media_visited_country_id_fkey(id)"
       )
       .eq("user_id", user.id),
     supabase
@@ -77,7 +77,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
   const [sharedEvents, sharedTrips] = await Promise.all([collabEventsOf(supabase, user.id), collabTripsOf(supabase, user.id)]);
   const countryRows = ((countriesData ?? []) as CountryRow[]).map((c) => {
     const more = sharedTrips.filter((t) => t.visited_countries.country_code === c.country_code);
-    return more.length ? { ...c, country_visits: [...c.country_visits, ...more.map((t) => ({ year: t.year, visited_from: t.visited_from, visited_to: t.visited_to }))] } : c;
+    return more.length ? { ...c, country_visits: [...c.country_visits, ...more.map((t) => ({ year: t.year, visited_from: t.visited_from, visited_to: t.visited_to, kind: t.kind }))] } : c;
   });
   const eventRows = [...((eventsData ?? []) as EventRow[]), ...(sharedEvents as unknown as EventRow[])];
 
@@ -91,7 +91,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
     country_code: c.country_code,
     is_favourite: c.is_favourite,
     photo_count: c.country_media?.length ?? 0,
-    visits: (c.country_visits ?? []).map((v) => ({ year: v.year, visited_from: v.visited_from, visited_to: v.visited_to })),
+    visits: (c.country_visits ?? []).map((v) => ({ year: v.year, visited_from: v.visited_from, visited_to: v.visited_to, kind: v.kind })),
   }));
 
   const events: EventStatInput[] = eventRows.map((e) => ({

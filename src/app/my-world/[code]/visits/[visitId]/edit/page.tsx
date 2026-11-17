@@ -52,7 +52,11 @@ export default async function EditVisitPage({
   const visit = data as VisitRow;
   // Yours, or shared with you with edit rights (a collaborator who can edit).
   const isOwner = visit.visited_countries.user_id === user.id;
-  const collaborators = await loadCollaborators(supabase, "trip", visit.id);
+  const [collaborators, { data: journal }] = await Promise.all([
+    loadCollaborators(supabase, "trip", visit.id),
+    // Your own journal for it (none before migration 076).
+    supabase.from("trip_journals").select("body, is_shared").eq("visit_id", visit.id).eq("user_id", user.id).maybeSingle(),
+  ]);
   const meAsCollab = collaborators.find((c) => c.user_id === user.id && c.status === "accepted");
   if (!isOwner && !meAsCollab?.can_edit) notFound();
   const images = visit.country_media.filter((m) => m.media_type === "image").sort((a, b) => a.display_order - b.display_order);
@@ -141,6 +145,7 @@ export default async function EditVisitPage({
         <VisitEditor
           visit={visit}
           isOwner={isOwner}
+          journal={{ userId: user.id, initial: journal ?? null }}
           beforeSave={<WhoWasThere kind="trip" targetId={visit.id} me={user.id} isOwner={isOwner} initial={collaborators} />}
           cities={stops}
           country={{

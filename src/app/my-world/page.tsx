@@ -5,7 +5,8 @@ import { FirstFriends } from "@/components/FirstFriends";
 import { AddCountryButton } from "@/components/AddCountrySheet";
 import { hasRealName } from "@/lib/profileName";
 import { mapStays } from "@/lib/stays";
-import { BarChart3, ImagePlus, Plus } from "lucide-react";
+import { BarChart3, Plus } from "lucide-react";
+import { PhotoReminder } from "@/components/PhotoReminder";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { MapNavigator } from "@/components/MapNavigator";
@@ -125,25 +126,22 @@ export default async function MyWorldPage() {
         </div>
       </div>
 
-      {withoutPhotos.length > 0 && (
-        <Link
-          href={`/my-world/${withoutPhotos[0].country_code.toLowerCase()}`}
-          className="card mt-6 flex items-center gap-3 px-4 py-3.5 transition-shadow hover:shadow-md"
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
-            <ImagePlus size={18} aria-hidden />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium">
-              {withoutPhotos.length === 1 ? "1 country is" : `${withoutPhotos.length} countries are`} waiting for your photos
-            </span>
-            <span className="block truncate text-xs text-muted">
-              Start with {withoutPhotos[0].country_name} - add a few photos and a line about the trip.
-            </span>
-          </span>
-          <span className="shrink-0 text-xs font-semibold text-accent">Add →</span>
-        </Link>
-      )}
+      {/* Like Events: each country waiting for photos, straight into adding them. */}
+      <PhotoReminder
+        countries={withoutPhotos
+          .filter((c) => !(c as Row & { photo_reminder_off?: boolean }).photo_reminder_off)
+          .map((c) => {
+            const code = c.country_code.toLowerCase();
+            // Its latest trip's photos, or (with no trip yet) adding one.
+            const latestTrip = [...c.country_visits].sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)))[0];
+            return {
+              id: c.id,
+              code: c.country_code,
+              label: `${countryByCode(c.country_code)?.flag ?? ""} ${c.country_name}`.trim(),
+              href: latestTrip ? `/my-world/${code}/visits/${latestTrip.id}/edit#photos` : `/my-world/${code}#add`,
+            };
+          })}
+      />
       <DraftsList kind="trip" className="mt-6" />
 
       <div className="mt-8">

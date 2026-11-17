@@ -1,3 +1,4 @@
+import { stayDuring } from "./stays";
 import { orderCountryMedia } from "./mediaOrder";
 import { audienceOf } from "./audience";
 import { stockPhotoFor } from "./stockPhotos";
@@ -60,6 +61,12 @@ export function buildCountryView(
       name: tripName(v, meta.name, stops),
       kind: v.kind,
       current: v.kind === "lived" && !!v.is_current,
+      duringStay: (() => {
+        const s = stayDuring(v, visits);
+        if (!s) return null;
+        const stops = orderStops(cities.filter((c) => c.country_visit_id === s.id)).map((c) => c.city_name);
+        return tripName(s, meta.name, stops);
+      })(),
       collab: shared?.get(v.id),
       places: stops.length ? listCities(stops) : v.highlight.trim() || null,
       when: stayWhen(v),

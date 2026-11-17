@@ -16,6 +16,7 @@ import { CommentSection } from "@/components/CommentSection";
 import { TripPlaceCards } from "./TripPlaceCards";
 import { TripCover } from "./TripCover";
 import type { CommentWithAuthor, CountryCity, CountryMedia, CountryVisit } from "@/lib/types";
+import type { StayLink } from "@/lib/stayLinks";
 
 export type TripVisit = CountryVisit & {
   visited_countries: { id: string; user_id: string; country_code: string };
@@ -42,6 +43,9 @@ export function TripView({
   canEdit = owner,
   together = null,
   yours = owner,
+  duringStay = null,
+  tripsDuring = [],
+  journal = null,
 }: {
   visit: TripVisit;
   meta: Country;
@@ -56,6 +60,12 @@ export function TripView({
   together?: string | null;
   /** The viewer's own memory (theirs, or shared with them): "Where you lived". */
   yours?: boolean;
+  /** A trip taken while living in this country: the stay it's part of. */
+  duringStay?: StayLink | null;
+  /** A stay: the trips taken while living there. */
+  tripsDuring?: StayLink[];
+  /** The journal shown on the page (yours, or one shared with you), and the way to write yours. */
+  journal?: React.ReactNode;
 }) {
   const base = `/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`;
   const stops = orderStops(visit.country_cities);
@@ -128,6 +138,14 @@ export function TripView({
               <Users size={15} aria-hidden /> with {together}
             </p>
           )}
+          {duringStay && (
+            <Link
+              href={duringStay.href}
+              className="pointer-events-auto mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#fa51a2]/90 px-3 py-1 text-xs font-medium text-white hover:bg-[#fa51a2]"
+            >
+              <Home size={12} className="shrink-0" aria-hidden /> <span className="truncate">While living in {meta.name} · {duringStay.name}</span>
+            </Link>
+          )}
           <p className="mt-1 text-sm text-white/75">
             {[howLong, stops.length ? `${stops.length} ${stops.length === 1 ? "place" : "places"}` : null, days ? `${days} ${days === 1 ? "day" : "days"}` : null, photos ? `${photos} ${photos === 1 ? "photo" : "photos"}` : null]
               .filter(Boolean)
@@ -186,6 +204,8 @@ export function TripView({
           </section>
         )}
 
+        {journal}
+
         {/* Every photo and video, in the order they were arranged */}
         {media.length > 0 && (
           <section className="mt-8" aria-labelledby="media-h">
@@ -237,6 +257,29 @@ export function TripView({
                 />
               </>
             )}
+          </section>
+        )}
+
+        {/* A stay: the trips taken while living there (each its own memory, one stay). */}
+        {lived && tripsDuring.length > 0 && (
+          <section className="mt-8" aria-labelledby="during-h">
+            <h2 id="during-h" className="font-serif text-2xl">
+              Trips while living here
+            </h2>
+            <p className="mt-0.5 text-sm text-muted">Part of this time in {meta.name}, so they don&rsquo;t count as separate visits.</p>
+            <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+              {tripsDuring.map((t) => (
+                <li key={t.id}>
+                  <Link href={t.href} className="flex items-center gap-3 px-4 py-3 hover:bg-raised">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{t.name}</span>
+                      <span className="block text-xs text-muted">{t.when}</span>
+                    </span>
+                    <ChevronRight size={16} className="shrink-0 text-muted" aria-hidden />
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDraft } from "@/lib/drafts";
 import { DraftRestored } from "./Drafts";
 import { useRouter } from "next/navigation";
-import { Calendar, Check, Lock, MapPin, MessageSquareText, Music2, PenLine } from "lucide-react";
+import { BookOpen, Calendar, Check, Lock, MapPin, MessageSquareText, Music2, PenLine } from "lucide-react";
+import { JournalEditor } from "./JournalEditor";
 import { AudiencePicker } from "./AudiencePicker";
 import { audienceOf, type Audience } from "@/lib/audience";
 import { createClient } from "@/lib/supabase/client";
@@ -48,6 +49,7 @@ export function VisitEditor({
   country,
   isOwner = true,
   beforeSave,
+  journal,
 }: {
   visit: CountryVisit;
   cities: CountryCity[];
@@ -56,6 +58,8 @@ export function VisitEditor({
   isOwner?: boolean;
   /** Just above Save: "Who was there?" (the people it's shared with). */
   beforeSave?: React.ReactNode;
+  /** The editor's own journal for this trip (migration 076). */
+  journal?: { userId: string; initial: { body: string; is_shared: boolean } | null };
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -334,6 +338,12 @@ export function VisitEditor({
           )}
         </p>
       </Basket>
+
+      {journal && (
+        <Basket id="journal" icon={BookOpen} title="Journal" hint="The longer story, for yourself. Private unless you share it.">
+          <JournalEditor visitId={visit.id} userId={journal.userId} initial={journal.initial} />
+        </Basket>
+      )}
 
       <Basket icon={Music2} title="Soundtrack" hint="The song this trip sounded like.">
         <SoundtrackPicker table="country_visits" recordId={visit.id} initialTrackId={visit.spotify_track_id} />

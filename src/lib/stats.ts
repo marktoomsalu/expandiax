@@ -2,7 +2,7 @@ import { continentCounts } from "./countries";
 import { EVENT_TYPES } from "./events";
 import type { EventType } from "./types";
 
-export type CountryVisitLite = { year: number; visited_from?: string | null; visited_to?: string | null };
+export type CountryVisitLite = { year: number; visited_from?: string | null; visited_to?: string | null; kind?: string | null };
 
 export type CountryStatInput = {
   country_code: string;
@@ -116,7 +116,8 @@ export function buildYearStats(year: number, countries: CountryStatInput[], even
   let longestTripDays: number | null = null;
   for (const c of countries) {
     for (const v of c.visits) {
-      if (v.year !== year || !v.visited_from || !v.visited_to) continue;
+      // A trip, not a time someone lived there (a year in Italy isn't a trip).
+      if (v.year !== year || v.kind === "lived" || !v.visited_from || !v.visited_to) continue;
       const days = Math.round((new Date(v.visited_to).getTime() - new Date(v.visited_from).getTime()) / 86400000) + 1;
       if (longestTripDays === null || days > longestTripDays) longestTripDays = days;
     }

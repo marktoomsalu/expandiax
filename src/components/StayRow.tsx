@@ -18,6 +18,8 @@ export type StayView = {
   kind: "trip" | "lived";
   /** A stay still going on ("I still live here"). */
   current?: boolean;
+  /** A trip taken while living in this country: part of that stay, not another visit. */
+  duringStay?: string | null;
   /** Shared with this person (migration 075): whose it is, whether they may edit it, and their part (to leave). */
   collab?: { ownerName: string; canEdit: boolean; collabId: string };
   places: string | null; // "Bled, Slovenia"
@@ -142,6 +144,11 @@ export function StayRow({
                 </span>
               )}
             </span>
+            {stay.duringStay && (
+              <span className="mt-0.5 flex items-center gap-1 truncate text-[11px] font-medium text-[#d6337f] dark:text-[#ff7cbd]">
+                <Home size={10} className="shrink-0" aria-hidden /> While living here · {stay.duringStay}
+              </span>
+            )}
             {stay.places && stay.places !== stay.name && <span className="block truncate text-xs text-muted">{stay.places}</span>}
             <span className="block truncate text-xs text-muted">
               {stay.when}

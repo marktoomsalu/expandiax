@@ -6,6 +6,8 @@ import { signMedia } from "@/lib/signedMedia";
 import { TripView, type TripVisit } from "@/components/trip/TripView";
 import type { CommentWithAuthor } from "@/lib/types";
 import { loadCollaborators, namesTogether } from "@/lib/collab";
+import { stayLinks } from "@/lib/stayLinks";
+import { JournalSection } from "@/components/trip/JournalSection";
 
 type Props = { params: { username: string; visitId: string } };
 
@@ -70,6 +72,11 @@ export default async function TripPage({ params }: Props) {
     supabase.from("comments").select("*, profiles(username, display_name, avatar_url)").eq("kind", "country").eq("target_id", countryId).order("created_at", { ascending: true }),
   ]);
   const first = person.display_name.trim().split(" ")[0];
+  const [links, { data: journal }] = await Promise.all([
+    stayLinks(supabase, visit, meta.name, (id) => `/u/${person.username}/trips/${id}`),
+    // Only a journal its writer shared comes back (migration 076's rules).
+    supabase.from("trip_journals").select("body").eq("visit_id", visit.id).eq("user_id", person.id).eq("is_shared", true).maybeSingle(),
+  ]);
 
   return (
     <TripView
@@ -83,6 +90,9 @@ export default async function TripPage({ params }: Props) {
         allTrips: mine ? `All your trips to ${meta.name}` : `All of ${first}’s trips to ${meta.name}`,
       }}
       social={{ liked: !!like, comments: (comments ?? []) as CommentWithAuthor[] }}
+      duringStay={links.duringStay}
+      tripsDuring={links.tripsDuring}
+      journal={<JournalSection theirs={journal ? { body: journal.body, by: first } : null} />}
     />
   );
 }
