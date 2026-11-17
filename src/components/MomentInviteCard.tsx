@@ -16,6 +16,7 @@ export function MomentInviteCard({
   photos,
   flag,
   children,
+  compact = false,
 }: {
   cover: string | null;
   inviter: string;
@@ -26,8 +27,29 @@ export function MomentInviteCard({
   photos?: number;
   flag?: string;
   children?: React.ReactNode;
+  /** A small row for a list (Notifications): the blurred cover as a thumbnail, the name, when and the photos waiting. */
+  compact?: boolean;
 }) {
   const first = inviter.trim().split(" ")[0] || "Someone";
+  if (compact) {
+    return (
+      <div className="rounded-2xl border border-line bg-surface p-2.5">
+        <div className="flex items-center gap-3">
+          <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-brand-purple">
+            {cover && <Image src={cover} alt="" fill sizes="56px" className="scale-125 object-cover blur-[6px]" />}
+            <span aria-hidden className="absolute inset-0 flex items-center justify-center text-lg">{flag}</span>
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate font-serif text-[17px] leading-tight">{title}</span>
+            <span className="block truncate text-xs text-muted">
+              {[when, photos ? `${photos} ${photos === 1 ? "photo" : "photos"} waiting` : null].filter(Boolean).join(" · ")}
+            </span>
+          </span>
+        </div>
+        {children}
+      </div>
+    );
+  }
   return (
     <div className="overflow-hidden rounded-3xl bg-brand-purple text-white shadow-xl shadow-black/20 ring-1 ring-white/10">
       <div className="relative h-60 overflow-hidden">

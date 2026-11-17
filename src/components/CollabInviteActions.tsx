@@ -27,6 +27,7 @@ export function CollabInviteActions({
   countryCode,
   openHref,
   match = null,
+  compact = false,
 }: {
   collabId: string;
   kind: "trip" | "event";
@@ -35,6 +36,8 @@ export function CollabInviteActions({
   openHref: string;
   /** Your own trip or event of the same thing, already logged: linked instead of making a second one. */
   match?: { id: string; label: string } | null;
+  /** Smaller, for a list (Notifications): the same two choices, a line each. */
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"join" | "own" | "no" | null>(null);
@@ -92,6 +95,39 @@ export function CollabInviteActions({
   if (done === "declined") return <p className="mt-2 text-sm text-muted">Okay, it&rsquo;s not on your profile.</p>;
 
   const option = "flex w-full items-start gap-3 rounded-2xl border bg-surface p-3 text-left text-ink transition-colors disabled:opacity-60";
+
+  if (compact) {
+    const row = "flex w-full items-center gap-2.5 rounded-xl border bg-surface px-2.5 py-2 text-left text-ink transition-colors disabled:opacity-60";
+    return (
+      <div className="mt-2 space-y-1.5">
+        <button type="button" onClick={() => void join()} disabled={!!busy} className={`${row} border-accent/60 hover:border-accent`}>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+            {busy === "join" ? <Loader2 size={14} className="animate-spin" /> : <MapPin size={14} aria-hidden />}
+          </span>
+          <span className="min-w-0 leading-tight">
+            <span className="block text-[13px] font-semibold">Join {first}&rsquo;s memory</span>
+            <span className="block text-xs text-muted">No post needed: {first}&rsquo;s photos show on your profile</span>
+          </span>
+        </button>
+        <button type="button" onClick={() => void own()} disabled={!!busy} className={`${row} border-line hover:border-accent`}>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-raised">
+            {busy === "own" ? <Loader2 size={14} className="animate-spin" /> : <Images size={14} aria-hidden />}
+          </span>
+          <span className="min-w-0 leading-tight">
+            <span className="block text-[13px] font-semibold">{match ? `Link my own ${noun}` : "Create my own memory"}</span>
+            <span className="block text-xs text-muted">
+              {match ? `Your ${match.label}, linked to ${first}'s` : `Your own ${noun} with your photos, linked to ${first}'s`}
+            </span>
+          </span>
+        </button>
+        <button type="button" onClick={() => void decline()} disabled={!!busy} className="px-1 py-0.5 text-xs text-muted hover:text-ink">
+          {busy === "no" ? "…" : "Not me"}
+        </button>
+        {error && <p className="text-xs text-red-800 dark:text-red-400">That didn&rsquo;t work. It may no longer be open; try again.</p>}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-2.5 space-y-2">
       <button type="button" onClick={() => void join()} disabled={!!busy} className={`${option} border-accent/60 hover:border-accent`}>

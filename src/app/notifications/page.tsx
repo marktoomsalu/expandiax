@@ -198,8 +198,14 @@ export default async function NotificationsPage() {
             } else if (n.kind === "collab_invite") {
               text = (
                 <>
-                  added you to {n.target_kind === "trip" ? "their trip" : "their event"}{" "}
-                  {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : ""}. Were you there? Choose how it goes on your profile.
+                  {openInvite.has(`${n.target_kind}:${n.target_id}`) ? (
+                    <>wants to share a memory with you</>
+                  ) : (
+                    <>
+                      added you to {n.target_kind === "trip" ? "their trip" : "their event"}{" "}
+                      {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : ""}
+                    </>
+                  )}
                 </>
               );
             } else if (n.kind === "collab_request") {
@@ -273,8 +279,9 @@ export default async function NotificationsPage() {
                   </p>
                   <p className="mt-1 text-xs text-muted">{formatRelative(n.created_at)}</p>
                   {n.kind === "collab_invite" && n.target_id && openInvite.has(`${n.target_kind}:${n.target_id}`) && (
-                    <div className="mt-3">
+                    <div className="mt-2">
                       <MomentInviteCard
+                        compact
                         cover={inviteExtras.get(`${n.target_kind}:${n.target_id}`)?.preview?.cover ?? null}
                         inviter={actorName}
                         inviterAvatar={actor?.avatar_url}
@@ -284,8 +291,8 @@ export default async function NotificationsPage() {
                         photos={inviteExtras.get(`${n.target_kind}:${n.target_id}`)?.preview?.photos}
                         flag={inviteExtras.get(`${n.target_kind}:${n.target_id}`)?.preview?.flag}
                       >
-                        <p className="text-sm font-medium">Unlock this memory: choose how it goes on your profile.</p>
                         <CollabInviteActions
+                          compact
                           collabId={openInvite.get(`${n.target_kind}:${n.target_id}`)!}
                           kind={n.target_kind === "trip" ? "trip" : "event"}
                           ownerName={actorName}
