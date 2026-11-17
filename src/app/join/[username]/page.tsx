@@ -37,8 +37,10 @@ export async function generateMetadata({ params, searchParams }: Props) {
   const first = (p?.display_name ?? "A friend").trim().split(" ")[0];
   // A link to a trip or event (migration 078): "Mark added you to Portugal 2025".
   const moment = p ? await loadMomentInvite(searchParams.m, p.id) : null;
-  const title = moment ? `${first} wants to share a memory with you 💌` : `${first} invited you to ExpandiaX`;
-  const description = moment ? `You were part of this memory: ${moment.title}. Unlock it on ExpandiaX.` : "Your travels and memories, remembered.";
+  // No emojis in the preview's words (the trip's own name included): it reads cleaner in WhatsApp and Messenger.
+  const plain = (t: string) => t.replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\u200D\uFE0F]/gu, "").replace(/\s{2,}/g, " ").trim();
+  const title = moment ? `${first} wants to share a memory with you` : `${first} invited you to ExpandiaX`;
+  const description = moment ? `You were part of this memory: ${plain(moment.title)}. Unlock it on ExpandiaX.` : "Your travels and memories, remembered.";
   // ExpandiaX's own picture in the preview (not anyone's photo), App Store
   // style: the logo, "Your world, remembered." and the app on two phones.
   // It reads as the app's own invitation, which is what makes people trust it.

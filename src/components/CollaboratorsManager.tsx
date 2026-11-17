@@ -171,7 +171,7 @@ export function CollaboratorsManager({
   // Sent only once it's really been shared (the share sheet finished) or copied.
   async function shareLink(l: Link) {
     const url = linkUrl(l.token);
-    const text = `You were part of this memory! I added you to our ${noun} on ExpandiaX 💌`;
+    const text = `You were part of this memory! I added you to our ${noun} on ExpandiaX.`;
     try {
       if (navigator.share) await navigator.share({ text, url });
       else {

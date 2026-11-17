@@ -41,10 +41,10 @@ export function MomentInviteCard({
           <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/20 font-serif text-lg ring-2 ring-white/70">
             {inviterAvatar ? <Image src={inviterAvatar} alt="" fill sizes="40px" className="object-cover" /> : first.charAt(0)}
           </span>
-          <span className="text-sm font-medium drop-shadow">{first} wants to share a memory with you 💌</span>
+          <span className="text-sm font-medium drop-shadow">{first} wants to share a memory with you</span>
         </div>
         <div className="absolute inset-x-0 bottom-0 p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/75">You were part of this memory 🌍</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/75">You were part of this memory</p>
           <p className="mt-1 font-serif text-[2rem] leading-[1.05] drop-shadow-md">
             {flag && <span className="mr-2 text-[0.8em]" aria-hidden>{flag}</span>}
             {title}
