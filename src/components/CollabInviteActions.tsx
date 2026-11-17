@@ -91,7 +91,7 @@ export function CollabInviteActions({
   }
   if (done === "declined") return <p className="mt-2 text-sm text-muted">Okay, it&rsquo;s not on your profile.</p>;
 
-  const option = "flex w-full items-start gap-3 rounded-2xl border bg-surface p-3 text-left transition-colors disabled:opacity-60";
+  const option = "flex w-full items-start gap-3 rounded-2xl border bg-surface p-3 text-left text-ink transition-colors disabled:opacity-60";
   return (
     <div className="mt-2.5 space-y-2">
       <button type="button" onClick={() => void join()} disabled={!!busy} className={`${option} border-accent/60 hover:border-accent`}>
