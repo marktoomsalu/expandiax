@@ -3,6 +3,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    // An optimised photo stays cached for 12 hours, as long as its link stays
+    // the same (src/lib/signedMedia.ts), instead of being made again every minute.
+    minimumCacheTTL: 43200,
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co", pathname: "/storage/v1/object/public/**" },
       // Memories are private: pages get short-lived signed links (src/lib/signedMedia.ts).
