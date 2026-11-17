@@ -18,6 +18,7 @@ export function PhotoArranger({
   coverId,
   onReorder,
   onCover,
+  onTap,
   renderTile,
 }: {
   items: ArrangeItem[];
@@ -25,6 +26,8 @@ export function PhotoArranger({
   onReorder: (ids: string[]) => void;
   /** Without it there's no Cover slot (nothing to be the cover of). */
   onCover?: (id: string) => void;
+  /** A quick tap (not a hold) on a tile's picture: open it. */
+  onTap?: (id: string) => void;
   renderTile: (id: string, dragging: boolean) => React.ReactNode;
 }) {
   const [order, setOrder] = useState(items.map((i) => i.id));
@@ -81,25 +84,19 @@ export function PhotoArranger({
         return;
       }
       setGhost({ x: e.clientX, y: e.clientY });
-      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-arrange-id],[data-arrange-cover]");
-      if (target?.dataset.arrangeCover !== undefined) {
-        setOverCover(true);
-        return;
-      }
-      setOverCover(false);
-      const overId = target?.dataset.arrangeId;
-      if (!overId || overId === dragId) return;
-      const cur = orderRef.current;
-      const to = cur.indexOf(overId);
-      const next = cur.filter((id) => id !== dragId);
-      next.splice(to, 0, dragId);
-      setOrder(next);
+      point.current = { x: e.clientX, y: e.clientY };
+      hover(dragId, e.clientX, e.clientY);
     }
     function up() {
       const s = start.current;
       if (s?.timer) clearTimeout(s.timer);
       start.current = null;
-      if (!dragId) return;
+      point.current = null;
+      if (!dragId) {
+        // Let go before the hold turned into a drag (and without scrolling): a tap.
+        if (s && onTap) onTap(s.id);
+        return;
+      }
       if (overCoverRef.current && onCover) {
         tapSuccess();
         onCover(dragId);
@@ -122,7 +119,53 @@ export function PhotoArranger({
     };
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Where the finger is now, and what's under it: the cover slot, or a photo
+  // to take the place of.
+  const point = useRef<{ x: number; y: number } | null>(null);
+  function hover(id: string, x: number, y: number) {
+    const target = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-arrange-id],[data-arrange-cover]");
+    if (target?.dataset.arrangeCover !== undefined) {
+      setOverCover(true);
+      return;
+    }
+    setOverCover(false);
+    const overId = target?.dataset.arrangeId;
+    if (!overId || overId === id) return;
+    const cur = orderRef.current;
+    const to = cur.indexOf(overId);
+    const next = cur.filter((i) => i !== id);
+    next.splice(to, 0, id);
+    setOrder(next);
+  }
+
+  // Held near the top or bottom of the screen, the page scrolls by itself
+  // (faster the closer to the edge), so a photo can go from the last row to
+  // the first in one drag. The page itself can't scroll under the finger
+  // while dragging, so this is the only way it moves.
+  useEffect(() => {
+    if (!dragId) return;
+    let frame = 0;
+    const EDGE = 110;
+    const MAX = 16;
+    const tick = () => {
+      const p = point.current;
+      if (p) {
+        const h = window.innerHeight;
+        const speed = p.y < EDGE ? -MAX * ((EDGE - p.y) / EDGE) : p.y > h - EDGE ? MAX * ((p.y - (h - EDGE)) / EDGE) : 0;
+        if (speed) {
+          const before = window.scrollY;
+          window.scrollBy(0, speed);
+          if (window.scrollY !== before) hover(dragId, p.x, p.y);
+        }
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [dragId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function begin(id: string, x: number, y: number) {
+    point.current = { x, y };
     tapLight();
     setDragId(id);
     setGhost({ x, y });

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { AnimatePresence, motion, useMotionValue, useTransform, type PanInfo } from "framer-motion";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
-export type ViewerItem = { id: string; url: string; alt: string; type?: "image" | "video" };
+export type ViewerItem = { id: string; url: string; alt: string; type?: "image" | "video"; /** Shown under the photo. */ caption?: string | null };
 
 const SWIPE_PX = 60;
 const FLICK_PX_S = 450;
@@ -75,7 +75,8 @@ export function MediaViewer({ items, start, onClose }: { items: ViewerItem[]; st
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
     >
-      <motion.div aria-hidden className="absolute inset-0 bg-black" style={{ opacity: backdrop }} />
+      {/* Brand purple, not black: the photos sit on ExpandiaX, not on a void. */}
+      <motion.div aria-hidden className="absolute inset-0 bg-brand-purple" style={{ opacity: backdrop }} />
 
       <AnimatePresence initial={false} custom={dir}>
         <motion.div
@@ -135,8 +136,13 @@ export function MediaViewer({ items, start, onClose }: { items: ViewerItem[]; st
                 />
               )}
             </div>
-            {/* Same height as the top row, so the media sits in the middle. */}
-            <div className="h-[3.25rem]" aria-hidden />
+            {/* Its caption underneath; without one, a space as tall as the top
+                row, so the media sits in the middle. */}
+            {item.caption?.trim() ? (
+              <p className="max-h-28 min-h-[3.25rem] overflow-y-auto whitespace-pre-line px-1 pt-3 text-center text-[15px] leading-snug text-white/90">{item.caption.trim()}</p>
+            ) : (
+              <div className="h-[3.25rem]" aria-hidden />
+            )}
           </motion.div>
         </motion.div>
       </AnimatePresence>

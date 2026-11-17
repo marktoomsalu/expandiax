@@ -27,7 +27,7 @@ export function TripPlaceCards({ places }: { places: PlaceCard[] }) {
 
   return (
     <>
-      <ul className="no-scrollbar -mx-5 mt-3 flex snap-x gap-3 overflow-x-auto px-5 pb-2">
+      <ul className="no-scrollbar -mx-5 mt-3 flex snap-x scroll-px-5 gap-3 overflow-x-auto px-5 pb-2">
         {places.map((p) => {
           const pic = p.items.find((m) => m.type !== "video");
           const inner = (

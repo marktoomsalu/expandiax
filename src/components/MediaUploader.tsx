@@ -13,6 +13,7 @@ import { QueuedMedia } from "./UploadQueue";
 import type { MediaItem } from "@/lib/types";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RepositionPhotoDialog } from "./RepositionPhotoDialog";
+import { PhotoEditor } from "./PhotoEditor";
 import { cn } from "@/lib/utils";
 import { useIsNative } from "@/lib/useIsNative";
 import { tapSuccess } from "@/lib/haptics";
@@ -69,6 +70,8 @@ export function MediaUploader(props: Props) {
   const [toDelete, setToDelete] = useState<MediaItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toReposition, setToReposition] = useState<MediaItem | null>(null);
+  // Tapped: full screen, to write its caption, turn or crop it.
+  const [editing, setEditing] = useState<MediaItem | null>(null);
   const [addedPlaces, setAddedPlaces] = useState<string[]>([]);
   // The app's own picker (build 10+): it closes at once and photos follow from iCloud.
   const nativePicker = useSyncExternalStore(never, hasNativePhotoPicker, () => false);
@@ -297,12 +300,6 @@ export function MediaUploader(props: Props) {
     router.refresh();
   }
 
-  async function saveCaption(item: MediaItem, caption: string) {
-    if (caption.trim() === (item.caption ?? "").trim()) return;
-    await supabase.from(table).update({ caption: caption.trim() }).eq("id", item.id);
-    router.refresh();
-  }
-
   // The cover is always the first photo shown (even where it was chosen before this rule).
   const sorted = [...items].sort((a, b) => (a.id === coverId ? -1 : b.id === coverId ? 1 : a.display_order - b.display_order));
   const byId = new Map(sorted.map((m) => [m.id, m]));
@@ -366,7 +363,9 @@ export function MediaUploader(props: Props) {
         </p>
       </div>
       {sorted.length > 1 && (
-        <p className="mt-0.5 text-xs text-muted">Drag to reorder{coverTable ? ". The first photo is the cover." : "."}</p>
+        <p className="mt-0.5 text-xs text-muted">
+          Tap one to {captions ? "add a caption, crop or turn it" : "crop or turn it"}. Hold and drag to reorder{coverTable ? "; the first photo is the cover." : "."}
+        </p>
       )}
 
       {sorted.length > 0 && (
@@ -375,6 +374,7 @@ export function MediaUploader(props: Props) {
             items={sorted.map((m) => ({ id: m.id, thumb: m.media_type === "image" ? m.public_url : null, isVideo: m.media_type === "video" }))}
             coverId={coverId ?? null}
             onReorder={(ids) => void reorder(ids)}
+            onTap={(id) => setEditing(byId.get(id) ?? null)}
             renderTile={(id) => {
               const m = byId.get(id)!;
               return (
@@ -400,15 +400,15 @@ export function MediaUploader(props: Props) {
                     </span>
                   )}
                   {captions && (
-                    <input
-                      type="text"
-                      aria-label="Caption"
-                      placeholder="Add a caption"
-                      defaultValue={m.caption}
-                      onBlur={(e) => void saveCaption(m, e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-                      className="w-full border-t border-line bg-transparent px-2 py-1.5 text-base sm:text-xs focus:outline-none"
-                    />
+                    // The caption opens the full-screen editor, where all of it fits.
+                    <button
+                      type="button"
+                      onClick={() => setEditing(m)}
+                      aria-label={m.caption?.trim() ? `Caption: ${m.caption.trim()}. Edit` : "Add a caption"}
+                      className="block w-full border-t border-line px-2 py-1.5 text-left text-xs leading-snug"
+                    >
+                      {m.caption?.trim() ? <span className="line-clamp-2 whitespace-pre-line">{m.caption.trim()}</span> : <span className="text-muted">Add a caption</span>}
+                    </button>
                   )}
                   {choosePlace && (
                     <PlaceSelect
@@ -572,6 +572,10 @@ export function MediaUploader(props: Props) {
         onConfirm={confirmDelete}
         onCancel={() => setToDelete(null)}
       />
+
+      {editing && (
+        <PhotoEditor item={editing} table={table} userId={userId} scope={scope} parentId={parentId} withCaption={!!captions} onClose={() => setEditing(null)} />
+      )}
 
       {toReposition && (
         <RepositionPhotoDialog

@@ -223,7 +223,7 @@ export default async function PublicEventPage({
                 even tiles — a full-width video in a column of small photos
                 read as a mismatch. */}
             <PhotoGallery
-              photos={gallery.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || event.title, type: m.media_type }))}
+              photos={gallery.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || event.title, caption: m.caption, type: m.media_type }))}
               gridClassName={`grid gap-1.5 ${gallery.length === 1 ? "grid-cols-1" : gallery.length === 2 || gallery.length === 4 ? "grid-cols-2" : "grid-cols-3"}`}
               itemClassName={`relative w-full overflow-hidden rounded-lg bg-raised ${gallery.length === 1 ? "aspect-[4/3]" : "aspect-square"}`}
               sizes={gallery.length === 1 ? "(min-width: 768px) 720px, 100vw" : "(min-width: 768px) 240px, 33vw"}

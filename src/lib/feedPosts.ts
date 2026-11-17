@@ -67,7 +67,7 @@ export async function loadPostContext(supabase: Supabase, viewerId: string | nul
   }
   const add = (key: string, row: MediaRow) => {
     const list = ctx.mediaByKey.get(key) ?? [];
-    list.push({ id: row.id, url: row.public_url, type: row.media_type, alt: row.caption || "", displayOrder: row.display_order, focalX: row.focal_x, focalY: row.focal_y });
+    list.push({ id: row.id, url: row.public_url, type: row.media_type, alt: row.caption || "", caption: row.caption || null, displayOrder: row.display_order, focalX: row.focal_x, focalY: row.focal_y });
     ctx.mediaByKey.set(key, list);
   };
   for (const row of countryMediaRows ?? []) add(`country:${row.visited_country_id}`, row);

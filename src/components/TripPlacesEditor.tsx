@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Check, Loader2, MapPin, PenLine, Plus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { orderStops } from "@/lib/tripPlaces";
 import type { Place } from "@/lib/places";
 import type { CountryCity } from "@/lib/types";
@@ -65,6 +66,8 @@ function PlaceSearch({
   // Searching starts once they type — not for the name that's already there.
   const [typed, setTyped] = useState(false);
   const { hits, searching } = usePlaceSearch(typed ? query : "", countryCode);
+  // Adding (not renaming): what was typed can always be added as it is.
+  const offerTyped = !onCancel && typed && query.trim().length >= 2 && !searching && !hits.some((h) => h.name.toLowerCase() === query.trim().toLowerCase());
 
   async function pick(name: string, spot?: Spot) {
     if (await onPick(name, spot)) {
@@ -98,17 +101,21 @@ function PlaceSearch({
           onKeyDown={(e) => e.key === "Escape" && onCancel?.()}
           autoComplete="off"
         />
-        <button type="submit" aria-label={submitLabel} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line hover:border-accent hover:text-accent">
-          {searching ? <Loader2 size={16} className="animate-spin" /> : onCancel ? <Check size={16} /> : <Plus size={16} />}
-        </button>
-        {onCancel && (
-          <button type="button" onClick={onCancel} aria-label="Cancel" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted hover:text-ink">
-            <X size={16} />
-          </button>
+        {onCancel ? (
+          <>
+            <button type="submit" aria-label={submitLabel} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line hover:border-accent hover:text-accent">
+              {searching ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+            </button>
+            <button type="button" onClick={onCancel} aria-label="Cancel" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted hover:text-ink">
+              <X size={16} />
+            </button>
+          </>
+        ) : (
+          searching && <Loader2 size={16} className="absolute right-3 top-[1.15rem] -translate-y-1/2 animate-spin text-muted" aria-hidden />
         )}
       </div>
-      {hits.length > 0 && (
-        <ul className="absolute left-0 right-11 top-full z-20 mt-1 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
+      {(hits.length > 0 || offerTyped) && (
+        <ul className={cn("absolute left-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-line bg-surface shadow-lg", onCancel ? "right-11" : "right-0")}>
           {hits.map((h) => (
             <li key={h.id}>
               <button type="button" onClick={() => pick(h.name, { lat: h.lat, lng: h.lng })} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-raised">
@@ -117,10 +124,28 @@ function PlaceSearch({
               </button>
             </li>
           ))}
+          {offerTyped && (
+            <li className={cn(hits.length > 0 && "border-t border-line")}>
+              {/* Somewhere the search doesn't know: keep it as typed (it won't be on the map). */}
+              <button type="button" onClick={() => pick(query)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-accent hover:bg-raised">
+                <Plus size={14} className="shrink-0" aria-hidden /> Add &ldquo;{query.trim()}&rdquo;
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </form>
   );
+}
+
+/**
+ * Places with their days in date order, each in a slot a dated place had;
+ * places without days stay exactly where they are.
+ */
+function byDate(list: CountryCity[]): CountryCity[] {
+  const dated = list.filter((p) => p.arrived).sort((a, b) => a.arrived!.localeCompare(b.arrived!));
+  let n = 0;
+  return list.map((p) => (p.arrived ? dated[n++] : p));
 }
 
 /**
@@ -146,12 +171,24 @@ export function TripPlacesEditor({
   const [toRemove, setToRemove] = useState<CountryCity | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Places can also arrive from elsewhere on the page (photos from somewhere new).
+  // Places can also arrive from elsewhere on the page (photos from somewhere
+  // new). The list keeps the order it's in on screen, so a place being
+  // edited never jumps away: new ones join at the end.
   const initialKey = initial.map((c) => `${c.id}:${c.city_name}:${c.arrived}:${c.departed}:${c.position}`).join("|");
   useEffect(() => {
-    setPlaces(orderStops(initial));
+    setPlaces((cur) => {
+      const fresh = new Map(initial.map((c) => [c.id, c]));
+      const kept = cur.flatMap((p) => (fresh.has(p.id) ? [fresh.get(p.id)!] : []));
+      const added = orderStops(initial.filter((c) => !cur.some((p) => p.id === c.id)));
+      return [...kept, ...added];
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialKey]);
+
+  // Keeps a place on screen after it moves (or arrives).
+  function reveal(id: string) {
+    requestAnimationFrame(() => document.getElementById(`place-row-${id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+  }
 
   async function add(name: string, spot?: Spot) {
     const clean = name.trim().slice(0, 80);
@@ -168,6 +205,7 @@ export function TripPlacesEditor({
       return false;
     }
     setPlaces((cur) => [...cur, data as CountryCity]);
+    reveal((data as CountryCity).id);
     router.refresh();
     return true;
   }
@@ -207,8 +245,18 @@ export function TripPlacesEditor({
       return;
     }
     setError(null);
-    setPlaces((cur) => cur.map((p) => (p.id === id ? next : p)));
+    const updated = places.map((p) => (p.id === id ? next : p));
+    // Only once a place has both its days does it take its place in the
+    // journey (by date); while the first date is being set it stays put.
+    const settle = field === "departed" && !!next.arrived && !!next.departed;
+    const ordered = settle ? byDate(updated) : updated;
+    const moved = ordered.some((p, n) => p.id !== updated[n].id);
+    setPlaces(moved ? ordered.map((p, n) => ({ ...p, position: n })) : ordered);
     await supabase.from("country_cities").update({ [field]: value || null }).eq("id", id);
+    if (moved) {
+      await Promise.all(ordered.map((p, n) => supabase.from("country_cities").update({ position: n }).eq("id", p.id)));
+      reveal(id);
+    }
     router.refresh();
   }
 
@@ -226,10 +274,11 @@ export function TripPlacesEditor({
 
   return (
     <div className="space-y-3">
+      <PlaceSearch id="place-search" countryCode={countryCode} placeholder="Add a place - e.g. Bled" submitLabel="Add place" onPick={add} />
       {places.length > 0 && (
         <ol className="space-y-2">
           {places.map((p, i) => (
-            <li key={p.id} className="space-y-2.5 rounded-xl border border-line bg-raised p-3">
+            <li key={p.id} id={`place-row-${p.id}`} className="scroll-mt-28 scroll-mb-28 space-y-2.5 rounded-xl border border-line bg-raised p-3">
               {editing === p.id ? (
                 <PlaceSearch
                   id={`rename-${p.id}`}
@@ -293,7 +342,6 @@ export function TripPlacesEditor({
         </ol>
       )}
 
-      <PlaceSearch id="place-search" countryCode={countryCode} placeholder="Add a place - e.g. Bled" submitLabel="Add place" onPick={add} />
       {error && <p role="alert" className="text-xs text-red-800 dark:text-red-400">{error}</p>}
 
       <ConfirmDialog

@@ -135,7 +135,7 @@ export default async function PublicCountryPage({
         {note && note !== t?.places && <p className="px-1 pt-1 font-serif text-base leading-relaxed">&ldquo;{note}&rdquo;</p>}
         {photos.length > 0 && (
           <PhotoGallery
-            photos={photos.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || `Photo from ${t?.name ?? meta.name}`, type: m.media_type }))}
+            photos={photos.map((m) => ({ id: m.id, url: m.public_url, alt: m.caption || `Photo from ${t?.name ?? meta.name}`, caption: m.caption, type: m.media_type }))}
             // One photo shows large, two side by side, more in threes.
             gridClassName={`grid gap-1.5 ${photos.length === 1 ? "grid-cols-1" : photos.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}
             itemClassName={`relative w-full overflow-hidden rounded-xl ${photos.length === 1 ? "aspect-[4/3]" : "aspect-square"}`}
@@ -143,7 +143,13 @@ export default async function PublicCountryPage({
             coverId={isOwnProfile ? v.cover_media_id : null}
           />
         )}
-        {v.spotify_track_id && <SpotifyEmbed trackId={v.spotify_track_id} compact />}
+        {v.spotify_track_id && (
+          <SpotifyEmbed
+            trackId={v.spotify_track_id}
+            compact
+            teaser={isOwnProfile ? `The song that takes you back to this ${v.kind === "lived" ? "time" : "trip"}` : `Want to know which song reminds me of this ${v.kind === "lived" ? "time" : "trip"}?`}
+          />
+        )}
         {!note && photos.length === 0 && !v.spotify_track_id && (
           <p className="px-1 py-1 text-sm text-muted">No photos or notes from this one yet.</p>
         )}

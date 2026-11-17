@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowLeft, CalendarDays, ChevronRight, Home, MapPin, MessageSquareText, Pencil, Plus, Users } from "lucide-react";
 import type { Country } from "@/lib/countries";
 import { stockPhotoFor } from "@/lib/stockPhotos";
@@ -15,6 +14,7 @@ import { StockImage } from "@/components/StockImage";
 import { LikeButton } from "@/components/LikeButton";
 import { CommentSection } from "@/components/CommentSection";
 import { TripPlaceCards } from "./TripPlaceCards";
+import { TripCover } from "./TripCover";
 import type { CommentWithAuthor, CountryCity, CountryMedia, CountryVisit } from "@/lib/types";
 
 export type TripVisit = CountryVisit & {
@@ -80,7 +80,7 @@ export function TripView({
   const noun = lived ? "stay" : "trip";
   const words = visit.highlight.trim();
   const empty = !words && media.length === 0;
-  const viewerItem = (m: CountryMedia) => ({ id: m.id, url: m.public_url, alt: m.caption || "", type: m.media_type === "video" ? ("video" as const) : ("image" as const) });
+  const viewerItem = (m: CountryMedia) => ({ id: m.id, url: m.public_url, alt: m.caption || "", caption: m.caption, type: m.media_type === "video" ? ("video" as const) : ("image" as const) });
 
   return (
     <div>
@@ -99,13 +99,13 @@ export function TripView({
       {/* Hero */}
       <div className="relative -mt-px h-[56vh] max-h-[520px] min-h-[360px] w-full overflow-hidden bg-[#14110d]">
         {cover ? (
-          <Image src={cover.public_url} alt="" fill priority sizes="100vw" className="object-cover" />
+          <TripCover src={cover.public_url} items={media.map(viewerItem)} startId={cover.id} />
         ) : stock ? (
           <StockImage photo={stock} alt={stock.alt} priority sizes="100vw" />
         ) : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/25" aria-hidden />
-        <div className="absolute inset-x-0 top-0 mx-auto flex max-w-3xl items-center px-5 pt-5">
-          <Link href={country.href} className="inline-flex max-w-[70%] items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-sm text-white backdrop-blur hover:bg-black/50">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/25" aria-hidden />
+        <div className="pointer-events-none absolute inset-x-0 top-0 mx-auto flex max-w-3xl items-center px-5 pt-5">
+          <Link href={country.href} className="pointer-events-auto inline-flex max-w-[70%] items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-sm text-white backdrop-blur hover:bg-black/50">
             <ArrowLeft size={15} className="shrink-0" /> <span className="truncate">{country.label}</span>
           </Link>
         </div>
@@ -114,7 +114,7 @@ export function TripView({
             <StockCredit photo={stock} />
           </span>
         )}
-        <div className="absolute inset-x-0 bottom-0 mx-auto max-w-3xl px-5 pb-6 text-white">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto max-w-3xl px-5 pb-6 text-white">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/75">
             {lived ? <Home size={13} aria-hidden /> : <span aria-hidden>{meta.flag}</span>} {current ? `Living in ${meta.name}` : lived ? `My time in ${meta.name}` : `${meta.name} trip`}
             {current && <span className="rounded-full bg-[#fa51a2] px-2 py-0.5 text-[10px] tracking-[0.15em] text-white">Now</span>}
@@ -172,7 +172,17 @@ export function TripView({
                 <span className="whitespace-pre-line">&ldquo;{words}&rdquo;</span>
               </blockquote>
             )}
-            {visit.spotify_track_id && <SpotifyEmbed trackId={visit.spotify_track_id} compact />}
+            {visit.spotify_track_id && (
+              <SpotifyEmbed
+                trackId={visit.spotify_track_id}
+                compact
+                teaser={
+                  yours
+                    ? `The song that takes you back to this ${lived ? "time" : "trip"}`
+                    : `Want to know which song reminds me of this ${lived ? "time" : "trip"}?`
+                }
+              />
+            )}
           </section>
         )}
 

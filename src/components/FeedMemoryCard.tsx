@@ -79,6 +79,8 @@ export type FeedMediaItem = {
   url: string;
   type: "image" | "video";
   alt: string;
+  /** Its own caption, shown under the post while it's the photo in view. */
+  caption?: string | null;
   focalX?: number | null;
   focalY?: number | null;
 };
@@ -484,6 +486,13 @@ export function FeedMemoryCard(p: Props) {
         )}
       </div>
 
+      {/* The caption of the photo in view, if it has one: it changes as you swipe. */}
+      {p.media[active]?.caption?.trim() && (
+        <p className="flex items-start gap-2 px-4 pt-3 text-sm leading-snug sm:px-5">
+          {p.media.length > 1 && <span className="mt-px shrink-0 text-xs tabular-nums text-muted">{active + 1}/{p.media.length}</span>}
+          <span className="line-clamp-3 whitespace-pre-line">{p.media[active]!.caption!.trim()}</span>
+        </p>
+      )}
       <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-5">
         <div className="flex items-center gap-5">{p.actions}</div>
         <button
