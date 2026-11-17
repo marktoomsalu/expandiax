@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { Search } from "lucide-react";
 import { COUNTRIES } from "@/lib/countries";
@@ -35,6 +35,38 @@ export function CountrySearch({ onSelect, visitedCodes = [], placeholder = "Sear
 
   // Accents don't matter ("Tur" finds Türkiye), nor do other names ("Turkey").
   const results = useMemo(() => searchPlaces(query, ALL_RESULTS), [query]);
+
+  // Low on the screen (the first sign-up step) the phone's keyboard would
+  // cover a list that opens downwards: then it opens upwards, the best match
+  // nearest the box, no taller than the room there is.
+  const [room, setRoom] = useState<{ above: boolean; max: number }>({ above: false, max: 320 });
+  useEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const box = inputRef.current?.getBoundingClientRect();
+      if (!box) return;
+      const vv = window.visualViewport;
+      const bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const top = vv ? vv.offsetTop : 0;
+      const below = bottom - box.bottom - 12;
+      const aboveSpace = box.top - top - 12;
+      const above = below < 220 && aboveSpace > below;
+      setRoom({ above, max: Math.max(140, Math.min(320, above ? aboveSpace : below)) });
+    };
+    measure();
+    // The keyboard arriving (or leaving) changes the room: measure again.
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", measure);
+    vv?.addEventListener("scroll", measure);
+    window.addEventListener("resize", measure);
+    const late = setTimeout(measure, 350);
+    return () => {
+      vv?.removeEventListener("resize", measure);
+      vv?.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+      clearTimeout(late);
+    };
+  }, [open, inputRef]);
 
   function choose(code: string) {
     onSelect(code);
@@ -84,7 +116,11 @@ export function CountrySearch({ onSelect, visitedCodes = [], placeholder = "Sear
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-30 mt-2 w-full overflow-hidden rounded-card border border-line bg-surface shadow-lg"
+          style={{ maxHeight: room.max }}
+          className={cn(
+            "absolute z-30 flex w-full overflow-y-auto overscroll-contain rounded-card border border-line bg-surface shadow-lg",
+            room.above ? "bottom-full mb-2 flex-col-reverse" : "top-full mt-2 flex-col"
+          )}
         >
           {results.map((c, i) => (
             <li
