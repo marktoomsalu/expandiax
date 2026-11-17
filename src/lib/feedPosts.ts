@@ -1,3 +1,4 @@
+import { sameEvent, type TogetherEvent } from "./together";
 import { loadCollaboratorsFor, type CollabPerson } from "@/lib/collab";
 import type { createClient } from "@/lib/supabase/server";
 import { signMedia } from "@/lib/signedMedia";
@@ -23,6 +24,8 @@ export type PostContext = {
   latestTrip: Map<string, string>;
   /** Who shared a post with its owner (migration 075), by "event:<id>" or "trip:<visit id>". */
   collabs: Map<string, CollabPerson[]>;
+  /** An event post: how many of the viewer's friends logged the same event themselves ("also there"). */
+  alsoThere?: Map<string, number>;
 };
 
 export const postKey = (item: Pick<FeedEvent, "kind" | "ref_id">) => `${item.kind}:${item.ref_id}`;
@@ -79,7 +82,41 @@ export async function loadPostContext(supabase: Supabase, viewerId: string | nul
     loadCollaboratorsFor(supabase, "trip", [...ctx.latestTrip.values(), ...(extraTripIds ?? [])]),
   ]);
   for (const [key, list] of [...eventCollabs, ...tripCollabs]) ctx.collabs.set(key, list.flatMap((c) => (c.person ? [c.person] : [])));
+  ctx.alsoThere = await countAlsoThere(supabase, viewerId, items.filter((i) => i.kind === "event" && i.visit_date), ctx.collabs);
   return ctx;
+}
+
+/**
+ * For event posts: friends of the viewer (and the viewer) who logged the
+ * same event themselves, apart from the poster and the people on the post.
+ */
+async function countAlsoThere(supabase: Supabase, viewerId: string | null, posts: FeedEvent[], collabs: Map<string, CollabPerson[]>) {
+  const out = new Map<string, number>();
+  if (!viewerId || !posts.length) return out;
+  const { data: follows } = await supabase.from("follows").select("followee_id").eq("follower_id", viewerId);
+  const people = [viewerId, ...(follows ?? []).map((f) => f.followee_id as string)].slice(0, 500);
+  const days = new Set<string>();
+  for (const p of posts) {
+    const t = Date.parse(`${p.visit_date}T00:00:00Z`);
+    for (let d = -3; d <= 3; d++) days.add(new Date(t + d * 86_400_000).toISOString().slice(0, 10));
+  }
+  const { data } = await supabase
+    .from("events")
+    .select("id, user_id, title, event_type, event_date, venue, city, country_code, country_name, spotify_artist_id, spotify_artist_name")
+    .in("user_id", people)
+    .in("event_date", [...days].slice(0, 400));
+  const theirs = (data ?? []) as TogetherEvent[];
+  for (const p of posts) {
+    const post: TogetherEvent = {
+      id: p.ref_id, user_id: p.actor_id, title: p.title, event_type: p.event_type ?? "concert", event_date: p.visit_date!,
+      venue: p.venue ?? "", city: p.city ?? "", country_code: p.country_code, country_name: p.country_name ?? "",
+      spotify_artist_id: null, spotify_artist_name: null,
+    };
+    const onIt = new Set([p.actor_id, ...(collabs.get(postKey(p)) ?? []).map((c) => c.id)]);
+    const who = new Set(theirs.filter((e) => e.id !== p.ref_id && !onIt.has(e.user_id) && sameEvent(post, e)).map((e) => e.user_id));
+    if (who.size) out.set(postKey(p), who.size);
+  }
+  return out;
 }
 
 /** Someone's posts, newest first: trips ("country") or events, or both. */

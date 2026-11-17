@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { INVITE_COOKIE } from "@/lib/invite";
+import { INVITE_COOKIE, MOMENT_COOKIE } from "@/lib/invite";
+import { claimMomentInvite } from "@/lib/momentInvites";
 import { claimInviteClick } from "@/lib/inviteClicks";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,13 @@ export async function POST(request: NextRequest) {
   // Typed, or the join page's cookie, or (installed from the App Store or Google Play
   // straight from an invite link) the click noted for this phone.
   let username = (body.username ?? decodeURIComponent(request.cookies.get(INVITE_COOKIE)?.value ?? "")).trim().replace(/^@/, "");
-  if (!username) username = (await claimInviteClick(request.headers).catch(() => null)) ?? "";
+  // A link to a trip or event (migration 078): from the cookie, or kept with the phone's click.
+  let moment = decodeURIComponent(request.cookies.get(MOMENT_COOKIE)?.value ?? "") || null;
+  if (!username) {
+    const click = await claimInviteClick(request.headers).catch(() => null);
+    username = click?.username ?? "";
+    moment = moment ?? click?.moment ?? null;
+  }
   if (!username || !/^[\w.]{1,40}$/.test(username)) {
     // Nothing to claim. "none" (offer to type a friend's username) only for
     // new accounts that haven't been invited yet.
@@ -38,7 +45,10 @@ export async function POST(request: NextRequest) {
     const { data: p } = await supabase.from("profiles").select("username, display_name, avatar_url").eq("username", username.toLowerCase()).maybeSingle();
     inviter = p;
   }
+  // The trip or event they were added to: now an invitation to choose from.
+  if (moment && (data === "ok" || data === "already")) await claimMomentInvite(moment, user.id).catch(() => false);
   const res = NextResponse.json({ status: error ? "error" : data, inviter });
   res.cookies.delete(INVITE_COOKIE);
+  res.cookies.delete(MOMENT_COOKIE);
   return res;
 }

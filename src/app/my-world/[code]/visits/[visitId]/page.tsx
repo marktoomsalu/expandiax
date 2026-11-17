@@ -4,7 +4,9 @@ import { countryByCode } from "@/lib/countries";
 import { signMedia } from "@/lib/signedMedia";
 import { locatePlaces } from "@/lib/locatePlaces";
 import { TripView, type TripVisit } from "@/components/trip/TripView";
-import { loadCollaborators, namesTogether } from "@/lib/collab";
+import { loadCollaborators, loadMoment, namesTogether } from "@/lib/collab";
+import { MomentPeople } from "@/components/trip/MomentPeople";
+import { MakeItMineButton } from "@/components/CollabInviteActions";
 import { stayLinks } from "@/lib/stayLinks";
 import { JournalSection } from "@/components/trip/JournalSection";
 
@@ -42,10 +44,11 @@ export default async function VisitPage({ params, searchParams }: { params: { co
   }
   const together = namesTogether([ownerName, ...others].filter(Boolean));
   const base = `/my-world/${meta.code.toLowerCase()}/visits`;
-  const [links, { data: journals }] = await Promise.all([
+  const [links, { data: journals }, moment] = await Promise.all([
     stayLinks(supabase, trip, meta.name, (id) => `${base}/${id}`),
     // Yours, and (on a trip shared with you) its owner's if they shared it. None before migration 076.
     supabase.from("trip_journals").select("user_id, body, is_shared").eq("visit_id", trip.id),
+    loadMoment(supabase, "trip", trip.id, (username, id) => `/u/${username}/trips/${id}`),
   ]);
   const myJournal = journals?.find((j) => j.user_id === user.id);
   const ownerJournal = !isOwner ? journals?.find((j) => j.user_id === trip.visited_countries.user_id && j.is_shared) : null;
@@ -59,6 +62,15 @@ export default async function VisitPage({ params, searchParams }: { params: { co
       together={together || null}
       yours
       created={!!searchParams.created}
+      moment={
+        <>
+          {moment && <MomentPeople moment={moment} noun="trip" />}
+          {/* You joined someone's memory: make it your own, linked. */}
+          {!isOwner && mine && !mine.own_target_id && (
+            <MakeItMineButton collabId={mine.id} kind="trip" ownerName={ownerName} countryCode={meta.code} />
+          )}
+        </>
+      }
       duringStay={links.duringStay}
       tripsDuring={links.tripsDuring}
       journal={

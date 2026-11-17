@@ -6,7 +6,7 @@ import type { StockPhoto } from "@/lib/stockPhotos";
 import { StockCredit } from "./StockCredit";
 import { StockImage } from "./StockImage";
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, ChevronRight, Languages, MapPin, Music2, Play, VolumeX } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Languages, MapPin, Music2, Play, Users, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { focalPosition } from "@/lib/media";
 import { eventTypeMeta } from "@/lib/events";
@@ -109,6 +109,8 @@ type Props = {
   when: string;
   /** Left side of the actions row (e.g. Like). */
   actions?: React.ReactNode;
+  /** An event: friends who logged the same one themselves ("8 friends were at this concert too"). */
+  alsoThere?: { count: number; href: string; noun: string } | null;
 };
 
 // The photo *is* the card: text sits on a scrim over the cover instead of
@@ -486,6 +488,15 @@ export function FeedMemoryCard(p: Props) {
         )}
       </div>
 
+      {p.alsoThere && (
+        <Link href={p.alsoThere.href} className="flex items-center gap-2 border-b border-line px-4 py-2.5 text-sm hover:bg-raised sm:px-5">
+          <Users size={15} className="shrink-0 text-accent" aria-hidden />
+          <span>
+            <span className="font-medium">{p.alsoThere.count === 1 ? "1 friend" : `${p.alsoThere.count} friends`}</span>{" "}
+            <span className="text-muted">{p.alsoThere.count === 1 ? "was" : "were"} at this {p.alsoThere.noun} too</span>
+          </span>
+        </Link>
+      )}
       {/* The caption of the photo in view, if it has one: it changes as you swipe. */}
       {p.media[active]?.caption?.trim() && (
         <p className="flex items-start gap-2 px-4 pt-3 text-sm leading-snug sm:px-5">

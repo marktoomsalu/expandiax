@@ -11,6 +11,7 @@ import type { ProfileVisibility } from "@/lib/types";
 import { APP_STORE_URL, playStoreUrl } from "@/lib/appStore";
 import { isNativeUserAgent } from "@/lib/nativeApp";
 import { noteInviteClick } from "@/lib/inviteClicks";
+import { claimMomentInvite, loadMomentInvite } from "@/lib/momentInvites";
 
 // Link previews (iMessage, WhatsApp…) fetch the page with these: they get the page, not a redirect.
 const PREVIEW_BOT = /bot|crawl|spider|facebookexternalhit|facebot|whatsapp|telegram|slack|discord|skype|linkedin|pinterest|embedly|preview|vkshare|quora/i;
@@ -19,7 +20,7 @@ const PREVIEW_BOT = /bot|crawl|spider|facebookexternalhit|facebot|whatsapp|teleg
 // blank); there the invite page shows, and tapping its store button works.
 const IN_APP_BROWSER = /FBAN|FBAV|FBIOS|FB_IAB|FBSV|Messenger|Instagram|Snapchat|TikTok|musical_ly|BytedanceWebview|LinkedInApp|Twitter|Line\/|GSA\/|Pinterest|WhatsApp/i;
 
-type Props = { params: { username: string } };
+type Props = { params: { username: string }; searchParams: { m?: string } };
 
 async function inviterOf(username: string) {
   const { data } = await createClient()
@@ -30,10 +31,12 @@ async function inviterOf(username: string) {
   return data as { id: string; username: string; display_name: string; avatar_url: string | null; home_country_code: string | null; visibility: ProfileVisibility } | null;
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params, searchParams }: Props) {
   const p = await inviterOf(params.username);
   const first = (p?.display_name ?? "A friend").trim().split(" ")[0];
-  const title = `${first} invited you to ExpandiaX`;
+  // A link to a trip or event (migration 078): "Mark added you to Portugal 2025".
+  const moment = p ? await loadMomentInvite(searchParams.m, p.id) : null;
+  const title = moment ? `${first} added you to ${moment.title}` : `${first} invited you to ExpandiaX`;
   const description = "Your travels and memories, remembered.";
   // ExpandiaX's own picture in the preview (not anyone's photo), App Store
   // style: the logo, "Your world, remembered." and the app on two phones.
@@ -48,10 +51,16 @@ export async function generateMetadata({ params }: Props) {
 }
 
 /** expandiax.com/join/<username>: a friend's invitation. Remembers who invited you, for after you sign up. */
-export default async function JoinPage({ params }: Props) {
+export default async function JoinPage({ params, searchParams }: Props) {
   const inviter = await inviterOf(params.username);
   if (!inviter) notFound();
   const user = await getAuthUser();
+  const moment = await loadMomentInvite(searchParams.m, inviter.id);
+  // Already a member: the link becomes your invitation to choose from, in Notifications.
+  if (moment && user && user.id !== inviter.id) {
+    await claimMomentInvite(moment.token, user.id).catch(() => false);
+    redirect("/notifications");
+  }
   // On a phone, without the app (the app opens these links itself) and not
   // signed in on the website: straight to the App Store or Google Play,
   // remembering the invite for after the install.
@@ -61,7 +70,7 @@ export default async function JoinPage({ params }: Props) {
   const phone = !visitor ? null : /iPhone|iPad|iPod/.test(ua) ? "ios" : /Android/.test(ua) ? "android" : null;
   const storeUrl = phone === "android" ? playStoreUrl("invite") : APP_STORE_URL;
   if (phone) {
-    await noteInviteClick(inviter.id, h).catch(() => {});
+    await noteInviteClick(inviter.id, h, moment?.token).catch(() => {});
     if (!IN_APP_BROWSER.test(ua)) redirect(storeUrl);
   }
   const first = inviter.display_name.trim().split(" ")[0];
@@ -71,7 +80,7 @@ export default async function JoinPage({ params }: Props) {
       <div aria-hidden className="absolute inset-0" style={{ background: "radial-gradient(120% 70% at 50% 0%, #4a1450 0%, #2b0b2e 50%, #12041a 100%)" }} />
       <div aria-hidden className="join-stars absolute inset-0 opacity-60" />
       <div className="relative mx-auto flex max-w-md flex-col items-center px-6 pb-16 pt-14 text-center text-white">
-        {!user && <RememberInvite username={inviter.username} />}
+        {!user && <RememberInvite username={inviter.username} moment={moment?.token} />}
         <span className="join-halo relative flex h-32 w-32 items-center justify-center rounded-full p-1" style={{ background: "conic-gradient(from 200deg, #fa51a2, #fb7822, #fa51a2)" }}>
           <span className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#2b0b2e] font-serif text-5xl">
             {inviter.avatar_url ? <Image src={inviter.avatar_url} alt="" fill sizes="128px" className="object-cover" priority /> : first.charAt(0)}
@@ -86,6 +95,19 @@ export default async function JoinPage({ params }: Props) {
         <p className="mt-4 max-w-xs text-white/75">
           The places you&rsquo;ve been and the moments you never want to forget, all in one place. Join and you&rsquo;ll automatically follow each other, so you can start sharing memories right away.
         </p>
+
+        {/* Added to a trip or event: what's waiting, without showing it yet. */}
+        {moment && (
+          <div className="mt-6 w-full rounded-2xl bg-white/[0.1] p-4 text-left ring-1 ring-[#fa51a2]/50 backdrop-blur">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">{first} added you to</p>
+            <p className="mt-1 font-serif text-2xl leading-tight">{moment.title}</p>
+            <p className="mt-1 text-sm text-white/75">
+              {moment.when}
+              {moment.photos > 0 ? ` · ${moment.photos} ${moment.photos === 1 ? "photo" : "photos"}, yours to see when you join` : ""}
+            </p>
+            <p className="mt-3 text-sm text-white/80">After joining, put it on your profile in one tap, or create your own memory of it.</p>
+          </div>
+        )}
 
         {/* What's waiting on the other side: a little curiosity, no spoilers. */}
         <div className="mt-6 w-full rounded-2xl bg-white/[0.07] p-4 text-left ring-1 ring-white/15 backdrop-blur">

@@ -21,6 +21,13 @@ export function rememberInvite(username: string) {
   document.cookie = `${INVITE_COOKIE}=${encodeURIComponent(username)}; max-age=${30 * 86400}; path=/; samesite=lax; secure`;
 }
 
+/** A link to a trip or event someone added you to (migration 078): which one, until you've signed up. */
+export const MOMENT_COOKIE = "xmoment";
+
+export function rememberMoment(token: string) {
+  document.cookie = `${MOMENT_COOKIE}=${encodeURIComponent(token)}; max-age=${30 * 86400}; path=/; samesite=lax; secure`;
+}
+
 export function forgetInvite() {
   document.cookie = `${INVITE_COOKIE}=; max-age=0; path=/; samesite=lax; secure`;
 }

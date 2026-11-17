@@ -46,6 +46,7 @@ export function TripView({
   duringStay = null,
   tripsDuring = [],
   journal = null,
+  moment = null,
 }: {
   visit: TripVisit;
   meta: Country;
@@ -66,6 +67,8 @@ export function TripView({
   tripsDuring?: StayLink[];
   /** The journal shown on the page (yours, or one shared with you), and the way to write yours. */
   journal?: React.ReactNode;
+  /** Who was together on it, and what the viewer can do about it ("Make it my own", "I was with Mark"). */
+  moment?: React.ReactNode;
 }) {
   const base = `/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`;
   const stops = orderStops(visit.country_cities);
@@ -203,6 +206,8 @@ export function TripView({
             )}
           </section>
         )}
+
+        {moment}
 
         {journal}
 

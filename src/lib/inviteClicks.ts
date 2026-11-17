@@ -24,29 +24,30 @@ export function fingerprint(headers: Headers): string | null {
   return createHash("sha256").update(`${salt}|${ip}|${system}`).digest("hex");
 }
 
-export async function noteInviteClick(inviterId: string, headers: Headers) {
+export async function noteInviteClick(inviterId: string, headers: Headers, momentToken?: string | null) {
   const fp = fingerprint(headers);
   if (!fp) return;
-  await createAdminClient().from("invite_clicks").insert({ inviter_id: inviterId, fingerprint: fp });
+  const admin = createAdminClient();
+  const { error } = await admin.from("invite_clicks").insert({ inviter_id: inviterId, fingerprint: fp, ...(momentToken ? { moment_token: momentToken } : {}) });
+  // Before migration 078 there's nowhere to keep the trip: the invite itself still counts.
+  if (error && momentToken) await admin.from("invite_clicks").insert({ inviter_id: inviterId, fingerprint: fp });
 }
 
-/** Who invited this phone in the last day, if anyone (and forget the clicks). */
-export async function claimInviteClick(headers: Headers): Promise<string | null> {
+/** Who invited this phone in the last day, if anyone, and to which trip or event (and forget the clicks). */
+export async function claimInviteClick(headers: Headers): Promise<{ username: string; moment: string | null } | null> {
   const fp = fingerprint(headers);
   if (!fp) return null;
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("invite_clicks")
-    .select("inviter_id, profiles!invite_clicks_inviter_id_fkey(username)")
-    .eq("fingerprint", fp)
-    .gte("created_at", new Date(Date.now() - HOURS * 3_600_000).toISOString())
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const since = new Date(Date.now() - HOURS * 3_600_000).toISOString();
+  const query = (fields: string) =>
+    admin.from("invite_clicks").select(fields).eq("fingerprint", fp).gte("created_at", since).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  let { data, error } = await query("inviter_id, moment_token, profiles!invite_clicks_inviter_id_fkey(username)");
+  if (error) ({ data, error } = await query("inviter_id, profiles!invite_clicks_inviter_id_fkey(username)"));
   if (error || !data) return null;
   await admin.from("invite_clicks").delete().eq("fingerprint", fp);
-  const p = (Array.isArray(data.profiles) ? data.profiles[0] : data.profiles) as { username?: string } | null;
-  return p?.username ?? null;
+  const row = data as unknown as { moment_token?: string | null; profiles: { username?: string } | { username?: string }[] | null };
+  const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+  return p?.username ? { username: p.username, moment: row.moment_token ?? null } : null;
 }
 
 /** Older than a day: gone (the weekly job). */

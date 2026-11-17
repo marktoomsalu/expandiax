@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, LogOut, Pencil, Search, UserPlus, Users, X } from "lucide-react";
+import { Check, Link2, Loader2, LogOut, Pencil, Search, Share2, UserPlus, Users, X } from "lucide-react";
 import { Basket } from "./Basket";
 import { createClient } from "@/lib/supabase/client";
 import type { CollabKind, CollabPerson, Collaborator } from "@/lib/collab";
+import type { Companion } from "@/lib/companions";
 import { cn } from "@/lib/utils";
 
 function Avatar({ p, size = 36 }: { p: CollabPerson | null; size?: number }) {
@@ -21,11 +22,16 @@ function Avatar({ p, size = 36 }: { p: CollabPerson | null; size?: number }) {
   );
 }
 
+type Link = { id: string; token: string; name: string };
+const MAX = 20;
+const DISMISSED = "expandiax:companions-no";
+
 /**
- * Who shared this trip or event. Its owner invites people (they're asked
- * first, and it's on their profile only once they accept), gives or takes
- * edit rights, and removes people. A collaborator sees who's on it and can
- * leave (the post stays for everyone else).
+ * Who was with you on this trip or event (migrations 075, 078). Its owner
+ * adds people: each then chooses to join this memory or create their own,
+ * linked. Up to 20, links for people not on ExpandiaX yet included. People
+ * who joined can be allowed to add photos. A collaborator sees who's on it
+ * and can leave.
  */
 export function CollaboratorsManager({
   kind,
@@ -33,23 +39,50 @@ export function CollaboratorsManager({
   me,
   isOwner,
   initial,
+  myUsername,
+  suggestions = [],
 }: {
   kind: CollabKind;
   targetId: string;
   me: string;
   isOwner: boolean;
   initial: Collaborator[];
+  myUsername?: string;
+  suggestions?: Companion[];
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [people, setPeople] = useState(initial);
+  const [links, setLinks] = useState<Link[]>([]);
   const [q, setQ] = useState("");
   const [found, setFound] = useState<CollabPerson[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [noThanks, setNoThanks] = useState<string[]>([]);
+  const [inviting, setInviting] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [shared, setShared] = useState<string | null>(null);
   const noun = kind === "trip" ? "trip" : "event";
 
   useEffect(() => setPeople(initial), [initial]);
+  useEffect(() => {
+    try {
+      setNoThanks(JSON.parse(localStorage.getItem(DISMISSED) ?? "[]") as string[]);
+    } catch {}
+  }, []);
+
+  // Links sent to people not on ExpandiaX yet (migration 078).
+  useEffect(() => {
+    if (!isOwner) return;
+    void supabase
+      .from("moment_invites")
+      .select("id, token, name")
+      .eq("kind", kind)
+      .eq("target_id", targetId)
+      .is("claimed_by", null)
+      .order("created_at", { ascending: true })
+      .then(({ data, error: err }) => !err && setLinks((data ?? []) as Link[]));
+  }, [isOwner, kind, targetId, supabase]);
 
   useEffect(() => {
     if (!isOwner) return;
@@ -81,18 +114,29 @@ export function CollaboratorsManager({
     router.refresh();
   }
 
-  async function invite(p: CollabPerson) {
+  const count = people.length + links.length;
+  const full = count >= MAX;
+
+  async function invite(p: { id: string }) {
     setBusy(p.id);
     setError(null);
     const { data, error: err } = await supabase.rpc("invite_collaborator", { p_kind: kind, p_target: targetId, p_user: p.id });
     setBusy(null);
     if (err || (data !== "ok" && data !== null)) {
-      setError(data === "too_many" ? "That's the most people one post can have." : data === "blocked" ? "You can't add this person." : "Couldn't add them. Try again.");
+      setError(data === "too_many" ? `Up to ${MAX} people can be on one ${noun}.` : data === "blocked" ? "You can't add this person." : "Couldn't add them. Try again.");
       return;
     }
     setQ("");
     setFound([]);
     await reload();
+  }
+
+  function dismiss(id: string) {
+    const next = [...noThanks, `${targetId}:${id}`];
+    setNoThanks(next);
+    try {
+      localStorage.setItem(DISMISSED, JSON.stringify(next.slice(-200)));
+    } catch {}
   }
 
   async function setEdit(c: Collaborator, can: boolean) {
@@ -123,35 +167,95 @@ export function CollaboratorsManager({
     await reload();
   }
 
+  const linkUrl = (token: string) => `${window.location.origin}/join/${myUsername ?? ""}?m=${token}`;
+  async function shareLink(l: Link) {
+    const url = linkUrl(l.token);
+    const text = `I added you to our ${noun} on ExpandiaX. Join and see it:`;
+    try {
+      if (navigator.share) await navigator.share({ text, url });
+      else {
+        await navigator.clipboard.writeText(`${text} ${url}`);
+        setShared(l.id);
+      }
+    } catch {}
+  }
+
+  async function createLink() {
+    setBusy("link");
+    setError(null);
+    const { data, error: err } = await supabase.rpc("create_moment_invite", { p_kind: kind, p_target: targetId, p_name: newName.trim() });
+    setBusy(null);
+    if (err || !data || data === "too_many") {
+      setError(data === "too_many" ? `Up to ${MAX} people can be on one ${noun}.` : "Couldn't make a link. Try again.");
+      return;
+    }
+    const { data: row } = await supabase.from("moment_invites").select("id, token, name").eq("token", data as string).maybeSingle();
+    if (row) {
+      setLinks((cur) => [...cur, row as Link]);
+      void shareLink(row as Link);
+    }
+    setNewName("");
+    setInviting(false);
+  }
+
+  async function dropLink(l: Link) {
+    setLinks((cur) => cur.filter((x) => x.id !== l.id));
+    await supabase.from("moment_invites").delete().eq("id", l.id);
+  }
+
   const taken = new Set(people.map((p) => p.user_id));
   const mine = people.find((p) => p.user_id === me);
+  const suggested = isOwner ? suggestions.filter((s) => !taken.has(s.id) && !noThanks.includes(`${targetId}:${s.id}`)) : [];
+  const status = (c: Collaborator) =>
+    c.status === "invited"
+      ? "Waiting for them to choose"
+      : c.own_target_id
+        ? "Their own memory, linked"
+        : "Joined your memory";
 
   return (
     <div className="space-y-3">
-      {people.length > 0 ? (
+      {/* "Anna was also in Portugal 13 – 15 Aug. Were you together?" */}
+      {!full &&
+        suggested.slice(0, 2).map((s) => (
+          <div key={s.id} className="flex items-center gap-3 rounded-2xl border border-accent/30 bg-accent-soft/50 px-3 py-2.5">
+            <Avatar p={s} />
+            <span className="min-w-0 flex-1 text-sm leading-snug">
+              <span className="font-medium">{s.display_name.split(" ")[0]}</span> {s.reason}. Were you together?
+            </span>
+            <button type="button" onClick={() => void invite(s)} disabled={busy === s.id} className="btn-accent !px-3 !py-1.5 text-xs">
+              {busy === s.id ? <Loader2 size={13} className="animate-spin" /> : "Add"}
+            </button>
+            <button type="button" onClick={() => dismiss(s.id)} className="px-1 text-xs text-muted hover:text-ink">
+              No
+            </button>
+          </div>
+        ))}
+
+      {isOwner && <p className="text-right text-xs text-muted">{count} of {MAX}</p>}
+
+      {(people.length > 0 || links.length > 0) && (
         <ul className="space-y-2">
           {people.map((c) => (
             <li key={c.id} className="flex items-center gap-3 rounded-xl border border-line bg-raised/40 px-3 py-2">
               <Avatar p={c.person} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{c.person?.display_name ?? "Someone"}</span>
-                <span className="block text-xs text-muted">
-                  {c.status === "invited" ? "Waiting for them to accept" : c.can_edit ? "Can edit" : "On this post"}
-                </span>
+                <span className="block text-xs text-muted">{status(c)}</span>
               </span>
-              {isOwner && c.status === "accepted" && (
+              {isOwner && c.status === "accepted" && !c.own_target_id && (
                 <button
                   type="button"
                   onClick={() => void setEdit(c, !c.can_edit)}
                   disabled={busy === c.id}
                   aria-pressed={c.can_edit}
-                  title={c.can_edit ? "Can add photos and change the details. Tap to take that away." : "Let them add photos and change the details too"}
+                  title={c.can_edit ? "They can add photos and change the details. Tap to take that away." : "Let them add photos and change the details too"}
                   className={cn(
                     "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
                     c.can_edit ? "border-accent bg-accent-soft text-accent" : "border-line text-muted hover:text-ink"
                   )}
                 >
-                  <Pencil size={11} aria-hidden /> {c.can_edit ? "Can edit" : "View only"}
+                  <Pencil size={11} aria-hidden /> {c.can_edit ? "Can add photos" : "View only"}
                 </button>
               )}
               {isOwner && (
@@ -161,12 +265,29 @@ export function CollaboratorsManager({
               )}
             </li>
           ))}
+          {links.map((l) => (
+            <li key={l.id} className="flex items-center gap-3 rounded-xl border border-dashed border-accent/50 px-3 py-2">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed border-accent font-serif text-accent">
+                {(l.name || "?").slice(0, 1).toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{l.name || "Someone new"}</span>
+                <span className="block text-xs text-muted">{shared === l.id ? "Link copied" : "Not on ExpandiaX yet · link sent"}</span>
+              </span>
+              <button type="button" onClick={() => void shareLink(l)} aria-label="Send the link again" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-ink">
+                <Share2 size={14} />
+              </button>
+              <button type="button" onClick={() => void dropLink(l)} aria-label="Remove the link" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-ink">
+                <X size={15} />
+              </button>
+            </li>
+          ))}
         </ul>
-      ) : null}
+      )}
 
-      {isOwner && (
+      {isOwner && !full && (
         <div>
-          <label htmlFor={`collab-search-${targetId}`} className="sr-only">Add someone who was there</label>
+          <label htmlFor={`collab-search-${targetId}`} className="sr-only">Add someone who was with you</label>
           <div className="relative">
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
             <input
@@ -209,11 +330,39 @@ export function CollaboratorsManager({
               ))}
             </ul>
           )}
-          {people.some((c) => c.status === "accepted") && (
-            <p className="mt-1.5 text-xs text-muted">&ldquo;Can edit&rdquo; lets them add photos and change the details.</p>
-          )}
+
+          {/* Someone not on ExpandiaX yet: a link, and after joining they choose like everyone else. */}
+          {myUsername &&
+            (inviting ? (
+              <div className="mt-3 flex gap-2">
+                <label htmlFor={`collab-new-${targetId}`} className="sr-only">Their name</label>
+                <input
+                  id={`collab-new-${targetId}`}
+                  className="field min-w-0 flex-1"
+                  placeholder="Their name"
+                  value={newName}
+                  maxLength={60}
+                  autoFocus
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void createLink();
+                    }
+                  }}
+                />
+                <button type="button" onClick={() => void createLink()} disabled={busy === "link"} className="btn-accent !px-3.5 text-sm">
+                  {busy === "link" ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />} Send link
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setInviting(true)} className="mt-3 text-sm font-medium text-accent hover:underline">
+                Someone not on ExpandiaX yet
+              </button>
+            ))}
         </div>
       )}
+      {isOwner && full && <p className="text-xs text-muted">That&rsquo;s {MAX} people, the most one {noun} can have.</p>}
 
       {!isOwner && mine && (
         <button type="button" onClick={() => void remove(mine)} disabled={busy === mine.id} className="inline-flex items-center gap-1.5 text-sm font-medium text-red-700 hover:underline dark:text-red-400">
@@ -227,16 +376,29 @@ export function CollaboratorsManager({
 }
 
 /**
- * The "Who was there?" box on a trip or event's edit page, just above Save:
- * add the people who were there, and it's one post on all their profiles.
+ * "Who was with you?" on a trip's or event's edit page, just above Save:
+ * the people who were there with you. Each chooses to join your memory or
+ * create their own, linked to yours.
  */
-export function WhoWasThere(props: { kind: CollabKind; targetId: string; me: string; isOwner: boolean; initial: Collaborator[] }) {
+export function WhoWasThere(props: {
+  kind: CollabKind;
+  targetId: string;
+  me: string;
+  isOwner: boolean;
+  initial: Collaborator[];
+  myUsername?: string;
+  suggestions?: Companion[];
+}) {
   return (
     <Basket
       id="collaborators"
       icon={Users}
-      title="Who was there?"
-      hint={props.isOwner ? "Add them and it\u2019s on their profile too, as one post. They accept first." : `This ${props.kind} is shared between you.`}
+      title={props.kind === "trip" ? "Who was with you?" : "Who went with you?"}
+      hint={
+        props.isOwner
+          ? "Add them: each can join your memory (no post of their own needed) or create their own, linked to yours."
+          : `You're on this ${props.kind}.`
+      }
     >
       <CollaboratorsManager {...props} />
     </Basket>

@@ -5,7 +5,9 @@ import { countryByCode } from "@/lib/countries";
 import { signMedia } from "@/lib/signedMedia";
 import { TripView, type TripVisit } from "@/components/trip/TripView";
 import type { CommentWithAuthor } from "@/lib/types";
-import { loadCollaborators, namesTogether } from "@/lib/collab";
+import { loadCollaborators, loadMoment, namesTogether } from "@/lib/collab";
+import { MomentPeople } from "@/components/trip/MomentPeople";
+import { CollabInviteActions, RequestCollabButton } from "@/components/CollabInviteActions";
 import { stayLinks } from "@/lib/stayLinks";
 import { JournalSection } from "@/components/trip/JournalSection";
 
@@ -72,11 +74,18 @@ export default async function TripPage({ params }: Props) {
     supabase.from("comments").select("*, profiles(username, display_name, avatar_url)").eq("kind", "country").eq("target_id", countryId).order("created_at", { ascending: true }),
   ]);
   const first = person.display_name.trim().split(" ")[0];
-  const [links, { data: journal }] = await Promise.all([
+  const ownerId = visit.visited_countries.user_id;
+  const [links, { data: journal }, moment, { data: myPart }, { data: owner }] = await Promise.all([
     stayLinks(supabase, visit, meta.name, (id) => `/u/${person.username}/trips/${id}`),
     // Only a journal its writer shared comes back (migration 076's rules).
     supabase.from("trip_journals").select("body").eq("visit_id", visit.id).eq("user_id", person.id).eq("is_shared", true).maybeSingle(),
+    loadMoment(supabase, "trip", visit.id, (username, id) => `/u/${username}/trips/${id}`),
+    // Invited to it yourself (not answered yet)?
+    user ? supabase.from("post_collaborators").select("id, status").eq("kind", "trip").eq("target_id", visit.id).eq("user_id", user.id).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("profiles").select("display_name").eq("id", ownerId).maybeSingle(),
   ]);
+  const ownerFirst = (owner?.display_name ?? person.display_name) as string;
+  const onIt = !!moment?.memories.some((m) => m.person.id === user?.id) || !!moment?.joined.some((p) => p.id === user?.id);
 
   return (
     <TripView
@@ -90,6 +99,25 @@ export default async function TripPage({ params }: Props) {
         allTrips: mine ? `All your trips to ${meta.name}` : `All of ${first}’s trips to ${meta.name}`,
       }}
       social={{ liked: !!like, comments: (comments ?? []) as CommentWithAuthor[] }}
+      moment={
+        <>
+          {moment && <MomentPeople moment={moment} noun="trip" />}
+          {myPart?.status === "invited" ? (
+            <section className="mt-6 rounded-2xl border border-accent/40 bg-accent-soft/40 p-4">
+              <p className="font-medium">{ownerFirst.split(" ")[0]} added you to this trip. Were you there?</p>
+              <CollabInviteActions collabId={myPart.id} kind="trip" ownerName={ownerFirst} countryCode={meta.code} openHref={`/my-world/${meta.code.toLowerCase()}/visits/${visit.id}`} />
+            </section>
+          ) : (
+            user &&
+            user.id !== ownerId &&
+            !onIt && (
+              <div className="mt-6">
+                <RequestCollabButton kind="trip" targetId={visit.id} ownerName={ownerFirst} />
+              </div>
+            )
+          )}
+        </>
+      }
       duringStay={links.duringStay}
       tripsDuring={links.tripsDuring}
       journal={<JournalSection theirs={journal ? { body: journal.body, by: first } : null} />}

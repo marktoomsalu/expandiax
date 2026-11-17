@@ -9,6 +9,8 @@ import type { EventFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { loadCollaborators } from "@/lib/collab";
 import { WhoWasThere } from "@/components/CollaboratorsManager";
+import { eventCompanions } from "@/lib/companions";
+import type { TogetherEvent } from "@/lib/together";
 
 export const metadata = { title: "Edit event" };
 
@@ -45,6 +47,11 @@ export default async function EditEventPage({
   // Yours, or shared with you with edit rights (migration 075).
   const isOwner = event.user_id === user.id;
   const collaborators = await loadCollaborators(supabase, "event", event.id);
+  // Your username (for links to people not on ExpandiaX yet), and friends who logged the same event.
+  const [{ data: me }, suggestions] = await Promise.all([
+    supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
+    isOwner ? eventCompanions(supabase, user.id, event as unknown as TogetherEvent, collaborators.map((c) => c.user_id)) : Promise.resolve([]),
+  ]);
   if (!isOwner && !collaborators.some((c) => c.user_id === user.id && c.status === "accepted" && c.can_edit)) notFound();
 
   const recentArtists = dedupeRecentArtists(artistRows ?? []);
@@ -82,7 +89,7 @@ export default async function EditEventPage({
           recentArtists={recentArtists}
           userId={user.id}
           isOwner={isOwner}
-          beforeSave={<WhoWasThere kind="event" targetId={event.id} me={user.id} isOwner={isOwner} initial={collaborators} />}
+          beforeSave={<WhoWasThere kind="event" targetId={event.id} me={user.id} isOwner={isOwner} initial={collaborators} myUsername={me?.username} suggestions={suggestions} />}
         />
       </div>
 

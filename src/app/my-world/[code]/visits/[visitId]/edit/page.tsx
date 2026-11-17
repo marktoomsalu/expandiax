@@ -18,6 +18,7 @@ import type { CountryCity, CountryMedia, CountryVisit } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { loadCollaborators } from "@/lib/collab";
 import { WhoWasThere } from "@/components/CollaboratorsManager";
+import { tripCompanions } from "@/lib/companions";
 
 type VisitRow = CountryVisit & {
   visited_countries: { id: string; user_id: string; country_code: string; is_public: boolean; share_to_feed: boolean };
@@ -52,12 +53,17 @@ export default async function EditVisitPage({
   const visit = data as VisitRow;
   // Yours, or shared with you with edit rights (a collaborator who can edit).
   const isOwner = visit.visited_countries.user_id === user.id;
-  const [collaborators, { data: journal }] = await Promise.all([
+  const [collaborators, { data: journal }, { data: me }] = await Promise.all([
     loadCollaborators(supabase, "trip", visit.id),
     // Your own journal for it (none before migration 076).
     supabase.from("trip_journals").select("body, is_shared").eq("visit_id", visit.id).eq("user_id", user.id).maybeSingle(),
+    supabase.from("profiles").select("username").eq("id", user.id).maybeSingle(),
   ]);
   const meAsCollab = collaborators.find((c) => c.user_id === user.id && c.status === "accepted");
+  // Friends who were in this country at the same time: "Were you together?"
+  const suggestions = isOwner
+    ? await tripCompanions(supabase, user.id, visit, { code: meta.code, name: meta.name }, collaborators.map((c) => c.user_id))
+    : [];
   if (!isOwner && !meAsCollab?.can_edit) notFound();
   const images = visit.country_media.filter((m) => m.media_type === "image").sort((a, b) => a.display_order - b.display_order);
   const cover = images.find((m) => m.id === visit.cover_media_id) ?? images[0];
@@ -146,7 +152,7 @@ export default async function EditVisitPage({
           visit={visit}
           isOwner={isOwner}
           journal={{ userId: user.id, initial: journal ?? null }}
-          beforeSave={<WhoWasThere kind="trip" targetId={visit.id} me={user.id} isOwner={isOwner} initial={collaborators} />}
+          beforeSave={<WhoWasThere kind="trip" targetId={visit.id} me={user.id} isOwner={isOwner} initial={collaborators} myUsername={me?.username} suggestions={suggestions} />}
           cities={stops}
           country={{
             id: visit.visited_countries.id,

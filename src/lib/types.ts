@@ -167,7 +167,7 @@ export type CommentWithAuthor = Comment & {
 };
 
 /** "question": someone you follow asked about a place you've been; "answer": someone answered your question. */
-export type NotificationKind = "like" | "comment" | "follow" | "follow_request" | "follow_accepted" | "question" | "answer" | "invite_joined" | "collab_invite" | "collab_accepted";
+export type NotificationKind = "like" | "comment" | "follow" | "follow_request" | "follow_accepted" | "question" | "answer" | "invite_joined" | "collab_invite" | "collab_accepted" | "collab_request";
 
 export type Notification = {
   id: string;

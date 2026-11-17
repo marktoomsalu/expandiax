@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { Clock, Heart, HelpCircle, MessageCircle, MessagesSquare, PartyPopper, UserCheck, UserPlus, Users } from "lucide-react";
-import { CollabInviteActions } from "@/components/CollabInviteActions";
+import { AddRequesterButton, CollabInviteActions } from "@/components/CollabInviteActions";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/EmptyState";
 import { FollowRequestActions } from "@/components/FollowRequestActions";
@@ -25,6 +25,7 @@ const ICONS = {
   invite_joined: PartyPopper,
   collab_invite: Users,
   collab_accepted: Users,
+  collab_request: Users,
 };
 
 export default async function NotificationsPage() {
@@ -130,7 +131,7 @@ export default async function NotificationsPage() {
       const meta = countryByCode(tr.vc.country_code);
       const label = tr.title?.trim() || `${tr.kind === "lived" ? "Lived in" : "Trip to"} ${tr.vc.country_name}`;
       const href =
-        tr.vc.user_id === user!.id || n.kind === "collab_accepted"
+        tr.vc.user_id === user!.id || n.kind === "collab_accepted" || n.kind === "collab_request"
           ? `/my-world/${tr.vc.country_code.toLowerCase()}/visits/${n.target_id}`
           : `/u/${n.actor?.username ?? username}/trips/${n.target_id}`;
       return { label: `${meta?.flag ?? ""} ${label}`.trim(), href };
@@ -138,7 +139,7 @@ export default async function NotificationsPage() {
     if (n.kind.startsWith("collab_") && n.target_kind === "event" && n.target_id) {
       const ev = collabEventById.get(n.target_id);
       if (!ev) return null;
-      return { label: ev.title, href: n.kind === "collab_accepted" ? `/u/${username}/events/${n.target_id}` : `/u/${n.actor?.username ?? username}/events/${n.target_id}` };
+      return { label: ev.title, href: n.kind === "collab_accepted" || n.kind === "collab_request" ? `/u/${username}/events/${n.target_id}` : `/u/${n.actor?.username ?? username}/events/${n.target_id}` };
     }
     if (n.target_kind === "question" && n.target_id) {
       const q = questionById.get(n.target_id);
@@ -186,7 +187,14 @@ export default async function NotificationsPage() {
               text = (
                 <>
                   added you to {n.target_kind === "trip" ? "their trip" : "their event"}{" "}
-                  {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : ""}. Accept, and it&rsquo;s on your profile too.
+                  {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : ""}. Were you there? Choose how it goes on your profile.
+                </>
+              );
+            } else if (n.kind === "collab_request") {
+              text = (
+                <>
+                  {n.target_kind === "trip" ? "was with you on" : "went with you to"}{" "}
+                  {t ? <Link href={t.href} className="font-medium text-ink hover:text-accent">{t.label}</Link> : n.target_kind === "trip" ? "your trip" : "your event"} and asks to be added
                 </>
               );
             } else if (n.kind === "collab_accepted") {
@@ -253,7 +261,16 @@ export default async function NotificationsPage() {
                   </p>
                   <p className="mt-1 text-xs text-muted">{formatRelative(n.created_at)}</p>
                   {n.kind === "collab_invite" && n.target_id && openInvite.has(`${n.target_kind}:${n.target_id}`) && (
-                    <CollabInviteActions collabId={openInvite.get(`${n.target_kind}:${n.target_id}`)!} openHref={t?.href ?? "/notifications"} />
+                    <CollabInviteActions
+                      collabId={openInvite.get(`${n.target_kind}:${n.target_id}`)!}
+                      kind={n.target_kind === "trip" ? "trip" : "event"}
+                      ownerName={actorName}
+                      countryCode={n.target_kind === "trip" ? tripById.get(n.target_id)?.vc?.country_code : null}
+                      openHref={t?.href ?? "/notifications"}
+                    />
+                  )}
+                  {n.kind === "collab_request" && n.target_id && n.actor_id && (
+                    <AddRequesterButton kind={n.target_kind === "trip" ? "trip" : "event"} targetId={n.target_id} userId={n.actor_id} name={actorName} />
                   )}
                   {n.kind === "follow_request" && pendingRequesterIds.has(n.actor_id) && (
                     <FollowRequestActions requesterId={n.actor_id} />

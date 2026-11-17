@@ -25,7 +25,7 @@ type NotificationRow = {
 };
 
 type PushKind = NotificationKind | "message" | "postcard";
-const PUSHED: PushKind[] = ["message", "postcard", "like", "comment", "follow", "follow_request", "follow_accepted", "question", "answer", "invite_joined", "collab_invite", "collab_accepted"];
+const PUSHED: PushKind[] = ["message", "postcard", "like", "comment", "follow", "follow_request", "follow_accepted", "question", "answer", "invite_joined", "collab_invite", "collab_accepted", "collab_request"];
 
 // Which Settings switch each kind of notification answers to.
 const CATEGORY: Record<PushKind, "push_followers" | "push_messages" | "push_activity"> = {
@@ -39,6 +39,7 @@ const CATEGORY: Record<PushKind, "push_followers" | "push_messages" | "push_acti
   invite_joined: "push_followers",
   collab_invite: "push_activity",
   collab_accepted: "push_activity",
+  collab_request: "push_activity",
   question: "push_messages",
   answer: "push_messages",
 };
@@ -97,6 +98,8 @@ export async function POST(request: NextRequest) {
     if (isChat && record.target_id) return `/feed?chat=${record.target_id}`;
     const onComments = kind === "comment" ? "#comments" : "";
     if (record.target_kind === "country" && country && me) return `/u/${me}/countries/${country.country_code.toLowerCase()}`;
+    // Asked to be added: Notifications, where Add is.
+    if (kind === "collab_request") return "/notifications";
     if (record.target_kind === "event" && record.target_id && me) return `/u/${me}/events/${record.target_id}${onComments}`;
     // A shared trip or event: an invitation opens Notifications (to accept or decline); an acceptance opens it.
     if (kind === "collab_invite") return "/notifications";

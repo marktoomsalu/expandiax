@@ -93,6 +93,7 @@ export function FeedPost({
         actionLabel={ownAction ?? (item.kind === "country" ? "added a country" : `logged a ${typeLabel}`)}
         when={hideWhen ? "" : formatRelative(item.created_at)}
         actions={<LikeButton kind={item.kind} targetId={item.ref_id} initialLiked={ctx.likedByMe.has(key)} />}
+        alsoThere={item.kind === "event" && ctx.alsoThere?.get(key) ? { count: ctx.alsoThere.get(key)!, href: `${href}#also-there`, noun: typeLabel } : null}
       />
       <div className="border-t border-line px-4 py-3 sm:px-5">
         <CommentSection kind={item.kind} targetId={item.ref_id} posterId={item.actor_id} initialComments={ctx.commentsByKey.get(key) ?? []} />

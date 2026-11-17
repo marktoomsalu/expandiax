@@ -40,6 +40,7 @@ const GROUPS: { label: string; note: string; kinds: [string, string][] }[] = [
       ["answer", "Someone answers their question"],
       ["answer_many", "…more people answer before they've looked"],
       ["collab_accepted", "Someone accepts being added to their trip or event"],
+      ["collab_request", "Someone says they were with them and asks to be added"],
     ],
   },
   {

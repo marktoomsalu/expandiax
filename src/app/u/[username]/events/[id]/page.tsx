@@ -14,13 +14,17 @@ import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { CommentSection } from "@/components/CommentSection";
 import { IWasThereButton } from "@/components/IWasThereButton";
+import { MomentPeople } from "@/components/trip/MomentPeople";
+import { CollabInviteActions, MakeItMineButton, RequestCollabButton } from "@/components/CollabInviteActions";
+import { alsoThere } from "@/lib/companions";
+import type { TogetherEvent } from "@/lib/together";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { ArtistUpcomingShows } from "@/components/UpcomingShows";
 import { formatDate } from "@/lib/utils";
 import { focalPosition } from "@/lib/media";
 import type { CommentWithAuthor, Event, EventFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
-import { loadCollaborators, namesTogether } from "@/lib/collab";
+import { loadCollaborators, loadMoment, namesTogether } from "@/lib/collab";
 import { Users } from "lucide-react";
 
 export async function generateMetadata({
@@ -94,7 +98,7 @@ export default async function PublicEventPage({
   }
   const together = namesTogether([ownerName, ...collaborators.filter((c) => c.user_id !== profile.id).map((c) => c.person?.display_name ?? "")].filter(Boolean));
 
-  const [{ data: sameTitle }, { data: commentRows }] = await Promise.all([
+  const [{ data: sameTitle }, { data: commentRows }, moment, { data: myPart }, { data: owner }] = await Promise.all([
     supabase
       .from("events")
       .select("id, title, subtitle, event_date, city, country_name, rating")
@@ -108,7 +112,16 @@ export default async function PublicEventPage({
       .eq("kind", "event")
       .eq("target_id", event.id)
       .order("created_at", { ascending: true }),
+    loadMoment(supabase, "event", event.id, (username, id) => `/u/${username}/events/${id}`),
+    // Your own part in it, if any: invited (to choose), or joined (to make it your own).
+    viewer ? supabase.from("post_collaborators").select("id, status, own_target_id").eq("kind", "event").eq("target_id", event.id).eq("user_id", viewer.id).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("profiles").select("display_name").eq("id", event.user_id).maybeSingle(),
   ]);
+  const ownerFull = (owner?.display_name ?? profile.display_name) as string;
+  const onIt = !!moment?.memories.some((m) => m.person.id === viewer?.id) || !!moment?.joined.some((p) => p.id === viewer?.id);
+  // Friends who logged this same concert or game themselves: "also there", not on this post.
+  const together_ = [event.user_id, ...(moment?.memories.map((m) => m.person.id) ?? []), ...(moment?.joined.map((p) => p.id) ?? [])];
+  const also = await alsoThere(supabase, viewer?.id ?? null, event as unknown as TogetherEvent, together_);
   const comments = (commentRows ?? []) as CommentWithAuthor[];
 
   const media = [...event.event_media].sort((a, b) => a.display_order - b.display_order);
@@ -190,6 +203,50 @@ export default async function PublicEventPage({
             )
           )}
         </div>
+
+        {moment && <MomentPeople moment={moment} noun="event" />}
+        {myPart?.status === "invited" ? (
+          <section className="mt-6 rounded-2xl border border-accent/40 bg-accent-soft/40 p-4">
+            <p className="font-medium">{ownerFull.split(" ")[0]} added you to this {typeMeta.label.toLowerCase()}. Did you go together?</p>
+            <CollabInviteActions collabId={myPart.id} kind="event" ownerName={ownerFull} openHref={`/u/${profile.username}/events/${event.id}`} />
+          </section>
+        ) : myPart?.status === "accepted" && !myPart.own_target_id ? (
+          <MakeItMineButton collabId={myPart.id} kind="event" ownerName={ownerFull} />
+        ) : (
+          viewer &&
+          viewer.id !== event.user_id &&
+          !onIt && (
+            <div className="mt-4">
+              <RequestCollabButton kind="event" targetId={event.id} ownerName={ownerFull} />
+            </div>
+          )
+        )}
+
+        {/* Also there: friends at the same event on their own (each their own post). */}
+        {also.length > 0 && (
+          <section id="also-there" className="mt-8 scroll-mt-24" aria-labelledby="also-h">
+            <h2 id="also-h" className="font-serif text-2xl">
+              {also.length === 1 ? "1 friend was there too" : `${also.length} friends were there too`}
+            </h2>
+            <p className="mt-0.5 text-sm text-muted">They logged it themselves. Tap one to see their {typeMeta.label.toLowerCase()}.</p>
+            <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+              {also.map((a) => (
+                <li key={a.eventId}>
+                  <Link href={`/u/${a.person.username}/events/${a.eventId}`} className="flex items-center gap-3 px-4 py-3 hover:bg-raised">
+                    <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-raised">
+                      {a.person.avatar_url ? (
+                        <Image src={a.person.avatar_url} alt="" fill sizes="36px" className="object-cover" />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center font-serif text-accent">{a.person.display_name.slice(0, 1)}</span>
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-medium">{a.person.display_name}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {event.review && (
           <blockquote className="mt-8 border-l-2 border-accent pl-5 font-serif text-xl italic leading-relaxed md:text-2xl">

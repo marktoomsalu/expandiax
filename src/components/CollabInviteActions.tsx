@@ -2,58 +2,193 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, X } from "lucide-react";
+import { Images, Loader2, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { tapSuccess } from "@/lib/haptics";
 
-/**
- * Accept or decline a collab invitation (migration 075). Accepting puts the
- * shared trip or event on your profile and in your Countries or Events
- * (a trip's country on your map too); declining just lets it go.
- */
-export function CollabInviteActions({ collabId, openHref }: { collabId: string; openHref: string }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState<"yes" | "no" | null>(null);
-  const [done, setDone] = useState<"accepted" | "declined" | null>(null);
-  const [error, setError] = useState(false);
+/** Where your own new memory is finished: its edit page. */
+export function ownMemoryEditHref(kind: "trip" | "event", id: string, countryCode?: string | null) {
+  return kind === "trip" ? `/my-world/${(countryCode ?? "").toLowerCase()}/visits/${id}/edit` : `/events/${id}/edit`;
+}
 
-  async function answer(accept: boolean) {
-    setBusy(accept ? "yes" : "no");
+/**
+ * Someone added you to their trip or event (migrations 075, 078). You choose
+ * how it goes on your profile:
+ *   Join their memory: nothing to make; their photos and story show on your
+ *   profile too.
+ *   Create my own memory: your own trip or event, linked to theirs, with the
+ *   dates and places filled in; your own photos and videos.
+ * Or "Not me".
+ */
+export function CollabInviteActions({
+  collabId,
+  kind,
+  ownerName,
+  countryCode,
+  openHref,
+}: {
+  collabId: string;
+  kind: "trip" | "event";
+  ownerName: string;
+  countryCode?: string | null;
+  openHref: string;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<"join" | "own" | "no" | null>(null);
+  const [done, setDone] = useState<"joined" | "declined" | null>(null);
+  const [error, setError] = useState(false);
+  const first = ownerName.trim().split(" ")[0] || "their";
+  const noun = kind === "trip" ? "trip" : "event";
+
+  async function join() {
+    setBusy("join");
     setError(false);
-    const { data, error: err } = await createClient().rpc("respond_collab", { p_id: collabId, p_accept: accept });
+    const { data, error: err } = await createClient().rpc("respond_collab", { p_id: collabId, p_accept: true });
     setBusy(null);
-    if (err || data === "not_found") {
-      setError(true);
-      return;
-    }
-    setDone(accept ? "accepted" : "declined");
-    if (accept) tapSuccess();
+    if (err || data === "not_found") return setError(true);
+    tapSuccess();
+    setDone("joined");
     router.refresh();
   }
 
-  if (done === "accepted") {
+  async function own() {
+    setBusy("own");
+    setError(false);
+    const { data, error: err } = await createClient().rpc("make_own_memory", { p_id: collabId });
+    if (err || !data) {
+      setBusy(null);
+      return setError(true);
+    }
+    tapSuccess();
+    router.push(ownMemoryEditHref(kind, data as string, countryCode));
+    router.refresh();
+  }
+
+  async function decline() {
+    setBusy("no");
+    const { error: err } = await createClient().rpc("respond_collab", { p_id: collabId, p_accept: false });
+    setBusy(null);
+    if (err) return setError(true);
+    setDone("declined");
+    router.refresh();
+  }
+
+  if (done === "joined") {
     return (
       <p className="mt-2 text-sm text-accent">
-        You&rsquo;re a collaborator now.{" "}
+        It&rsquo;s on your profile now.{" "}
         <a href={openHref} className="font-medium underline-offset-4 hover:underline">
           Open it
         </a>
       </p>
     );
   }
-  if (done === "declined") return <p className="mt-2 text-sm text-muted">Declined.</p>;
+  if (done === "declined") return <p className="mt-2 text-sm text-muted">Okay, it&rsquo;s not on your profile.</p>;
 
+  const option = "flex w-full items-start gap-3 rounded-2xl border bg-surface p-3 text-left transition-colors disabled:opacity-60";
+  return (
+    <div className="mt-2.5 space-y-2">
+      <button type="button" onClick={() => void join()} disabled={!!busy} className={`${option} border-accent/60 hover:border-accent`}>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+          {busy === "join" ? <Loader2 size={17} className="animate-spin" /> : <MapPin size={17} aria-hidden />}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold">Join {first}&rsquo;s memory</span>
+          <span className="block text-xs leading-snug text-muted">
+            You don&rsquo;t have to make your own post. {first}&rsquo;s photos and story of this {noun} show on your profile too.
+          </span>
+        </span>
+      </button>
+      <button type="button" onClick={() => void own()} disabled={!!busy} className={`${option} border-line hover:border-accent`}>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-raised text-ink">
+          {busy === "own" ? <Loader2 size={17} className="animate-spin" /> : <Images size={17} aria-hidden />}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold">Create my own memory</span>
+          <span className="block text-xs leading-snug text-muted">
+            Your own {noun}, linked to {first}&rsquo;s{kind === "trip" ? ", with the dates and places filled in" : ""}. You choose your own photos and videos.
+          </span>
+        </span>
+      </button>
+      <button type="button" onClick={() => void decline()} disabled={!!busy} className="px-1 py-1.5 text-sm text-muted hover:text-ink">
+        {busy === "no" ? "…" : "Not me"}
+      </button>
+      {error && <p className="text-xs text-red-800 dark:text-red-400">That didn&rsquo;t work. It may no longer be open; try again.</p>}
+    </div>
+  );
+}
+
+/** Joined someone's memory, and now want your own photos and words on it: your own, linked; photos you added come along. */
+export function MakeItMineButton({ collabId, kind, ownerName, countryCode }: { collabId: string; kind: "trip" | "event"; ownerName: string; countryCode?: string | null }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  const first = ownerName.trim().split(" ")[0] || "their";
+  async function go() {
+    setBusy(true);
+    setError(false);
+    const { data, error: err } = await createClient().rpc("make_own_memory", { p_id: collabId });
+    if (err || !data) {
+      setBusy(false);
+      return setError(true);
+    }
+    tapSuccess();
+    router.push(ownMemoryEditHref(kind, data as string, countryCode));
+    router.refresh();
+  }
+  return (
+    <section className="mt-6 rounded-2xl border border-line bg-surface p-4">
+      <p className="font-medium">You joined {first}&rsquo;s memory</p>
+      <p className="mt-0.5 text-sm text-muted">
+        Want your own photos and words? Make it your own memory: your own {kind}, still linked to {first}&rsquo;s. Nothing is copied, and anything you added moves with you.
+      </p>
+      <button type="button" onClick={() => void go()} disabled={busy} className="btn-accent mt-3 !py-2 text-sm">
+        {busy && <Loader2 size={14} className="animate-spin" />} Make it my own
+      </button>
+      {error && <p className="mt-1.5 text-xs text-red-800 dark:text-red-400">That didn&rsquo;t work. Try again.</p>}
+    </section>
+  );
+}
+
+/** "I was with Mark" on someone's trip or event: asks them to add you (migration 078). */
+export function RequestCollabButton({ kind, targetId, ownerName }: { kind: "trip" | "event"; targetId: string; ownerName: string }) {
+  const [state, setState] = useState<"idle" | "busy" | "sent" | "error">("idle");
+  const first = ownerName.trim().split(" ")[0] || "them";
+  async function ask() {
+    setState("busy");
+    const { data, error } = await createClient().rpc("request_collab", { p_kind: kind, p_target: targetId });
+    setState(error || (data !== "sent" && data !== "already") ? "error" : "sent");
+  }
+  if (state === "sent") return <span className="text-sm text-accent">Asked {first} to add you</span>;
+  return (
+    <span className="inline-flex flex-col">
+      <button type="button" onClick={() => void ask()} disabled={state === "busy"} className="btn-ghost !py-2 text-sm">
+        {state === "busy" && <Loader2 size={14} className="animate-spin" />} {kind === "trip" ? `I was with ${first}` : `I went with ${first}`}
+      </button>
+      {state === "error" && <span className="mt-1 text-xs text-red-800 dark:text-red-400">Couldn&rsquo;t ask. Try again.</span>}
+    </span>
+  );
+}
+
+/** On "Lukas was with you and asks to be added": add them (they then choose how it goes on their profile). */
+export function AddRequesterButton({ kind, targetId, userId, name }: { kind: "trip" | "event"; targetId: string; userId: string; name: string }) {
+  const router = useRouter();
+  const [state, setState] = useState<"idle" | "busy" | "added" | "full" | "error">("idle");
+  const first = name.trim().split(" ")[0] || "them";
+  async function add() {
+    setState("busy");
+    const { data, error } = await createClient().rpc("invite_collaborator", { p_kind: kind, p_target: targetId, p_user: userId });
+    setState(error ? "error" : data === "ok" ? "added" : data === "too_many" ? "full" : "error");
+    if (data === "ok") router.refresh();
+  }
+  if (state === "added") return <p className="mt-2 text-sm text-accent">Added. {first} chooses how it goes on their profile.</p>;
   return (
     <div className="mt-2">
-      <div className="flex gap-2">
-        <button type="button" onClick={() => void answer(true)} disabled={!!busy} className="btn-accent !py-1.5 !px-3.5 text-sm">
-          {busy === "yes" ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Accept
-        </button>
-        <button type="button" onClick={() => void answer(false)} disabled={!!busy} className="btn-ghost !py-1.5 !px-3.5 text-sm">
-          {busy === "no" ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />} Decline
-        </button>
-      </div>
-      {error && <p className="mt-1.5 text-xs text-red-800 dark:text-red-400">This is no longer open.</p>}
+      <button type="button" onClick={() => void add()} disabled={state === "busy"} className="btn-accent !px-3.5 !py-1.5 text-sm">
+        {state === "busy" && <Loader2 size={14} className="animate-spin" />} Add {first}
+      </button>
+      {state === "full" && <p className="mt-1.5 text-xs text-muted">This already has 20 people, the most it can have.</p>}
+      {state === "error" && <p className="mt-1.5 text-xs text-red-800 dark:text-red-400">Couldn&rsquo;t add them. Try again.</p>}
     </div>
   );
 }

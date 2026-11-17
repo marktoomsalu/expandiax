@@ -85,6 +85,7 @@ export const PRIORITY: Record<string, 1 | 2 | 3 | 4 | 5 | 6> = {
   invite_joined: 2,
   collab_invite: 2,
   collab_accepted: 3,
+  collab_request: 2,
   comment: 3,
   question: 3,
   answer: 3,
