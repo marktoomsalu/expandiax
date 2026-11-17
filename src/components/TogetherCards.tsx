@@ -115,10 +115,17 @@ export function SharedCard({
       <div id={`trip-${person.username}-${item.countryCode}-${item.from}`} className="card scroll-mt-24 p-3.5">
         <div className="flex items-center gap-3.5">{body}</div>
         <div className="mt-3 flex gap-2 text-xs">
-          <Link href={`/u/${person.username}/countries/${item.countryCode.toLowerCase()}`} className="btn-ghost !px-3 !py-1.5">
+          {/* Each opens that trip itself (the country only if the trip isn't known). */}
+          <Link
+            href={item.theirsId ? `/u/${person.username}/trips/${item.theirsId}` : `/u/${person.username}/countries/${item.countryCode.toLowerCase()}`}
+            className="btn-ghost !px-3 !py-1.5"
+          >
             {first}&rsquo;s trip
           </Link>
-          <Link href={`/my-world/${item.countryCode.toLowerCase()}`} className="btn-ghost !px-3 !py-1.5">
+          <Link
+            href={item.mineId ? `/my-world/${item.countryCode.toLowerCase()}/visits/${item.mineId}` : `/my-world/${item.countryCode.toLowerCase()}`}
+            className="btn-ghost !px-3 !py-1.5"
+          >
             Your trip
           </Link>
         </div>

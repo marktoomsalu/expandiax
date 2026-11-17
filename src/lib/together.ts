@@ -25,10 +25,12 @@ export type TogetherTrip = {
   country_code: string;
   from: string; // yyyy-mm-dd
   to: string; // yyyy-mm-dd
+  /** The trip itself, so a match can open it (not just the country). */
+  visit_id?: string;
 };
 
 export type SharedEvent = { kind: "event"; personId: string; date: string; mine: TogetherEvent; theirs: TogetherEvent };
-export type SharedTrip = { kind: "trip"; personId: string; date: string; countryCode: string; from: string; to: string };
+export type SharedTrip = { kind: "trip"; personId: string; date: string; countryCode: string; from: string; to: string; mineId?: string; theirsId?: string };
 export type Shared = SharedEvent | SharedTrip;
 
 export type PromptReason = "trip" | "artist" | "home";
@@ -149,7 +151,7 @@ export function findTogether(input: {
       const key = `${theirs.user_id}|${theirs.country_code}|${overlap.from.slice(0, 7)}`;
       if (seenTrip.has(key)) continue;
       seenTrip.add(key);
-      shared.push({ kind: "trip", personId: theirs.user_id, date: overlap.from, countryCode: theirs.country_code, from: overlap.from, to: overlap.to });
+      shared.push({ kind: "trip", personId: theirs.user_id, date: overlap.from, countryCode: theirs.country_code, from: overlap.from, to: overlap.to, mineId: mine.visit_id, theirsId: theirs.visit_id });
     }
   }
   shared.sort((a, b) => b.date.localeCompare(a.date));

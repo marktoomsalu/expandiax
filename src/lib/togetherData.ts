@@ -13,14 +13,17 @@ export type TogetherData = {
 
 type Supabase = ReturnType<typeof createClient>;
 type EventRow = TogetherEvent & { cover_media_id: string | null };
-type VisitRow = { user_id: string; country_code: string; country_visits: { visited_from: string | null; visited_to: string | null; date_precision: DatePrecision }[] };
+type VisitRow = { user_id: string; country_code: string; country_visits: { id?: string; visited_from: string | null; visited_to: string | null; date_precision: DatePrecision }[] };
 
 const EVENT_FIELDS =
   "id, user_id, title, event_type, event_date, venue, city, country_code, country_name, spotify_artist_id, spotify_artist_name, spotify_artist_image, cover_media_id";
 
 function trips(rows: VisitRow[]): TogetherTrip[] {
   return rows.flatMap((r) =>
-    (r.country_visits ?? []).map((v) => tripRange(v)).filter((x): x is { from: string; to: string } => !!x).map((range) => ({ user_id: r.user_id, country_code: r.country_code, ...range }))
+    (r.country_visits ?? []).flatMap((v) => {
+      const range = tripRange(v);
+      return range ? [{ user_id: r.user_id, country_code: r.country_code, ...range, visit_id: v.id }] : [];
+    })
   );
 }
 
@@ -36,10 +39,10 @@ export async function loadTogether(supabase: Supabase, userId: string, followeeI
   const [{ data: mine }, { data: theirs }, { data: myVisits }, { data: theirVisits }, { data: people }] = await Promise.all([
     supabase.from("events").select(EVENT_FIELDS).eq("user_id", userId),
     supabase.from("events").select(EVENT_FIELDS).in("user_id", followeeIds).order("event_date", { ascending: false }).limit(1000),
-    supabase.from("visited_countries").select("user_id, country_code, country_visits(visited_from, visited_to, date_precision)").eq("user_id", userId),
+    supabase.from("visited_countries").select("user_id, country_code, country_visits(id, visited_from, visited_to, date_precision)").eq("user_id", userId),
     supabase
       .from("visited_countries")
-      .select("user_id, country_code, country_visits(visited_from, visited_to, date_precision)")
+      .select("user_id, country_code, country_visits(id, visited_from, visited_to, date_precision)")
       .in("user_id", followeeIds)
       .limit(2000),
     supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", followeeIds),
