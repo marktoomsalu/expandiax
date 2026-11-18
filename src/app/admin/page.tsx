@@ -125,6 +125,22 @@ export default async function AdminPage() {
   const ios = tokens.filter((t) => t.platform === "ios").length;
   const android = tokens.filter((t) => t.platform === "android").length;
   const sponsorsLive = SPONSORS.filter((s) => !s.until || s.until >= today).length;
+  // Who uses the apps, and whether notifications are on (migration 081; none before it).
+  const { data: appRows } = await admin.from("app_devices").select("platform, notifications, last_seen_at");
+  const appStats = (platform: "ios" | "android") => {
+    const rows = ((appRows ?? []) as { platform: string; notifications: string; last_seen_at: string }[]).filter((r) => r.platform === platform);
+    const on = rows.filter((r) => r.notifications === "granted").length;
+    const no = rows.filter((r) => r.notifications === "denied").length;
+    const asked = rows.length - rows.filter((r) => r.notifications === "prompt").length;
+    return {
+      users: rows.length,
+      sub: rows.length
+        ? `${on} with notifications on (${Math.round((on / rows.length) * 100)}%) · ${no} said no · ${rows.length - asked} not asked yet`
+        : "counting since the app noted it (migration 081)",
+    };
+  };
+  const iosApp = appStats("ios");
+  const androidApp = appStats("android");
 
   // Reports, newest first: the one place people are named, because acting on a report needs it.
   const { data: reportRows } = await admin.from("reports").select("id, reporter_id, target_type, target_id, target_url, reason, created_at").order("created_at", { ascending: false }).limit(40);
@@ -200,8 +216,8 @@ export default async function AdminPage() {
       <section aria-labelledby="biz-h" className="mt-8">
         <h2 id="biz-h" className="font-serif text-xl">Apps &amp; business</h2>
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Tile label="iPhones with notifications" value={ios} />
-          <Tile label="Androids with notifications" value={android} />
+          <Tile label="iPhone app users" value={iosApp.users} sub={iosApp.users ? iosApp.sub : `${ios} with notifications`} />
+          <Tile label="Android app users" value={androidApp.users} sub={androidApp.users ? androidApp.sub : `${android} with notifications`} />
           <Tile label="Partner placements live" value={sponsorsLive} />
           <Tile label="Revenue" value="€0" sub="add once sales start" />
         </div>

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isNativePlatform } from "@/lib/capacitor";
 import { FcmToken } from "@/lib/fcmToken";
 import { openChat } from "@/lib/chat";
+import { noteAppDevice } from "@/lib/appDevice";
 
 export function PushRegistration({ userId }: { userId: string }) {
   const router = useRouter();
@@ -32,6 +33,7 @@ export function PushRegistration({ userId }: { userId: string }) {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
       const { error } = await supabase.from("device_tokens").upsert({ user_id: userId, token: value, platform, timezone }, { onConflict: "token" });
       if (error) await supabase.from("device_tokens").upsert({ user_id: userId, token: value, platform }, { onConflict: "token" });
+      void noteAppDevice(userId, "granted");
     });
     // Tapping a notification opens what it's about (the link /api/push/send adds).
     const tapListener = PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
@@ -60,6 +62,8 @@ export function PushRegistration({ userId }: { userId: string }) {
         if (result.receive === "granted") PushNotifications.register();
       })
       .catch(() => {});
+    // That this person uses the app, and whether notifications are on (the dashboard's yes-rate).
+    void noteAppDevice(userId);
 
     return () => {
       registrationListener.then((l) => l.remove());

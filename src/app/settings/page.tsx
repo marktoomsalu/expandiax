@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { TurnOnNotifications } from "@/components/TurnOnNotifications";
 import Link from "next/link";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { ProfileForm } from "@/components/ProfileForm";
@@ -25,6 +26,7 @@ export default async function SettingsPage() {
       <p className="mt-2 text-sm text-muted">
         @{profile.username} · member since {formatDate(profile.created_at)}
       </p>
+      <TurnOnNotifications userId={user.id} className="mt-6" />
       <div className="mt-8">
         <ProfileForm profile={profile} homeCover={stockPhotoFor(profile.home_country_code, `${profile.id}:${new Date().toISOString().slice(0, 10)}`)} />
       </div>

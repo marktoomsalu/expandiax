@@ -1,4 +1,5 @@
 import { NotificationsSeen } from "@/components/NotificationsSeen";
+import { TurnOnNotifications } from "@/components/TurnOnNotifications";
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
@@ -167,6 +168,8 @@ export default async function NotificationsPage() {
       <NotificationsSeen />
       <p className="eyebrow">Notifications</p>
       <h1 className="mt-2 text-3xl md:text-4xl">What&rsquo;s happened lately.</h1>
+      {/* In the app with notifications off: how to turn them on. */}
+      <TurnOnNotifications userId={user.id} className="mt-5" />
 
       {notifications.length === 0 ? (
         <div className="mt-10">
