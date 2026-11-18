@@ -24,12 +24,14 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [alreadyHere, setAlreadyHere] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setAlreadyHere(false);
     if (!agreed) {
       setError("Please confirm you're 16 or older and agree to the Terms and Privacy Policy to continue.");
       return;
@@ -80,6 +82,15 @@ export default function SignUpPage() {
 
     if (signUpError) {
       setError(signUpError.message);
+      setBusy(false);
+      return;
+    }
+    // An email that already has an account: Supabase answers as if it
+    // worked (so nobody can test which emails are registered) but creates
+    // nothing and sends nothing. Its sign: a user with no identities.
+    if (data.user && !data.session && (data.user.identities?.length ?? 0) === 0) {
+      setError("There's already an account with this email. Sign in instead, or reset your password if you've forgotten it.");
+      setAlreadyHere(true);
       setBusy(false);
       return;
     }
@@ -144,6 +155,12 @@ export default function SignUpPage() {
         </div>
 
         {error && <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
+        {error && alreadyHere && (
+          <p className="flex gap-4 text-sm font-medium">
+            <Link href="/sign-in" className="text-accent hover:underline">Sign in</Link>
+            <Link href="/forgot-password" className="text-accent hover:underline">Reset password</Link>
+          </p>
+        )}
         {notice && <p role="status" className="rounded-lg border border-accent/40 bg-accent-soft/50 px-3 py-2 text-sm">{notice}</p>}
 
         <button type="submit" className="btn-accent w-full" disabled={busy}>
