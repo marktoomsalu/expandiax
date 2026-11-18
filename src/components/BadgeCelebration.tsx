@@ -8,7 +8,6 @@ import { Sparkle } from "lucide-react";
 import { BADGES } from "@/lib/badges";
 import { createClient } from "@/lib/supabase/client";
 import { tapLight, tapSuccess } from "@/lib/haptics";
-import { startQuietVisit } from "@/lib/quietVisit";
 
 type Found = { ids: string[]; next: { id: string; current: number; target: number } | null };
 
@@ -94,7 +93,7 @@ const SPARKS = [
   { x: 8, y: -142, s: 12, d: 1.4 },
 ];
 
-export function BadgeCelebration({ ids, next, onClose }: { ids: string[]; next: Found["next"]; onClose: () => void }) {
+function BadgeCelebration({ ids, next, onClose }: { ids: string[]; next: Found["next"]; onClose: () => void }) {
   const [index, setIndex] = useState(0);
   const reduce = useReducedMotion();
   const badge = BADGES.find((b) => b.id === ids[index]) ?? BADGES[0];
@@ -103,7 +102,6 @@ export function BadgeCelebration({ ids, next, onClose }: { ids: string[]; next: 
   const Icon = badge.icon;
 
   useEffect(() => {
-    startQuietVisit();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

@@ -30,7 +30,7 @@ type EventRow = {
  * they've brought and World Connects.
  */
 export async function loadBadges(supabase: Supabase, userId: string): Promise<EvaluatedBadge[]> {
-  const [{ data: countriesData }, { data: eventsData }, { data: invited }, { data: connects }, sharedEvents, sharedTrips] = await Promise.all([
+  const [{ data: countriesData }, { data: eventsData }, { data: invited }, { data: connects }, sharedEvents, sharedTrips, { data: chapter }] = await Promise.all([
     supabase
       .from("visited_countries")
       .select("country_code, is_favourite, country_visits(year, visited_from, visited_to, kind), country_media!country_media_visited_country_id_fkey(id)")
@@ -43,6 +43,7 @@ export async function loadBadges(supabase: Supabase, userId: string): Promise<Ev
     supabase.rpc("world_connect_count", { p_user: userId }),
     collabEventsOf(supabase, userId),
     collabTripsOf(supabase, userId),
+    supabase.from("profiles").select("first_chapter_at").eq("id", userId).maybeSingle(),
   ]);
 
   const countryRows = ((countriesData ?? []) as unknown as CountryRow[]).map((c) => {
@@ -70,6 +71,7 @@ export async function loadBadges(supabase: Supabase, userId: string): Promise<Ev
     invitedFriends: typeof invited === "number" ? invited : 0,
     worldConnects: typeof connects === "number" ? connects : 0,
     antarctica: countryRows.some((c) => c.country_code === "AQ"),
+    firstChapter: !!(chapter as { first_chapter_at?: string | null } | null)?.first_chapter_at,
   });
 }
 
@@ -79,6 +81,8 @@ export async function loadBadges(supabase: Supabase, userId: string): Promise<Ev
  * people who were here before don't get a pile of old badges at once.
  */
 export async function newBadges(supabase: Supabase, userId: string): Promise<{ ids: string[]; next: { id: string; current: number; target: number } | null }> {
+  // Chapter One is stamped when its last step is done, wherever that happened.
+  await supabase.rpc("first_chapter").then(() => undefined, () => undefined);
   const [badges, { data: progress, error }] = await Promise.all([
     loadBadges(supabase, userId),
     supabase.from("member_progress").select("badges_seen").eq("user_id", userId).maybeSingle(),

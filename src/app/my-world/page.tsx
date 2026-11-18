@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { FirstFriends } from "@/components/FirstFriends";
 import { AddCountryButton } from "@/components/AddCountrySheet";
+import { hasRealName } from "@/lib/profileName";
 import { mapStays } from "@/lib/stays";
 import { BarChart3, Plus } from "lucide-react";
 import { PhotoReminder } from "@/components/PhotoReminder";
@@ -21,8 +22,7 @@ import type { VisitedCountry, CountryMedia } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { loadDreamPlaces } from "@/lib/dreams";
 import { DreamPlaces } from "@/components/dreams/DreamPlaces";
-import { NextStepPopup } from "@/components/NextStepPopup";
-import { loadNextStep } from "@/lib/nextStepData";
+import { JourneyCard } from "@/components/journey/JourneyCard";
 
 export const metadata = { title: "My World" };
 
@@ -41,14 +41,13 @@ export default async function MyWorldPage() {
   const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const [{ data }, { data: profile }, dreams, next] = await Promise.all([
+  const [{ data }, { data: profile }, dreams] = await Promise.all([
     supabase
       .from("visited_countries")
       .select("*, country_media!country_media_visited_country_id_fkey(*), country_visits(id, year, visited_from, visited_to, kind, cover_media_id)")
       .eq("user_id", user.id),
     supabase.from("profiles").select("home_country_code, display_name").eq("id", user.id).single(),
     loadDreamPlaces(supabase, user.id),
-    loadNextStep(supabase, user.id, "my-world"),
   ]).then((r) => signMedia(r));
   const dreamCodes = [...new Set(dreams.map((d) => d.country_code))];
 
@@ -94,14 +93,25 @@ export default async function MyWorldPage() {
 
   return (
     <div className="mx-auto max-w-shell px-5 py-10">
-      {/* The one next step for them (or nothing), popping up once a visit at most. */}
-      {next.step && <NextStepPopup step={next.step} />}
-      {/* "Who's coming with you?" once their own world has a story (stage 3+), not on day one
-          (and not beside a next step that already says it). */}
-      {next.stage >= 3 && next.step?.id !== "find-people" && (
-        <Suspense fallback={null}>
-          <FirstFriends userId={user.id} />
-        </Suspense>
+      {/* New members land here after sign-up: "Who's coming with you?" */}
+      <Suspense fallback={null}>
+        <FirstFriends userId={user.id} />
+      </Suspense>
+      {/* Chapter One: the journey every new member goes on, until it's done. */}
+      <Suspense fallback={null}>
+        <JourneyCard />
+      </Suspense>
+      {profile && !hasRealName(profile.display_name) && (
+        <Link
+          href="/settings"
+          className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm text-ink hover:border-accent"
+        >
+          <span>
+            <span className="font-medium">What should friends call you?</span>{" "}
+            <span className="text-muted">Your profile says &ldquo;Traveller&rdquo; for now.</span>
+          </span>
+          <span className="shrink-0 font-medium text-accent">Add your name &rarr;</span>
+        </Link>
       )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -121,9 +131,7 @@ export default async function MyWorldPage() {
         </div>
       </div>
 
-      {/* Like Events: each country waiting for photos, straight into adding them
-          (unless the next step above is already about photos). */}
-      {!next.step?.aboutPhotos && (
+      {/* Like Events: each country waiting for photos, straight into adding them. */}
       <PhotoReminder
         countries={withoutPhotos
           .filter((c) => !(c as Row & { photo_reminder_off?: boolean }).photo_reminder_off)
@@ -139,7 +147,6 @@ export default async function MyWorldPage() {
             };
           })}
       />
-      )}
       <DraftsList kind="trip" className="mt-6" />
 
       <div className="mt-8">

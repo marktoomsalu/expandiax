@@ -5,14 +5,15 @@ import {
   BookOpen, CalendarCheck, ScrollText, Library,
   Music2, PartyPopper, Trophy, Presentation, Heart, Sparkles, Award,
   Star, Camera, Gem, CalendarDays, Hourglass,
-  Users, HeartHandshake, Medal, Snowflake, Sparkle,
+  Users, HeartHandshake, Medal, Snowflake, Sparkle, BookOpenCheck,
 } from "lucide-react";
 import type { AllTimeStats } from "./stats";
 import { TOTAL_COUNTRIES } from "./countries";
 
-export type BadgeGroup = "countries" | "continents" | "events" | "types" | "friends" | "curation";
+export type BadgeGroup = "journey" | "countries" | "continents" | "events" | "types" | "friends" | "curation";
 
 export const BADGE_GROUP_LABELS: Record<BadgeGroup, string> = {
+  journey: "Journey",
   countries: "Countries",
   continents: "Continents",
   events: "Events",
@@ -22,14 +23,15 @@ export const BADGE_GROUP_LABELS: Record<BadgeGroup, string> = {
 };
 
 /** In the order they're shown. */
-export const BADGE_GROUPS: BadgeGroup[] = ["countries", "events", "friends", "continents", "types", "curation"];
+export const BADGE_GROUPS: BadgeGroup[] = ["journey", "countries", "events", "friends", "continents", "types", "curation"];
 
 /**
  * What everything is counted from: your archive, friends who joined with
  * your invite, the friends you've connected with by World Connect, and
- * whether Antarctica (a territory, not counted as a country) is on your map.
+ * whether Antarctica (a territory, not counted as a country) is on your map,
+ * and whether they've finished Chapter One (profiles.first_chapter_at).
  */
-export type BadgeExtras = { invitedFriends?: number; worldConnects?: number; antarctica?: boolean };
+export type BadgeExtras = { invitedFriends?: number; worldConnects?: number; antarctica?: boolean; firstChapter?: boolean };
 export type BadgeStats = AllTimeStats & Required<BadgeExtras>;
 
 /** How to get a locked badge: a page, or the Add a country sheet. */
@@ -55,6 +57,7 @@ const ADD_EVENT: BadgeAction = { label: "Add an event", href: "/events/new" };
 const INVITE: BadgeAction = { label: "Invite friends", href: "/invite" };
 
 const DEFAULT_ACTION: Record<BadgeGroup, BadgeAction> = {
+  journey: { label: "Continue your journey", href: "/journey" },
   countries: ADD_COUNTRY,
   continents: ADD_COUNTRY,
   events: ADD_EVENT,
@@ -63,6 +66,7 @@ const DEFAULT_ACTION: Record<BadgeGroup, BadgeAction> = {
   curation: ADD_EVENT,
 };
 const DEFAULT_UNIT: Record<BadgeGroup, string> = {
+  journey: "",
   countries: "countries visited",
   continents: "continents",
   events: "events logged",
@@ -83,6 +87,8 @@ const def = (
 ): BadgeDef => ({ id, label, description, icon, group, target, progress, unit: more.unit ?? DEFAULT_UNIT[group], action: more.action ?? DEFAULT_ACTION[group] });
 
 export const BADGES: BadgeDef[] = [
+  def("first-chapter", "Chapter One", "Finish your first journey on ExpandiaX.", BookOpenCheck, "journey", 1, (s) => (s.firstChapter ? 1 : 0)),
+
   def("country-1", "First Stamp", "Log your first country.", Footprints, "countries", 1, (s) => s.totalCountries),
   def("country-5", "Explorer", "Visit 5 countries.", Compass, "countries", 5, (s) => s.totalCountries),
   def("country-10", "Wanderer", "Visit 10 countries.", Map, "countries", 10, (s) => s.totalCountries),
@@ -142,7 +148,13 @@ export const BADGES: BadgeDef[] = [
 
 /** Every badge, with how far along you are. */
 export function evaluateBadges(stats: AllTimeStats, extras: BadgeExtras = {}): EvaluatedBadge[] {
-  const all: BadgeStats = { ...stats, invitedFriends: extras.invitedFriends ?? 0, worldConnects: extras.worldConnects ?? 0, antarctica: extras.antarctica ?? false };
+  const all: BadgeStats = {
+    ...stats,
+    invitedFriends: extras.invitedFriends ?? 0,
+    worldConnects: extras.worldConnects ?? 0,
+    antarctica: extras.antarctica ?? false,
+    firstChapter: extras.firstChapter ?? false,
+  };
   return BADGES.map(({ progress, ...b }) => {
     const current = Math.min(progress(all), b.target);
     return { ...b, current, isUnlocked: current >= b.target };

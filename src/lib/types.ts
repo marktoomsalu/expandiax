@@ -25,6 +25,7 @@ export type Profile = {
   push_updates: boolean;
   signup_number: number;
   feed_last_seen_at: string | null;
+  first_chapter_at?: string | null; // Chapter One finished (migration 083)
   created_at: string;
   updated_at: string;
 };

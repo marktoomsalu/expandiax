@@ -62,7 +62,7 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
         "id, title, country_code, event_type, event_date, rating, is_favourite, event_media!event_media_event_id_fkey(id, media_type)"
       )
       .eq("user_id", user.id),
-    supabase.from("profiles").select("signup_number").eq("id", user.id).single(),
+    supabase.from("profiles").select("signup_number, first_chapter_at").eq("id", user.id).single(),
   ]);
 
   const [{ data: invitedRaw }, { data: connectsRaw }] = await Promise.all([
@@ -130,7 +130,12 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
   const totalLikes = (countryLikes ?? 0) + (eventLikes ?? 0);
   const yearStats = selectedYear !== null ? buildYearStats(selectedYear, countries, events) : null;
 
-  const badges = evaluateBadges(allTime, { invitedFriends: invitedCount, worldConnects, antarctica: allCodes.includes("AQ") });
+  const badges = evaluateBadges(allTime, {
+    invitedFriends: invitedCount,
+    worldConnects,
+    antarctica: allCodes.includes("AQ"),
+    firstChapter: !!(profile as { first_chapter_at?: string | null } | null)?.first_chapter_at,
+  });
   const unlockedCount = badges.filter((b) => b.isUnlocked).length;
   const repeated = mostRepeatedTitle(events);
   const topRatedAllTime =

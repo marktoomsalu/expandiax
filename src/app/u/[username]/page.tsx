@@ -225,6 +225,7 @@ export default async function PublicProfilePage({ params, searchParams }: { para
     invitedFriends: invitedCount,
     worldConnects: typeof connectsRaw === "number" ? connectsRaw : 0,
     antarctica: territories.some((t) => t.country_code === "AQ"),
+    firstChapter: !!profile.first_chapter_at,
   }).filter((b) => b.isUnlocked);
 
   // Recent trips and events: their latest posts (as in the feed), not

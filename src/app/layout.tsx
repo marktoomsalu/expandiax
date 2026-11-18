@@ -20,7 +20,6 @@ import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { ChatTour } from "@/components/chat/ChatTour";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { BadgeWatcher } from "@/components/BadgeCelebration";
-import { VisitTracker } from "@/components/NextStepPopup";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -97,8 +96,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {navUser && <ChatBubble me={navUser.id} />}
           {/* A new badge gets its own moment, on whichever page it was earned. */}
           {navUser && <BadgeWatcher />}
-          {/* How often they come, so Next Step can pop up at their pace. */}
-          {navUser && <VisitTracker />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
           <SiteChrome>{children}</SiteChrome>
         </ThemeProvider>
