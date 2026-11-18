@@ -284,7 +284,7 @@ export function EventForm({
           The details are filled in{prefilledFrom ? ` from ${prefilledFrom}’s memory` : ""} - add your own photos and rating.
         </p>
       )}
-      <section>
+      <section id="photos" className="scroll-mt-24">
         <p className="eyebrow mb-3">Photos & videos</p>
         {event ? (
           <MediaUploader
@@ -476,7 +476,7 @@ export function EventForm({
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <div>
+          <div id="song" className="scroll-mt-24">
             <label htmlFor="e-highlight" className="mb-1.5 block text-sm font-medium">{meta.highlightLabel}</label>
             <input id="e-highlight" className="field" value={f.highlight} onChange={(e) => set("highlight", e.target.value)} />
             {f.event_type === "concert" && pastShow && pastShow.songs.length > 0 && (

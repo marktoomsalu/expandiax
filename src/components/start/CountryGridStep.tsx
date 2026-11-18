@@ -23,10 +23,17 @@ export function CountryGridStep({
   homeCode,
   initialSelected = [],
   onDone,
+  eyebrow = "Step 3",
+  doneLabel,
+  busy = false,
 }: {
+  /** Home is always on the map; "" when it isn't known. */
   homeCode: string;
   initialSelected?: string[];
   onDone: (codes: string[]) => void;
+  eyebrow?: string;
+  doneLabel?: (count: number) => string;
+  busy?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(initialSelected);
@@ -50,7 +57,7 @@ export function CountryGridStep({
       .filter((g) => g.countries.length > 0);
   }, [homeCode, home, query]);
 
-  const allCodes = [homeCode, ...selected];
+  const allCodes = homeCode ? [homeCode, ...selected] : selected;
 
   function toggle(code: string) {
     if (code === homeCode) return; // home is fixed, not part of the toggle set
@@ -66,7 +73,7 @@ export function CountryGridStep({
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col px-6 pb-10 pt-[calc(3.5rem+env(safe-area-inset-top))]">
-      <p className="eyebrow text-center">Step 3</p>
+      <p className="eyebrow text-center">{eyebrow}</p>
       <h1 className="mt-2 text-center text-3xl md:text-4xl">Where have you been?</h1>
 
       <div className="sticky top-[env(safe-area-inset-top)] z-10 mt-6 bg-canvas/95 py-3 text-center backdrop-blur">
@@ -127,8 +134,8 @@ export function CountryGridStep({
       ))}
 
       <div className="sticky bottom-[calc(1.5rem+env(safe-area-inset-bottom))] mt-8 flex justify-center">
-        <button type="button" onClick={() => onDone(selected)} className="btn-accent px-8 shadow-lg">
-          Continue with {allCodes.length} pin{allCodes.length === 1 ? "" : "s"}
+        <button type="button" onClick={() => onDone(selected)} disabled={busy} className="btn-accent px-8 shadow-lg">
+          {doneLabel ? doneLabel(allCodes.length) : `Continue with ${allCodes.length} pin${allCodes.length === 1 ? "" : "s"}`}
         </button>
       </div>
     </div>

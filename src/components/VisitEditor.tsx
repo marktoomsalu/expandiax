@@ -345,7 +345,7 @@ export function VisitEditor({
         </Basket>
       )}
 
-      <Basket icon={Music2} title="Soundtrack" hint="The song this trip sounded like.">
+      <Basket id="song" icon={Music2} title="Soundtrack" hint="The song this trip sounded like.">
         <SoundtrackPicker table="country_visits" recordId={visit.id} initialTrackId={visit.spotify_track_id} />
       </Basket>
 

@@ -19,6 +19,7 @@ import { WhatsNew } from "@/components/WhatsNew";
 import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { ChatTour } from "@/components/chat/ChatTour";
 import { ChatBubble } from "@/components/chat/ChatBubble";
+import { BadgeWatcher } from "@/components/BadgeCelebration";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -93,6 +94,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {/* After the World Connect card: the chat tour, pointing at the bubble. */}
           {navUser && <ChatTour joinedAt={navUser.joinedAt} />}
           {navUser && <ChatBubble me={navUser.id} />}
+          {/* A new badge gets its own moment, on whichever page it was earned. */}
+          {navUser && <BadgeWatcher />}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
           <SiteChrome>{children}</SiteChrome>
         </ThemeProvider>

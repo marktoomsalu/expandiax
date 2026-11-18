@@ -10,6 +10,8 @@ import { LoadMore } from "@/components/LoadMore";
 import { PersonCard } from "@/components/PersonCard";
 import { searchPeople } from "@/lib/peopleSearch";
 import { FirstFriends } from "@/components/FirstFriends";
+import { NextStepCard } from "@/components/NextStepCard";
+import { loadNextStep } from "@/lib/nextStepData";
 import {
   groupCountryBursts,
   pickResurfacedMemory,
@@ -199,6 +201,22 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
     q ? Promise.resolve(null) : supabase.from("profiles").update({ feed_last_seen_at: new Date().toISOString() }).eq("id", user.id).then(() => null),
   ]);
 
+  // While the feed is still empty: their own next step comes first. The
+  // "Who's coming with you?" sheet opens by itself once they're at the
+  // people stage (3+), not on day one.
+  const feedEmpty = !q && (followeeIds.length === 0 || items.length === 0);
+  const next = feedEmpty
+    ? await loadNextStep(supabase, user.id, "feed")
+    : {
+        step: null,
+        stage: await supabase
+          .from("member_progress")
+          .select("stage")
+          .eq("user_id", user.id)
+          .maybeSingle()
+          .then(({ data }) => (data as { stage: number } | null)?.stage ?? 4),
+      };
+
   // A country post with nothing but the country in it — part of a burst if several come at once.
   const isBareCountry = (item: FeedEvent) =>
     item.kind === "country" && !(postCtx.mediaByKey.get(`country:${item.ref_id}`)?.length) && !item.cover_url && !item.body?.trim() && !item.spotify_track_id;
@@ -246,9 +264,12 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
       <StickyTabs>
         <FeedTabs tab="friends" />
       </StickyTabs>
-      <Suspense fallback={null}>
-        <FirstFriends userId={user.id} force={searchParams?.friends === "1"} />
-      </Suspense>
+      {(next.stage >= 3 || searchParams?.friends === "1") && (
+        <Suspense fallback={null}>
+          <FirstFriends userId={user.id} force={searchParams?.friends === "1"} />
+        </Suspense>
+      )}
+      {next.step && <NextStepCard step={next.step} className="mt-6" />}
       <SearchBox action="/feed" placeholder="Search people and experiences…" defaultValue={q} />
 
       {q ? (
