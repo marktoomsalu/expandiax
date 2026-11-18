@@ -7,7 +7,7 @@ import { BookOpen, Camera, Compass, Globe2, Handshake, Map, Music2, Sparkles, St
 import { createClient } from "@/lib/supabase/client";
 import { tapLight } from "@/lib/haptics";
 import type { NextStep } from "@/lib/nextStep";
-import { isQuietVisit, QUIET_EVENT } from "@/lib/quietVisit";
+import { isQuietVisit, QUIET_EVENT, startQuietVisit } from "@/lib/quietVisit";
 
 const ICONS = { camera: Camera, ticket: Ticket, globe: Globe2, map: Map, music: Music2, book: BookOpen, users: Users, user: User, star: Star, compass: Compass, handshake: Handshake };
 
@@ -30,16 +30,29 @@ function noteShownToday(id: string) {
   note(id, "shown");
 }
 
+// "Not now" is remembered here too: a page kept from a moment ago (the app
+// keeps recent pages to open them instantly) still has the card in it.
+const NOT_NOW_MS = 7 * 86_400_000;
+const notNowKey = (id: string) => `expandiax:next-step-not-now:${id}`;
+function saidNotNow(id: string): boolean {
+  try {
+    return Date.now() - Number(localStorage.getItem(notNowKey(id)) ?? 0) < NOT_NOW_MS;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The one next step: a quiet card with one button and "Not now". Steps
  * aside while something bigger is being celebrated, and for the rest of
- * that visit (the celebration is the whole message).
+ * that visit (the celebration is the whole message). After "Not now",
+ * nothing is suggested again until the next visit.
  */
 export function NextStepCard({ step, className = "mb-6" }: { step: NextStep; className?: string }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (isQuietVisit()) return;
+    if (isQuietVisit() || saidNotNow(step.id)) return;
     setVisible(true);
     noteShownToday(step.id);
     const hush = () => setVisible(false);
@@ -107,6 +120,11 @@ export function NextStepCard({ step, className = "mb-6" }: { step: NextStep; cla
                   onClick={() => {
                     tapLight();
                     note(step.id, "dismissed");
+                    try {
+                      localStorage.setItem(notNowKey(step.id), String(Date.now()));
+                    } catch {}
+                    // Nothing else is suggested for the rest of this visit either.
+                    startQuietVisit();
                     setVisible(false);
                   }}
                   className="text-sm text-muted hover:text-ink"

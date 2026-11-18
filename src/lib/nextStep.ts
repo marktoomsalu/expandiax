@@ -175,16 +175,17 @@ export const MOMENTS: MomentDef[] = [
     },
   },
   {
-    // A complete night, not one photo.
+    // A complete event, not one photo.
     id: "finish-night",
     minStage: 0,
     build: (s, stage) => {
       const e = newestFirst(eventsOf(s).filter((m) => m.photos <= 1 && !m.reminderOff))[0];
       if (!e) return null;
+      // Not "that night": a match, a wedding or a festival day isn't one.
       return {
         icon: "camera",
-        title: "Add the rest of that night",
-        body: `${e.label}: the photos, the videos, the song.`,
+        title: e.photos === 0 ? `${e.label}, in photos` : `More from ${e.label}?`,
+        body: e.photos === 0 ? "Add your photos and videos from it. They're what bring it back." : "Add the rest of your photos and videos, so it's all in one place.",
         cta: { label: "Add photos", href: eventEdit(e, "photos") },
         aboutPhotos: true,
         value: e.photos === 0 ? 9 : 6,

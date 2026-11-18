@@ -72,10 +72,11 @@ describe("what it suggests", () => {
     expect(step?.aboutPhotos).toBe(true);
   });
 
-  it("someone who came in with an event: finish that night first", () => {
+  it("someone who came in with an event: finish that event first", () => {
     const { step } = pick(base({ countries: [country("GB", "United Kingdom", { photos: 1 })], memories: [event("e1", "Taylor Swift", { photos: 0 })] }));
     expect(step?.id).toBe("finish-night");
-    expect(step?.body).toContain("Taylor Swift");
+    expect(step?.title).toBe("Taylor Swift, in photos");
+    expect(step?.title).not.toMatch(/night/i);
     expect(step?.cta.href).toBe("/events/e1/edit#photos");
   });
 
