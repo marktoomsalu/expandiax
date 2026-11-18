@@ -95,7 +95,7 @@ export default function SignUpPage() {
   return (
     <div className="mx-auto max-w-md px-5 py-16">
       <p className="eyebrow">Create account</p>
-      <h1 className="mt-2 text-3xl md:text-4xl">Begin your archive.</h1>
+      <h1 className="mt-2 text-3xl md:text-4xl">Begin your journey.</h1>
       <p className="mt-3 text-sm text-muted">
         One place for every country you&rsquo;ve set foot in and every event you never want to forget.
       </p>

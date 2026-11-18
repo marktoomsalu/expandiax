@@ -74,8 +74,8 @@ export default function LandingPage() {
               Your world, <span className="italic text-accent">remembered.</span>
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted">
-              Track the countries you have explored, preserve the moments that mattered and build a
-              visual archive of every event that made you feel alive.
+              Track the countries you have explored, keep the moments that mattered and build a
+              visual journey of every event that made you feel alive.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <Link href="/start" className="btn-accent !px-10 !py-4 !text-lg font-semibold shadow-lg shadow-accent/25">
@@ -111,7 +111,7 @@ export default function LandingPage() {
       {/* Two halves of a life */}
       <section className="mx-auto max-w-shell px-5 py-16 md:py-24" aria-labelledby="halves-h">
         <FadeIn>
-          <p className="eyebrow">One archive, two obsessions</p>
+          <p className="eyebrow">One journey, two obsessions</p>
           <h2 id="halves-h" className="mt-2 max-w-2xl text-3xl md:text-5xl">
             The places you&rsquo;ve stood. The songs you heard there.
           </h2>
@@ -192,7 +192,7 @@ export default function LandingPage() {
       <section className="border-y border-line bg-surface/60" aria-labelledby="how-h">
         <div className="mx-auto max-w-shell px-5 py-16 md:py-20">
           <FadeIn>
-            <h2 id="how-h" className="text-3xl md:text-4xl">Three habits, one archive.</h2>
+            <h2 id="how-h" className="text-3xl md:text-4xl">Three habits, one journey.</h2>
           </FadeIn>
           <div className="mt-10 grid gap-8 md:grid-cols-3">
             {[
@@ -203,7 +203,7 @@ export default function LandingPage() {
               },
               {
                 icon: Ticket,
-                title: "Archive your events",
+                title: "Keep your events",
                 body: "Concerts, festivals, matches, conferences, weddings - venue, rating, the moment that stuck, with photos and short videos.",
               },
               {

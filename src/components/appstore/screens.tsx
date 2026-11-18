@@ -123,7 +123,7 @@ export function WorldScreen() {
         <StatCard label="Countries" value={VISITED.length} detail="of 195 recognised countries" className="hidden md:block" />
         <StatCard label="World explored" value="19%" detail="and counting" className="!px-4 !py-5 md:!px-5 md:!py-6" />
         <StatCard label="Continents" value="6/6" detail="have your footprints" className="!px-4 !py-5 md:!px-5 md:!py-6" />
-        <StatCard label="Photos kept" value={214} detail="memories in your archive" className="hidden md:block" />
+        <StatCard label="Photos kept" value={214} detail="memories you’ve kept" className="hidden md:block" />
       </div>
     </div>
   );

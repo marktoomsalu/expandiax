@@ -566,7 +566,7 @@ export function MediaUploader(props: Props) {
       <ConfirmDialog
         open={!!toDelete}
         title={`Delete this ${toDelete?.media_type ?? "item"}?`}
-        body="It will be removed from your archive and from storage. This cannot be undone."
+        body="It will be removed from your memories and from storage. This cannot be undone."
         confirmLabel="Delete"
         busy={deleting}
         onConfirm={confirmDelete}

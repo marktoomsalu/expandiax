@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Footprints, Compass, Map, Globe2, Plane, Rocket, Crown,
   Layers, Orbit, Globe,
-  BookOpen, CalendarCheck, Archive, Library,
+  BookOpen, CalendarCheck, ScrollText, Library,
   Music2, PartyPopper, Trophy, Presentation, Heart, Sparkles, Award,
   Star, Camera, Gem, CalendarDays, Hourglass,
   Users, HeartHandshake, Medal, Snowflake, Sparkle,
@@ -98,7 +98,7 @@ export const BADGES: BadgeDef[] = [
 
   def("events-1", "First Memory", "Log your first event.", BookOpen, "events", 1, (s) => s.totalEvents),
   def("events-10", "Regular", "Log 10 events.", CalendarCheck, "events", 10, (s) => s.totalEvents),
-  def("events-25", "Archivist", "Log 25 events.", Archive, "events", 25, (s) => s.totalEvents),
+  def("events-25", "Storyteller", "Log 25 events.", ScrollText, "events", 25, (s) => s.totalEvents),
   def("events-50", "Chronicler", "Log 50 events.", Library, "events", 50, (s) => s.totalEvents),
 
   def("type-concert", "Concert Goer", "Log your first concert.", Music2, "types", 1, (s) => s.eventsByType.concert, { action: { label: "Add a concert", href: "/events/new" } }),
@@ -118,7 +118,7 @@ export const BADGES: BadgeDef[] = [
   ),
 
   def("perfect-night", "Perfect Night", "Rate an event a perfect 10.", Star, "curation", 1, (s) => (s.topRating === 10 ? 1 : 0), { action: { label: "Rate an event", href: "/events" } }),
-  def("photographer", "Photographer", "Keep 50 photos in your archive.", Camera, "curation", 50, (s) => s.totalPhotos, { unit: "photos", action: { label: "Add photos", href: "/my-world" } }),
+  def("photographer", "Photographer", "Keep 50 photos of your memories.", Camera, "curation", 50, (s) => s.totalPhotos, { unit: "photos", action: { label: "Add photos", href: "/my-world" } }),
   def("curator", "Curator", "Mark 5 favourites.", Gem, "curation", 5, (s) => s.favouriteCount, { unit: "favourites", action: { label: "Pick favourites", href: "/events" } }),
   def("frequent-flyer", "Frequent Flyer", "Stay active across 3 different years.", CalendarDays, "curation", 3, (s) => s.yearsActive.length, { unit: "years", action: { label: "Add a trip", addCountry: true } }),
   def(

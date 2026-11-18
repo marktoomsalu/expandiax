@@ -237,7 +237,7 @@ export function StayRow({
       <ConfirmDialog
         open={confirm}
         title={stay.collab ? `Leave ${stay.name}?` : `Remove ${stay.name}?`}
-        body={stay.collab ? `It comes off your profile and Countries. It stays ${stay.collab.ownerName.split(" ")[0]}'s, and for everyone else on it.` : "Its places, photos and notes will be deleted from your archive. This cannot be undone."}
+        body={stay.collab ? `It comes off your profile and Countries. It stays ${stay.collab.ownerName.split(" ")[0]}'s, and for everyone else on it.` : "Its places, photos and notes will be deleted from your memories. This cannot be undone."}
         confirmLabel={stay.collab ? "Leave" : "Remove"}
         busy={removing}
         onConfirm={remove}

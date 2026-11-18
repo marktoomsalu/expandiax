@@ -14,7 +14,7 @@ export default function TermsPage() {
     <LegalPage title="Terms of Service">
       <p>
         These terms are the agreement between you and ExpandiaX for using our website and mobile apps - a personal
-        archive for the countries you’ve visited and the events you want to remember. By creating an account or
+        collection of the countries you’ve visited and the events you want to remember. By creating an account or
         signing in, you agree to them. If you don’t agree, please don’t use ExpandiaX.
       </p>
 
@@ -122,7 +122,7 @@ export default function TermsPage() {
 
       <LegalSection title="Other people’s content">
         <p>
-          If you follow someone or view a public profile, treat what you see the way you’d want your own archive
+          If you follow someone or view a public profile, treat what you see the way you’d want your own memories
           treated - no scraping, reposting, or using someone’s photos or memories without asking them first.
         </p>
       </LegalSection>

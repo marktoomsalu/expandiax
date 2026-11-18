@@ -434,3 +434,30 @@ export async function nearbyEvents(where: NearbyWhere, limit = 24, range?: { fro
   ]);
   return weave(lists.map(collapseRuns), limit);
 }
+
+export type ShowThatNight = { artist: string; venue: string | null; city: string | null; countryCode: string | null };
+
+/**
+ * Concerts that played in a city on one day (setlist.fm), for "Were you
+ * at…?" when someone adds a photo of a night out. Each artist once.
+ */
+export async function showsOnDay(city: string, day: string, countryCode?: string | null): Promise<ShowThatNight[]> {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m || !city.trim()) return [];
+  const page = (p: number) => {
+    const qs = new URLSearchParams({ cityName: city.trim(), date: `${m[3]}-${m[2]}-${m[1]}`, p: String(p) });
+    if (countryCode) qs.set("countryCode", countryCode.toUpperCase());
+    return setlistFm<{ setlist?: (SetlistFmSetlist & { artist?: { name?: string } })[]; total?: number }>(`/search/setlists?${qs}`).catch(() => null);
+  };
+  // A big city has many shows a night: the first two pages (40).
+  const [first, second] = await Promise.all([page(1), page(2)]);
+  const seen = new Set<string>();
+  const out: ShowThatNight[] = [];
+  for (const s of [...(first?.setlist ?? []), ...(second?.setlist ?? [])]) {
+    const artist = s.artist?.name?.trim();
+    if (!artist || seen.has(normalize(artist))) continue;
+    seen.add(normalize(artist));
+    out.push({ artist, venue: s.venue?.name?.trim() || null, city: s.venue?.city?.name ?? null, countryCode: s.venue?.city?.country?.code?.toUpperCase() ?? null });
+  }
+  return out;
+}

@@ -712,7 +712,7 @@ export function CountryEditor({ data, meta, trips, afterTrips }: { data: Visited
       <ConfirmDialog
         open={confirmRemove}
         title={`Remove ${meta.name}?`}
-        body="Its trips, cities and photos will be deleted from your archive. This cannot be undone."
+        body="Its trips, cities and photos will be deleted from your memories. This cannot be undone."
         confirmLabel="Remove country"
         busy={removing}
         onConfirm={removeCountry}

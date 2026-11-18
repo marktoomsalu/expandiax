@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { countryByCode } from "@/lib/countries";
 import { storagePath } from "@/lib/media";
 import { preparePhoto } from "@/lib/photoPrepare";
-import { loadDraft, clearDraft, loadPendingPhoto, clearPendingPhoto } from "@/lib/onboardingDraft";
+import { loadDraft, clearDraft, loadPendingPhoto, clearPendingPhoto, type OnboardingMemory } from "@/lib/onboardingDraft";
 import { askForPush } from "@/lib/pushAsk";
 
 // Picks up a pending /start draft (sessionStorage, plus a photo in
@@ -45,12 +45,14 @@ async function flushCountries(userId: string, codes: string[]) {
   // ignoreDuplicates: harmless to re-run (e.g. a killed tab right after
   // signup) — skips any country already saved instead of erroring.
   await supabase.from("visited_countries").upsert(rows, { onConflict: "user_id,country_code", ignoreDuplicates: true });
+  // The first one is home: saved as home too, so it isn't asked for again.
+  await supabase.from("profiles").update({ home_country_code: rows[0].country_code }).eq("id", userId).is("home_country_code", null);
   // Best-effort: cleared either way rather than retried indefinitely — on
   // the rare failure, the user can just add countries manually afterward.
   clearDraft();
 }
 
-async function flushMemory(userId: string, memory: { title: string; eventDate: string; countryCode: string }) {
+async function flushMemory(userId: string, memory: OnboardingMemory) {
   const country = countryByCode(memory.countryCode);
   if (!country) {
     clearDraft();
@@ -66,9 +68,17 @@ async function flushMemory(userId: string, memory: { title: string; eventDate: s
       event_date: memory.eventDate,
       country_code: country.code,
       country_name: country.name,
+      event_type: memory.eventType ?? "concert",
+      city: memory.city ?? "",
+      venue: memory.venue ?? "",
+      ...(memory.artist ? { spotify_artist_name: memory.artist } : {}),
     })
     .select("id")
     .single();
+  // Being there puts the country on the map too: no empty map on day one.
+  await supabase
+    .from("visited_countries")
+    .upsert({ user_id: userId, country_code: country.code, country_name: country.name }, { onConflict: "user_id,country_code", ignoreDuplicates: true });
 
   if (error || !event) {
     // Best-effort, same as the country path — nothing to retry against

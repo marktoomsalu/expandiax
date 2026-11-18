@@ -4,6 +4,12 @@ export type OnboardingMemory = {
   title: string;
   eventDate: string; // yyyy-mm-dd
   countryCode: string;
+  /** concert, festival, sport, personal (a special occasion) or other. */
+  eventType?: "concert" | "festival" | "sport" | "personal" | "other";
+  city?: string | null;
+  venue?: string | null;
+  /** A concert's artist, when it came from "Were you at…?". */
+  artist?: string | null;
 };
 
 export type OnboardingDraft = {

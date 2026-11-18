@@ -168,7 +168,7 @@ export default async function MyWorldPage() {
             )}
             <StatCard label="World explored" value={`${pct}%`} detail="and counting" />
             <StatCard label="Continents" value={`${visitedContinents}/6`} detail="have your footprints" />
-            <StatCard label="Photos kept" value={realCountries.reduce((n, c) => n + c.country_media.length, 0)} detail="memories in your archive" />
+            <StatCard label="Photos kept" value={realCountries.reduce((n, c) => n + c.country_media.length, 0)} detail="memories you’ve kept" />
           </div>
 
           <section className="mt-10" aria-labelledby="continents-h">

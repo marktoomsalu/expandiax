@@ -7,6 +7,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { hasRealName, PLACEHOLDER_NAME } from "@/lib/profileName";
 import { COUNTRIES } from "@/lib/countries";
+import { loadDraft } from "@/lib/onboardingDraft";
 import { validateFile } from "@/lib/media";
 import { convertHeic } from "@/lib/heic";
 import { AvatarCropper } from "./AvatarCropper";
@@ -42,6 +43,12 @@ export function ProfileForm({
   const [displayName, setDisplayName] = useState(hasRealName(profile.display_name) ? profile.display_name : "");
   const [bio, setBio] = useState(profile.bio);
   const [homeCountry, setHomeCountry] = useState(profile.home_country_code ?? "");
+  // Just signed up after choosing a home on the first steps: it's already filled in.
+  useEffect(() => {
+    if (profile.home_country_code) return;
+    const fromStart = loadDraft().homeCode;
+    if (fromStart) setHomeCountry((cur) => cur || fromStart);
+  }, [profile.home_country_code]);
   const [visibility, setVisibility] = useState<ProfileVisibility | null>(
     requireVisibilityChoice ? null : profile.visibility
   );

@@ -188,7 +188,7 @@ export default async function PublicEventPage({
       <div className="mx-auto max-w-3xl px-5 py-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href={`/u/${profile.username}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={15} /> {profile.display_name}&rsquo;s archive
+            <ArrowLeft size={15} /> {profile.display_name}&rsquo;s memories
           </Link>
           {canEdit ? (
             <Link href={`/events/${event.id}/edit`} className="inline-flex items-center gap-1.5 text-sm text-accent underline-offset-4 hover:underline">
