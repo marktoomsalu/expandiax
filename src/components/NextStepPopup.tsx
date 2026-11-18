@@ -8,9 +8,9 @@ import { BookOpen, Camera, Compass, Globe2, Handshake, Map, Music2, Sparkles, St
 import { createClient } from "@/lib/supabase/client";
 import { tapLight } from "@/lib/haptics";
 import type { NextStep } from "@/lib/nextStep";
-import { isQuietVisit, QUIET_EVENT, startQuietVisit } from "@/lib/quietVisit";
+import { isQuietVisit, QUIET_EVENT } from "@/lib/quietVisit";
 import { claimIntro, releaseIntro } from "@/lib/introQueue";
-import { mayPopUp, noteVisit, poppedUp, readRhythm, saveRhythm } from "@/lib/visitRhythm";
+import { mayPopUp, noteUse, poppedUp, readRhythm, saveRhythm } from "@/lib/visitRhythm";
 
 const ICONS = { camera: Camera, ticket: Ticket, globe: Globe2, map: Map, music: Music2, book: BookOpen, users: Users, user: User, star: Star, compass: Compass, handshake: Handshake };
 const INTRO = "next-step";
@@ -40,14 +40,14 @@ function busyNow(): boolean {
   return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
 }
 
-/** Keeps the visit count right on every page and on coming back to the app. */
+/** Counts the days someone uses the app (any page, or coming back to it). */
 export function VisitTracker() {
   const pathname = usePathname();
   useEffect(() => {
-    noteVisit();
+    noteUse();
   }, [pathname]);
   useEffect(() => {
-    const onShow = () => document.visibilityState === "visible" && noteVisit();
+    const onShow = () => document.visibilityState === "visible" && noteUse();
     document.addEventListener("visibilitychange", onShow);
     return () => document.removeEventListener("visibilitychange", onShow);
   }, []);
@@ -55,9 +55,9 @@ export function VisitTracker() {
 }
 
 /**
- * The one next step, popping up over the screen: at most once a visit, and
- * less often for people who are here a lot (lib/visitRhythm). Never on top
- * of another sheet, while they're typing, or after a celebration.
+ * The one next step, popping up over the screen, less often the more days a
+ * week someone uses the app (lib/visitRhythm). Never on top of another
+ * sheet, while they're typing, or right after a celebration.
  */
 export function NextStepPopup({ step }: { step: NextStep }) {
   const [open, setOpen] = useState(false);
@@ -79,11 +79,11 @@ export function NextStepPopup({ step }: { step: NextStep }) {
   }, [open, step.id]);
 
   useEffect(() => {
-    noteVisit();
+    noteUse();
     const t = setTimeout(tryOpen, 1_500);
     const onShow = () => {
       if (document.visibilityState !== "visible") return;
-      noteVisit();
+      noteUse();
       setTimeout(tryOpen, 1_500);
     };
     const hush = () => setOpen(false);
@@ -118,7 +118,6 @@ export function NextStepPopup({ step }: { step: NextStep }) {
     try {
       localStorage.setItem(notNowKey(step.id), String(Date.now()));
     } catch {}
-    startQuietVisit(); // nothing else suggested until the next visit
     setOpen(false);
   };
 

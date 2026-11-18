@@ -1,74 +1,59 @@
 /**
- * How often someone comes to the app, so Next Step can pop up at a pace
- * that suits them: at most once a visit, and less often the more often
- * they're here. A visit starts after 30 minutes away.
+ * How often someone uses the app, so Next Step pops up at a pace that suits
+ * them: the more days a week they're here, the longer between pop-ups.
  *
- *   up to 2 visits a week   every visit, 6 hours apart at least
- *   3–6 a week              every 2nd visit, 12 hours apart at least
- *   7 or more (daily)       every 3rd visit, a day apart at least
+ *   on 0–2 of the last 7 days   at least 12 hours apart (never twice a day)
+ *   on 3–5 days                 at least a day apart
+ *   on 6–7 days (daily)         at least 2 days apart
  *
  * Kept on the device: pure functions below, the storage wrapper at the end.
  */
 
 export type Rhythm = {
-  /** When each visit in the last two weeks started. */
-  visits: number[];
-  lastSeen: number;
+  /** The days (local, "2026-11-18") they used the app in the last two weeks. */
+  days: string[];
   lastPopupAt: number;
-  /** The visit (by its start) the last pop-up was in. */
-  popupVisit: number;
-  visitsSincePopup: number;
 };
 
-const MIN = 60_000;
-const HOUR = 60 * MIN;
+const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-export const VISIT_GAP_MS = 30 * MIN;
 
-export const emptyRhythm = (): Rhythm => ({ visits: [], lastSeen: 0, lastPopupAt: 0, popupVisit: 0, visitsSincePopup: 99 });
+export const emptyRhythm = (): Rhythm => ({ days: [], lastPopupAt: 0 });
 
-/** Someone is here now: a new visit if they'd been away a while. */
+const dayOf = (t: number) => {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/** They're here now. */
 export function touch(r: Rhythm, now: number): Rhythm {
-  if (r.visits.length && now - r.lastSeen < VISIT_GAP_MS) return { ...r, lastSeen: now };
-  return {
-    ...r,
-    visits: [...r.visits.filter((t) => now - t < 14 * DAY), now],
-    lastSeen: now,
-    visitsSincePopup: r.visitsSincePopup + 1,
-  };
+  const today = dayOf(now);
+  if (r.days.includes(today)) return r;
+  const twoWeeksAgo = dayOf(now - 14 * DAY);
+  return { ...r, days: [...r.days.filter((d) => d > twoWeeksAgo), today] };
 }
 
-/**
- * Visits a week, from the gaps between them over the last week (so a first
- * day with three visits already reads as someone who's here a lot).
- */
-export function visitsPerWeek(r: Rhythm, now: number): number {
-  const recent = r.visits.filter((t) => now - t < 7 * DAY);
-  // Two visits say little about a habit: treat it as now and then until there are more.
-  if (recent.length < 3) return recent.length;
-  const span = Math.max(now - recent[0], DAY);
-  return ((recent.length - 1) / span) * 7 * DAY;
+/** Days with the app in the last 7, today included. */
+export function daysThisWeek(r: Rhythm, now: number): number {
+  const weekAgo = dayOf(now - 7 * DAY);
+  return r.days.filter((d) => d > weekAgo).length;
 }
 
-export function pace(weekly: number): { everyNth: number; minGapMs: number } {
-  if (weekly <= 2) return { everyNth: 1, minGapMs: 6 * HOUR };
-  if (weekly <= 6) return { everyNth: 2, minGapMs: 12 * HOUR };
-  return { everyNth: 3, minGapMs: DAY };
+export function gapFor(activeDays: number): number {
+  if (activeDays <= 2) return 12 * HOUR;
+  if (activeDays <= 5) return DAY;
+  return 2 * DAY;
 }
 
-/** Whether this visit gets a pop-up. */
 export function mayPopUp(r: Rhythm, now: number): boolean {
-  const visit = r.visits.at(-1);
-  if (visit === undefined || r.popupVisit === visit) return false;
-  const { everyNth, minGapMs } = pace(visitsPerWeek(r, now));
-  return r.visitsSincePopup >= everyNth && now - r.lastPopupAt >= minGapMs;
+  return now - r.lastPopupAt >= gapFor(daysThisWeek(r, now));
 }
 
-export const poppedUp = (r: Rhythm, now: number): Rhythm => ({ ...r, popupVisit: r.visits.at(-1) ?? now, lastPopupAt: now, visitsSincePopup: 0 });
+export const poppedUp = (r: Rhythm, now: number): Rhythm => ({ ...r, lastPopupAt: now });
 
 /* ------------------------------------------------------------------ */
 
-const KEY = "expandiax:visit-rhythm";
+const KEY = "expandiax:use-rhythm";
 
 export function readRhythm(): Rhythm {
   try {
@@ -83,12 +68,12 @@ export function saveRhythm(r: Rhythm) {
   try {
     localStorage.setItem(KEY, JSON.stringify(r));
   } catch {
-    // Without storage every visit looks like the first: still once per page load at most.
+    // Without storage it can't keep count; the gap still holds within a page.
   }
 }
 
-/** Note that they're here (on every page and on coming back to the app). */
-export function noteVisit(now = Date.now()): Rhythm {
+/** Note that they're using the app today. */
+export function noteUse(now = Date.now()): Rhythm {
   const r = touch(readRhythm(), now);
   saveRhythm(r);
   return r;
