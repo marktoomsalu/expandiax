@@ -10,7 +10,7 @@ import { LoadMore } from "@/components/LoadMore";
 import { PersonCard } from "@/components/PersonCard";
 import { searchPeople } from "@/lib/peopleSearch";
 import { FirstFriends } from "@/components/FirstFriends";
-import { NextStepCard } from "@/components/NextStepCard";
+import { NextStepPopup } from "@/components/NextStepPopup";
 import { loadNextStep } from "@/lib/nextStepData";
 import {
   groupCountryBursts,
@@ -269,7 +269,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           <FirstFriends userId={user.id} force={searchParams?.friends === "1"} />
         </Suspense>
       )}
-      {next.step && <NextStepCard step={next.step} className="mt-6" />}
+      {next.step && <NextStepPopup step={next.step} />}
       <SearchBox action="/feed" placeholder="Search people and experiences…" defaultValue={q} />
 
       {q ? (

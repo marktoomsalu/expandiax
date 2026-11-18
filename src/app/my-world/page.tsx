@@ -21,7 +21,7 @@ import type { VisitedCountry, CountryMedia } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { loadDreamPlaces } from "@/lib/dreams";
 import { DreamPlaces } from "@/components/dreams/DreamPlaces";
-import { NextStepCard } from "@/components/NextStepCard";
+import { NextStepPopup } from "@/components/NextStepPopup";
 import { loadNextStep } from "@/lib/nextStepData";
 
 export const metadata = { title: "My World" };
@@ -94,10 +94,11 @@ export default async function MyWorldPage() {
 
   return (
     <div className="mx-auto max-w-shell px-5 py-10">
-      {/* The one next step for them (or nothing): new members and everyone already here. */}
-      {next.step && <NextStepCard step={next.step} />}
-      {/* "Who's coming with you?" once their own world has a story (stage 3+), not on day one. */}
-      {next.stage >= 3 && (
+      {/* The one next step for them (or nothing), popping up once a visit at most. */}
+      {next.step && <NextStepPopup step={next.step} />}
+      {/* "Who's coming with you?" once their own world has a story (stage 3+), not on day one
+          (and not beside a next step that already says it). */}
+      {next.stage >= 3 && next.step?.id !== "find-people" && (
         <Suspense fallback={null}>
           <FirstFriends userId={user.id} />
         </Suspense>
