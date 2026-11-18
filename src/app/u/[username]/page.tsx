@@ -92,6 +92,16 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   const preview = viewer?.id === profile.id && searchParams?.preview === "1";
   const isOwnProfile = viewer?.id === profile.id && !preview;
 
+  // Started now, alongside the main lookup below, instead of one after another:
+  // the trips and events shared with them, the counts for the Friends badges,
+  // and their latest event posts (with likes, comments and photos).
+  const sharedP = Promise.all([collabEventsOf(supabase, profile.id), collabTripsOf(supabase, profile.id)]);
+  const countsP = Promise.all([supabase.rpc("invite_count", { p_user: profile.id }), supabase.rpc("world_connect_count", { p_user: profile.id })]);
+  const eventPostsP = sharedP.then(([se]) => loadUserPosts(supabase, profile.id, { kind: "event", limit: 4, alsoEvents: se.map((e) => e.id) }));
+  const postCtxP = eventPostsP.then((ep) => loadPostContext(supabase, viewer?.id ?? null, ep.slice(0, 3)));
+  // Pages that end early (a private profile) don't wait on these; nothing to report if they fail.
+  for (const p of [sharedP, countsP, eventPostsP, postCtxP]) p.catch(() => {});
+
   const [
     { data: countriesData },
     { data: eventsData },
@@ -174,7 +184,7 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   const territories = countries.filter((c) => isTerritoryCode(c.country_code));
   // The preview shows only events for everyone, as someone who doesn't follow you sees them.
   // Theirs, and the trips and events shared with them (migration 075), as the viewer may see them.
-  const [sharedEvents, sharedTrips] = await Promise.all([collabEventsOf(supabase, profile.id), collabTripsOf(supabase, profile.id)]);
+  const [sharedEvents, sharedTrips] = await sharedP;
   const forPreview = <T extends { audience?: string | null }>(x: T) => !preview || (x.audience ?? "everyone") === "everyone";
   const events = [...((eventsData ?? []) as EventRow[]), ...(sharedEvents as EventRow[])]
     .filter(forPreview)
@@ -209,10 +219,7 @@ export default async function PublicProfilePage({ params, searchParams }: { para
   }));
   // Friends who joined through their invite link count for the Friends badges (migration 071; 0 before it).
   // …and friends they've met with World Connect (migration 073; 0 before it).
-  const [{ data: invitedRaw }, { data: connectsRaw }] = await Promise.all([
-    supabase.rpc("invite_count", { p_user: profile.id }),
-    supabase.rpc("world_connect_count", { p_user: profile.id }),
-  ]);
+  const [{ data: invitedRaw }, { data: connectsRaw }] = await countsP;
   const invitedCount = typeof invitedRaw === "number" ? invitedRaw : 0;
   const badges = evaluateBadges(buildAllTimeStats(statCountries, statEvents), {
     invitedFriends: invitedCount,
@@ -229,9 +236,9 @@ export default async function PublicProfilePage({ params, searchParams }: { para
     visitSortKey(b.visit).localeCompare(visitSortKey(a.visit))
   );
   const recentTrips = trips.slice(0, 3).map((t) => ({ trip: t, ...tripAsPost(t) }));
-  const eventPosts = await loadUserPosts(supabase, profile.id, { kind: "event", limit: 4, alsoEvents: sharedEvents.map((e) => e.id) });
+  const eventPosts = await eventPostsP;
   const recentEvents = eventPosts.slice(0, 3);
-  const postCtx = await loadPostContext(supabase, viewer?.id ?? null, recentEvents);
+  const postCtx = await postCtxP;
 
   // The two counters open the full lists: yours in My World and Events,
   // someone else's on their own list pages.

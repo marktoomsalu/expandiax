@@ -2,6 +2,12 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // A page seen in the last minute (and one fetched ahead by the tab bar,
+    // for five) shows again at once instead of waiting on the server. Anything
+    // changed refreshes as before (router.refresh()).
+    staleTimes: { dynamic: 60, static: 300 },
+  },
   images: {
     // An optimised photo stays cached for 12 hours, as long as its link stays
     // the same (src/lib/signedMedia.ts), instead of being made again every minute.

@@ -88,7 +88,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
           <div className="-mr-1.5 flex items-center gap-1.5">
             {user && <WorldConnectButton />}
             {user && (
-              <Link href="/notifications" aria-label="Notifications" className="relative flex h-11 w-11 items-center justify-center text-white/70 hover:text-white">
+              <Link href="/notifications" prefetch aria-label="Notifications" className="relative flex h-11 w-11 items-center justify-center text-white/70 hover:text-white">
                 <Bell size={21} />
                 {shownUnread > 0 && (
                   <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-semibold text-white">
@@ -227,6 +227,8 @@ function NavLink({
   return (
     <Link
       href={href}
+      // The whole page is fetched while the tab bar is on screen, so a tap shows it at once.
+      prefetch
       aria-current={isActive ? "page" : undefined}
       onClick={() => {
         if (!isActive) tapLight();

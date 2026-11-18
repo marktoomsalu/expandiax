@@ -136,7 +136,34 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const thenPending = picked ? loadThenMemory(supabase, picked, now, user.id) : Promise.resolve(null);
 
   if (followeeIds.length > 0) {
-    const { data: feedData } = await signMedia(await supabase
+    // Shared posts (migration 075): a trip or event someone you follow is a
+    // collaborator on is in your feed too, as the one shared post. Looked up
+    // at the same time as the posts themselves.
+    const sharedPending: Promise<FeedEvent[]> = q
+      ? Promise.resolve([])
+      : (async () => {
+          const { data: shared } = await supabase.from("post_collaborators").select("kind, target_id").in("user_id", followeeIds).eq("status", "accepted").limit(200);
+          const eventIds = (shared ?? []).filter((r) => r.kind === "event").map((r) => r.target_id as string);
+          const tripIds = (shared ?? []).filter((r) => r.kind === "trip").map((r) => r.target_id as string);
+          const { data: tripCountries } = tripIds.length ? await supabase.from("country_visits").select("visited_country_id").in("id", tripIds) : { data: [] as { visited_country_id: string }[] };
+          const countryIds = [...new Set((tripCountries ?? []).map((r) => r.visited_country_id as string))];
+          if (!eventIds.length && !countryIds.length) return [];
+          const { data: extra } = await signMedia(
+            await supabase
+              .from("feed_events")
+              .select("*")
+              .or(
+                [
+                  eventIds.length ? `and(kind.eq.event,ref_id.in.(${eventIds.join(",")}))` : "",
+                  countryIds.length ? `and(kind.eq.country,ref_id.in.(${countryIds.join(",")}))` : "",
+                ]
+                  .filter(Boolean)
+                  .join(",")
+              )
+          );
+          return (extra ?? []) as FeedEvent[];
+        })();
+    const feedPending = supabase
       .from("feed_events")
       .select("*")
       .in("actor_id", followeeIds)
@@ -149,37 +176,13 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           : "actor_id.not.is.null"
       )
       .order("created_at", { ascending: false })
-      .limit(q ? 100 : limit));
+      .limit(q ? 100 : limit)
+      .then((r) => signMedia(r));
+    const [{ data: feedData }, sharedItems] = await Promise.all([feedPending, sharedPending]);
     items = (feedData ?? []) as FeedEvent[];
-
-    // Shared posts (migration 075): a trip or event someone you follow is a
-    // collaborator on is in your feed too, as the one shared post.
-    if (!q) {
-      const { data: shared } = await supabase.from("post_collaborators").select("kind, target_id").in("user_id", followeeIds).eq("status", "accepted").limit(200);
-      const eventIds = (shared ?? []).filter((r) => r.kind === "event").map((r) => r.target_id as string);
-      const tripIds = (shared ?? []).filter((r) => r.kind === "trip").map((r) => r.target_id as string);
-      const { data: tripCountries } = tripIds.length ? await supabase.from("country_visits").select("visited_country_id").in("id", tripIds) : { data: [] as { visited_country_id: string }[] };
-      const countryIds = [...new Set((tripCountries ?? []).map((r) => r.visited_country_id as string))];
-      const have = new Set(items.map((i) => `${i.kind}:${i.ref_id}`));
-      const wanted = [...eventIds.map((id) => `event:${id}`), ...countryIds.map((id) => `country:${id}`)].filter((k) => !have.has(k));
-      if (wanted.length) {
-        const { data: extra } = await signMedia(
-          await supabase
-            .from("feed_events")
-            .select("*")
-            .or(
-              [
-                eventIds.length ? `and(kind.eq.event,ref_id.in.(${eventIds.join(",")}))` : "",
-                countryIds.length ? `and(kind.eq.country,ref_id.in.(${countryIds.join(",")}))` : "",
-              ]
-                .filter(Boolean)
-                .join(",")
-            )
-        );
-        const more = ((extra ?? []) as FeedEvent[]).filter((i) => !have.has(`${i.kind}:${i.ref_id}`));
-        items = [...items, ...more].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
-      }
-    }
+    const have = new Set(items.map((i) => `${i.kind}:${i.ref_id}`));
+    const more = sharedItems.filter((i) => !have.has(`${i.kind}:${i.ref_id}`));
+    if (more.length) items = [...items, ...more].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
 
     if (items.length > 0) {
       // Posters, your likes, comments, photos, and each trip post's latest trip.

@@ -39,6 +39,9 @@ export async function loadPostContext(supabase: Supabase, viewerId: string | nul
   const countryRefIds = items.filter((i) => i.kind === "country").map((i) => i.ref_id);
   const eventRefIds = items.filter((i) => i.kind === "event").map((i) => i.ref_id);
   type MediaRow = { id: string; public_url: string; media_type: "image" | "video"; display_order: number; caption: string; focal_x: number | null; focal_y: number | null };
+  // Who's on each event post, and the friends also at it: started now, beside everything else.
+  const eventCollabsP = loadCollaboratorsFor(supabase, "event", eventRefIds);
+  const alsoThereP = eventCollabsP.then((ec) => countAlsoThere(supabase, viewerId, items.filter((i) => i.kind === "event" && i.visit_date), peopleByKey(ec)));
   const [{ data: profiles }, { data: likeRows }, { data: commentRows }, { data: countryMediaRows }, { data: eventMediaRows }, { data: visitRows }] = await Promise.all([
     supabase.from("profiles").select("id, username, display_name, avatar_url, created_at").in("id", actorIds),
     viewerId ? supabase.from("likes").select("kind, target_id").eq("user_id", viewerId).in("target_id", refIds) : Promise.resolve({ data: [] as { kind: string; target_id: string }[] }),
@@ -77,13 +80,18 @@ export async function loadPostContext(supabase: Supabase, viewerId: string | nul
   for (const row of eventMediaRows ?? []) add(`event:${row.event_id}`, row);
   for (const list of ctx.mediaByKey.values()) list.sort((a, b) => a.displayOrder - b.displayOrder);
   // Shared posts: everyone who was there, for the header ("Mark & Melody").
-  const [eventCollabs, tripCollabs] = await Promise.all([
-    loadCollaboratorsFor(supabase, "event", eventRefIds),
+  const [eventCollabs, tripCollabs, alsoThere] = await Promise.all([
+    eventCollabsP,
     loadCollaboratorsFor(supabase, "trip", [...ctx.latestTrip.values(), ...(extraTripIds ?? [])]),
+    alsoThereP,
   ]);
-  for (const [key, list] of [...eventCollabs, ...tripCollabs]) ctx.collabs.set(key, list.flatMap((c) => (c.person ? [c.person] : [])));
-  ctx.alsoThere = await countAlsoThere(supabase, viewerId, items.filter((i) => i.kind === "event" && i.visit_date), ctx.collabs);
+  for (const [key, list] of [...peopleByKey(eventCollabs), ...peopleByKey(tripCollabs)]) ctx.collabs.set(key, list);
+  ctx.alsoThere = alsoThere;
   return ctx;
+}
+
+function peopleByKey(m: Map<string, { person: CollabPerson | null }[]>): Map<string, CollabPerson[]> {
+  return new Map([...m].map(([k, list]) => [k, list.flatMap((c) => (c.person ? [c.person] : []))]));
 }
 
 /**
