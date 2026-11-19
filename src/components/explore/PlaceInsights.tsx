@@ -3,7 +3,7 @@ import { CalendarHeart, Hourglass, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { MONTH_SHORT, alsoLoved, bestMonths, describeStay, monthCounts, typicalStay, type VisitFacts } from "@/lib/placeInsights";
-import type { PlaceSponsor } from "@/lib/sponsors";
+import { placementHref, type PlaceSponsor } from "@/lib/sponsors";
 
 /**
  * "Trip notes" for a country, from everyone's public trips there: the best
@@ -111,7 +111,7 @@ export function PartnerCard({ s }: { s: PlaceSponsor }) {
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Partner · {s.partner}</p>
         <p className="mt-1 font-serif text-xl">{s.title}</p>
         <p className="mt-1 text-sm leading-relaxed text-muted">{s.body}</p>
-        <a href={s.url} target="_blank" rel="sponsored noopener noreferrer" className="btn-accent mt-3 inline-flex !py-2 text-sm">
+        <a href={placementHref(s.id)} target="_blank" rel="sponsored noopener noreferrer" className="btn-accent mt-3 inline-flex !py-2 text-sm">
           {s.cta}
         </a>
       </div>

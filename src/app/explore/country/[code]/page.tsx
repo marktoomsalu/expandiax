@@ -22,6 +22,7 @@ import { MembersOnly } from "@/components/MembersOnly";
 import { AskTravellers } from "@/components/chat/AskTravellers";
 import { PartnerCard, PlaceInsights } from "@/components/explore/PlaceInsights";
 import { placeSponsor } from "@/lib/sponsors";
+import { countPlacement, loadSponsors } from "@/lib/sponsorsData";
 
 export function generateMetadata({ params }: { params: { code: string } }) {
   return { title: countryByCode(params.code)?.name ?? "Explore" };
@@ -73,7 +74,9 @@ export default async function CountryHubPage({ params }: { params: { code: strin
   const live = trendingLive((liveRows ?? []) as LiveRow[], { min: 1, limit: 12 });
   const photo = stockPhotoFor(country.code, "explore");
   const [a, b] = flagGradientColors(country.code);
-  const sponsor = placeSponsor(country.code);
+  // A partner's card for this country, if one's running (admin → Partners); counted as a view.
+  const sponsor = placeSponsor(country.code, new Date().toISOString().slice(0, 10), await loadSponsors());
+  if (sponsor) await countPlacement(sponsor.id, "view");
 
   return (
     <div>

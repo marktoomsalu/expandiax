@@ -5,7 +5,6 @@ import { Lock } from "lucide-react";
 import { getAuthUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { countryByCode } from "@/lib/countries";
-import { SPONSORS } from "@/lib/sponsors";
 import { activeCounts, activePerDay, addDays, cameBack, pct, perDay, type ActiveDay, type Member } from "@/lib/adminStats";
 
 export const metadata: Metadata = { title: "Dashboard", robots: { index: false, follow: false } };
@@ -124,7 +123,14 @@ export default async function AdminPage() {
   const withFollow = new Set(followers.map((r) => r.follower_id)).size;
   const ios = tokens.filter((t) => t.platform === "ios").length;
   const android = tokens.filter((t) => t.platform === "android").length;
-  const sponsorsLive = SPONSORS.filter((s) => !s.until || s.until >= today).length;
+  // Running partner placements (admin → Partners, migration 084; 0 before it).
+  const { count: sponsorsCount } = await admin
+    .from("partner_placements")
+    .select("id", { count: "exact", head: true })
+    .eq("active", true)
+    .or(`starts_on.is.null,starts_on.lte.${today}`)
+    .or(`until.is.null,until.gte.${today}`);
+  const sponsorsLive = sponsorsCount ?? 0;
   // Who uses the apps, and whether notifications are on (migration 081; none before it).
   const { data: appRows } = await admin.from("app_devices").select("platform, notifications, last_seen_at");
   const appStats = (platform: "ios" | "android") => {
@@ -160,6 +166,10 @@ export default async function AdminPage() {
     <div className="mx-auto max-w-4xl px-5 py-8">
       <Link href="/admin/push" className="mb-6 flex items-center justify-between rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium hover:border-accent">
         <span>Push notifications: send announcements, edit the automatic ones, see how they did</span>
+        <span className="text-accent">Open &rarr;</span>
+      </Link>
+      <Link href="/admin/partners" className="mb-6 -mt-3 flex items-center justify-between rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm font-medium hover:border-accent">
+        <span>Partners: add events and country cards, see their views and clicks</span>
         <span className="text-accent">Open &rarr;</span>
       </Link>
       <p className="flex items-center gap-1.5 text-xs text-muted">

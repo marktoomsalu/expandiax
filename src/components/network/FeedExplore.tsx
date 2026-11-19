@@ -9,7 +9,8 @@ import { countryByCode } from "@/lib/countries";
 import { slugify } from "@/lib/explore";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { loadDreamBoard, loadNetworkHome, type PersonCard, type PlaceCard, type TripIdea } from "@/lib/experienceNetworkData";
-import { featuredEvent } from "@/lib/sponsors";
+import { featuredEvent, placementHref } from "@/lib/sponsors";
+import { countPlacement, loadSponsors } from "@/lib/sponsorsData";
 import { BoardingPass } from "../explore/BoardingPass";
 import { DeparturesBoard, type BoardRow } from "../explore/DeparturesBoard";
 import { PlacesSwitch } from "../explore/PlacesSwitch";
@@ -457,11 +458,12 @@ async function IdeasSection({ home, origin }: { home: Promise<Home>; origin: str
  * who dream of (or live in) its country, else one your people are going to.
  */
 async function OnYourRadar({ events, board, homeCountry }: { events: Promise<NetworkEventCard[]>; board: Promise<Board>; homeCountry: string | null }) {
-  const [list, rows] = await Promise.all([events, board]);
-  const featured = featuredEvent({ home: homeCountry, dreams: rows.map((r) => r.code) });
+  const [list, rows, sponsors] = await Promise.all([events, board, loadSponsors()]);
+  const featured = featuredEvent({ home: homeCountry, dreams: rows.map((r) => r.code) }, new Date().toISOString().slice(0, 10), sponsors);
+  if (featured) await countPlacement(featured.id, "view");
   const personal = list.find((e) => e.friendIds.length > 0 || e.mine);
   const ticket = featured
-    ? { label: `Featured · ${featured.partner}`, name: featured.name, date: featured.date, where: [featured.venue, featured.city].filter(Boolean).join(", "), url: featured.url, sponsored: true, friends: [] as PlaceCard["faces"], line: null as string | null }
+    ? { label: `Featured · ${featured.partner}`, name: featured.name, date: featured.date, where: [featured.venue, featured.city].filter(Boolean).join(", "), url: placementHref(featured.id), sponsored: true, friends: [] as PlaceCard["faces"], line: null as string | null }
     : personal
       ? {
           label: "On your radar",
