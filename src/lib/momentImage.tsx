@@ -2,7 +2,7 @@ import "server-only";
 import { ImageResponse } from "next/og";
 
 /** Fraunces for the title, as on the site (Google Fonts hands out TrueType to a plain request); the default font if that fails. */
-export async function fraunces(): Promise<ArrayBuffer | null> {
+async function fraunces(): Promise<ArrayBuffer | null> {
   try {
     const css = await (await fetch("https://fonts.googleapis.com/css2?family=Fraunces:wght@600", { cache: "force-cache" })).text();
     const url = css.match(/src: url\((https:[^)]+\.ttf)\)/)?.[1];

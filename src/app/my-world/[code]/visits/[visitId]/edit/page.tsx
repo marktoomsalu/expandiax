@@ -152,7 +152,7 @@ export default async function EditVisitPage({
           visit={visit}
           isOwner={isOwner}
           journal={{ userId: user.id, initial: journal ?? null }}
-          beforeSave={<WhoWasThere kind="trip" targetId={visit.id} title={title.headline} me={user.id} isOwner={isOwner} initial={collaborators} myUsername={me?.username} suggestions={suggestions} />}
+          beforeSave={<WhoWasThere kind="trip" targetId={visit.id} me={user.id} isOwner={isOwner} initial={collaborators} myUsername={me?.username} suggestions={suggestions} />}
           cities={stops}
           country={{
             id: visit.visited_countries.id,
