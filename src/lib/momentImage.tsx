@@ -2,7 +2,7 @@ import "server-only";
 import { ImageResponse } from "next/og";
 
 /** Fraunces for the title, as on the site (Google Fonts hands out TrueType to a plain request); the default font if that fails. */
-async function fraunces(): Promise<ArrayBuffer | null> {
+export async function fraunces(): Promise<ArrayBuffer | null> {
   try {
     const css = await (await fetch("https://fonts.googleapis.com/css2?family=Fraunces:wght@600", { cache: "force-cache" })).text();
     const url = css.match(/src: url\((https:[^)]+\.ttf)\)/)?.[1];
@@ -30,6 +30,8 @@ async function blurredCover(origin: string, cover: string | null): Promise<strin
   }
 }
 
+const SCALE = 0.6;
+
 export type ImageMoment = { ownerName: string; ownerAvatar: string | null; title: string; when: string; place: string; photos: number; cover: string | null } | null;
 
 /** The link preview of a trip or event someone was added to: 1200×630, the cover blurred behind "Unlock this memory". */
@@ -41,7 +43,9 @@ export async function momentImage(origin: string, moment: ImageMoment) {
 
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", position: "relative", background: "#2b0b2e", color: "white", fontFamily: "sans-serif" }}>
+      // Drawn at 1200×630 and scaled down to 720×378: the blurred photo is heavy
+      // as a PNG, and WhatsApp drops the big preview above ~300 KB.
+      <div style={{ width: 1200, height: 630, display: "flex", position: "relative", background: "#2b0b2e", color: "white", fontFamily: "sans-serif", transform: `translate(${(-1200 * (1 - SCALE)) / 2}px, ${(-630 * (1 - SCALE)) / 2}px) scale(${SCALE})` }}>
         {bg ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={bg} alt="" width={1200} height={630} style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 630, objectFit: "cover" }} />
@@ -82,8 +86,8 @@ export async function momentImage(origin: string, moment: ImageMoment) {
       </div>
     ),
     {
-      width: 1200,
-      height: 630,
+      width: Math.round(1200 * SCALE),
+      height: Math.round(630 * SCALE),
       fonts: font ? [{ name: "Fraunces", data: font, weight: 600, style: "normal" }] : undefined,
       headers: { "Cache-Control": "public, max-age=3600" },
     }

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { momentMessage } from "@/lib/invite";
+import { WhatsAppButton } from "@/components/invite/WhatsAppButton";
 import { Check, Link2, Loader2, LogOut, Pencil, Search, Share2, UserPlus, Users, X } from "lucide-react";
 import { Basket } from "./Basket";
 import { createClient } from "@/lib/supabase/client";
@@ -36,6 +38,7 @@ const DISMISSED = "expandiax:companions-no";
 export function CollaboratorsManager({
   kind,
   targetId,
+  title,
   me,
   isOwner,
   initial,
@@ -44,6 +47,8 @@ export function CollaboratorsManager({
 }: {
   kind: CollabKind;
   targetId: string;
+  /** "Portugal 2025": named in the message an invitation goes with. */
+  title?: string;
   me: string;
   isOwner: boolean;
   initial: Collaborator[];
@@ -168,21 +173,25 @@ export function CollaboratorsManager({
   }
 
   const linkUrl = (token: string) => `${window.location.origin}/join/${myUsername ?? ""}?m=${token}`;
-  // Sent only once it's really been shared (the share sheet finished) or copied.
+  // "Hey Karla! I added our trip, Portugal 2025, to ExpandiaX…" with the link on its own line.
+  const messageFor = (l: Link) => momentMessage(linkUrl(l.token), { name: l.name, noun, title });
+  async function markSent(l: Link) {
+    setLinks((cur) => cur.map((x) => (x.id === l.id ? { ...x, sent_at: x.sent_at ?? new Date().toISOString() } : x)));
+    await supabase.rpc("mark_moment_invite_sent", { p_id: l.id });
+  }
+  // Sent only once it's really been shared (the share sheet finished), copied, or opened in WhatsApp.
   async function shareLink(l: Link) {
-    const url = linkUrl(l.token);
-    const text = `You were part of this memory! I added you to our ${noun} on ExpandiaX.`;
+    const text = messageFor(l);
     try {
-      if (navigator.share) await navigator.share({ text, url });
+      if (navigator.share) await navigator.share({ text });
       else {
-        await navigator.clipboard.writeText(`${text} ${url}`);
+        await navigator.clipboard.writeText(text);
         setShared(l.id);
       }
     } catch {
       return; // Closed the share sheet: not sent.
     }
-    setLinks((cur) => cur.map((x) => (x.id === l.id ? { ...x, sent_at: x.sent_at ?? new Date().toISOString() } : x)));
-    await supabase.rpc("mark_moment_invite_sent", { p_id: l.id });
+    await markSent(l);
   }
 
   async function createLink() {
@@ -288,6 +297,7 @@ export function CollaboratorsManager({
                   {shared === l.id ? "Link copied · paste it to them" : l.sent_at ? "Invitation sent · not on ExpandiaX yet" : "Not on ExpandiaX yet · not sent"}
                 </span>
               </span>
+              <WhatsAppButton compact text={messageFor(l)} label={`Send ${l.name || "the invitation"} on WhatsApp`} onOpen={() => void markSent(l)} />
               {l.sent_at ? (
                 <button type="button" onClick={() => void shareLink(l)} aria-label="Send the invitation again" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-ink">
                   <Share2 size={14} />
@@ -403,6 +413,8 @@ export function CollaboratorsManager({
 export function WhoWasThere(props: {
   kind: CollabKind;
   targetId: string;
+  /** "Portugal 2025": named in the message an invitation goes with. */
+  title?: string;
   me: string;
   isOwner: boolean;
   initial: Collaborator[];

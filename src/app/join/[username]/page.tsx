@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { inviterLine, loadInviter } from "@/lib/inviteCard";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -39,15 +40,21 @@ export async function generateMetadata({ params, searchParams }: Props) {
   const moment = p ? await loadMomentInvite(searchParams.m, p.id) : null;
   // No emojis in the preview's words (the trip's own name included): it reads cleaner in WhatsApp and Messenger.
   const plain = (t: string) => t.replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\u200D\uFE0F]/gu, "").replace(/\s{2,}/g, " ").trim();
+  // A plain invitation: who they are and their world, in their own picture.
+  const inviter = moment || !p ? null : await loadInviter(p.username).catch(() => null);
   const title = moment ? `${first} wants to share a memory with you` : `${first} invited you to ExpandiaX`;
-  const description = moment ? `You were part of this memory: ${plain(moment.title)}. Unlock it on ExpandiaX.` : "Your travels and memories, remembered.";
-  // ExpandiaX's own picture in the preview (not anyone's photo), App Store
-  // style: the logo, "Your world, remembered." and the app on two phones.
-  // It reads as the app's own invitation, which is what makes people trust it.
-  // A trip or event: its own picture instead, the cover blurred (/api/og/moment).
+  const description = moment
+    ? `You were part of this memory: ${plain(moment.title)}. Unlock it on ExpandiaX.`
+    : `${(inviter && inviterLine(inviter)) ?? "Your trips, events and memories, all in one place."} Join and you'll follow each other automatically.`;
+  // Their own picture (/api/og/invite): "An invitation from Mark", their
+  // photo, their world in numbers and flags, ExpandiaX's name on it so it
+  // reads as a real invitation. A trip or event: its own picture instead,
+  // the cover blurred (/api/og/moment).
   const image = moment
-    ? { url: `https://expandiax.com/api/og/moment/${moment.token}`, width: 1200, height: 630, alt: `${first} wants to share a memory with you: ${moment.title}` }
-    : { url: "https://expandiax.com/invite-preview.jpg", width: 1200, height: 630, alt: "ExpandiaX: Your world, remembered." };
+    ? { url: `https://expandiax.com/api/og/moment/${moment.token}`, width: 720, height: 378, alt: `${first} wants to share a memory with you: ${moment.title}` }
+    : p
+      ? { url: `https://expandiax.com/api/og/invite/${encodeURIComponent(p.username)}`, width: 1200, height: 630, alt: `An invitation from ${first} to ExpandiaX` }
+      : { url: "https://expandiax.com/invite-preview.jpg", width: 1200, height: 630, alt: "ExpandiaX: Your world, remembered." };
   return {
     title: { absolute: title },
     description,
@@ -85,7 +92,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
     <div className="relative min-h-[80vh] overflow-hidden">
       <div aria-hidden className="absolute inset-0" style={{ background: "radial-gradient(120% 70% at 50% 0%, #4a1450 0%, #2b0b2e 50%, #12041a 100%)" }} />
       <div aria-hidden className="join-stars absolute inset-0 opacity-60" />
-      <div className="relative mx-auto flex max-w-md flex-col items-center px-6 pb-16 pt-14 text-center text-white">
+      <div className="relative mx-auto flex max-w-md flex-col items-center px-6 pb-16 pt-8 text-center text-white">
         {!user && <RememberInvite username={inviter.username} moment={moment?.token} />}
         {moment ? (
           // Added to a trip or event: someone sharing a memory, its photos waiting behind the blur.
@@ -107,23 +114,23 @@ export default async function JoinPage({ params, searchParams }: Props) {
           </div>
         ) : (
           <>
-          <span className="join-halo relative flex h-32 w-32 items-center justify-center rounded-full p-1" style={{ background: "conic-gradient(from 200deg, #fa51a2, #fb7822, #fa51a2)" }}>
+          <span className="join-halo relative flex h-24 w-24 items-center justify-center rounded-full p-1" style={{ background: "conic-gradient(from 200deg, #fa51a2, #fb7822, #fa51a2)" }}>
             <span className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#2b0b2e] font-serif text-5xl">
-              {inviter.avatar_url ? <Image src={inviter.avatar_url} alt="" fill sizes="128px" className="object-cover" priority /> : first.charAt(0)}
+              {inviter.avatar_url ? <Image src={inviter.avatar_url} alt="" fill sizes="96px" className="object-cover" priority /> : first.charAt(0)}
             </span>
           </span>
-          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.24em] text-white/55">Let&rsquo;s collect memories together</p>
+          <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-white/55">Let&rsquo;s collect memories together</p>
           <h1 className="mt-2 font-serif text-4xl leading-tight">
             {first} invited you
             <br />
             <span className="italic text-[#fa8fc4]">to ExpandiaX</span>
           </h1>
-          <p className="mt-4 max-w-xs text-white/75">
-            The places you&rsquo;ve been and the moments you never want to forget, all in one place. Join and you&rsquo;ll automatically follow each other, so you can start sharing memories right away.
+          <p className="mt-3 max-w-xs text-white/75">
+            Your trips, events and memories, all in one place. Join and you&rsquo;ll follow each other automatically.
           </p>
 
           {/* What's waiting on the other side: a little curiosity, no spoilers. */}
-          <div className="mt-6 w-full rounded-2xl bg-white/[0.07] p-4 text-left ring-1 ring-white/15 backdrop-blur">
+          <div className="mt-5 w-full rounded-2xl bg-white/[0.07] p-4 text-left ring-1 ring-white/15 backdrop-blur">
             <p className="text-sm font-semibold">
               Join {first} on ExpandiaX and discover
             </p>
@@ -147,7 +154,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
         )}
 
         {!user ? (
-          <div className="mt-8 flex w-full flex-col items-center gap-4">
+          <div className="mt-6 flex w-full flex-col items-center gap-4">
             {phone ? (
               <>
                 {/* On a phone, in an app's own browser: the store first. */}

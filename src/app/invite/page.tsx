@@ -18,9 +18,12 @@ export default async function InvitePage() {
   const user = await getAuthUser();
   if (!user) redirect("/sign-in?next=/invite");
   const supabase = createClient();
-  const [{ data: me }, { data: rows }] = await Promise.all([
+  const [{ data: me }, { data: rows }, { count: countries }, { count: events }] = await Promise.all([
     supabase.from("profiles").select("username, display_name").eq("id", user.id).single(),
     supabase.from("invites").select("invitee_id, created_at").eq("inviter_id", user.id).order("created_at", { ascending: false }),
+    // For the message: "12 countries and 8 events so far."
+    supabase.from("visited_countries").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+    supabase.from("events").select("id", { count: "exact", head: true }).eq("user_id", user.id),
   ]);
   const ids = (rows ?? []).map((r) => r.invitee_id as string);
   const { data: people } = ids.length ? await supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", ids) : { data: [] };
@@ -84,7 +87,7 @@ export default async function InvitePage() {
         </ul>
 
         <div className="mt-6">
-          <InviteShare username={me?.username ?? ""} dark />
+          <InviteShare username={me?.username ?? ""} stats={{ countries: countries ?? 0, events: events ?? 0 }} dark />
         </div>
       </div>
 

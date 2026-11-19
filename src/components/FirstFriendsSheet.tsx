@@ -10,7 +10,8 @@ import { PeopleSuggest } from "./PeopleSuggest";
 import { FollowButton } from "@/components/FollowButton";
 import { tapSuccess } from "@/lib/haptics";
 import type { PersonCard } from "@/lib/experienceNetworkData";
-import { INVITE_TEXT, inviteUrl } from "@/lib/invite";
+import { inviteMessage, inviteUrl } from "@/lib/invite";
+import { WhatsAppButton } from "@/components/invite/WhatsAppButton";
 
 // "Later" waits a few days before offering again; finishing waits much longer.
 const SNOOZE_KEY = "expandiax:first-friends-until";
@@ -98,14 +99,13 @@ export function FirstFriendsSheet({
 
   async function invite() {
     // Your invite link: friends who join through it follow you straight away.
-    const url = inviteUrl(me.username);
-    const text = INVITE_TEXT;
+    const text = inviteMessage(inviteUrl(me.username));
     try {
       if (navigator.share) {
-        await navigator.share({ title: "ExpandiaX", text, url });
+        await navigator.share({ text });
         return;
       }
-      await navigator.clipboard.writeText(`${text} ${url}`);
+      await navigator.clipboard.writeText(text);
       setShared("Link copied - paste it to your friends");
     } catch {
       // Closing the share sheet without sharing lands here too.
@@ -255,8 +255,10 @@ export function FirstFriendsSheet({
             <div className="shrink-0 border-t border-line bg-canvas px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
               {shared && <p className="mb-2 text-center text-xs text-muted">{shared}</p>}
               <div className="flex gap-2">
-                <button type="button" onClick={() => void invite()} className="btn-accent flex-1 !py-3">
-                  <Share2 size={16} aria-hidden /> Invite friends
+                {/* Most invitations go by WhatsApp: straight there, the message ready. */}
+                <WhatsAppButton text={inviteMessage(inviteUrl(me.username))} label="WhatsApp" className="!w-auto flex-1 !py-3" />
+                <button type="button" onClick={() => void invite()} className="btn-ghost !px-4 !py-3" aria-label="Invite with another app">
+                  <Share2 size={16} aria-hidden />
                 </button>
                 <button type="button" onClick={() => close(crew >= 3 ? DONE_DAYS : LATER_DAYS)} className="btn-ghost !px-5 !py-3">
                   {crew >= 3 ? "Done" : "Later"}

@@ -89,7 +89,7 @@ export default async function EditEventPage({
           recentArtists={recentArtists}
           userId={user.id}
           isOwner={isOwner}
-          beforeSave={<WhoWasThere kind="event" targetId={event.id} me={user.id} isOwner={isOwner} initial={collaborators} myUsername={me?.username} suggestions={suggestions} />}
+          beforeSave={<WhoWasThere kind="event" targetId={event.id} title={event.title} me={user.id} isOwner={isOwner} initial={collaborators} myUsername={me?.username} suggestions={suggestions} />}
         />
       </div>
 
