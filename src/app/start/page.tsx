@@ -7,6 +7,9 @@ import { HomeCountryStep } from "@/components/start/HomeCountryStep";
 import { CountryGridStep } from "@/components/start/CountryGridStep";
 import { MemoryStep } from "@/components/start/MemoryStep";
 import { RevealStep } from "@/components/start/RevealStep";
+import { WorldScanFlow } from "@/components/worldScan/WorldScanFlow";
+import { canScanPhotos } from "@/lib/photoScan";
+import { saveKeptWorld } from "@/lib/worldScan";
 import { BackButton, StepTransition } from "@/components/start/StepTransition";
 import {
   clearPendingPhoto,
@@ -32,6 +35,8 @@ export default function StartPage() {
   // this is just a local object URL for the reveal card's own preview.
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
+  // iPhone app build 12 and later: the world is found in their photos first.
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     const loaded = loadDraft();
@@ -55,6 +60,19 @@ export default function StartPage() {
 
   if (!hydrated) return null;
 
+  if (scanning) {
+    return (
+      <WorldScanFlow
+        mode="new"
+        onManual={() => {
+          setScanning(false);
+          setStep("fork");
+        }}
+        onKeep={(world) => saveKeptWorld(world)}
+      />
+    );
+  }
+
   // Every step after the first can go back one — choices made so far are
   // kept when going back from the reveal, dropped when going back further.
   let screen: React.ReactNode = null;
@@ -70,7 +88,14 @@ export default function StartPage() {
   } else {
     switch (step) {
       case "cold-open":
-        screen = <ColdOpenStep onStart={() => setStep("fork")} />;
+        screen = (
+          <ColdOpenStep
+            onStart={() => {
+              if (canScanPhotos()) setScanning(true);
+              else setStep("fork");
+            }}
+          />
+        );
         break;
       case "fork":
         back = () => setStep("cold-open");

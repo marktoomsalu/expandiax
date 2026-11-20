@@ -48,6 +48,14 @@ export default function PrivacyPage() {
             (CC BY 4.0).
           </li>
           <li>
+            <Strong>Finding trips in your photos.</Strong> In our iPhone app you can let ExpandiaX look through your
+            photo library to find the countries and trips in it, before or after you have an account. Only when and
+            where each photo was taken is read, on your phone, and turned into countries and dates there; nothing about
+            your library is sent to us. Only the trips you choose to keep are saved once you have an account: their
+            country and dates, and up to three of their photos, uploaded without location or camera information. You
+            can say no to photo access, or choose which photos the app may see, in your iPhone&rsquo;s Settings.
+          </li>
+          <li>
             <Strong>Technical data</Strong> - IP address, browser and device type, and error reports, plus anonymous
             page-view statistics without cookies. <em>Why:</em> to keep the service secure, fix crashes and understand
             which pages get used. <em>Legal basis:</em> our legitimate interest in running a secure, working service.

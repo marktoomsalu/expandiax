@@ -41,6 +41,8 @@ export const FEATURE_LABELS: Record<string, string> = {
   invite_shared: "Invite link shared",
   chat_opened: "Chat opened",
   memory_invite_sent: "Invitation to a memory sent",
+  world_scan_started: "Find my world: started",
+  world_scan_finished: "Find my world: finished",
 };
 
 /** The kind of page at this address, or null for pages not counted (sign-in, legal, admin). */

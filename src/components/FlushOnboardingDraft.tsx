@@ -7,6 +7,10 @@ import { storagePath } from "@/lib/media";
 import { preparePhoto } from "@/lib/photoPrepare";
 import { loadDraft, clearDraft, loadPendingPhoto, clearPendingPhoto, type OnboardingMemory } from "@/lib/onboardingDraft";
 import { askForPush } from "@/lib/pushAsk";
+import { clearKeptWorld, loadKeptWorld, saveWorld } from "@/lib/worldScan";
+
+// Once per page load, even if the effect runs twice (React dev mode).
+let flushing = false;
 
 // Picks up a pending /start draft (sessionStorage, plus a photo in
 // IndexedDB for Path B — see onboardingDraft.ts) right after signup and
@@ -16,6 +20,21 @@ import { askForPush } from "@/lib/pushAsk";
 // which every sign-up path already lands on.
 export function FlushOnboardingDraft({ userId }: { userId: string }) {
   useEffect(() => {
+    if (flushing) return;
+    flushing = true;
+
+    // Found in their photos ("Find my world", iPhone app): taken off the
+    // phone's list before saving, so it can never be saved twice.
+    const kept = loadKeptWorld();
+    if (kept) {
+      clearKeptWorld();
+      clearDraft();
+      void saveWorld(userId, kept)
+        .catch(() => {})
+        .then(() => askForPush("memory", 4000));
+      return;
+    }
+
     const draft = loadDraft();
 
     // Their first memories: once onboarding is behind them, a good moment to
