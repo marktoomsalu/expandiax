@@ -7,12 +7,15 @@ import type { ScanPlace } from "./tripFinder";
 
 export type PhotoAccess = "full" | "limited" | "denied" | "restricted" | "ask";
 
+/** A few hours with many photos in one spot (build 13 on): s and e are near local time, yyyy-mm-ddThh:mm. */
+export type ScanMoment = { s: string; e: string; la: number; ln: number; n: number; v: number; f: number; a: string[] };
+
 interface PhotoScanNative {
   access(): Promise<{ status: PhotoAccess }>;
   requestAccess(): Promise<{ status: PhotoAccess }>;
   openSettings(): Promise<void>;
   chooseMore(): Promise<void>;
-  scan(): Promise<{ total: number; located: number; places: ScanPlace[] }>;
+  scan(): Promise<{ total: number; located: number; places: ScanPlace[]; moments?: ScanMoment[] }>;
   images(options: { ids: string[]; size: number; quality?: number }): Promise<{ images: Record<string, string> }>;
   addListener(event: "progress", fn: (e: { done: number; total: number; located: number }) => void): Promise<PluginListenerHandle>;
 }

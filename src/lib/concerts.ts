@@ -441,7 +441,7 @@ export type ShowThatNight = { artist: string; venue: string | null; city: string
  * Concerts that played in a city on one day (setlist.fm), for "Were you
  * at…?" when someone adds a photo of a night out. Each artist once.
  */
-export async function showsOnDay(city: string, day: string, countryCode?: string | null): Promise<ShowThatNight[]> {
+export async function showsOnDay(city: string, day: string, countryCode?: string | null, pages: 1 | 2 = 2): Promise<ShowThatNight[]> {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
   if (!m || !city.trim()) return [];
   const page = (p: number) => {
@@ -450,7 +450,7 @@ export async function showsOnDay(city: string, day: string, countryCode?: string
     return setlistFm<{ setlist?: (SetlistFmSetlist & { artist?: { name?: string } })[]; total?: number }>(`/search/setlists?${qs}`).catch(() => null);
   };
   // A big city has many shows a night: the first two pages (40).
-  const [first, second] = await Promise.all([page(1), page(2)]);
+  const [first, second] = await Promise.all([page(1), pages === 2 ? page(2) : Promise.resolve(null)]);
   const seen = new Set<string>();
   const out: ShowThatNight[] = [];
   for (const s of [...(first?.setlist ?? []), ...(second?.setlist ?? [])]) {

@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Globe2 } from "lucide-react";
 import { TOTAL_COUNTRIES, continentCounts } from "@/lib/countries";
 import { startBadges } from "@/lib/startBadges";
-import { keptCountries, type KeptTrip } from "@/lib/worldScan";
+import { keptCountries, type KeptWorld } from "@/lib/worldScan";
 import { tapSuccess } from "@/lib/haptics";
 import { EarnedBadges } from "@/components/start/EarnedBadges";
 import { Burst, CountUp } from "./Burst";
@@ -20,22 +20,23 @@ const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").the
 /** "You built your world": everything they kept, on one globe, and what's next. */
 export function ScanFinish({
   mode,
-  homeCode,
-  kept,
+  kept: world,
   limited,
   saving,
 }: {
   mode: "new" | "member";
-  homeCode: string | null;
-  kept: KeptTrip[];
+  kept: KeptWorld;
   limited: boolean;
   saving: boolean;
 }) {
   const reduce = useReducedMotion();
-  const codes = keptCountries({ homeCode, trips: kept });
+  const homeCode = world.homeCode;
+  const kept = world.trips;
+  const eventCount = world.events?.length ?? 0;
+  const codes = keptCountries(world);
   const continents = continentCounts(codes).filter((c) => c.visited > 0).length;
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
-  const years = kept.map((t) => Number(t.from.slice(0, 4)));
+  const years = [...kept.map((t) => Number(t.from.slice(0, 4))), ...(world.events ?? []).map((e) => Number(e.date.slice(0, 4)))];
   const span = years.length ? (Math.min(...years) === Math.max(...years) ? `${years[0]}` : `${Math.min(...years)}–${Math.max(...years)}`) : null;
   const badges = startBadges({ countryCodes: codes });
 
@@ -70,7 +71,8 @@ export function ScanFinish({
         You built <span className="italic text-[#ff8cc6]">your world.</span>
       </motion.h1>
       <motion.p className="mt-2 text-base text-white/75" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: reduce ? 0 : 1.1 }}>
-        {kept.length ? `${kept.length} ${kept.length === 1 ? "trip" : "trips"}${span ? `, ${span}` : ""}, all in one place.` : "Your home is on the map. The trips can come any time."}
+        {[kept.length ? `${kept.length} ${kept.length === 1 ? "trip" : "trips"}` : null, eventCount ? `${eventCount} ${eventCount === 1 ? "event" : "events"}` : null].filter(Boolean).join(" · ")}
+        {span ? ` · ${span}` : ""}
       </motion.p>
 
       <motion.div className="mt-2 w-full" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: reduce ? 0 : 1.2, duration: 0.8 }}>
@@ -79,7 +81,11 @@ export function ScanFinish({
 
       <div className="grid w-full grid-cols-3 gap-2">
         <Stat value={<CountUp value={codes.length} delay={reduce ? 0 : 1.4} />} label={codes.length === 1 ? "country" : "countries"} />
-        <Stat value={<CountUp value={continents} delay={reduce ? 0 : 1.5} />} label={continents === 1 ? "continent" : "continents"} />
+        {eventCount > 0 ? (
+          <Stat value={<CountUp value={eventCount} delay={reduce ? 0 : 1.5} />} label={eventCount === 1 ? "event" : "events"} />
+        ) : (
+          <Stat value={<CountUp value={continents} delay={reduce ? 0 : 1.5} />} label={continents === 1 ? "continent" : "continents"} />
+        )}
         <Stat value={`${pct}%`} label="of the world" />
       </div>
 
@@ -91,28 +97,26 @@ export function ScanFinish({
         {mode === "new" ? (
           <>
             {/* What they kept is waiting on the phone; signing up just gives it a home. */}
-            <Link href="/sign-up" className="btn-accent w-full py-4 text-base">
-              Save my world
+            <Link href="/sign-up" className="btn-accent w-full py-4 text-lg">
+              Create my free account
             </Link>
-            <p className="mt-4 text-xs text-white/60">
-              Free, forever. Your trips and their best photos are saved once your account is made, never before.
-            </p>
+            <p className="mt-3 text-xs text-white/50">So your world is kept safe.</p>
           </>
         ) : (
           <>
             {saving ? (
-              <span className="btn-accent w-full py-4 text-base opacity-70" aria-live="polite">
-                Saving your trips…
+              <span className="btn-accent w-full py-4 text-lg opacity-70" aria-live="polite">
+                Saving…
               </span>
             ) : (
-              <Link href="/my-world" className="btn-accent w-full py-4 text-base">
+              <Link href="/my-world" className="btn-accent w-full py-4 text-lg">
                 See my world
               </Link>
             )}
-            <p className="mt-4 text-xs text-white/60">The trips are on your map now. Their photos are coming up in the background.</p>
+            <p className="mt-3 text-xs text-white/50">Photos follow in the background.</p>
           </>
         )}
-        {limited && <p className="mt-3 text-xs text-white/50">ExpandiaX only looked at the photos you shared with it. You can share more any time in Settings.</p>}
+        {limited && <p className="mt-2 text-xs text-white/40">Only the photos you shared were looked at.</p>}
       </div>
     </div>
   );

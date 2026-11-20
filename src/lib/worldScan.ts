@@ -10,6 +10,10 @@ import { countryByCode } from "@/lib/countries";
 import { enqueueUploads, getUploads } from "@/lib/uploadQueue";
 import { photoFile } from "@/lib/photoScan";
 import { daysBetween } from "@/lib/tripFinder";
+import { sameVenue } from "@/lib/eventMatch";
+import { placeKey } from "@/lib/photoPlaces";
+import { savePlaces } from "@/components/PhotoPlaceSuggestion";
+import type { EventType } from "@/lib/types";
 
 export type KeptTrip = {
   code: string;
@@ -18,9 +22,22 @@ export type KeptTrip = {
   kind: "trip" | "lived";
   /** Photo library ids, best first; the first becomes the trip's cover. */
   covers: string[];
+  /** Its towns, with their days, saved as the trip's places. */
+  towns?: { name: string; lat: number; lng: number; arrived: string | null; departed: string | null }[];
 };
 
-export type KeptWorld = { homeCode: string | null; trips: KeptTrip[] };
+export type KeptEvent = {
+  type: EventType;
+  title: string;
+  artist: string | null;
+  venue: string | null;
+  city: string | null;
+  code: string;
+  date: string;
+  covers: string[];
+};
+
+export type KeptWorld = { homeCode: string | null; trips: KeptTrip[]; events?: KeptEvent[] };
 
 const KEY = "expandiax:world-scan";
 const KEEP_DAYS = 14;
@@ -30,7 +47,7 @@ export const PHOTOS_PER_TRIP = 3;
 
 export function saveKeptWorld(world: KeptWorld) {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ v: 1, savedAt: Date.now(), ...world }));
+    localStorage.setItem(KEY, JSON.stringify({ v: 2, savedAt: Date.now(), ...world }));
   } catch {
     // Full or blocked storage: the map still shows, it just can't wait for sign-up.
   }
@@ -41,11 +58,11 @@ export function loadKeptWorld(): KeptWorld | null {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     const data = JSON.parse(raw) as KeptWorld & { v: number; savedAt: number };
-    if (data.v !== 1 || Date.now() - data.savedAt > KEEP_DAYS * 86_400_000) {
+    if ((data.v !== 1 && data.v !== 2) || Date.now() - data.savedAt > KEEP_DAYS * 86_400_000) {
       localStorage.removeItem(KEY);
       return null;
     }
-    return { homeCode: data.homeCode ?? null, trips: Array.isArray(data.trips) ? data.trips : [] };
+    return { homeCode: data.homeCode ?? null, trips: Array.isArray(data.trips) ? data.trips : [], events: Array.isArray(data.events) ? data.events : [] };
   } catch {
     return null;
   }
@@ -78,9 +95,9 @@ export function worldScanned(): boolean {
   }
 }
 
-/** The countries a kept world puts on the map: home first, then each trip's. */
+/** The countries a kept world puts on the map: home first, then each trip's and event's. */
 export function keptCountries(world: KeptWorld): string[] {
-  const codes = [...(world.homeCode ? [world.homeCode] : []), ...world.trips.map((t) => t.code)];
+  const codes = [...(world.homeCode ? [world.homeCode] : []), ...world.trips.map((t) => t.code), ...(world.events ?? []).map((e) => e.code)];
   return [...new Set(codes)].filter((c) => !!countryByCode(c));
 }
 
@@ -104,10 +121,10 @@ export function alreadySaved(trip: KeptTrip, visits: ExistingVisit[]): boolean {
  * Only the newest trip goes to followers' feeds; the rest of the past fills
  * the map and profile without a burst of posts.
  */
-export async function saveWorld(userId: string, world: KeptWorld): Promise<{ countries: number; trips: number }> {
+export async function saveWorld(userId: string, world: KeptWorld): Promise<{ countries: number; trips: number; events: number }> {
   const supabase = createClient();
   const codes = keptCountries(world);
-  if (!codes.length) return { countries: 0, trips: 0 };
+  if (!codes.length) return { countries: 0, trips: 0, events: 0 };
 
   const { data: before } = await supabase.from("visited_countries").select("country_code").eq("user_id", userId).in("country_code", codes);
   const had = new Set((before ?? []).map((r) => r.country_code as string));
@@ -145,25 +162,104 @@ export async function saveWorld(userId: string, world: KeptWorld): Promise<{ cou
       })
       .select("id")
       .single();
-    if (!error && visit) created.push({ trip, countryId, visitId: visit.id as string });
+    if (error || !visit) continue;
+    created.push({ trip, countryId, visitId: visit.id as string });
+    // Its towns, with their days, as the trip's places.
+    if (trip.towns?.length) {
+      await savePlaces(supabase, {
+        visitedCountryId: countryId,
+        visitId: visit.id as string,
+        places: [...trip.towns]
+          .sort((a, b) => (a.arrived ?? "").localeCompare(b.arrived ?? ""))
+          .map((t) => ({ key: placeKey(t.name), name: t.name, lat: t.lat, lng: t.lng, arrived: t.arrived, departed: t.departed })),
+      }).catch(() => {});
+    }
   }
 
-  // The photos follow in the background, newest trips first (what people
-  // open first), a few at a time so the phone's memory isn't filled.
-  void uploadTripPhotos(userId, [...created].reverse());
+  const events = await saveEvents(userId, world.events ?? []);
 
-  return { countries: codes.filter((c) => !had.has(c)).length, trips: created.length };
+  // The photos follow in the background, newest first (what people open
+  // first), a few at a time so the phone's memory isn't filled.
+  const uploads: PhotoJob[] = [
+    ...created.map((c) => ({
+      date: c.trip.from,
+      covers: c.trip.covers,
+      scope: "countries" as const,
+      table: "country_media" as const,
+      fields: { visited_country_id: c.countryId, country_visit_id: c.visitId },
+      cover: { table: "country_visits" as const, id: c.visitId },
+      parentId: c.visitId,
+    })),
+    ...events.map((e) => ({
+      date: e.event.date,
+      covers: e.event.covers,
+      scope: "events" as const,
+      table: "event_media" as const,
+      fields: { event_id: e.id },
+      cover: { table: "events" as const, id: e.id },
+      parentId: e.id,
+    })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+  void uploadPhotos(userId, uploads);
+
+  return { countries: codes.filter((c) => !had.has(c)).length, trips: created.length, events: events.length };
+}
+
+/** Events found in photos, unless one's already there (same day, same venue or name). Only the newest goes to feeds. */
+async function saveEvents(userId: string, list: KeptEvent[]): Promise<{ id: string; event: KeptEvent }[]> {
+  if (!list.length) return [];
+  const supabase = createClient();
+  const dates = [...new Set(list.map((e) => e.date))];
+  const { data: existing } = await supabase.from("events").select("event_date, title, venue").eq("user_id", userId).in("event_date", dates);
+  const newest = [...list].sort((a, b) => b.date.localeCompare(a.date))[0];
+  const out: { id: string; event: KeptEvent }[] = [];
+  for (const e of [...list].sort((a, b) => a.date.localeCompare(b.date))) {
+    const country = countryByCode(e.code);
+    if (!country) continue;
+    const twin = (existing ?? []).some(
+      (x) => x.event_date === e.date && ((e.venue && x.venue && sameVenue(x.venue as string, e.venue)) || (x.title as string).toLowerCase() === e.title.toLowerCase())
+    );
+    if (twin) continue;
+    const { data, error } = await supabase
+      .from("events")
+      .insert({
+        user_id: userId,
+        title: e.title.slice(0, 120),
+        event_date: e.date,
+        event_type: e.type,
+        venue: (e.venue ?? "").slice(0, 120),
+        city: (e.city ?? "").slice(0, 120),
+        country_code: country.code,
+        country_name: country.name,
+        share_to_feed: e === newest,
+        ...(e.artist ? { spotify_artist_name: e.artist } : {}),
+      })
+      .select("id")
+      .single();
+    if (!error && data) out.push({ id: data.id as string, event: e });
+  }
+  return out;
 }
 
 const MAX_WAITING_UPLOADS = 6;
 
-async function uploadTripPhotos(userId: string, list: { trip: KeptTrip; countryId: string; visitId: string }[]) {
-  for (const { trip, countryId, visitId } of list) {
+type PhotoJob = {
+  date: string;
+  covers: string[];
+  scope: "countries" | "events";
+  table: "country_media" | "event_media";
+  fields: Record<string, string>;
+  cover: { table: "country_visits" | "events"; id: string };
+  parentId: string;
+};
+
+async function uploadPhotos(userId: string, list: PhotoJob[]) {
+  for (const job of list) {
     while (getUploads().filter((j) => j.status !== "done" && j.status !== "failed").length >= MAX_WAITING_UPLOADS) {
       await new Promise((r) => setTimeout(r, 700));
     }
     const photos: File[] = [];
-    for (const id of trip.covers.slice(0, PHOTOS_PER_TRIP)) {
+    for (const id of job.covers.slice(0, PHOTOS_PER_TRIP)) {
       const file = await photoFile(id, 2048);
       if (file) photos.push(file);
     }
@@ -174,12 +270,12 @@ async function uploadTripPhotos(userId: string, list: { trip: KeptTrip; countryI
         kind: "image" as const,
         target: {
           userId,
-          scope: "countries" as const,
-          parentId: visitId,
-          table: "country_media" as const,
-          fields: { visited_country_id: countryId, country_visit_id: visitId },
+          scope: job.scope,
+          parentId: job.parentId,
+          table: job.table,
+          fields: job.fields,
           displayOrder: i,
-          cover: i === 0 ? { table: "country_visits" as const, id: visitId } : undefined,
+          cover: i === 0 ? job.cover : undefined,
         },
       }))
     );

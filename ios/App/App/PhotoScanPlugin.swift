@@ -86,7 +86,34 @@ public class PhotoScanPlugin: CAPPlugin, CAPBridgedPlugin {
         var bestScore: Double
     }
 
-    /// Every photo and video with a place and a date, summed up per day and place.
+    /// One photo's when, where and how good it is to show, kept while scanning to find moments.
+    private struct Shot {
+        let time: Double // seconds, near local time (UTC moved by the longitude)
+        let lat: Double
+        let lng: Double
+        let id: String
+        let favourite: Bool
+        let video: Bool
+        let score: Double
+    }
+
+    /// A few hours in one spot with lots of photos: a concert, a match, a festival, a wedding.
+    private struct Moment {
+        var start: Double
+        var end: Double
+        var latSum: Double
+        var lngSum: Double
+        var count: Int
+        var videos: Int
+        var favourites: Int
+        var shots: [(String, Double)]
+        var lat: Double { latSum / Double(count) }
+        var lng: Double { lngSum / Double(count) }
+    }
+
+    /// Every photo and video with a place and a date, summed up per day and
+    /// place (about 5 km squares), and the moments: several photos within a
+    /// few hundred metres and a few hours of each other (build 13 on).
     @objc func scan(_ call: CAPPluginCall) {
         DispatchQueue.global(qos: .userInitiated).async {
             let options = PHFetchOptions()
@@ -105,8 +132,15 @@ public class PhotoScanPlugin: CAPPlugin, CAPBridgedPlugin {
             format.locale = Locale(identifier: "en_US_POSIX")
             format.timeZone = TimeZone(identifier: "UTC")
             format.dateFormat = "yyyy-MM-dd"
+            let stamp = DateFormatter()
+            stamp.calendar = Calendar(identifier: .gregorian)
+            stamp.locale = Locale(identifier: "en_US_POSIX")
+            stamp.timeZone = TimeZone(identifier: "UTC")
+            stamp.dateFormat = "yyyy-MM-dd'T'HH:mm"
 
             var places: [String: Place] = [:]
+            var shots: [Shot] = []
+            shots.reserveCapacity(total)
             var located = 0
             var lastReport = Date.distantPast
 
@@ -123,16 +157,22 @@ public class PhotoScanPlugin: CAPPlugin, CAPBridgedPlugin {
 
                 // The day where it was taken: UTC moved by the longitude (an
                 // hour per 15°), near enough to local time to group trips.
-                let day = format.string(from: date.addingTimeInterval(c.longitude * 240))
-                let lat = (c.latitude * 4).rounded() / 4
-                let lng = (c.longitude * 4).rounded() / 4
+                let local = date.addingTimeInterval(c.longitude * 240)
+                let day = format.string(from: local)
+                let lat = (c.latitude * 20).rounded() / 20
+                let lng = (c.longitude * 20).rounded() / 20
                 let key = "\(day)|\(lat)|\(lng)"
 
                 // The picture to show for this day and place: a favourite
                 // first, a photo before a video or a screenshot, then the larger.
-                let weak = asset.mediaType == .video || asset.mediaSubtypes.contains(.photoScreenshot)
+                let video = asset.mediaType == .video
+                let weak = video || asset.mediaSubtypes.contains(.photoScreenshot)
                 let score = (asset.isFavorite ? 1000.0 : 0) + (weak ? -500 : 0)
                     + Double(asset.pixelWidth * asset.pixelHeight) / 1e8
+                shots.append(Shot(
+                    time: local.timeIntervalSince1970, lat: c.latitude, lng: c.longitude, id: asset.localIdentifier,
+                    favourite: asset.isFavorite, video: video, score: score
+                ))
 
                 if var p = places[key] {
                     p.count += 1
@@ -153,7 +193,41 @@ public class PhotoScanPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             self.notifyListeners("progress", data: ["done": total, "total": total, "located": located])
 
-            let out: [[String: Any]] = places.values.map { p in
+            // Moments: photos close in time (90 minutes at most between two)
+            // and place (half a kilometre from the moment's middle).
+            shots.sort { $0.time < $1.time }
+            var moments: [Moment] = []
+            var current: Moment? = nil
+            func close() {
+                guard let m = current else { return }
+                if m.count >= 6 && m.end - m.start >= 25 * 60 { moments.append(m) }
+                current = nil
+            }
+            for s in shots {
+                if var m = current {
+                    let dLat = (s.lat - m.lat) * 111.0
+                    let dLng = (s.lng - m.lng) * 111.0 * cos(m.lat * .pi / 180)
+                    if s.time - m.end <= 90 * 60 && (dLat * dLat + dLng * dLng) <= 0.25 {
+                        m.end = s.time
+                        m.latSum += s.lat
+                        m.lngSum += s.lng
+                        m.count += 1
+                        if s.video { m.videos += 1 }
+                        if s.favourite { m.favourites += 1 }
+                        m.shots.append((s.id, s.score))
+                        current = m
+                        continue
+                    }
+                    close()
+                }
+                current = Moment(
+                    start: s.time, end: s.time, latSum: s.lat, lngSum: s.lng, count: 1,
+                    videos: s.video ? 1 : 0, favourites: s.favourite ? 1 : 0, shots: [(s.id, s.score)]
+                )
+            }
+            close()
+
+            let outPlaces: [[String: Any]] = places.values.map { p in
                 [
                     "d": p.day,
                     "la": p.latSum / Double(p.count),
@@ -163,7 +237,21 @@ public class PhotoScanPlugin: CAPPlugin, CAPBridgedPlugin {
                     "a": p.best,
                 ]
             }
-            call.resolve(["total": total, "located": located, "places": out])
+            let outMoments: [[String: Any]] = moments.map { m in
+                // The best few to show, best first (that one is the cover).
+                let best = m.shots.sorted { $0.1 > $1.1 }.prefix(6).map { $0.0 }
+                return [
+                    "s": stamp.string(from: Date(timeIntervalSince1970: m.start)),
+                    "e": stamp.string(from: Date(timeIntervalSince1970: m.end)),
+                    "la": m.lat,
+                    "ln": m.lng,
+                    "n": m.count,
+                    "v": m.videos,
+                    "f": m.favourites,
+                    "a": best,
+                ]
+            }
+            call.resolve(["total": total, "located": located, "places": outPlaces, "moments": outMoments])
         }
     }
 

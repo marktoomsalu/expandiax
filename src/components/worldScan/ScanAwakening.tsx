@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { countryByCode } from "@/lib/countries";
 import type { FoundWorld } from "@/lib/tripFinder";
+import type { FoundEvent } from "@/lib/worldStory";
 import { tapLight, tapSuccess } from "@/lib/haptics";
 
 const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), {
@@ -21,11 +22,14 @@ export function ScanAwakening({
   scanning,
   progress,
   world,
+  events,
   onDone,
 }: {
   scanning: boolean;
   progress: { done: number; total: number; located: number };
   world: FoundWorld | null;
+  /** Events found so far (null while still looking). */
+  events: FoundEvent[] | null;
   onDone: () => void;
 }) {
   const reduce = useReducedMotion();
@@ -137,7 +141,14 @@ export function ScanAwakening({
               )}
             </AnimatePresence>
             <p className="mt-4 text-sm text-white/70">
-              <span className="font-semibold text-white">{lit.length + (world?.homeCode ? 1 : 0)}</span> {lit.length + (world?.homeCode ? 1 : 0) === 1 ? "country" : "countries"} and counting
+              <span className="font-semibold text-white">{lit.length + (world?.homeCode ? 1 : 0)}</span> {lit.length + (world?.homeCode ? 1 : 0) === 1 ? "country" : "countries"}
+              <AnimatePresence>
+                {!!events?.length && (
+                  <motion.span key="ev" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 18 }} className="inline-block">
+                    &nbsp;·&nbsp;🎫 <span className="font-semibold text-white">{events.length}</span> {events.length === 1 ? "event" : "events"}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </p>
           </>
         )}

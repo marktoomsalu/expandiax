@@ -35,6 +35,12 @@ export type FoundTrip = {
   kind: "trip" | "lived";
   /** Photo library ids to show, best first (favourites, then busiest days). */
   covers: string[];
+  /** Where and when its photos were taken (per day and ~5 km square), to name its towns. */
+  spots: { d: string; la: number; ln: number; n: number }[];
+  /** Trips straight after one another, with no home in between, share one: an Interrail summer. */
+  journey: string;
+  /** False for a short stop with few photos: offered, not assumed. */
+  sure: boolean;
 };
 
 export type FoundWorld = {
@@ -168,6 +174,9 @@ export function findWorld(places: ScanPlace[], locate: (lat: number, lng: number
       favourites: d.places.reduce((s, p) => s + p.f, 0),
       kind: daysBetween(from, to) >= 60 ? "lived" : "trip",
       covers,
+      spots: d.places.map((p) => ({ d: p.d, la: p.la, ln: p.ln, n: p.n })),
+      journey: `${d.code}-${from}`,
+      sure: true,
     };
   });
 
@@ -180,6 +189,26 @@ export function findWorld(places: ScanPlace[], locate: (lat: number, lng: number
   });
   // One stray photo with a place is too thin to call a trip.
   trips = trips.filter((t) => t.photos >= 2 || t.favourites > 0);
+
+  // A short stop with a handful of photos might be a trip, or a day across
+  // a border: it's offered, not assumed.
+  for (const t of trips) t.sure = !(t.photos < 6 && t.photoDays === 1 && t.favourites === 0);
+
+  // Journeys: one trip after another (a day or two between at most, nothing
+  // at home in between) is one journey through several countries.
+  const inOrder = [...trips].sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
+  let journeyId = "";
+  let journeyEnd = "";
+  for (const t of inOrder) {
+    if (journeyId && daysBetween(journeyEnd, t.from) <= 2 && !homeBetween(journeyEnd, t.from)) {
+      t.journey = journeyId;
+      if (t.to > journeyEnd) journeyEnd = t.to;
+    } else {
+      journeyId = t.id;
+      journeyEnd = t.to;
+      t.journey = t.id;
+    }
+  }
 
   const firstDay = new Map<string, string>();
   for (const t of [...trips].sort((a, b) => a.from.localeCompare(b.from))) if (!firstDay.has(t.code)) firstDay.set(t.code, t.from);

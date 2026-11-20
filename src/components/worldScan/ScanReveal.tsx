@@ -5,22 +5,24 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Home } from "lucide-react";
 import { TOTAL_COUNTRIES, continentCounts, countryByCode } from "@/lib/countries";
 import type { FoundWorld } from "@/lib/tripFinder";
+import type { FoundEvent } from "@/lib/worldStory";
 import { tapLight, tapSuccess } from "@/lib/haptics";
 import { Burst, CountUp } from "./Burst";
 
 /** The big moment: how much of the world they've already seen. */
 export function ScanReveal({
   world,
+  events,
   canChangeHome,
   onChangeHome,
-  onChoose,
-  onKeepAll,
+  onNext,
 }: {
   world: FoundWorld;
+  /** Null while still looking. */
+  events: FoundEvent[] | null;
   canChangeHome: boolean;
   onChangeHome: (code: string) => void;
-  onChoose: () => void;
-  onKeepAll: () => void;
+  onNext: () => void;
 }) {
   const reduce = useReducedMotion();
   const [pickHome, setPickHome] = useState(false);
@@ -28,7 +30,8 @@ export function ScanReveal({
   const continents = continentCounts(codes).filter((c) => c.visited > 0).length;
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
   const home = countryByCode(world.homeCode);
-  const trips = world.trips.length;
+  const trips = world.trips.filter((t) => t.sure).length;
+  const eventCount = events?.filter((e) => e.sure).length ?? null;
 
   useEffect(() => {
     const t = setTimeout(() => tapSuccess(), reduce ? 0 : 450);
@@ -65,13 +68,19 @@ export function ScanReveal({
 
         <motion.div {...rise(1)} className="mx-auto mt-8 grid w-full max-w-sm grid-cols-3 gap-2">
           <Stat value={trips} label={trips === 1 ? "trip" : "trips"} />
-          <Stat value={continents} label={continents === 1 ? "continent" : "continents"} />
+          {eventCount === null ? (
+            <Stat value={<motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity }}>🎫</motion.span>} label="events" />
+          ) : eventCount > 0 ? (
+            <Stat value={eventCount} label={eventCount === 1 ? "event" : "events"} />
+          ) : (
+            <Stat value={continents} label={continents === 1 ? "continent" : "continents"} />
+          )}
           <Stat value={`${pct}%`} label="of the world" />
         </motion.div>
 
         {world.firstYear && (
-          <motion.p {...rise(1.25)} className="mt-5 text-sm text-white/70">
-            Your photos remember trips back to <span className="font-semibold text-white">{world.firstYear}</span>.
+          <motion.p {...rise(1.25)} className="mt-5 text-sm text-white/60">
+            Since <span className="font-semibold text-white">{world.firstYear}</span>
           </motion.p>
         )}
 
@@ -114,18 +123,15 @@ export function ScanReveal({
       </div>
 
       <motion.div {...rise(1.7)} className="pt-8">
-        <button type="button" onClick={onChoose} className="btn-accent w-full py-4 text-base">
-          Relive my {trips === 1 ? "trip" : `${trips} trips`}
-        </button>
-        <button type="button" onClick={onKeepAll} className="mt-4 text-sm text-white/60 hover:text-white">
-          Keep {trips === 1 ? "it" : "them all"} without looking
+        <button type="button" onClick={onNext} className="btn-accent w-full py-4 text-lg">
+          See my story
         </button>
       </motion.div>
     </div>
   );
 }
 
-function Stat({ value, label }: { value: number | string; label: string }) {
+function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   return (
     <div className="rounded-2xl bg-white/[0.08] px-2 py-3 ring-1 ring-white/10">
       <p className="font-serif text-2xl font-semibold">{value}</p>

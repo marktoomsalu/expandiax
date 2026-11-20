@@ -84,6 +84,20 @@ describe("findWorld", () => {
     expect(world.trips[0].covers[0]).toBe(fav.a);
   });
 
+  it("joins trips straight after one another into one journey", () => {
+    const world = findWorld([...homeLife.filter((p) => p.d < "2024-06-25" || p.d > "2024-07-20"), ...days("IT", "2024-07-01", 4), ...days("FR", "2024-07-05", 3), ...days("DE", "2024-07-08", 3), ...days("PT", "2024-09-01", 3)], locate, "EE");
+    const byCode = Object.fromEntries(world.trips.map((t) => [t.code, t.journey]));
+    expect(byCode.IT).toBe(byCode.FR);
+    expect(byCode.FR).toBe(byCode.DE);
+    expect(byCode.PT).not.toBe(byCode.IT);
+  });
+
+  it("offers a short stop with few photos instead of assuming it", () => {
+    const world = findWorld([...homeLife, at("FR", "2022-06-01", 4), ...days("PT", "2024-06-01", 3)], locate, "EE");
+    expect(world.trips.find((t) => t.code === "FR")?.sure).toBe(false);
+    expect(world.trips.find((t) => t.code === "PT")?.sure).toBe(true);
+  });
+
   it("copes with no places at all", () => {
     expect(findWorld([], locate)).toMatchObject({ homeCode: null, trips: [], countries: [] });
   });
