@@ -4,6 +4,7 @@ import { ProfileForm } from "@/components/ProfileForm";
 import { FlushOnboardingDraft } from "@/components/FlushOnboardingDraft";
 import { AcceptInvite } from "@/components/invite/AcceptInvite";
 import { hasRealName } from "@/lib/profileName";
+import { ExistingAccountLanding } from "@/components/ExistingAccountLanding";
 
 export const metadata = { title: "Set up your profile" };
 
@@ -14,6 +15,16 @@ export default async function OnboardingPage() {
 
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   if (!profile) redirect("/sign-in");
+
+  // "Sign up with Google" with an account that already exists signs into
+  // it: nothing from the first steps (a found world, a first memory) goes
+  // into it, and it's straight to their world. A new account has nothing
+  // yet, however long its email confirmation took.
+  const [{ count: countries }, { count: events }] = await Promise.all([
+    supabase.from("visited_countries").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+    supabase.from("events").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+  ]);
+  if ((countries ?? 0) > 0 || (events ?? 0) > 0) return <ExistingAccountLanding />;
 
   return (
     <div className="mx-auto max-w-md px-5 py-16">
