@@ -4,7 +4,8 @@
 // only a day, a town and venue names asked of the server).
 
 import { loadTowns, townFor, groupByTown, type Town } from "./photoPlaces";
-import { venuesFromRows, venuesNear, type MatchedEvent, type MomentQuery, type Venue } from "./eventMatch";
+import { decide, isBigDay, venuesFromRows, venuesNear, type Moment, type MomentAsk, type ShowFound, type Venue, type VenueKind } from "./eventMatch";
+import { distanceKm } from "./tripPlaces";
 import type { FoundTrip } from "./tripFinder";
 import type { ScanMoment } from "./photoScan";
 import type { EventType } from "./types";
@@ -48,6 +49,20 @@ export type FoundEvent = {
   covers: string[];
 };
 
+/** A big day nothing was listed for: the person says what it was. */
+export type BigDay = {
+  id: string;
+  date: string;
+  code: string;
+  /** The venue it was at, or the town. */
+  place: string | null;
+  city: string | null;
+  venueKind: VenueKind | null;
+  photos: number;
+  hours: number;
+  covers: string[];
+};
+
 const venueCache = new Map<string, Promise<Venue[]>>();
 function loadVenues(code: string): Promise<Venue[]> {
   let p = venueCache.get(code);
@@ -73,58 +88,86 @@ export function eventLike(m: ScanMoment): boolean {
   const end = hourOf(m.e);
   const enough = m.n >= 8 || (m.v >= 2 && m.n >= 4);
   const evening = end >= 18 || end < 4;
-  return enough && (evening || (hours >= 3 && m.n >= 20));
+  return enough && (evening || isBigDay({ photos: m.n, hours }));
+}
+
+/** The town names a moment could be listed under: the town it's in, the nearest, and the big city nearby. */
+export function townNames(spot: { lat: number; lng: number }, towns: Town[]): string[] {
+  const named = townFor(spot, towns)?.name;
+  const near = towns
+    .map((t) => ({ t, d: distanceKm(spot, t) }))
+    .filter((x) => x.d <= 35)
+    .sort((a, b) => a.d - b.d);
+  const nearest = near[0]?.t.name;
+  const biggest = [...near].sort((a, b) => b.t.pop - a.t.pop)[0]?.t.name;
+  return [...new Set([named, biggest, nearest].filter((x): x is string => !!x))];
+}
+
+/** The question for one moment: day, town and venue names, and a rough area (~20 km). No exact place. */
+export function askFor(id: string, m: ScanMoment, code: string, near: Venue[], towns: Town[]): MomentAsk {
+  return {
+    id,
+    day: m.s.slice(0, 10),
+    countryCode: code,
+    towns: townNames({ lat: m.la, lng: m.ln }, towns),
+    venues: [...new Set(near.slice(0, 3).flatMap((v) => [v.name, ...v.aka.slice(0, 2)]))].slice(0, 6),
+    area: { lat: Math.round(m.la * 5) / 5, lng: Math.round(m.ln * 5) / 5 },
+  };
 }
 
 /**
- * Which moments were events. Venues are found on the phone; only moments at
- * a venue (or a long festival-like day) are asked about, with their day,
- * town and venue names.
+ * Which moments were events, and which big days are worth naming. Venues
+ * are found on the phone; the server only hears days, town and venue names
+ * and rough areas, and the phone decides from its answer.
  */
-export async function findEvents(moments: ScanMoment[], locate: (lat: number, lng: number) => string | null): Promise<FoundEvent[]> {
+export async function findEvents(moments: ScanMoment[], locate: (lat: number, lng: number) => string | null): Promise<{ events: FoundEvent[]; bigDays: BigDay[] }> {
   const candidates = moments.filter(eventLike).sort((a, b) => b.n - a.n);
-  const asked: { query: MomentQuery; moment: ScanMoment; code: string; city: string | null }[] = [];
+  type Asked = { ask: MomentAsk; moment: Moment; scan: ScanMoment; code: string; city: string | null };
+  const asked: Asked[] = [];
   for (const m of candidates) {
-    if (asked.length >= 40) break;
+    if (asked.length >= 30) break;
     const code = locate(m.la, m.ln);
     if (!code) continue;
     const [venues, towns] = await Promise.all([loadVenues(code), loadTowns(code)]);
-    const near = venuesNear({ lat: m.la, lng: m.ln }, venues).slice(0, 5);
+    const near = venuesNear({ lat: m.la, lng: m.ln }, venues).slice(0, 3);
     const hours = hoursBetween(m.s, m.e);
-    if (!near.length && !(hours >= 3 && m.n >= 20)) continue;
-    const town: Town | null = towns.length ? townFor({ lat: m.la, lng: m.ln }, towns) : null;
-    const id = `${m.s}|${m.la.toFixed(3)}`;
-    asked.push({
-      moment: m,
-      code,
-      city: town?.name ?? null,
-      query: { id, day: m.s.slice(0, 10), city: town?.name ?? null, countryCode: code, venues: near.map((v) => ({ name: v.name, kind: v.kind, aka: v.aka })), photos: m.n, hours: Math.round(hours * 10) / 10 },
-    });
+    const moment: Moment = { id: `${m.s}|${m.la.toFixed(3)}`, lat: m.la, lng: m.ln, day: m.s.slice(0, 10), photos: m.n, hours, near };
+    if (!near.length && !isBigDay(moment)) continue;
+    asked.push({ ask: askFor(moment.id, m, code, near, towns), moment, scan: m, code, city: townFor({ lat: m.la, lng: m.ln }, towns)?.name ?? null });
   }
-  if (!asked.length) return [];
+  if (!asked.length) return { events: [], bigDays: [] };
 
   const res = await fetch("/api/scan/events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ moments: asked.map((a) => a.query) }),
+    body: JSON.stringify({ moments: asked.map((a) => a.ask) }),
   });
-  if (!res.ok) return [];
-  const { events } = (await res.json()) as { events: MatchedEvent[] };
-  const byId = new Map(asked.map((a) => [a.query.id, a]));
+  const answers = res.ok ? ((await res.json()) as { answers: { id: string; shows: ShowFound[] }[] }).answers : [];
+  const showsOf = new Map(answers.map((a) => [a.id, a.shows]));
 
-  const found: FoundEvent[] = [];
-  for (const e of events) {
-    const a = byId.get(e.id);
-    if (!a) continue;
-    const date = a.moment.s.slice(0, 10);
-    // The same night at the same place (photos before and after a break) is one event.
-    const twin = found.find((f) => f.date === date && f.venue === e.venue);
-    if (twin) {
-      twin.photos += a.moment.n;
-      twin.sure ||= e.sure;
-      continue;
+  const events: FoundEvent[] = [];
+  const bigDays: BigDay[] = [];
+  for (const a of asked) {
+    const d = decide(a.moment, showsOf.get(a.moment.id) ?? []);
+    if (!d) continue;
+    if (d.kind === "event") {
+      // The same night at the same place (photos before and after a break) is one event.
+      const twin = events.find((f) => f.date === a.moment.day && f.title === d.title);
+      if (twin) {
+        twin.photos += a.scan.n;
+        twin.sure ||= d.sure;
+        continue;
+      }
+      events.push({ id: a.moment.id, type: d.type, title: d.title, artist: d.artist, venue: d.venue, city: a.city, code: a.code, date: a.moment.day, sure: d.sure, photos: a.scan.n, covers: a.scan.a });
+    } else {
+      if (bigDays.some((b) => b.date === a.moment.day && b.place === d.place)) continue;
+      bigDays.push({ id: a.moment.id, date: a.moment.day, code: a.code, place: d.place, city: a.city, venueKind: d.venueKind, photos: a.scan.n, hours: a.moment.hours, covers: a.scan.a });
     }
-    found.push({ id: e.id, type: e.type, title: e.title, artist: e.artist, venue: e.venue, city: a.city, code: a.code, date, sure: e.sure, photos: a.moment.n, covers: a.moment.a });
   }
-  return found.sort((x, y) => y.date.localeCompare(x.date));
+  // A big day on the same day as a found event is that event.
+  const named = bigDays.filter((b) => !events.some((e) => e.date === b.date));
+  return {
+    events: events.sort((x, y) => y.date.localeCompare(x.date)),
+    bigDays: named.sort((x, y) => y.photos - x.photos).slice(0, 6).sort((x, y) => y.date.localeCompare(x.date)),
+  };
 }

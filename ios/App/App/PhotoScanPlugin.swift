@@ -153,6 +153,12 @@ public class PhotoScanPlugin: CAPPlugin, CAPBridgedPlugin {
                 guard let location = asset.location, let date = asset.creationDate else { return }
                 let c = location.coordinate
                 guard CLLocationCoordinate2DIsValid(c), !(c.latitude == 0 && c.longitude == 0) else { return }
+                // A place that isn't where you were (build 14 on): taken from
+                // a plane (high up, or fast), or a rough guess from the phone
+                // network (off by kilometres, sometimes across a sea and a border).
+                if location.horizontalAccuracy > 1500 { return }
+                if location.verticalAccuracy >= 0 && location.altitude > 4500 { return }
+                if location.speed > 70 { return }
                 located += 1
 
                 // The day where it was taken: UTC moved by the longitude (an

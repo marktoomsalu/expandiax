@@ -194,6 +194,28 @@ export function findWorld(places: ScanPlace[], locate: (lat: number, lng: number
   // a border: it's offered, not assumed.
   for (const t of trips) t.sure = !(t.photos < 6 && t.photoDays === 1 && t.favourites === 0);
 
+  // Photos placed in the wrong country: the phone's position over the sea
+  // near a border (Lebanon, seen from Cyprus), or from a plane (Russia and
+  // Mongolia on the way to China). Their days are all days with many more
+  // photos somewhere else, so they're offered, not assumed.
+  const perDay = new Map<string, Map<string, number>>();
+  for (const p of located) {
+    const day = perDay.get(p.d) ?? new Map<string, number>();
+    day.set(p.code, (day.get(p.code) ?? 0) + p.n);
+    perDay.set(p.d, day);
+  }
+  for (const t of trips) {
+    if (!t.sure || t.photoDays > 3 || t.favourites > 2) continue;
+    const days = [...new Set(t.spots.map((s) => s.d))];
+    const elsewhere = days.every((d) => {
+      const counts = perDay.get(d);
+      const mine = counts?.get(t.code) ?? 0;
+      const other = Math.max(0, ...[...(counts ?? new Map<string, number>()).entries()].filter(([c]) => c !== t.code).map(([, n]) => n));
+      return other >= Math.max(3, mine * 3);
+    });
+    if (elsewhere) t.sure = false;
+  }
+
   // Journeys: one trip after another (a day or two between at most, nothing
   // at home in between) is one journey through several countries.
   const inOrder = [...trips].sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));

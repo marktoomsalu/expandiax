@@ -6,16 +6,17 @@ import { ImageOff, Lock, Sparkles } from "lucide-react";
 import { askPhotoAccess, chooseMorePhotos, openAppSettings, photoAccess, scanPhotos, type PhotoAccess } from "@/lib/photoScan";
 import { findWorld, type FoundWorld, type ScanPlace } from "@/lib/tripFinder";
 import { loadShapes, makeLocator } from "@/lib/countryLocator";
-import { findEvents, nameTrips, type FoundEvent, type TripTown } from "@/lib/worldStory";
-import type { KeptWorld } from "@/lib/worldScan";
+import { findEvents, nameTrips, type BigDay, type FoundEvent, type TripTown } from "@/lib/worldStory";
+import type { KeptEvent, KeptWorld } from "@/lib/worldScan";
 import { noteFeature } from "@/lib/usageClient";
 import { tapLight } from "@/lib/haptics";
 import { ScanAwakening } from "./ScanAwakening";
 import { ScanReveal } from "./ScanReveal";
-import { StoryView } from "./StoryView";
+import { CountriesWall, type CountryPick } from "./CountriesWall";
+import { MemoriesView } from "./MemoriesView";
 import { ScanFinish } from "./ScanFinish";
 
-type Phase = "invite" | "denied" | "scanning" | "awakening" | "reveal" | "story" | "finish" | "empty";
+type Phase = "invite" | "denied" | "scanning" | "awakening" | "reveal" | "countries" | "memories" | "finish" | "empty";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -23,13 +24,15 @@ const EASE = [0.22, 1, 0.36, 1] as const;
  * "Find my world": the trips and events hiding in someone's photos, found
  * on their phone and turned into their world.
  *
- *   invite → (iOS asks) → scanning → awakening → reveal → story → finish
+ *   invite → (iOS asks) → scanning → awakening → reveal → countries → memories → finish
  *
- * Nothing to go through one by one: trips are worked out (named by their
- * towns, joined into journeys), concerts and matches are recognised, and
- * the story is already kept; anything wrong is one tap away. New people do
- * it before they have an account (it waits on the phone until they sign
- * up); members save it straight away.
+ * Nothing to go through one by one: the countries are already kept (the
+ * doubtful ones wait, off), anything wrong is a tap away and anything
+ * missing a search away. Concerts and matches are recognised; big days with
+ * nothing listed are one tap from being named. Trips (with their towns) are
+ * saved quietly behind each country. New people do it before they have an
+ * account (it waits on the phone until they sign up); members save it
+ * straight away.
  */
 export function WorldScanFlow({
   mode,
@@ -52,11 +55,14 @@ export function WorldScanFlow({
   const [home, setHome] = useState<string | null>(knownHome);
   const [towns, setTowns] = useState<Record<string, TripTown[]>>({});
   const [events, setEvents] = useState<FoundEvent[] | null>(null);
+  const [bigDays, setBigDays] = useState<BigDay[]>([]);
+  const [hasMoments, setHasMoments] = useState(false);
+  const [pick, setPick] = useState<CountryPick | null>(null);
   const [kept, setKept] = useState<KeptWorld | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const locator = useRef<((lat: number, lng: number) => string | null) | null>(null);
-  const eventsDone = useRef<Promise<FoundEvent[]> | null>(null);
+  const eventsDone = useRef<Promise<{ events: FoundEvent[]; bigDays: BigDay[] }> | null>(null);
 
   // The world's outlines load while the first screen is up.
   useEffect(() => {
@@ -107,8 +113,13 @@ export function WorldScanFlow({
         new Promise((r) => setTimeout(r, 1800)),
       ]);
       const locate = locator.current!;
-      const found = (eventsDone.current = result.moments?.length ? findEvents(result.moments, locate).catch(() => []) : Promise.resolve([]));
-      void found.then(setEvents);
+      const none = { events: [] as FoundEvent[], bigDays: [] as BigDay[] };
+      const found = (eventsDone.current = result.moments?.length ? findEvents(result.moments, locate).catch(() => none) : Promise.resolve(none));
+      setHasMoments(!!result.moments?.length);
+      void found.then((f) => {
+        setEvents(f.events);
+        setBigDays(f.bigDays);
+      });
       setPlaces(result.places);
       setPhase("awakening");
     } catch {
@@ -123,9 +134,36 @@ export function WorldScanFlow({
       setPhase("reveal");
       return;
     }
-    const late = await Promise.race([eventsDone.current ?? Promise.resolve([]), new Promise<FoundEvent[]>((r) => setTimeout(() => r([]), 8000))]);
-    setPhase(late.length ? "reveal" : "empty");
+    const late = await Promise.race([
+      eventsDone.current ?? Promise.resolve({ events: [], bigDays: [] }),
+      new Promise<{ events: FoundEvent[]; bigDays: BigDay[] }>((r) => setTimeout(() => r({ events: [], bigDays: [] }), 8000)),
+    ]);
+    setPhase(late.events.length || late.bigDays.length ? "reveal" : "empty");
   }
+
+  // Everything kept: the countries (with each one's trips and towns behind them) and the memories.
+  function keptWorld(p: CountryPick, memories: KeptEvent[]): KeptWorld {
+    const codes = new Set(p.codes);
+    return {
+      homeCode: home ?? world?.homeCode ?? null,
+      trips: (world?.trips ?? [])
+        .filter((t) => codes.has(t.code))
+        .map((t) => ({
+          code: t.code,
+          from: t.from,
+          to: t.to,
+          kind: t.kind,
+          covers: t.covers,
+          towns: (towns[t.id] ?? []).map((x) => ({ name: x.name, lat: x.lat, lng: x.lng, arrived: x.arrived, departed: x.departed })),
+        })),
+      countries: p.added,
+      events: memories,
+    };
+  }
+
+  const saveLabel = mode === "new" ? "Save my world" : "Add to my world";
+  // Memories only when the phone can find them (build 13 on), and there's something (or still something coming).
+  const memoriesNext = hasMoments && (events === null || events.length > 0 || bigDays.length > 0);
 
   async function finish(world: KeptWorld) {
     setKept(world);
@@ -167,21 +205,26 @@ export function WorldScanFlow({
             events={events}
             canChangeHome={mode === "new" || !knownHome}
             onChangeHome={(code) => setHome(code)}
-            onNext={() => setPhase("story")}
+            onNext={() => setPhase("countries")}
           />
         );
       break;
-    case "story":
+    case "countries":
       if (world)
         scene = (
-          <StoryView
-            mode={mode}
+          <CountriesWall
             world={world}
-            towns={towns}
-            events={events}
-            onSave={(k) => void finish(k)}
+            next={memoriesNext ? "Next: my memories" : saveLabel}
+            onNext={(p) => {
+              setPick(p);
+              if (memoriesNext) setPhase("memories");
+              else void finish(keptWorld(p, []));
+            }}
           />
         );
+      break;
+    case "memories":
+      if (pick) scene = <MemoriesView events={events} bigDays={bigDays} saveLabel={saveLabel} onSave={(m) => void finish(keptWorld(pick, m))} />;
       break;
     case "finish":
       if (kept) scene = <ScanFinish mode={mode} kept={kept} limited={access === "limited"} saving={saving} />;

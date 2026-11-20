@@ -38,7 +38,7 @@ type SetlistFmSetlist = {
   eventDate: string; // dd-MM-yyyy
   url?: string;
   tour?: { name?: string };
-  venue?: { name?: string; city?: { name?: string; country?: { code?: string; name?: string } } };
+  venue?: { name?: string; city?: { name?: string; coords?: { lat?: number; long?: number }; country?: { code?: string; name?: string } } };
   sets?: { set?: { song?: SetlistSong[] }[] };
 };
 
@@ -66,13 +66,20 @@ export function pastShowFromSetlist(s: SetlistFmSetlist): PastShow | null {
 async function setlistFm<T>(path: string): Promise<T | null> {
   const key = process.env.SETLISTFM_API_KEY;
   if (!key) throw new Error("not_configured");
-  const res = await fetch(`https://api.setlist.fm/rest/1.0${path}`, {
-    headers: { "x-api-key": key, Accept: "application/json", "Accept-Language": "en" },
-    next: { revalidate: 60 * 60 * 24 },
-  });
-  if (res.status === 404) return null; // setlist.fm answers "not found" when there are no results
-  if (!res.ok) throw new Error(`setlistfm_${res.status}`);
-  return (await res.json()) as T;
+  // setlist.fm allows about two requests a second: "too many" waits a moment and tries again.
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`https://api.setlist.fm/rest/1.0${path}`, {
+      headers: { "x-api-key": key, Accept: "application/json", "Accept-Language": "en" },
+      next: { revalidate: 60 * 60 * 24 },
+    });
+    if (res.status === 429 && attempt < 3) {
+      await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+      continue;
+    }
+    if (res.status === 404) return null; // setlist.fm answers "not found" when there are no results
+    if (!res.ok) throw new Error(`setlistfm_${res.status}`);
+    return (await res.json()) as T;
+  }
 }
 
 const normalize = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]/gu, "");
@@ -435,7 +442,57 @@ export async function nearbyEvents(where: NearbyWhere, limit = 24, range?: { fro
   return weave(lists.map(collapseRuns), limit);
 }
 
-export type ShowThatNight = { artist: string; venue: string | null; city: string | null; countryCode: string | null };
+export type ShowThatNight = { artist: string; venue: string | null; city: string | null; countryCode: string | null; /** The town's middle (setlist.fm). */ cityLat?: number | null; cityLng?: number | null; /** Songs played: the headliner plays the most. */ songs?: number };
+
+function showOf(s: SetlistFmSetlist, artist: string): ShowThatNight {
+  return {
+    artist,
+    venue: s.venue?.name?.trim() || null,
+    city: s.venue?.city?.name ?? null,
+    countryCode: s.venue?.city?.country?.code?.toUpperCase() ?? null,
+    cityLat: s.venue?.city?.coords?.lat ?? null,
+    cityLng: s.venue?.city?.coords?.long ?? null,
+    songs: (s.sets?.set ?? []).reduce((n, set) => n + (set.song ?? []).filter((song) => !song.tape).length, 0),
+  };
+}
+
+/** Everything that played in a country on one day (setlist.fm), up to `pages` × 20. */
+export async function showsInCountryOnDay(countryCode: string, day: string, pages = 3): Promise<ShowThatNight[]> {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m || !/^[A-Z]{2}$/.test(countryCode)) return [];
+  const out: ShowThatNight[] = [];
+  const seen = new Set<string>();
+  for (let p = 1; p <= pages; p++) {
+    const qs = new URLSearchParams({ countryCode, date: `${m[3]}-${m[2]}-${m[1]}`, p: String(p) });
+    const data = await setlistFm<{ setlist?: (SetlistFmSetlist & { artist?: { name?: string } })[]; total?: number; itemsPerPage?: number }>(`/search/setlists?${qs}`).catch(() => null);
+    for (const s of data?.setlist ?? []) {
+      const artist = s.artist?.name?.trim();
+      const key = `${normalize(artist ?? "")}|${s.venue?.name ?? ""}`;
+      if (!artist || seen.has(key)) continue;
+      seen.add(key);
+      out.push(showOf(s, artist));
+    }
+    if (!data?.total || p * (data.itemsPerPage ?? 20) >= data.total) break;
+  }
+  return out;
+}
+
+/** Concerts at a venue (by any of its names) on one day (setlist.fm). */
+export async function showsAtVenue(venueName: string, day: string): Promise<ShowThatNight[]> {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m || !venueName.trim()) return [];
+  const qs = new URLSearchParams({ venueName: venueName.trim(), date: `${m[3]}-${m[2]}-${m[1]}`, p: "1" });
+  const data = await setlistFm<{ setlist?: (SetlistFmSetlist & { artist?: { name?: string } })[] }>(`/search/setlists?${qs}`);
+  const seen = new Set<string>();
+  const out: ShowThatNight[] = [];
+  for (const s of data?.setlist ?? []) {
+    const artist = s.artist?.name?.trim();
+    if (!artist || seen.has(normalize(artist))) continue;
+    seen.add(normalize(artist));
+    out.push(showOf(s, artist));
+  }
+  return out;
+}
 
 /**
  * Concerts that played in a city on one day (setlist.fm), for "Were you
@@ -457,7 +514,7 @@ export async function showsOnDay(city: string, day: string, countryCode?: string
     const artist = s.artist?.name?.trim();
     if (!artist || seen.has(normalize(artist))) continue;
     seen.add(normalize(artist));
-    out.push({ artist, venue: s.venue?.name?.trim() || null, city: s.venue?.city?.name ?? null, countryCode: s.venue?.city?.country?.code?.toUpperCase() ?? null });
+    out.push(showOf(s, artist));
   }
   return out;
 }

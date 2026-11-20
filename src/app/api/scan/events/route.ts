@@ -1,65 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
-import { showsOnDay } from "@/lib/concerts";
-import { decide, type MatchedEvent, type MomentQuery, type Show, type VenueKind } from "@/lib/eventMatch";
+import { unstable_cache } from "next/cache";
+import type { MomentAsk, ShowFound } from "@/lib/eventMatch";
+import { osmGeocode, showsFor, type Geocode } from "@/lib/eventLookup";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 45;
+export const maxDuration = 60;
 
-const MAX_MOMENTS = 40;
+const MAX_MOMENTS = 30;
+
+// A venue's place is kept for a month: venues don't move.
+const cachedGeocode: Geocode = (venue, city, countryCode) =>
+  unstable_cache(() => osmGeocode(venue, city, countryCode), ["venue-at", venue.toLowerCase(), city.toLowerCase(), countryCode], { revalidate: 60 * 60 * 24 * 30 })();
 
 /**
- * "Find my world" (iPhone app, before or after sign-up): which of these
- * moments were concerts, matches or festivals. Each comes as a day, a town
- * and the names of the venues it was next to (worked out on the phone):
- * no place, no photos, nothing about the person, and nothing is kept.
+ * "Find my world" (iPhone app, before or after sign-up): what played on
+ * these days at these venues or in these towns, and where each venue is.
+ * Each moment comes as a day, a few town and venue names and a rough area
+ * (~20 km), worked out on the phone: no exact place, no photos, nothing
+ * about the person, and nothing is kept. The phone decides from the answer
+ * whether its photos were taken there.
  */
 export async function POST(request: NextRequest) {
-  let moments: MomentQuery[];
+  let asks: MomentAsk[];
   try {
     const body = (await request.json()) as { moments?: unknown };
-    moments = (Array.isArray(body.moments) ? body.moments : []).slice(0, MAX_MOMENTS).flatMap((m): MomentQuery[] => {
-      const x = m as Partial<MomentQuery>;
+    asks = (Array.isArray(body.moments) ? body.moments : []).slice(0, MAX_MOMENTS).flatMap((raw): MomentAsk[] => {
+      const x = raw as Partial<MomentAsk>;
       if (typeof x.day !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x.day)) return [];
-      const venues = (Array.isArray(x.venues) ? x.venues : [])
-        .slice(0, 5)
-        .flatMap((v) =>
-          v && typeof v.name === "string" && "satm".includes(String(v.kind))
-            ? [
-                {
-                  name: v.name.slice(0, 120),
-                  kind: v.kind as VenueKind,
-                  aka: (Array.isArray(v.aka) ? v.aka : []).filter((n): n is string => typeof n === "string").slice(0, 6).map((n) => n.slice(0, 80)),
-                },
-              ]
-            : []
-        );
+      const list = (v: unknown, n: number) => (Array.isArray(v) ? v : []).filter((s): s is string => typeof s === "string" && !!s.trim()).slice(0, n).map((s) => s.trim().slice(0, 100));
+      const lat = Number(x.area?.lat);
+      const lng = Number(x.area?.lng);
       return [
         {
-          id: String(x.id ?? "").slice(0, 40),
+          id: String(x.id ?? "").slice(0, 60),
           day: x.day,
-          city: typeof x.city === "string" ? x.city.slice(0, 80) : null,
           countryCode: typeof x.countryCode === "string" && /^[A-Z]{2}$/.test(x.countryCode) ? x.countryCode : null,
-          venues,
-          photos: Math.max(0, Math.min(10_000, Number(x.photos) || 0)),
-          hours: Math.max(0, Math.min(48, Number(x.hours) || 0)),
+          towns: list(x.towns, 3),
+          venues: list(x.venues, 6),
+          // Never finer than ~20 km, whatever is sent.
+          area: Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat: Math.round(lat * 5) / 5, lng: Math.round(lng * 5) / 5 } : null,
         },
       ];
     });
   } catch {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
+  if (!process.env.SETLISTFM_API_KEY) return NextResponse.json({ answers: [] });
 
-  const events: MatchedEvent[] = [];
-  // Two at a time: setlist.fm allows a couple of requests a second.
-  const queue = [...moments];
+  const answers: { id: string; shows: ShowFound[] }[] = [];
+  const queue = [...asks];
   async function worker() {
-    for (let m = queue.shift(); m; m = queue.shift()) {
-      let shows: Show[] = [];
-      if (m.city && process.env.SETLISTFM_API_KEY) shows = await showsOnDay(m.city, m.day, m.countryCode, 2).catch(() => []);
-      const e = decide(m, shows);
-      if (e) events.push(e);
-    }
+    for (let a = queue.shift(); a; a = queue.shift()) answers.push({ id: a.id, shows: await showsFor(a, cachedGeocode).catch(() => []) });
   }
+  // Two at a time: setlist.fm allows about two requests a second.
   await Promise.all([worker(), worker()]);
-  return NextResponse.json({ events });
+  return NextResponse.json({ answers });
 }

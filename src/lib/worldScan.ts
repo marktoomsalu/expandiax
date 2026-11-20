@@ -37,7 +37,13 @@ export type KeptEvent = {
   covers: string[];
 };
 
-export type KeptWorld = { homeCode: string | null; trips: KeptTrip[]; events?: KeptEvent[] };
+export type KeptWorld = {
+  homeCode: string | null;
+  trips: KeptTrip[];
+  /** Countries added by hand (no trips behind them). */
+  countries?: string[];
+  events?: KeptEvent[];
+};
 
 const KEY = "expandiax:world-scan";
 const KEEP_DAYS = 14;
@@ -62,7 +68,12 @@ export function loadKeptWorld(): KeptWorld | null {
       localStorage.removeItem(KEY);
       return null;
     }
-    return { homeCode: data.homeCode ?? null, trips: Array.isArray(data.trips) ? data.trips : [], events: Array.isArray(data.events) ? data.events : [] };
+    return {
+      homeCode: data.homeCode ?? null,
+      trips: Array.isArray(data.trips) ? data.trips : [],
+      countries: Array.isArray(data.countries) ? data.countries : [],
+      events: Array.isArray(data.events) ? data.events : [],
+    };
   } catch {
     return null;
   }
@@ -97,7 +108,7 @@ export function worldScanned(): boolean {
 
 /** The countries a kept world puts on the map: home first, then each trip's and event's. */
 export function keptCountries(world: KeptWorld): string[] {
-  const codes = [...(world.homeCode ? [world.homeCode] : []), ...world.trips.map((t) => t.code), ...(world.events ?? []).map((e) => e.code)];
+  const codes = [...(world.homeCode ? [world.homeCode] : []), ...world.trips.map((t) => t.code), ...(world.countries ?? []), ...(world.events ?? []).map((e) => e.code)];
   return [...new Set(codes)].filter((c) => !!countryByCode(c));
 }
 

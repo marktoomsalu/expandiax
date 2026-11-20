@@ -9,13 +9,13 @@ import { MIN_AGE } from "@/lib/legal";
 // A plain link would replace the sign-up page (and lose what's been typed);
 // a new tab does the job on the web, and the in-app browser does it in the
 // native app, where target="_blank" isn't reliable.
-function LegalLink({ href, children }: { href: string; children: React.ReactNode }) {
+export function LegalLink({ href, children, className = "text-accent underline underline-offset-2" }: { href: string; children: React.ReactNode; className?: string }) {
   return (
     <Link
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-accent underline underline-offset-2"
+      className={className}
       onClick={(e) => {
         if (!isNativePlatform()) return;
         e.preventDefault();

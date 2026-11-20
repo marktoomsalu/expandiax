@@ -98,6 +98,19 @@ describe("findWorld", () => {
     expect(world.trips.find((t) => t.code === "PT")?.sure).toBe(true);
   });
 
+  it("doubts a country seen only on days with many more photos elsewhere (a border at sea, a flight)", () => {
+    const cyprus = days("PT", "2024-06-01", 6, 1, 30); // a week "in Cyprus"
+    const lebanon = [at("IT", "2024-06-03", 4), at("IT", "2024-06-04", 3)]; // the phone thought it was across the sea
+    const world = findWorld([...homeLife, ...cyprus, ...lebanon], locate, "EE");
+    expect(world.trips.find((t) => t.code === "IT")?.sure).toBe(false);
+    expect(world.trips.find((t) => t.code === "PT")?.sure).toBe(true);
+  });
+
+  it("keeps a real day trip across a border with plenty of photos", () => {
+    const world = findWorld([...homeLife, ...days("PT", "2024-06-01", 6, 1, 10), at("FR", "2024-06-03", 40)], locate, "EE");
+    expect(world.trips.find((t) => t.code === "FR")?.sure).toBe(true);
+  });
+
   it("copes with no places at all", () => {
     expect(findWorld([], locate)).toMatchObject({ homeCode: null, trips: [], countries: [] });
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +11,8 @@ import { PasswordField } from "@/components/PasswordField";
 import { ConsentCheckbox } from "@/components/LegalConsent";
 import { PRIVACY_VERSION, TERMS_VERSION } from "@/lib/legal";
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, passwordProblem } from "@/lib/password";
+import { SignUpWelcome } from "@/components/signup/SignUpWelcome";
+import { canScanPhotos } from "@/lib/photoScan";
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
@@ -27,6 +29,10 @@ export default function SignUpPage() {
   const [alreadyHere, setAlreadyHere] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The new first look (Apple and Google first, email smaller), only in
+  // iPhone app builds with Find my world until it's released.
+  const [welcome, setWelcome] = useState(false);
+  useEffect(() => setWelcome(canScanPhotos()), []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -102,6 +108,8 @@ export default function SignUpPage() {
       setBusy(false);
     }
   }
+
+  if (welcome) return <SignUpWelcome onEmail={() => setWelcome(false)} />;
 
   return (
     <div className="mx-auto max-w-md px-5 py-16">

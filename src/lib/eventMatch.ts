@@ -1,9 +1,10 @@
 // "Find my world", events: was this evening of photos a concert, a match,
 // a show? On the phone, a moment (a few hours of photos in one spot) is
-// checked against the venues around it (Wikidata, CC0, public/data/venues);
-// only then are the day, the town and those venues' names (no place, no
-// photo, nothing about the person) checked against what played there that
-// day (setlist.fm). The pure parts live here, so they're tested.
+// checked against the venues around it (Wikidata, CC0, public/data/venues).
+// The server is asked only for a day, a few town names and venue names (no
+// place, no photo, nothing about the person): what played at those venues
+// or in those towns that day (setlist.fm), and where those venues are. The
+// phone then decides whether the photos were taken there.
 
 import type { EventType } from "./types";
 
@@ -11,38 +12,51 @@ import type { EventType } from "./types";
 export type VenueKind = "s" | "a" | "m" | "t";
 export type Venue = { name: string; lat: number; lng: number; kind: VenueKind; /** Other names it goes by ("San Siro" for Giuseppe Meazza Stadium). */ aka: string[] };
 
-/** What the phone asks the server about one moment. */
-export type MomentQuery = {
+/** What the phone asks about one moment. */
+export type MomentAsk = {
   id: string;
   /** yyyy-mm-dd, local. */
   day: string;
-  /** The town it's in (from the phone's own town list). */
-  city: string | null;
   countryCode: string | null;
-  /** Venues within a few hundred metres, nearest first. */
-  venues: { name: string; kind: VenueKind; aka?: string[] }[];
-  photos: number;
-  hours: number;
+  /** Town names it could be listed under ("Wembley" and "London"). */
+  towns: string[];
+  /** Names of the venues right there, each with its other names. */
+  venues: string[];
+  /** Roughly where (rounded to ~20 km, like a town name): to pick shows nearby from a whole country's list. */
+  area?: { lat: number; lng: number } | null;
 };
 
-export type MatchedEvent = {
-  id: string;
-  type: EventType;
-  title: string;
-  artist: string | null;
+/** What the server answers: a show that day, and where its venue is (when known). */
+export type ShowFound = {
+  artist: string;
   venue: string | null;
-  /** Sure: a show and the venue agree. Not sure: only the place says so. */
-  sure: boolean;
+  city: string | null;
+  lat: number | null;
+  lng: number | null;
+  /** Found by asking for one of the venues the photos were taken at. */
+  atVenue: boolean;
+  /** The listed town's middle: where a venue that can't be placed is, roughly (a small place like Fornebu). */
+  cityLat?: number | null;
+  cityLng?: number | null;
+  /** Songs played: the headliner plays the most. */
+  songs?: number;
 };
 
-export type Show = { artist: string; venue: string | null; city: string | null; countryCode: string | null };
+/** A moment as the phone knows it. */
+export type Moment = { id: string; lat: number; lng: number; day: string; photos: number; hours: number; near: Venue[] };
+
+export type Decision =
+  | { kind: "event"; type: EventType; title: string; artist: string | null; venue: string | null; sure: boolean }
+  /** A big day with nothing listed: the person says what it was (a race, a wedding, an unlisted show). */
+  | { kind: "name"; place: string | null; venueKind: VenueKind | null }
+  | null;
 
 /** A country's venues from /data/venues/XX.json rows: [name, lat, lng, kind, other names?]. */
 export function venuesFromRows(rows: [string, number, number, string, string[]?][]): Venue[] {
   return rows.flatMap(([name, lat, lng, kind, aka]) => ("satm".includes(kind) && name ? [{ name, lat, lng, kind: kind as VenueKind, aka: Array.isArray(aka) ? aka : [] }] : []));
 }
 
-const metres = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+export const metres = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
   const dLat = (a.lat - b.lat) * 111_000;
   const dLng = (a.lng - b.lng) * 111_000 * Math.cos((a.lat * Math.PI) / 180);
   return Math.sqrt(dLat * dLat + dLng * dLng);
@@ -54,7 +68,7 @@ const metres = (a: { lat: number; lng: number }, b: { lat: number; lng: number }
  * reach further than small ones.
  */
 export function venuesNear(m: { lat: number; lng: number }, venues: Venue[]): Venue[] {
-  const reach: Record<VenueKind, number> = { s: 450, a: 350, m: 250, t: 200 };
+  const reach: Record<VenueKind, number> = { s: 600, a: 450, m: 300, t: 250 };
   return venues
     .map((v) => ({ v, d: metres(m, v) }))
     .filter((x) => x.d <= reach[x.v.kind])
@@ -91,31 +105,60 @@ export function sameVenue(a: string, b: string): boolean {
   return shared / Math.max(ka.size, kb.size) >= 0.5;
 }
 
+/** A big day: long enough, with enough photos, to be worth asking about. */
+export const isBigDay = (m: Pick<Moment, "photos" | "hours">) => (m.hours >= 2 && m.photos >= 25) || m.photos >= 60;
+
+const concert = (show: ShowFound, sure: boolean): Decision => ({
+  kind: "event",
+  type: /festival|fest\b/i.test(show.venue ?? "") ? "festival" : "concert",
+  title: show.artist,
+  artist: show.artist,
+  venue: show.venue,
+  sure,
+});
+
+/** The headliner of a night: the longest setlist (support acts play a handful of songs). */
+export function headliner(shows: ShowFound[]): ShowFound {
+  return shows.reduce((best, s) => ((s.songs ?? 0) > (best.songs ?? 0) ? s : best), shows[0]);
+}
+
 /**
- * What a moment was, from the venues around it and the shows in its town
- * that day. A show at a venue right there is sure; a lone stadium or stage
- * with no listed show is offered, not assumed (the person decides).
+ * What a moment was. Sure: a show listed at the venue the photos were taken
+ * at (asked by its name, or its listed venue found right there). A show
+ * whose venue is a little further is offered; a big day at a venue with
+ * nothing listed (a match, an unlisted show) or anywhere else (a race, a
+ * wedding) is for the person to name.
  */
-export function decide(moment: MomentQuery, shows: Show[]): MatchedEvent | null {
-  const near = moment.venues;
-  for (const v of near) {
-    const names = [v.name, ...(v.aka ?? [])];
-    const show = shows.find((s) => s.venue && names.some((n) => sameVenue(s.venue!, n)));
-    if (show) {
-      // The venue as people (and the listing) call it: "Stadio San Siro", not its official name.
-      return { id: moment.id, type: /festival/i.test(show.venue ?? "") ? "festival" : "concert", title: show.artist, artist: show.artist, venue: show.venue, sure: true };
+export function decide(m: Moment, shows: ShowFound[]): Decision {
+  const atVenue = shows.filter((s) => s.atVenue);
+  if (atVenue.length) return concert(headliner(atVenue), true);
+
+  const names = m.near.flatMap((v) => [v.name, ...v.aka]);
+  const byName = shows.filter((s) => s.venue && names.some((n) => sameVenue(s.venue!, n)));
+  if (byName.length) return concert(headliner(byName), true);
+
+  // Where each show was: its venue, or (when that can't be found) its town's
+  // middle, which only counts when it's right there (a small place).
+  const placed = shows.flatMap((s) => {
+    if (s.lat != null && s.lng != null) return [{ s, d: metres(m, { lat: s.lat, lng: s.lng }) }];
+    if (s.cityLat != null && s.cityLng != null) {
+      const d = metres(m, { lat: s.cityLat, lng: s.cityLng });
+      return d <= 1500 ? [{ s, d }] : [];
     }
+    return [];
+  });
+  const nearest = placed.sort((a, b) => a.d - b.d)[0];
+  if (nearest && nearest.d <= 1800) {
+    // Everyone who played that venue that night: the headliner is the night.
+    const same = shows.filter((s) => s.venue && nearest.s.venue && sameVenue(s.venue, nearest.s.venue));
+    return concert(headliner(same.length ? same : [nearest.s]), nearest.d <= 1200);
   }
-  // A festival: a long day with lots of photos, and a festival on the town's list that day.
-  const festival = shows.find((s) => /festival|fest\b/i.test(s.venue ?? ""));
-  if (festival && moment.hours >= 3 && moment.photos >= 20) {
-    return { id: moment.id, type: "festival", title: festival.venue!, artist: null, venue: festival.venue, sure: false };
-  }
-  const v = near[0];
-  if (!v) return null;
-  // One show in town that night and they were at a stage or arena: probably that one.
-  if (shows.length === 1 && v.kind !== "s") {
-    return { id: moment.id, type: "concert", title: shows[0].artist, artist: shows[0].artist, venue: v.name, sure: false };
-  }
-  return { id: moment.id, type: v.kind === "s" ? "sport" : v.kind === "t" ? "other" : "concert", title: v.name, artist: null, venue: v.name, sure: false };
+
+  // A big night out and only one show in town, at a venue no map knows (a
+  // stadium built for one tour): probably that one, offered.
+  const unplaced = shows.filter((s) => s.lat == null);
+  if (isBigDay(m) && shows.length === 1 && unplaced.length === 1 && !m.near.length) return concert(shows[0], false);
+
+  if (m.near.length) return isBigDay(m) || m.near[0].kind === "s" ? { kind: "name", place: m.near[0].name, venueKind: m.near[0].kind } : null;
+  return isBigDay(m) ? { kind: "name", place: null, venueKind: null } : null;
 }
