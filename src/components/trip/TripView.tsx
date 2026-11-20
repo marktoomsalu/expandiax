@@ -15,7 +15,6 @@ import { LikeButton } from "@/components/LikeButton";
 import { CommentSection } from "@/components/CommentSection";
 import { TripPlaceCards } from "./TripPlaceCards";
 import { TripCover } from "./TripCover";
-import { StoryShare, type StoryStyle } from "@/components/StoryShare";
 import type { CommentWithAuthor, CountryCity, CountryMedia, CountryVisit } from "@/lib/types";
 import type { StayLink } from "@/lib/stayLinks";
 
@@ -34,11 +33,6 @@ export type TripVisit = CountryVisit & {
  * big "Add memory to this trip". Used by the owner's My World and by
  * anyone's /u/<name>/trips/<id>.
  */
-const STICKERS: StoryStyle[] = [
-  { key: "stamp", label: "Stamp", sticker: true },
-  { key: "polaroid", label: "Polaroid", sticker: true },
-];
-
 export function TripView({
   visit,
   meta,
@@ -164,53 +158,14 @@ export function TripView({
       </div>
 
       <div className="mx-auto max-w-3xl px-5 pb-16 pt-6">
-        {owner && created ? (
-          // Just saved: the proud moment, and the easiest time to share it.
-          <div role="status" className="mb-5 overflow-hidden rounded-2xl bg-gradient-to-br from-accent via-accent-2 to-accent-3 p-px shadow-lg shadow-accent/15">
-            <div className="rounded-[calc(1rem-1px)] bg-surface px-4 py-4">
-              <p className="font-serif text-xl">{meta.flag} {meta.name}, remembered.</p>
-              <p className="mt-1 text-sm text-muted">
-                Turn it into a sticker for your Instagram Story. Places, photos and the story can come whenever you like:{" "}
-                <Link href={`${base}/edit`} className="font-medium text-accent hover:underline">
-                  edit the {noun}
-                </Link>
-                .
-              </p>
-              <StoryShare
-                kind="trip"
-                id={visit.id}
-                styles={STICKERS}
-                title={`Share ${meta.name}`}
-                subtitle="A sticker for your Story, over any photo you like."
-                trigger={<>Make a Story sticker</>}
-                triggerClassName="btn-accent mt-3 !py-2 text-sm"
-              />
-            </div>
-          </div>
-        ) : (
-          canEdit &&
-          created && (
-            <p role="status" className="mb-5 rounded-2xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm">
-              Added to your map. Add places, photos and the story whenever you like -{" "}
-              <Link href={`${base}/edit`} className="font-medium text-accent hover:underline">
-                edit the {noun}
-              </Link>
-              .
-            </p>
-          )
-        )}
-        {owner && !created && (
-          <div className="mb-5 flex justify-end">
-            <StoryShare
-              kind="trip"
-              id={visit.id}
-              styles={STICKERS}
-              title={`Share ${meta.name}`}
-              subtitle="A sticker for your Story, over any photo you like."
-              trigger={<>Share to your Story</>}
-              triggerClassName="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-medium hover:border-accent hover:text-accent"
-            />
-          </div>
+        {canEdit && created && (
+          <p role="status" className="mb-5 rounded-2xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm">
+            Added to your map. Add places, photos and the story whenever you like -{" "}
+            <Link href={`${base}/edit`} className="font-medium text-accent hover:underline">
+              edit the {noun}
+            </Link>
+            .
+          </p>
         )}
 
         {canEdit && <QueuedMedia parentId={visit.id} />}
