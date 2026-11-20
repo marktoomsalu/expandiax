@@ -66,6 +66,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       const [{ data: profile }, { count }] = await Promise.all([
         supabase.from("profiles").select("username, created_at").eq("id", user.id).single(),
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false),
+        // "Active today" for the dashboard: the day only, once a day (migration 085).
+        supabase.rpc("note_active_day").then(() => null, () => null),
       ]);
       if (profile) navUser = { id: user.id, username: profile.username, joinedAt: profile.created_at };
       unreadNotifications = count ?? 0;
