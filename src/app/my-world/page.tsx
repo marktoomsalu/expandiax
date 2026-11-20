@@ -5,7 +5,7 @@ import { FirstFriends } from "@/components/FirstFriends";
 import { AddCountryButton } from "@/components/AddCountrySheet";
 import { hasRealName } from "@/lib/profileName";
 import { mapStays } from "@/lib/stays";
-import { BarChart3, Plus } from "lucide-react";
+import { BarChart3, Plus, Share2 } from "lucide-react";
 import { PhotoReminder } from "@/components/PhotoReminder";
 import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
@@ -22,6 +22,7 @@ import type { VisitedCountry, CountryMedia } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { loadDreamPlaces } from "@/lib/dreams";
 import { DreamPlaces } from "@/components/dreams/DreamPlaces";
+import { StoryShare } from "@/components/StoryShare";
 import { JourneyCard } from "@/components/journey/JourneyCard";
 
 export const metadata = { title: "My World" };
@@ -127,6 +128,20 @@ export default async function MyWorldPage() {
         )}
         <div className="flex items-center gap-3">
           <Link href="/stats" className="btn-ghost !py-2 text-sm"><BarChart3 size={16} /> Stats</Link>
+          {countryCodes.length > 0 && (
+            <StoryShare
+              kind="world"
+              id="me"
+              styles={[
+                { key: "poster", label: "Story", sticker: false },
+                { key: "sticker", label: "Sticker", sticker: true },
+              ]}
+              title="Share your world"
+              subtitle="Your map, ready for your Instagram Story."
+              trigger={<><Share2 size={16} /> Share</>}
+              triggerClassName="btn-ghost !py-2 text-sm"
+            />
+          )}
           <AddCountryButton className="btn-accent"><Plus size={17} /> Add country</AddCountryButton>
         </div>
       </div>

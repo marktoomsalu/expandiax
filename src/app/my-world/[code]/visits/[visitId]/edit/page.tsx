@@ -10,7 +10,7 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { VisitEditor } from "@/components/VisitEditor";
 import { MediaUploader } from "@/components/MediaUploader";
-import { ShareButton } from "@/components/ShareButton";
+import { StoryShare } from "@/components/StoryShare";
 import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 import { tripTitle } from "@/lib/tripTitle";
 import { orderStops } from "@/lib/tripPlaces";
@@ -166,7 +166,18 @@ export default async function EditVisitPage({
 
       {isOwner && (
         <div className="mt-8 flex items-center justify-center">
-          <ShareButton kind="country" targetId={visit.visited_country_id} title={`${meta.flag} ${meta.name}`} />
+          <StoryShare
+            kind="trip"
+            id={visit.id}
+            styles={[
+              { key: "stamp", label: "Stamp", sticker: true },
+              { key: "polaroid", label: "Polaroid", sticker: true },
+            ]}
+            title={`Share ${meta.name}`}
+            subtitle="A sticker for your Story, over any photo you like."
+            trigger={<>Share to your Story</>}
+            triggerClassName="inline-flex items-center gap-1.5 text-sm text-muted hover:text-accent"
+          />
         </div>
       )}
     </div>
