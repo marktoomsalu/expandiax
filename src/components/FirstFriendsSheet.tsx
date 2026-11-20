@@ -11,6 +11,7 @@ import { FollowButton } from "@/components/FollowButton";
 import { tapSuccess } from "@/lib/haptics";
 import type { PersonCard } from "@/lib/experienceNetworkData";
 import { INVITE_TEXT, inviteUrl } from "@/lib/invite";
+import { noteFeature } from "@/lib/usageClient";
 
 // "Later" waits a few days before offering again; finishing waits much longer.
 const SNOOZE_KEY = "expandiax:first-friends-until";
@@ -97,6 +98,7 @@ export function FirstFriendsSheet({
   }
 
   async function invite() {
+    noteFeature("invite_shared");
     // Your invite link: friends who join through it follow you straight away.
     const url = inviteUrl(me.username);
     const text = INVITE_TEXT;

@@ -5,6 +5,7 @@ import { Lock } from "lucide-react";
 import { getAuthUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { countryByCode } from "@/lib/countries";
+import { UsageSection } from "@/components/admin/UsageSection";
 import { activeCounts, activePerDay, addDays, cameBack, pct, perDay, type ActiveDay, type Member } from "@/lib/adminStats";
 
 export const metadata: Metadata = { title: "Dashboard", robots: { index: false, follow: false } };
@@ -241,6 +242,8 @@ export default async function AdminPage() {
           </p>
         )}
       </section>
+
+      <UsageSection admin={admin} today={today} />
 
       <section aria-labelledby="reports-h" className="mt-8">
         <h2 id="reports-h" className="font-serif text-xl">Reports</h2>

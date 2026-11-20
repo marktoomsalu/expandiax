@@ -1,3 +1,4 @@
+import { noteFeature } from "./usageClient";
 // The chat bubble's state, so anything in the app can open it: the bubble
 // itself, "Ask Mark about Italy" on a country page, or a tapped push.
 
@@ -28,6 +29,7 @@ export const chatState = () => state;
 export const chatServerState = (): State => ({ open: false, target: { view: "home" } });
 
 export function openChat(target: ChatTarget = { view: "home" }) {
+  if (!state.open) noteFeature("chat_opened");
   set({ open: true, target });
 }
 export function closeChat() {

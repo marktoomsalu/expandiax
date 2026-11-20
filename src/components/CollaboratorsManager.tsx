@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { noteFeature } from "@/lib/usageClient";
 import { Check, Link2, Loader2, LogOut, Pencil, Search, Share2, UserPlus, Users, X } from "lucide-react";
 import { Basket } from "./Basket";
 import { createClient } from "@/lib/supabase/client";
@@ -170,6 +171,7 @@ export function CollaboratorsManager({
   const linkUrl = (token: string) => `${window.location.origin}/join/${myUsername ?? ""}?m=${token}`;
   // Sent only once it's really been shared (the share sheet finished) or copied.
   async function shareLink(l: Link) {
+    noteFeature("memory_invite_sent");
     const url = linkUrl(l.token);
     const text = `You were part of this memory! I added you to our ${noun} on ExpandiaX.`;
     try {

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { UploadQueueWatcher } from "@/components/UploadQueue";
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
@@ -20,6 +21,7 @@ import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { ChatTour } from "@/components/chat/ChatTour";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { BadgeWatcher } from "@/components/BadgeCelebration";
+import { UsageTracker } from "@/components/UsageTracker";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -98,6 +100,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {navUser && <ChatBubble me={navUser.id} />}
           {/* A new badge gets its own moment, on whichever page it was earned. */}
           {navUser && <BadgeWatcher />}
+          {/* Anonymous totals for the dashboard: which pages, how long (migration 086). */}
+          {navUser && (
+            <Suspense fallback={null}>
+              <UsageTracker />
+            </Suspense>
+          )}
           <SiteNav user={navUser} unreadNotifications={unreadNotifications} />
           <SiteChrome>{children}</SiteChrome>
         </ThemeProvider>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Copy, Share2 } from "lucide-react";
 import { INVITE_TEXT, inviteUrl } from "@/lib/invite";
 import { tapLight, tapSuccess } from "@/lib/haptics";
+import { noteFeature } from "@/lib/usageClient";
 import { cn } from "@/lib/utils";
 
 /** Your invite link: the phone's share sheet, or copy it. */
@@ -13,6 +14,7 @@ export function InviteShare({ username, className, dark = false }: { username: s
 
   async function share() {
     tapLight();
+    noteFeature("invite_shared");
     try {
       if (navigator.share) {
         await navigator.share({ title: "ExpandiaX", text: INVITE_TEXT, url });
@@ -24,6 +26,7 @@ export function InviteShare({ username, className, dark = false }: { username: s
     await copy();
   }
   async function copy() {
+    noteFeature("invite_shared");
     await navigator.clipboard?.writeText(url).catch(() => {});
     tapSuccess();
     setCopied(true);

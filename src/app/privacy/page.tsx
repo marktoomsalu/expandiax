@@ -63,7 +63,9 @@ export default function PrivacyPage() {
             <Strong>Usage statistics</Strong> - the days you use ExpandiaX while signed in (only the day, never what you
             look at), so we can count how many members are active and how many come back. It&rsquo;s recorded on our
             server without any cookie or tracker, never shared, shown to us only as totals, and deleted after 13
-            months. <em>Legal basis:</em> our legitimate interest in understanding whether ExpandiaX is useful.
+            months. We also keep anonymous totals of which kinds of pages are opened, which features are used and how
+            long visits last (for example &ldquo;a trip page was opened&rdquo;), with nothing that links them to you or your device.{" "}
+            <em>Legal basis:</em> our legitimate interest in understanding whether ExpandiaX is useful.
           </li>
           <li>
             <Strong>Invitations</Strong> - when you join through a friend&rsquo;s invite link, who invited you, so you two follow each
