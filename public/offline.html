@@ -29,6 +29,8 @@
   <p>ExpandiaX needs the internet to load your world. Check your connection and try again.</p>
   <button type="button" id="retry">Try again</button>
   <script>
+    // Let the app's launch screen go: this page is what there is to show.
+    try { window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen && window.Capacitor.Plugins.SplashScreen.hide(); } catch (e) {}
     function retry() { window.location.replace("https://expandiax.com/"); }
     document.getElementById("retry").addEventListener("click", retry);
     // Back on its own as soon as the connection returns.

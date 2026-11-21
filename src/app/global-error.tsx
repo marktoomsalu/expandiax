@@ -6,6 +6,8 @@ import { useEffect } from "react";
 export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   useEffect(() => {
     Sentry.captureException(error);
+    // The app's launch screen waits for a page; this one replaces the layout that would let it go.
+    void import("@capacitor/splash-screen").then(({ SplashScreen }) => SplashScreen.hide().catch(() => {}));
   }, [error]);
 
   return (

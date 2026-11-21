@@ -23,7 +23,12 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      backgroundColor: "#faf9f6",
+      // The website lets it go once the first screen is ready (NativeSplash,
+      // src/lib/splash.ts); this is only the backstop if that never comes.
+      launchShowDuration: 10000,
+      launchAutoHide: true,
+      launchFadeOutDuration: 350,
+      backgroundColor: "#2b0b2e",
       showSpinner: false,
     },
     StatusBar: {

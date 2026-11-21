@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import { holdSplash } from "@/lib/splash";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 
@@ -18,11 +20,14 @@ const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").the
 // launch film that used to play first is gone: it was a detour before the
 // real start, and confused more than it explained.)
 export function ColdOpenStep({ onStart }: { onStart: () => void }) {
+  // The app's launch screen stays until the globe is drawn: no empty space where it'll be.
+  const [release] = useState(() => (typeof window === "undefined" ? () => {} : holdSplash()));
+  useEffect(() => release, [release]);
   return (
     <>
       <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-brand-purple px-6 pt-[env(safe-area-inset-top)] text-center text-white">
         <div className="w-full max-w-xl opacity-90">
-          <WorldGlobeInner visitedCodes={[]} interactive={false} labels={false} autoRotate />
+          <WorldGlobeInner visitedCodes={[]} interactive={false} labels={false} autoRotate onReady={release} />
         </div>
         <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} priority className="mt-4 h-8 w-auto" />
         <p className="mt-6 font-serif text-2xl leading-snug sm:text-3xl">

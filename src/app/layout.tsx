@@ -10,6 +10,7 @@ import { SiteChrome } from "@/components/SiteChrome";
 import { NativeStatusBar } from "@/components/NativeStatusBar";
 import { NativeBackButton } from "@/components/NativeBackButton";
 import { NativeDeepLinks } from "@/components/NativeDeepLinks";
+import { NativeSplash } from "@/components/NativeSplash";
 import { NativeKeyboard } from "@/components/NativeKeyboard";
 import { NativeFirstRunRedirect } from "@/components/NativeFirstRunRedirect";
 import { PushRegistration } from "@/components/PushRegistration";
@@ -82,6 +83,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen">
         <ThemeProvider>
+          <NativeSplash />
           <NativeStatusBar />
           <NativeBackButton />
           <NativeDeepLinks />

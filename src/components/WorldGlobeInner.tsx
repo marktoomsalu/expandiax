@@ -146,6 +146,8 @@ type Props = {
   focusMs?: number;
   /** Pull back to the whole world (keeping where it's looking). */
   pullBack?: boolean;
+  /** Called once the globe is drawn. */
+  onReady?: () => void;
 };
 
 export function WorldGlobeInner({
@@ -163,6 +165,7 @@ export function WorldGlobeInner({
   focusClose = false,
   focusMs = 1200,
   pullBack = false,
+  onReady,
 }: Props) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -316,6 +319,7 @@ export function WorldGlobeInner({
       <div className="no-select relative overflow-hidden rounded-card" style={{ height: size.height }}>
         <Globe
           ref={globeRef}
+          onGlobeReady={onReady}
           width={size.width}
           height={size.height}
           backgroundColor="rgba(0,0,0,0)"
