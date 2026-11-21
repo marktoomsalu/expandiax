@@ -39,7 +39,7 @@ export function InviteHero({ mode, error, onStart, onManual }: { mode: "new" | "
   const [showCredits, setShowCredits] = useState(false);
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#14051a]">
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[#14051a]">
       {/* The wall */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[72dvh] overflow-hidden">
         <div className="absolute -inset-x-16 -top-24 bottom-0 flex -rotate-[8deg] gap-3 opacity-90">

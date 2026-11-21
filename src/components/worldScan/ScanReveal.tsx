@@ -45,7 +45,7 @@ export function ScanReveal({
   });
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(3rem+env(safe-area-inset-top))] text-center">
+    <div className="mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(3rem+env(safe-area-inset-top))] text-center">
       <div className="flex flex-1 flex-col justify-center">
         <motion.p {...rise(0.1)} className="text-xs font-semibold uppercase tracking-[0.22em] text-[#ffb3d6]">
           You&apos;ve been to
@@ -54,7 +54,7 @@ export function ScanReveal({
         <div className="relative mx-auto mt-2">
           <Burst delay={0.35} />
           <motion.p
-            className="relative font-serif text-[6.75rem] font-semibold leading-none tracking-tight"
+            className="relative font-serif text-[min(6.75rem,13dvh)] font-semibold leading-none tracking-tight"
             initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={reduce ? { duration: 0.3 } : { type: "spring", stiffness: 160, damping: 14, delay: 0.25 }}

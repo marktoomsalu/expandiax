@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Check, Music2, PartyPopper, Plus, Presentation, Sparkles, Tent, Ticket, Trophy } from "lucide-react";
+import { Check, Music2, PartyPopper, Plus, Presentation, Sparkles, Tent, Ticket, Trophy, X } from "lucide-react";
 import { countryByCode } from "@/lib/countries";
-import { photoThumbs } from "@/lib/photoScan";
+import { eventPhotoKind, eventStockPhoto, stockPhotoFor, stockUrl, type StockPhoto } from "@/lib/stockPhotos";
 import type { BigDay, FoundEvent } from "@/lib/worldStory";
 import type { KeptEvent } from "@/lib/worldScan";
 import type { EventType } from "@/lib/types";
@@ -38,10 +38,16 @@ const KINDS: { key: string; label: string; emoji: string; type: EventType; hint:
 
 type Named = { kind: string; title: string };
 
+/** How many fit on one screen without scrolling; the rest are in "See all". */
+const TICKETS = 3;
+const DAYS = 2;
+
 /**
- * "Your memories": the concerts and matches found in their photos as
- * tickets (the surest already kept), and the big days nothing was listed
- * for, each one tap from being named: a race, a wedding, a show.
+ * "Your memories", all on one screen: the concerts, matches, festivals and
+ * races found, as tickets (the surest already kept), and the big days
+ * nothing was listed for, each one tap from being named. Pictures are
+ * curated Unsplash ones for each kind of event: their own photos stay
+ * theirs until they add them.
  */
 export function MemoriesView({
   events,
@@ -57,13 +63,7 @@ export function MemoriesView({
 }) {
   const [flipped, setFlipped] = useState<Set<string>>(new Set());
   const [named, setNamed] = useState<Record<string, Named>>({});
-  const [thumbs, setThumbs] = useState<Record<string, string>>({});
-  const asked = useRef(new Set<string>());
-  const want = useCallback((id: string | undefined) => {
-    if (!id || asked.current.has(id)) return;
-    asked.current.add(id);
-    void photoThumbs([id], 640).then((got) => setThumbs((prev) => ({ ...prev, ...got })));
-  }, []);
+  const [all, setAll] = useState(false);
 
   const isKept = (e: FoundEvent) => (e.sure ? !flipped.has(e.id) : flipped.has(e.id));
   const toggle = (id: string) => {
@@ -75,9 +75,17 @@ export function MemoriesView({
       return n;
     });
   };
+  const name = (id: string, n: Named | null) =>
+    setNamed((cur) => {
+      const next = { ...cur };
+      if (n) next[id] = n;
+      else delete next[id];
+      return next;
+    });
 
   const found = events ?? [];
   const keptCount = found.filter(isKept).length + Object.keys(named).length;
+  const extra = Math.max(0, found.length - TICKETS) + Math.max(0, bigDays.length - DAYS);
 
   function save() {
     tapSuccess();
@@ -95,19 +103,40 @@ export function MemoriesView({
     onSave(kept);
   }
 
+  const list = (
+    tickets: FoundEvent[],
+    days: BigDay[],
+    roomy = false
+  ) => (
+    <>
+      {tickets.map((e, i) => (
+        <EventTicket key={e.id} e={e} index={i} kept={isKept(e)} onToggle={() => toggle(e.id)} />
+      ))}
+      {days.length > 0 && (
+        <p className={`flex items-center gap-1.5 px-1 font-serif text-lg ${roomy ? "pt-4" : "pt-1"}`}>
+          <Sparkles size={16} className="text-[#ffb3d6]" aria-hidden /> What was this?
+          <span className="font-sans text-xs text-white/45">One tap to keep it</span>
+        </p>
+      )}
+      {days.map((b) => (
+        <BigDayCard key={b.id} b={b} named={named[b.id] ?? null} onName={(n) => name(b.id, n)} />
+      ))}
+    </>
+  );
+
   return (
-    <div className="mx-auto min-h-[100dvh] max-w-md">
-      <div className="sticky top-0 z-20 bg-[#1f0822]/85 px-5 pb-3 pt-[calc(0.9rem+env(safe-area-inset-top))] backdrop-blur-xl">
+    <div className="mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.9rem+env(safe-area-inset-top))]">
+      <div className="shrink-0">
         <p className="font-serif text-2xl">Your memories</p>
         <p className="mt-0.5 text-sm text-white/65">
           <motion.span key={keptCount} className="inline-block font-semibold text-white" initial={{ y: -6, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
             {keptCount}
           </motion.span>{" "}
-          kept · concerts, matches and big days
+          kept · concerts, matches, festivals, big days
         </p>
       </div>
 
-      <div className="space-y-3 px-4 pb-40 pt-3">
+      <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden">
         <AnimatePresence>
           {events === null && (
             <motion.div
@@ -120,141 +149,133 @@ export function MemoriesView({
               <motion.span animate={{ rotate: [0, -12, 12, 0] }} transition={{ duration: 1.2, repeat: Infinity }} aria-hidden>
                 <Ticket size={18} className="text-[#ffb3d6]" />
               </motion.span>
-              Looking for concerts and matches…
+              Looking for concerts, matches and festivals…
             </motion.div>
           )}
         </AnimatePresence>
 
-        {found.map((e, i) => (
-          <EventTicket key={e.id} e={e} index={i} thumb={thumbs[e.covers[0]]} kept={isKept(e)} onSeen={() => want(e.covers[0])} onToggle={() => toggle(e.id)} />
-        ))}
+        {list(found.slice(0, TICKETS), bigDays.slice(0, DAYS))}
 
-        {bigDays.length > 0 && (
-          <div className="pt-6">
-            <h2 className="flex items-center gap-2 px-1 font-serif text-xl">
-              <Sparkles size={18} className="text-[#ffb3d6]" aria-hidden /> What was this?
-            </h2>
-            <p className="mt-0.5 px-1 text-xs text-white/50">Big days in your photos. One tap to keep one.</p>
-            <div className="mt-3 space-y-3">
-              {bigDays.map((b) => (
-                <BigDayCard
-                  key={b.id}
-                  b={b}
-                  thumb={thumbs[b.covers[0]]}
-                  named={named[b.id] ?? null}
-                  onSeen={() => want(b.covers[0])}
-                  onName={(n) =>
-                    setNamed((all) => {
-                      const next = { ...all };
-                      if (n) next[b.id] = n;
-                      else delete next[b.id];
-                      return next;
-                    })
-                  }
-                />
-              ))}
-            </div>
-          </div>
+        {extra > 0 && (
+          <button type="button" onClick={() => setAll(true)} className="self-center rounded-full bg-white/10 px-4 py-2 text-sm font-medium ring-1 ring-white/15">
+            See all ({found.length + bigDays.length})
+          </button>
         )}
-
         {events !== null && !found.length && !bigDays.length && (
           <p className="px-1 pt-10 text-center text-sm text-white/55">No concerts or big days found this time. You can add them any time.</p>
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-[#14051a] via-[#14051a]/95 to-transparent px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-10">
-        <div className="mx-auto max-w-md">
-          <button type="button" onClick={save} className="btn-accent w-full py-4 text-lg shadow-[0_12px_30px_-8px_rgba(250,81,162,0.7)]">
-            {saveLabel}
-          </button>
-        </div>
-      </div>
+      <button type="button" onClick={save} className="btn-accent mt-3 w-full shrink-0 py-4 text-lg shadow-[0_12px_30px_-8px_rgba(250,81,162,0.7)]">
+        {saveLabel}
+      </button>
+
+      <AnimatePresence>
+        {all && (
+          <motion.div className="fixed inset-0 z-50 flex items-end bg-black/50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAll(false)}>
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label="All your memories"
+              className="mx-auto flex h-[85dvh] w-full max-w-md flex-col rounded-t-[28px] bg-[#24092a] pb-[env(safe-area-inset-bottom)] text-white ring-1 ring-white/10"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 34 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 pb-2 pt-5">
+                <p className="font-serif text-xl">All your memories</p>
+                <button type="button" onClick={() => setAll(false)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10" aria-label="Done">
+                  <X size={20} aria-hidden />
+                </button>
+              </div>
+              <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 pb-6">{list(found, bigDays, true)}</div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-/** A ticket stub: the night's best photo, a perforation, then who and where. */
-function EventTicket({ e, index, thumb, kept, onSeen, onToggle }: { e: FoundEvent; index: number; thumb?: string; kept: boolean; onSeen: () => void; onToggle: () => void }) {
+function Photo({ photo, className }: { photo: StockPhoto | null; className?: string }) {
+  return (
+    <span className={`relative block overflow-hidden ${className ?? ""}`} style={{ background: photo?.color ?? "#3a1240" }}>
+      {photo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={stockUrl(photo.raw, 240, "1:1", 70)} alt="" className="h-full w-full object-cover" />
+      )}
+      {photo && <span className="absolute bottom-0.5 left-1 right-1 truncate text-[7px] text-white/70 drop-shadow">{photo.author} / Unsplash</span>}
+    </span>
+  );
+}
+
+/** A ticket stub: a picture of that kind of night, a perforation, then who and where. */
+function EventTicket({ e, index, kept, onToggle }: { e: FoundEvent; index: number; kept: boolean; onToggle: () => void }) {
   const reduce = useReducedMotion();
   const meta = EVENT_META[e.type] ?? EVENT_META.other;
   const Icon = meta.icon;
   const where = [e.venue !== e.title ? e.venue : null, e.city].filter(Boolean).join(" · ");
+  const photo = eventStockPhoto(eventPhotoKind(e.type, e.title), e.id);
   return (
     <motion.button
       type="button"
       onClick={onToggle}
-      onViewportEnter={onSeen}
       aria-pressed={kept}
       aria-label={`${e.title}, ${day(e.date)}${kept ? "" : ", not kept"}`}
-      initial={reduce ? false : { opacity: 0, y: 20, rotate: index % 2 ? 1.5 : -1.5 }}
+      initial={reduce ? false : { opacity: 0, y: 16, rotate: index % 2 ? 1.5 : -1.5 }}
       animate={{ opacity: 1, y: 0, rotate: 0 }}
-      transition={{ delay: reduce ? 0 : Math.min(index, 8) * 0.07, type: "spring", stiffness: 220, damping: 22 }}
-      className="relative block w-full text-left"
+      transition={{ delay: reduce ? 0 : Math.min(index, 6) * 0.07, type: "spring", stiffness: 220, damping: 22 }}
+      className="relative block w-full shrink-0 text-left"
     >
-      <div className={`relative flex h-32 overflow-hidden rounded-2xl bg-gradient-to-br from-[#fff4f9] to-[#ffe9da] text-[#2b0b2e] shadow-[0_14px_30px_-12px_rgba(0,0,0,0.6)] transition-[filter,opacity] duration-300 ${kept ? "" : "opacity-45 grayscale"}`}>
-        <div className="relative w-32 shrink-0 bg-[#3a1240]">
-          {thumb ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={thumb} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center text-white/70" aria-hidden>
-              <Icon size={30} />
-            </span>
-          )}
-        </div>
-        {/* The perforation, with a bite out of each edge */}
+      <div className={`relative flex h-[5.5rem] overflow-hidden rounded-2xl bg-gradient-to-br from-[#fff4f9] to-[#ffe9da] text-[#2b0b2e] shadow-[0_14px_30px_-12px_rgba(0,0,0,0.6)] transition-[filter,opacity] duration-300 ${kept ? "" : "opacity-45 grayscale"}`}>
+        <Photo photo={photo} className="h-full w-[5.5rem] shrink-0" />
         <span aria-hidden className="relative w-0 border-l-2 border-dashed border-[#2b0b2e]/20">
           <span className="absolute -left-[9px] -top-2 h-4 w-4 rounded-full bg-[#1f0822]" />
           <span className="absolute -bottom-2 -left-[9px] h-4 w-4 rounded-full bg-[#1f0822]" />
         </span>
-        <div className="flex min-w-0 flex-1 flex-col justify-center px-4 pr-12">
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#d63384]">
-            <Icon size={13} aria-hidden /> {meta.label}
+        <div className="flex min-w-0 flex-1 flex-col justify-center px-3.5 pr-11">
+          <p className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#d63384]">
+            <Icon size={12} aria-hidden /> {meta.label}
             {!e.sure && <span className="rounded-full bg-[#d63384]/10 px-1.5 normal-case tracking-normal">maybe</span>}
           </p>
-          <p className="mt-1 truncate font-serif text-xl leading-tight">{e.title}</p>
-          <p className="mt-0.5 truncate text-sm text-[#2b0b2e]/65">{where || countryByCode(e.code)?.name}</p>
-          <p className="truncate text-xs text-[#2b0b2e]/50">{day(e.date)}</p>
+          <p className="mt-0.5 truncate font-serif text-lg leading-tight">{e.title}</p>
+          <p className="truncate text-xs text-[#2b0b2e]/60">
+            {where || countryByCode(e.code)?.name} · {day(e.date)}
+          </p>
         </div>
       </div>
       <span
-        className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full ${kept ? "bg-gradient-to-br from-[#fa51a2] to-[#fb7822] text-white shadow" : "bg-white text-[#2b0b2e] ring-1 ring-[#2b0b2e]/20"}`}
+        className={`absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full ${kept ? "bg-gradient-to-br from-[#fa51a2] to-[#fb7822] text-white shadow" : "bg-white text-[#2b0b2e] ring-1 ring-[#2b0b2e]/20"}`}
         aria-hidden
       >
-        {kept ? <Check size={16} strokeWidth={3} /> : <Plus size={16} />}
+        {kept ? <Check size={14} strokeWidth={3} /> : <Plus size={14} />}
       </span>
     </motion.button>
   );
 }
 
-function BigDayCard({ b, thumb, named, onSeen, onName }: { b: BigDay; thumb?: string; named: Named | null; onSeen: () => void; onName: (n: Named | null) => void }) {
+function BigDayCard({ b, named, onName }: { b: BigDay; named: Named | null; onName: (n: Named | null) => void }) {
   const kind = named ? KINDS.find((k) => k.key === named.kind) : null;
   const flag = countryByCode(b.code)?.flag;
   const hours = Math.max(1, Math.round(b.hours));
+  // The country's picture until they say what it was; then that kind of day's.
+  const photo = kind ? eventStockPhoto(eventPhotoKind(kind.type, kind.key === "race" ? "race" : kind.key === "wedding" ? "wedding" : ""), b.id) : stockPhotoFor(b.code, b.id);
   return (
-    <motion.div
-      onViewportEnter={onSeen}
-      layout
-      className={`overflow-hidden rounded-3xl ring-1 transition-colors ${named ? "bg-white/[0.12] ring-[#fa51a2]" : "bg-white/[0.06] ring-white/10"}`}
-    >
-      <div className="flex gap-3 p-3">
-        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-[#3a1240]">
-          {thumb && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={thumb} alt="" className="h-full w-full object-cover" />
-          )}
-        </div>
-        <div className="min-w-0 flex-1 py-1">
-          <p className="truncate font-serif text-lg leading-tight">
+    <motion.div layout className={`shrink-0 overflow-hidden rounded-2xl ring-1 transition-colors ${named ? "bg-white/[0.12] ring-[#fa51a2]" : "bg-white/[0.06] ring-white/10"}`}>
+      <div className="flex gap-3 p-2.5">
+        <Photo photo={photo} className="h-14 w-14 shrink-0 rounded-xl" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-serif text-base leading-tight">
             {flag} {b.place ?? b.city ?? countryByCode(b.code)?.name}
           </p>
-          <p className="mt-1 text-sm text-white/60">{day(b.date)}</p>
-          <p className="text-xs text-white/45">
-            {b.photos} photos · {hours} {hours === 1 ? "hour" : "hours"}
+          <p className="mt-0.5 text-xs text-white/55">
+            {day(b.date)} · {b.photos} photos · {hours} {hours === 1 ? "hour" : "hours"}
           </p>
         </div>
       </div>
-      <div className="flex gap-2 overflow-x-auto px-3 pb-3" role="group" aria-label="What was it?">
+      <div className="flex gap-1.5 overflow-x-auto px-2.5 pb-2.5" role="group" aria-label="What was it?">
         {KINDS.map((k) => {
           const on = named?.kind === k.key;
           return (
@@ -266,7 +287,7 @@ function BigDayCard({ b, thumb, named, onSeen, onName }: { b: BigDay; thumb?: st
                 tapLight();
                 onName(on ? null : { kind: k.key, title: named?.title ?? "" });
               }}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-sm ring-1 transition-colors ${on ? "bg-white text-[#2b0b2e] ring-white" : "bg-white/5 text-white ring-white/20"}`}
+              className={`shrink-0 rounded-full px-2.5 py-1 text-xs ring-1 transition-colors ${on ? "bg-white text-[#2b0b2e] ring-white" : "bg-white/5 text-white ring-white/20"}`}
             >
               <span aria-hidden>{k.emoji}</span> {k.label}
             </button>
@@ -275,13 +296,13 @@ function BigDayCard({ b, thumb, named, onSeen, onName }: { b: BigDay; thumb?: st
       </div>
       <AnimatePresence initial={false}>
         {named && kind && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="px-3 pb-3">
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="px-2.5 pb-2.5">
             <input
               value={named.title}
               onChange={(e) => onName({ kind: named.kind, title: e.target.value })}
               placeholder={kind.hint}
               maxLength={120}
-              className="w-full rounded-2xl bg-black/25 px-4 py-3 text-base text-white outline-none ring-1 ring-white/15 placeholder:text-white/40 focus:ring-[#fa51a2]"
+              className="w-full rounded-xl bg-black/25 px-3.5 py-2.5 text-base text-white outline-none ring-1 ring-white/15 placeholder:text-white/40 focus:ring-[#fa51a2]"
               aria-label="Name it"
             />
           </motion.div>

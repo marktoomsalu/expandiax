@@ -1,4 +1,5 @@
 import photos from "@/data/countryPhotos.json";
+import eventPhotos from "@/data/eventPhotos.json";
 
 // A beautiful photo for a country someone has been to but hasn't added
 // their own photos of yet — hand-picked from Unsplash (see
@@ -59,4 +60,33 @@ export function stockUrl(raw: string, width: number, aspect?: string, quality = 
     params.set("crop", "entropy");
   }
   return `${raw}${raw.includes("?") ? "&" : "?"}${params}`;
+}
+
+// ---------------------------------------------------------------- events
+
+
+export type EventPhotoKind = "concert" | "festival" | "sport" | "race" | "conference" | "wedding" | "party" | "other";
+
+/** A photo for a kind of event (a concert crowd, a packed stadium), hand-picked from Unsplash, the same for the same seed. */
+export function eventStockPhoto(kind: EventPhotoKind, seed = ""): StockPhoto | null {
+  const list = (eventPhotos as Record<string, Entry[]>)[kind] ?? (eventPhotos as Record<string, Entry[]>).other;
+  if (!list?.length) return null;
+  const p = list[hash(`${seed}:${kind}`) % list.length];
+  return {
+    id: p.id,
+    raw: p.raw,
+    color: p.color,
+    alt: p.alt,
+    author: p.author,
+    authorUrl: `https://unsplash.com/@${p.username}?${UTM}`,
+    photoUrl: `${p.html}?${UTM}`,
+    unsplashUrl: `https://unsplash.com/?${UTM}`,
+  };
+}
+
+/** Which kind of photo an event gets: a race by its name, otherwise its type. */
+export function eventPhotoKind(type: string, title = ""): EventPhotoKind {
+  if (type === "sport" && /marathon|ironman|triathlon|\brun\b|race|half/i.test(title)) return "race";
+  if (type === "personal") return /wedding/i.test(title) ? "wedding" : "party";
+  return (["concert", "festival", "sport", "conference"] as const).includes(type as never) ? (type as EventPhotoKind) : "other";
 }
