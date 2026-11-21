@@ -221,10 +221,7 @@ export async function clubs(countryCodes: string[]): Promise<Club[]> {
     for (const names of [`?e rdfs:label ?n FILTER(LANG(?n) = "en")`, `?e skos:altLabel ?n FILTER(LANG(?n) = "en")`]) {
       const rows = await sparql(`SELECT ?e ?n ?venue ?coord WHERE {
         ${country}
-        ?e wdt:P31 wd:Q476028 ; wdt:P17 ?country ; p:P115 ?gs .
-        ?gs ps:P115 ?ground .
-        FILTER NOT EXISTS { ?gs pq:P582 ?groundUntil }
-        FILTER NOT EXISTS { ?e wdt:P576 ?dissolved }
+        ?e wdt:P31 wd:Q476028 ; wdt:P17 ?country ; wdt:P115 ?ground .
         ?ground wdt:P625 ?coord .
         OPTIONAL { ?ground rdfs:label ?venue FILTER(LANG(?venue) = "en") }
         ${names}
