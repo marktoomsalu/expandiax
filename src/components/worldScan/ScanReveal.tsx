@@ -124,7 +124,7 @@ export function ScanReveal({
 
       <motion.div {...rise(1.7)} className="pt-8">
         <button type="button" onClick={onNext} className="btn-accent w-full py-4 text-lg">
-          See my story
+          See my countries
         </button>
       </motion.div>
     </div>
