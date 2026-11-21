@@ -21,6 +21,8 @@ import { ArtistPicker, type SpotifyArtist } from "./ArtistPicker";
 import { TrackPicker, type SpotifyTrackChoice } from "./TrackPicker";
 import { EventSuggestions } from "./EventSuggestions";
 import { PastShowPicker } from "./PastShowPicker";
+import { KnownEventPicker } from "./KnownEventPicker";
+import { canScanPhotos } from "@/lib/photoScan";
 import { MediaUploader } from "./MediaUploader";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
 import { cn } from "@/lib/utils";
@@ -80,6 +82,9 @@ export function EventForm({
   // The real show picked from setlist.fm (concerts only) — its songs become
   // one-tap choices for "Favourite song performed".
   const [pastShow, setPastShow] = useState<PastShow | null>(null);
+  const [pickedKnown, setPickedKnown] = useState<string | null>(null);
+  const [knownEvents, setKnownEvents] = useState(false);
+  useEffect(() => setKnownEvents(canScanPhotos()), []);
   const showArtist = f.spotify_artist_name || f.title;
   useEffect(() => setPastShow(null), [showArtist]);
   const [busy, setBusy] = useState(false);
@@ -300,6 +305,7 @@ export function EventForm({
             coverTable="events"
             captions
             label="Photos & videos"
+            days={{ from: event.event_date, to: event.event_date }}
           />
         ) : (
           <div>
@@ -397,6 +403,27 @@ export function EventForm({
           <label htmlFor="e-title" className="mb-1.5 block text-sm font-medium">{meta.titleLabel} *</label>
           <input id="e-title" className="field" value={f.title} onChange={(e) => set("title", e.target.value)} required placeholder={meta.titlePlaceholder} />
         </div>
+
+        {/* Real festivals, matches, races and conferences by name: only in app
+            builds with Find my world until it's released (it shares its catalogue). */}
+        {!event && knownEvents && ["festival", "sport", "conference"].includes(f.event_type) && (
+          <KnownEventPicker
+            type={f.event_type}
+            query={f.title}
+            picked={pickedKnown}
+            onPick={(hit) => {
+              setPickedKnown(hit.title);
+              setF((cur) => ({
+                ...cur,
+                title: hit.title.slice(0, 120),
+                event_date: hit.startsOn ?? cur.event_date,
+                venue: hit.venue ?? cur.venue,
+                city: hit.city ?? cur.city,
+                country_code: hit.countryCode ?? cur.country_code,
+              }));
+            }}
+          />
+        )}
 
         {!event && f.event_type === "concert" && (
           <PastShowPicker

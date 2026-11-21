@@ -162,3 +162,66 @@ export function decide(m: Moment, shows: ShowFound[]): Decision {
   if (m.near.length) return isBigDay(m) || m.near[0].kind === "s" ? { kind: "name", place: m.near[0].name, venueKind: m.near[0].kind } : null;
   return isBigDay(m) ? { kind: "name", place: null, venueKind: null } : null;
 }
+
+/** An event from our own catalogue (migration 087) or shared by members, for one day and country. */
+export type KnownEvent = {
+  kind: "football" | "festival" | "race" | "race_series" | "conference" | "member";
+  title: string;
+  venue: string | null;
+  city: string | null;
+  lat: number | null;
+  lng: number | null;
+  /** For members' events: what they called it. */
+  eventType?: EventType | null;
+};
+
+const KNOWN_TYPE: Record<KnownEvent["kind"], EventType> = { football: "sport", festival: "festival", race: "sport", race_series: "sport", conference: "conference", member: "other" };
+
+/**
+ * A moment, with concerts and our catalogue together. A sure concert stays;
+ * otherwise a known event right there wins (a match at that stadium, a
+ * festival on its grounds, a conference at that place); a race through
+ * the city or a festival nearby is offered on a big day; members' events
+ * count when they're in its town.
+ */
+export function decideAll(m: Moment, shows: ShowFound[], known: KnownEvent[], towns: string[], year: string): Decision {
+  const base = decide(m, shows);
+  if (base?.kind === "event" && base.sure) return base;
+
+  const big = isBigDay(m);
+  const placed = known
+    .filter((k) => k.lat != null && k.lng != null)
+    .map((k) => ({ k, d: metres(m, { lat: k.lat!, lng: k.lng! }) }))
+    .sort((a, b) => a.d - b.d);
+  const event = (k: KnownEvent, sure: boolean, title = k.title): Decision => ({
+    kind: "event",
+    type: k.kind === "member" ? (k.eventType ?? "other") : KNOWN_TYPE[k.kind],
+    title,
+    artist: null,
+    venue: k.venue ?? k.city,
+    sure,
+  });
+
+  // Right there: sure.
+  const reach: Partial<Record<KnownEvent["kind"], number>> = { football: 1500, festival: 4000, conference: 1500 };
+  const here = placed.find(({ k, d }) => k.kind !== "race_series" && k.kind !== "race" && d <= (reach[k.kind] ?? 0));
+  if (here) return event(here.k, true);
+  // A big day near a festival or through a race's city: offered.
+  if (big) {
+    const near = placed.find(({ k, d }) => (k.kind === "festival" && d <= 25_000) || (k.kind === "race" && d <= 12_000));
+    if (near) return event(near.k, near.k.kind === "race" && near.d <= 4000);
+  }
+  if (base?.kind === "event") return base;
+
+  // Members' events in its town that day.
+  const lower = towns.map((t) => t.toLowerCase());
+  const member = known.find((k) => k.kind === "member" && k.city && lower.includes(k.city.toLowerCase()));
+  if (member) return event(member, false);
+
+  // A race that comes back every year where this big day was: probably this year's.
+  if (big) {
+    const series = placed.find(({ k, d }) => k.kind === "race_series" && d <= 8000);
+    if (series) return event(series.k, false, `${series.k.title} ${year}`);
+  }
+  return base;
+}

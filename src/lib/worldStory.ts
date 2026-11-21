@@ -4,7 +4,7 @@
 // only a day, a town and venue names asked of the server).
 
 import { loadTowns, townFor, groupByTown, type Town } from "./photoPlaces";
-import { decide, isBigDay, venuesFromRows, venuesNear, type Moment, type MomentAsk, type ShowFound, type Venue, type VenueKind } from "./eventMatch";
+import { decideAll, isBigDay, venuesFromRows, venuesNear, type KnownEvent, type Moment, type MomentAsk, type ShowFound, type Venue, type VenueKind } from "./eventMatch";
 import { distanceKm } from "./tripPlaces";
 import type { FoundTrip } from "./tripFinder";
 import type { ScanMoment } from "./photoScan";
@@ -121,7 +121,16 @@ export function askFor(id: string, m: ScanMoment, code: string, near: Venue[], t
  * and rough areas, and the phone decides from its answer.
  */
 export async function findEvents(moments: ScanMoment[], locate: (lat: number, lng: number) => string | null): Promise<{ events: FoundEvent[]; bigDays: BigDay[] }> {
-  const candidates = moments.filter(eventLike).sort((a, b) => b.n - a.n);
+  // Evenings and big days; and any few hours of photos at a stadium (an afternoon match).
+  const candidates: ScanMoment[] = [];
+  for (const m of [...moments].sort((a, b) => b.n - a.n)) {
+    if (candidates.length >= 60) break;
+    if (eventLike(m)) candidates.push(m);
+    else if (m.n >= 8) {
+      const code = locate(m.la, m.ln);
+      if (code && venuesNear({ lat: m.la, lng: m.ln }, await loadVenues(code)).some((v) => v.kind === "s")) candidates.push(m);
+    }
+  }
   type Asked = { ask: MomentAsk; moment: Moment; scan: ScanMoment; code: string; city: string | null };
   const asked: Asked[] = [];
   for (const m of candidates) {
@@ -142,13 +151,14 @@ export async function findEvents(moments: ScanMoment[], locate: (lat: number, ln
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ moments: asked.map((a) => a.ask) }),
   });
-  const answers = res.ok ? ((await res.json()) as { answers: { id: string; shows: ShowFound[] }[] }).answers : [];
-  const showsOf = new Map(answers.map((a) => [a.id, a.shows]));
+  const answers = res.ok ? ((await res.json()) as { answers: { id: string; shows: ShowFound[]; known?: KnownEvent[] }[] }).answers : [];
+  const byId = new Map(answers.map((a) => [a.id, a]));
 
   const events: FoundEvent[] = [];
   const bigDays: BigDay[] = [];
   for (const a of asked) {
-    const d = decide(a.moment, showsOf.get(a.moment.id) ?? []);
+    const answer = byId.get(a.moment.id);
+    const d = decideAll(a.moment, answer?.shows ?? [], answer?.known ?? [], a.ask.towns, a.moment.day.slice(0, 4));
     if (!d) continue;
     if (d.kind === "event") {
       // The same night at the same place (photos before and after a break) is one event.

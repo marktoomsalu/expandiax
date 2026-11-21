@@ -10,6 +10,30 @@
     {
       "path": "/api/cron/push-campaigns",
       "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/event-catalog?source=football",
+      "schedule": "0 4 1 * *"
+    },
+    {
+      "path": "/api/cron/event-catalog?source=festivals",
+      "schedule": "0 4 2 * *"
+    },
+    {
+      "path": "/api/cron/event-catalog?source=races",
+      "schedule": "0 4 3 * *"
+    },
+    {
+      "path": "/api/cron/event-catalog?source=race-series",
+      "schedule": "0 4 4 * *"
+    },
+    {
+      "path": "/api/cron/event-catalog?source=conferences",
+      "schedule": "0 4 5 * *"
+    },
+    {
+      "path": "/api/cron/event-catalog?source=tech-conferences",
+      "schedule": "0 4 6 * *"
     }
   ]
 }

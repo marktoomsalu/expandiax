@@ -23,6 +23,7 @@ import { readPhotoFacts, savePlaces } from "./PhotoPlaceSuggestion";
 import { PhotoArranger } from "./PhotoArranger";
 import { placeByTime } from "@/lib/mediaOrder";
 import { pickCover } from "@/lib/photoPrepare";
+import { PhoneDayPhotos } from "./PhoneDayPhotos";
 import { hasNativePhotoPicker, pickNativePhotos, useNativePickerVideos, type PickProgress } from "@/lib/nativePhotoPicker";
 
 const never = () => () => {};
@@ -48,6 +49,8 @@ type Props = {
   places?: UploaderPlace[];
   /** The trip's country — photos taken somewhere new in it become new places of the trip. */
   countryCode?: string;
+  /** Its days (yyyy-mm-dd): in the iPhone app, the photos from them come first (PhoneDayPhotos). */
+  days?: { from: string; to: string } | null;
 };
 
 export type UploaderPlace = { id: string; name: string; lat: number | null; lng: number | null; position: number; arrived: string | null; departed: string | null };
@@ -315,6 +318,7 @@ export function MediaUploader(props: Props) {
 
   return (
     <section>
+      {props.days && photoRemaining > 0 && <PhoneDayPhotos from={props.days.from} to={props.days.to} remaining={photoRemaining} onAdd={addAndUpload} />}
       {tiles && (
         <div className="mb-5 grid grid-cols-2 gap-2.5 sm:gap-3">
           {native ? (

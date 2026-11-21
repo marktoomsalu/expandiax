@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ImageOff, Lock, Sparkles } from "lucide-react";
+import { ImageOff } from "lucide-react";
 import { askPhotoAccess, chooseMorePhotos, openAppSettings, photoAccess, scanPhotos, type PhotoAccess } from "@/lib/photoScan";
 import { findWorld, type FoundWorld, type ScanPlace } from "@/lib/tripFinder";
 import { loadShapes, makeLocator } from "@/lib/countryLocator";
@@ -15,6 +15,7 @@ import { ScanReveal } from "./ScanReveal";
 import { CountriesWall, type CountryPick } from "./CountriesWall";
 import { MemoriesView } from "./MemoriesView";
 import { ScanFinish } from "./ScanFinish";
+import { InviteHero } from "./InviteHero";
 
 type Phase = "invite" | "denied" | "scanning" | "awakening" | "reveal" | "countries" | "memories" | "finish" | "empty";
 
@@ -180,7 +181,7 @@ export function WorldScanFlow({
   let scene: React.ReactNode = null;
   switch (phase) {
     case "invite":
-      scene = <Invite mode={mode} error={error} onStart={start} onManual={onManual} />;
+      scene = <InviteHero mode={mode} error={error} onStart={start} onManual={onManual} />;
       break;
     case "denied":
       scene = <Denied restricted={access === "restricted"} onManual={onManual} onRetry={start} />;
@@ -261,104 +262,6 @@ export function WorldScanFlow({
 }
 
 const shell = "mx-auto flex min-h-[100dvh] max-w-md flex-col px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(3rem+env(safe-area-inset-top))]";
-
-/** One picture, one line, one button. */
-function Invite({ mode, error, onStart, onManual }: { mode: "new" | "member"; error: string | null; onStart: () => void; onManual: () => void }) {
-  return (
-    <div className={shell}>
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <PhotoConstellation />
-        <motion.h1
-          className="mt-10 font-serif text-[2.75rem] leading-[1.05]"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.7, ease: EASE }}
-        >
-          {mode === "new" ? (
-            <>
-              Find my <span className="italic text-[#ff8cc6]">world</span>
-            </>
-          ) : (
-            <>
-              Find <span className="italic text-[#ff8cc6]">more</span>
-            </>
-          )}
-        </motion.h1>
-        <motion.p
-          className="mt-3 text-lg text-white/70"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6, duration: 0.7 }}
-        >
-          Trips and concerts, found in your photos.
-        </motion.p>
-        {error && <p className="mt-4 text-sm text-[#ffb3b3]">{error}</p>}
-      </div>
-
-      <motion.div className="pt-8 text-center" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85, duration: 0.6 }}>
-        <button type="button" onClick={onStart} className="btn-accent w-full py-4 text-lg">
-          <Sparkles size={20} aria-hidden /> Let&apos;s go
-        </button>
-        <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-white/55">
-          <Lock size={12} aria-hidden /> Your photos stay on your phone
-        </p>
-        <div>
-          <button type="button" onClick={onManual} className="mt-3 text-sm text-white/50 hover:text-white">
-            {mode === "new" ? "Add it myself" : "Not now"}
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-/** Photos drifting into a glowing globe: what's about to happen, in a picture. */
-function PhotoConstellation() {
-  const tiles = [
-    { x: -118, y: -40, r: -12, c: "linear-gradient(135deg,#fb7822,#fa51a2)", d: 0 },
-    { x: 112, y: -62, r: 10, c: "linear-gradient(135deg,#16b3a6,#2d9cff)", d: 0.35 },
-    { x: -96, y: 74, r: 8, c: "linear-gradient(135deg,#ffd166,#fb7822)", d: 0.7 },
-    { x: 104, y: 66, r: -9, c: "linear-gradient(135deg,#7c5cff,#fa51a2)", d: 1.05 },
-    { x: 4, y: -112, r: 4, c: "linear-gradient(135deg,#fa51a2,#7c5cff)", d: 1.4 },
-  ];
-  return (
-    <div aria-hidden className="relative flex h-64 w-72 items-center justify-center">
-      <motion.div
-        className="absolute h-40 w-40 rounded-full bg-[#fa51a2] blur-3xl"
-        animate={{ opacity: [0.3, 0.6, 0.3], scale: [0.9, 1.15, 0.9] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="relative h-32 w-32 overflow-hidden rounded-full bg-[radial-gradient(circle_at_35%_30%,#3b6fb0_0%,#1d3b6b_55%,#0e1d3a_100%)] shadow-[0_0_60px_rgba(250,81,162,0.5)] ring-1 ring-white/25"
-        initial={{ scale: 0.6, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 120, damping: 14 }}
-      >
-        <motion.div className="absolute inset-0" animate={{ x: [0, -40, 0] }} transition={{ duration: 18, repeat: Infinity, ease: "linear" }}>
-          <span className="absolute left-[24%] top-[26%] h-4 w-6 rounded-sm bg-[#fb7822]" />
-          <span className="absolute left-[56%] top-[44%] h-6 w-4 rounded-sm bg-[#fb7822]" />
-          <span className="absolute left-[36%] top-[62%] h-3 w-5 rounded-sm bg-[#fa51a2]" />
-          <span className="absolute left-[78%] top-[30%] h-3 w-4 rounded-sm bg-[#fb7822]" />
-        </motion.div>
-      </motion.div>
-      {tiles.map((t, i) => (
-        <motion.span
-          key={i}
-          className="absolute h-14 w-12 rounded-md border-[3px] border-white shadow-xl"
-          style={{ background: t.c }}
-          initial={{ x: t.x * 1.6, y: t.y * 1.6, rotate: t.r * 2, opacity: 0 }}
-          animate={{ x: [t.x, t.x * 0.9, t.x], y: [t.y, t.y - 10, t.y], rotate: t.r, opacity: 1 }}
-          transition={{
-            x: { duration: 3.6, delay: t.d, repeat: Infinity, ease: "easeInOut" },
-            y: { duration: 3.6, delay: t.d, repeat: Infinity, ease: "easeInOut" },
-            rotate: { duration: 0.8, delay: t.d * 0.4 },
-            opacity: { duration: 0.6, delay: t.d * 0.4 },
-          }}
-        />
-      ))}
-    </div>
-  );
-}
 
 function Denied({ restricted, onManual, onRetry }: { restricted: boolean; onManual: () => void; onRetry: () => void }) {
   // Coming back from Settings with access: carry on by themselves.

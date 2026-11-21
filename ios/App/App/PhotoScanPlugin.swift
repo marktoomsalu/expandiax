@@ -28,6 +28,7 @@ public class PhotoScanPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "chooseMore", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "scan", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "images", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "photosBetween", returnType: CAPPluginReturnPromise),
     ]
 
     private func statusName(_ s: PHAuthorizationStatus) -> String {
@@ -258,6 +259,60 @@ public class PhotoScanPlugin: CAPPlugin, CAPBridgedPlugin {
                 ]
             }
             call.resolve(["total": total, "located": located, "places": outPlaces, "moments": outMoments])
+        }
+    }
+
+    /// The photos taken on the given days (yyyy-MM-dd, local to where each
+    /// was taken), oldest first: for adding a trip's or an event's own photos
+    /// straight from its days (build 15 on). Photos only, no screenshots.
+    @objc func photosBetween(_ call: CAPPluginCall) {
+        guard let fromDay = call.getString("from"), let toDay = call.getString("to") else {
+            call.reject("from and to are needed")
+            return
+        }
+        let limit = max(1, min(2000, call.getInt("limit") ?? 600))
+        DispatchQueue.global(qos: .userInitiated).async {
+            let day = DateFormatter()
+            day.calendar = Calendar(identifier: .gregorian)
+            day.locale = Locale(identifier: "en_US_POSIX")
+            day.timeZone = TimeZone(identifier: "UTC")
+            day.dateFormat = "yyyy-MM-dd"
+            let stamp = DateFormatter()
+            stamp.calendar = Calendar(identifier: .gregorian)
+            stamp.locale = Locale(identifier: "en_US_POSIX")
+            stamp.timeZone = TimeZone(identifier: "UTC")
+            stamp.dateFormat = "yyyy-MM-dd'T'HH:mm"
+            guard let from = day.date(from: fromDay), let to = day.date(from: toDay) else {
+                call.reject("Dates are yyyy-MM-dd")
+                return
+            }
+            // A day on either side: local time can be up to 14 hours from UTC.
+            let options = PHFetchOptions()
+            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+            options.predicate = NSPredicate(
+                format: "mediaType == %d AND creationDate >= %@ AND creationDate < %@",
+                PHAssetMediaType.image.rawValue, from.addingTimeInterval(-86_400) as NSDate, to.addingTimeInterval(2 * 86_400) as NSDate
+            )
+            options.includeAssetSourceTypes = [.typeUserLibrary, .typeiTunesSynced]
+            let assets = PHAsset.fetchAssets(with: options)
+            let offsetHere = Double(TimeZone.current.secondsFromGMT())
+            var out: [[String: Any]] = []
+            assets.enumerateObjects { asset, _, stop in
+                guard let date = asset.creationDate, !asset.mediaSubtypes.contains(.photoScreenshot) else { return }
+                // Local to where it was taken (by longitude), or to this phone when it has no place.
+                let c = asset.location?.coordinate
+                let local = date.addingTimeInterval(c.map { $0.longitude * 240 } ?? offsetHere)
+                let d = day.string(from: local)
+                guard d >= fromDay && d <= toDay else { return }
+                var item: [String: Any] = ["id": asset.localIdentifier, "t": stamp.string(from: local), "f": asset.isFavorite]
+                if let c = c, CLLocationCoordinate2DIsValid(c) {
+                    item["la"] = c.latitude
+                    item["ln"] = c.longitude
+                }
+                out.append(item)
+                if out.count >= limit { stop.pointee = true }
+            }
+            call.resolve(["photos": out])
         }
     }
 

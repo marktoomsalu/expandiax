@@ -7,8 +7,6 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { countryByCode } from "@/lib/countries";
-import { enqueueUploads, getUploads } from "@/lib/uploadQueue";
-import { photoFile } from "@/lib/photoScan";
 import { daysBetween } from "@/lib/tripFinder";
 import { sameVenue } from "@/lib/eventMatch";
 import { placeKey } from "@/lib/photoPlaces";
@@ -47,9 +45,6 @@ export type KeptWorld = {
 
 const KEY = "expandiax:world-scan";
 const KEEP_DAYS = 14;
-
-/** How many of each kept trip's best photos go up with it. */
-export const PHOTOS_PER_TRIP = 3;
 
 export function saveKeptWorld(world: KeptWorld) {
   try {
@@ -127,8 +122,8 @@ export function alreadySaved(trip: KeptTrip, visits: ExistingVisit[]): boolean {
 
 /**
  * Writes a kept world for real: the countries (home saved as home if none
- * yet), a trip for each kept trip not already there, and each trip's best
- * photos through the upload queue (in the background, survives closing).
+ * yet), a trip for each kept trip not already there (with its towns as its
+ * places), and the events kept. No photos: people add their own later.
  * Only the newest trip goes to followers' feeds; the rest of the past fills
  * the map and profile without a burst of posts.
  */
@@ -189,29 +184,8 @@ export async function saveWorld(userId: string, world: KeptWorld): Promise<{ cou
 
   const events = await saveEvents(userId, world.events ?? []);
 
-  // The photos follow in the background, newest first (what people open
-  // first), a few at a time so the phone's memory isn't filled.
-  const uploads: PhotoJob[] = [
-    ...created.map((c) => ({
-      date: c.trip.from,
-      covers: c.trip.covers,
-      scope: "countries" as const,
-      table: "country_media" as const,
-      fields: { visited_country_id: c.countryId, country_visit_id: c.visitId },
-      cover: { table: "country_visits" as const, id: c.visitId },
-      parentId: c.visitId,
-    })),
-    ...events.map((e) => ({
-      date: e.event.date,
-      covers: e.event.covers,
-      scope: "events" as const,
-      table: "event_media" as const,
-      fields: { event_id: e.id },
-      cover: { table: "events" as const, id: e.id },
-      parentId: e.id,
-    })),
-  ].sort((a, b) => b.date.localeCompare(a.date));
-  void uploadPhotos(userId, uploads);
+  // No photos are chosen for anyone: their own go up when they add them
+  // (Chapter One's "Your first trip"), from each trip's own days.
 
   return { countries: codes.filter((c) => !had.has(c)).length, trips: created.length, events: events.length };
 }
@@ -250,45 +224,4 @@ async function saveEvents(userId: string, list: KeptEvent[]): Promise<{ id: stri
     if (!error && data) out.push({ id: data.id as string, event: e });
   }
   return out;
-}
-
-const MAX_WAITING_UPLOADS = 6;
-
-type PhotoJob = {
-  date: string;
-  covers: string[];
-  scope: "countries" | "events";
-  table: "country_media" | "event_media";
-  fields: Record<string, string>;
-  cover: { table: "country_visits" | "events"; id: string };
-  parentId: string;
-};
-
-async function uploadPhotos(userId: string, list: PhotoJob[]) {
-  for (const job of list) {
-    while (getUploads().filter((j) => j.status !== "done" && j.status !== "failed").length >= MAX_WAITING_UPLOADS) {
-      await new Promise((r) => setTimeout(r, 700));
-    }
-    const photos: File[] = [];
-    for (const id of job.covers.slice(0, PHOTOS_PER_TRIP)) {
-      const file = await photoFile(id, 2048);
-      if (file) photos.push(file);
-    }
-    if (!photos.length) continue;
-    enqueueUploads(
-      photos.map((file, i) => ({
-        file,
-        kind: "image" as const,
-        target: {
-          userId,
-          scope: job.scope,
-          parentId: job.parentId,
-          table: job.table,
-          fields: job.fields,
-          displayOrder: i,
-          cover: i === 0 ? job.cover : undefined,
-        },
-      }))
-    );
-  }
 }

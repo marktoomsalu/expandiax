@@ -2,7 +2,7 @@
 // describes by day, town names, venue names and a rough area. See eventMatch.ts.
 
 import { showsAtVenue, showsInCountryOnDay, showsOnDay, type ShowThatNight } from "./concerts";
-import { metres, sameVenue, type MomentAsk, type ShowFound } from "./eventMatch";
+import { metres, sameVenue, type KnownEvent, type MomentAsk, type ShowFound } from "./eventMatch";
 
 export type Geocode = (venue: string, city: string, countryCode: string) => Promise<{ lat: number; lng: number } | null>;
 
@@ -88,3 +88,51 @@ export const osmGeocode: Geocode = (venue, city, countryCode) =>
     const hit = hits.find((h) => !AREA.has(h.category ?? ""));
     return hit ? { lat: Number(hit.lat), lng: Number(hit.lon) } : null;
   });
+
+type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/**
+ * Known events for a moment's day and country: our catalogue (matches,
+ * festivals, races, conferences, and the races that come back each year in
+ * its area) and events members share. Places stay as they are: the phone
+ * decides how close it was.
+ */
+export async function knownFor(a: MomentAsk, db: Db): Promise<KnownEvent[]> {
+  if (!a.countryCode) return [];
+  const twoWeeksBefore = new Date(Date.parse(`${a.day}T12:00:00Z`) - 14 * 86_400_000).toISOString().slice(0, 10);
+  const inArea = (lat: number | null, lng: number | null) => !a.area || lat == null || lng == null || metres(a.area, { lat, lng }) <= 80_000;
+
+  const [dated, series, members] = await Promise.all([
+    db
+      .from("event_catalog")
+      .select("kind, title, venue, city, lat, lng, starts_on, ends_on")
+      .eq("country_code", a.countryCode)
+      .neq("kind", "race_series")
+      .lte("starts_on", a.day)
+      .gte("starts_on", twoWeeksBefore)
+      .limit(300),
+    a.area
+      ? db
+          .from("event_catalog")
+          .select("kind, title, venue, city, lat, lng")
+          .eq("kind", "race_series")
+          .gte("lat", a.area.lat - 0.6)
+          .lte("lat", a.area.lat + 0.6)
+          .gte("lng", a.area.lng - 1)
+          .lte("lng", a.area.lng + 1)
+          .limit(50)
+      : Promise.resolve({ data: [] }),
+    db.rpc("member_events", { p_from: a.day, p_to: a.day, p_country: a.countryCode }),
+  ]);
+
+  type Row = { kind: KnownEvent["kind"]; title: string; venue: string | null; city: string | null; lat: number | null; lng: number | null; starts_on?: string; ends_on?: string | null };
+  const out: KnownEvent[] = [];
+  for (const r of ((dated.data ?? []) as Row[]).filter((r) => (r.ends_on ?? r.starts_on ?? "") >= a.day && inArea(r.lat, r.lng))) {
+    out.push({ kind: r.kind, title: r.title, venue: r.venue, city: r.city, lat: r.lat, lng: r.lng });
+  }
+  for (const r of (series.data ?? []) as Row[]) out.push({ kind: "race_series", title: r.title, venue: r.venue, city: r.city, lat: r.lat, lng: r.lng });
+  for (const r of (members.data ?? []) as { title: string; event_type: string; venue: string | null; city: string | null }[]) {
+    out.push({ kind: "member", title: r.title, venue: r.venue, city: r.city, lat: null, lng: null, eventType: r.event_type as KnownEvent["eventType"] });
+  }
+  return out;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decide, headliner, isBigDay, sameVenue, venuesFromRows, venuesNear, type Moment, type ShowFound, type Venue } from "./eventMatch";
+import { decide, decideAll, headliner, isBigDay, sameVenue, venuesFromRows, venuesNear, type KnownEvent, type Moment, type ShowFound, type Venue } from "./eventMatch";
 
 const wembley: Venue = { name: "Wembley Stadium", lat: 51.5556, lng: -0.2794, kind: "s", aka: ["New Wembley"] };
 const moment = (over: Partial<Moment> = {}): Moment => ({ id: "m", lat: 51.556, lng: -0.2795, day: "2025-08-31", photos: 70, hours: 3, near: [wembley], ...over });
@@ -68,5 +68,36 @@ describe("decide", () => {
     expect(decide(moment({ near: [], photos: 200, hours: 9 }), [])).toEqual({ kind: "name", place: null, venueKind: null });
     expect(decide(moment({ near: [], photos: 10, hours: 1 }), [])).toBeNull();
     expect(isBigDay({ photos: 30, hours: 2.5 })).toBe(true);
+  });
+});
+
+describe("decideAll (concerts and our catalogue)", () => {
+  const known = (over: Partial<KnownEvent>): KnownEvent => ({ kind: "football", title: "X", venue: null, city: null, lat: null, lng: null, ...over });
+  const dallAra = { lat: 44.4922, lng: 11.3098 };
+
+  it("finds the match at the stadium that day", () => {
+    const m = moment({ ...dallAra, near: [], photos: 20, hours: 2 });
+    const d = decideAll(m, [], [known({ title: "Bologna FC 1909 – AC Milan", venue: "Stadio Renato Dall'Ara", ...dallAra })], ["Bologna"], "2025");
+    expect(d).toMatchObject({ kind: "event", type: "sport", title: "Bologna FC 1909 – AC Milan", sure: true });
+  });
+  it("keeps a sure concert over anything else", () => {
+    const d = decideAll(moment(), [show({ artist: "Coldplay", venue: "Wembley Stadium", atVenue: true, songs: 25 })], [known({ title: "A match", lat: 51.556, lng: -0.2795 })], ["London"], "2025");
+    expect(d).toMatchObject({ title: "Coldplay", sure: true });
+  });
+  it("finds a festival on its grounds, and offers one nearby on a big day", () => {
+    const boom = { lat: 51.0917, lng: 4.3833 };
+    expect(decideAll(moment({ ...boom, near: [], photos: 200, hours: 10 }), [], [known({ kind: "festival", title: "Tomorrowland 2025", ...boom })], ["Boom"], "2025")).toMatchObject({ type: "festival", sure: true });
+    expect(decideAll(moment({ lat: 51.2, lng: 4.4, near: [], photos: 200, hours: 10 }), [], [known({ kind: "festival", title: "Tomorrowland 2025", ...boom })], ["Antwerp"], "2025")).toMatchObject({ title: "Tomorrowland 2025", sure: false });
+  });
+  it("offers a marathon or a yearly race on a big day in its city", () => {
+    const berlin = { lat: 52.5167, lng: 13.3833 };
+    expect(decideAll(moment({ lat: 52.51, lng: 13.35, near: [], photos: 120, hours: 6 }), [], [known({ kind: "race", title: "2025 Berlin Marathon", ...berlin })], ["Berlin"], "2025")).toMatchObject({ type: "sport", title: "2025 Berlin Marathon" });
+    expect(decideAll(moment({ lat: 59.44, lng: 24.75, near: [], photos: 300, hours: 9 }), [], [known({ kind: "race_series", title: "IRONMAN Estonia", lat: 59.44, lng: 24.76 })], ["Tallinn"], "2026")).toMatchObject({ title: "IRONMAN Estonia 2026", sure: false });
+  });
+  it("uses an event members share in its town", () => {
+    expect(decideAll(moment({ near: [], photos: 40, hours: 3 }), [], [known({ kind: "member", title: "Tallinn Music Week", city: "Tallinn", eventType: "festival" })], ["Tallinn"], "2025")).toMatchObject({ type: "festival", title: "Tallinn Music Week", sure: false });
+  });
+  it("doesn't call a small evening anything from far away", () => {
+    expect(decideAll(moment({ near: [], photos: 10, hours: 1 }), [], [known({ kind: "festival", title: "Far", lat: 51.9, lng: -0.27 })], ["London"], "2025")).toBeNull();
   });
 });

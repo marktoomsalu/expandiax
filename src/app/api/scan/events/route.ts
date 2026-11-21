@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
-import type { MomentAsk, ShowFound } from "@/lib/eventMatch";
-import { osmGeocode, showsFor, type Geocode } from "@/lib/eventLookup";
+import type { KnownEvent, MomentAsk, ShowFound } from "@/lib/eventMatch";
+import { knownFor, osmGeocode, showsFor, type Geocode } from "@/lib/eventLookup";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,7 +15,9 @@ const cachedGeocode: Geocode = (venue, city, countryCode) =>
 
 /**
  * "Find my world" (iPhone app, before or after sign-up): what played on
- * these days at these venues or in these towns, and where each venue is.
+ * these days at these venues or in these towns, and where each venue is;
+ * and the known matches, festivals, races and conferences (our catalogue,
+ * and events members share) for that day and country.
  * Each moment comes as a day, a few town and venue names and a rough area
  * (~20 km), worked out on the phone: no exact place, no photos, nothing
  * about the person, and nothing is kept. The phone decides from the answer
@@ -45,12 +48,17 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
-  if (!process.env.SETLISTFM_API_KEY) return NextResponse.json({ answers: [] });
-
-  const answers: { id: string; shows: ShowFound[] }[] = [];
+  const db = createClient();
+  const answers: { id: string; shows: ShowFound[]; known: KnownEvent[] }[] = [];
   const queue = [...asks];
   async function worker() {
-    for (let a = queue.shift(); a; a = queue.shift()) answers.push({ id: a.id, shows: await showsFor(a, cachedGeocode).catch(() => []) });
+    for (let a = queue.shift(); a; a = queue.shift()) {
+      const [shows, known] = await Promise.all([
+        process.env.SETLISTFM_API_KEY ? showsFor(a, cachedGeocode).catch(() => []) : Promise.resolve([]),
+        knownFor(a, db).catch(() => []),
+      ]);
+      answers.push({ id: a.id, shows, known });
+    }
   }
   // Two at a time: setlist.fm allows about two requests a second.
   await Promise.all([worker(), worker()]);

@@ -144,6 +144,7 @@ export default async function EditVisitPage({
           tiles
           places={stops.map((c) => ({ id: c.id, name: c.city_name, lat: c.lat, lng: c.lng, position: c.position, arrived: c.arrived, departed: c.departed }))}
           countryCode={visit.visited_countries.country_code}
+          days={visit.visited_from ? { from: visit.visited_from, to: visit.visited_to ?? visit.visited_from } : null}
         />
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Check, Music2, PartyPopper, Plus, Sparkles, Tent, Ticket, Trophy } from "lucide-react";
+import { Check, Music2, PartyPopper, Plus, Presentation, Sparkles, Tent, Ticket, Trophy } from "lucide-react";
 import { countryByCode } from "@/lib/countries";
 import { photoThumbs } from "@/lib/photoScan";
 import type { BigDay, FoundEvent } from "@/lib/worldStory";
@@ -21,6 +21,7 @@ const EVENT_META: Record<string, { label: string; icon: typeof Music2 }> = {
   festival: { label: "Festival", icon: Tent },
   sport: { label: "Match", icon: Trophy },
   personal: { label: "Special day", icon: PartyPopper },
+  conference: { label: "Conference", icon: Presentation },
   other: { label: "Show", icon: Ticket },
 };
 

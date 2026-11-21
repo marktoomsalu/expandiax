@@ -17,8 +17,12 @@ interface PhotoScanNative {
   chooseMore(): Promise<void>;
   scan(): Promise<{ total: number; located: number; places: ScanPlace[]; moments?: ScanMoment[] }>;
   images(options: { ids: string[]; size: number; quality?: number }): Promise<{ images: Record<string, string> }>;
+  photosBetween(options: { from: string; to: string; limit?: number }): Promise<{ photos: DayPhoto[] }>;
   addListener(event: "progress", fn: (e: { done: number; total: number; located: number }) => void): Promise<PluginListenerHandle>;
 }
+
+/** A photo from a given day: its library id, when (near local time, yyyy-mm-ddThh:mm), a favourite or not, where. */
+export type DayPhoto = { id: string; t: string; f: boolean; la?: number; ln?: number };
 
 const Native = registerPlugin<PhotoScanNative>("PhotoScan");
 
@@ -28,6 +32,18 @@ export const photoAccess = () => Native.access().then((r) => r.status);
 export const askPhotoAccess = () => Native.requestAccess().then((r) => r.status);
 export const openAppSettings = () => Native.openSettings();
 export const chooseMorePhotos = () => Native.chooseMore();
+
+/** The photos taken on these days (build 15 on); null where the app can't (older builds, no access). */
+export async function photosBetween(from: string, to: string): Promise<DayPhoto[] | null> {
+  if (!canScanPhotos()) return null;
+  try {
+    const status = await photoAccess();
+    if (status !== "full" && status !== "limited") return null;
+    return (await Native.photosBetween({ from, to })).photos;
+  } catch {
+    return null;
+  }
+}
 
 export async function scanPhotos(onProgress: (p: { done: number; total: number; located: number }) => void) {
   const handle = await Native.addListener("progress", onProgress);
