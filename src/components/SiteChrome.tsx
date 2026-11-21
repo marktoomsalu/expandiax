@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { PageTransition } from "./PageTransition";
 import { StoreBadges } from "./AppStoreBadge";
 import { cn } from "@/lib/utils";
+import { isNativePlatform } from "@/lib/capacitor";
 
 // /start is a full-screen, immersive flow (its own cold-open/fork/reveal
 // layouts, each sized to exactly the viewport) — the floating tab bar
@@ -30,13 +32,17 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
   const immersive = path === "/start" || path === "/touch";
   // No tab bar while signing up either (see SiteNav.tsx), so no room for one.
   const hasTabBar = !immersive && path !== "/sign-up";
+  // In the app, creating an account is one screen: no website footer below it to scroll to.
+  const [native, setNative] = useState(false);
+  useEffect(() => setNative(isNativePlatform()), []);
+  const footer = !immersive && !(native && path === "/sign-up");
 
   return (
     <div className={cn(hasTabBar && "pb-[calc(5.25rem+env(safe-area-inset-bottom))]")}>
       <main>
         <PageTransition>{children}</PageTransition>
       </main>
-      {!immersive && (
+      {footer && (
         <footer className="mt-20 border-t border-line">
           <div className="mx-auto max-w-shell px-5 py-8">
             <div className="flex flex-col items-start justify-between gap-3 text-sm text-muted sm:flex-row sm:items-center">
