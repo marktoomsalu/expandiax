@@ -130,7 +130,7 @@ export function ScanFinish({
           <>
             {/* What they kept is waiting on the phone; signing up just gives it a home. */}
             <Link href="/sign-up" className="btn-accent w-full py-4 text-lg">
-              Create my free account
+              Save my world
             </Link>
             <p className="mt-2 text-xs text-white/50">So your world is kept safe.</p>
           </>

@@ -109,7 +109,7 @@ export function InviteHero({ mode, error, onStart, onManual }: { mode: "new" | "
               />
             )}
             <span className="relative inline-flex items-center gap-2">
-              <Sparkles size={20} aria-hidden /> {mode === "new" ? "Count my world" : "Find them"}
+              <Sparkles size={20} aria-hidden /> {mode === "new" ? "Discover my world" : "Find them"}
             </span>
           </motion.button>
           <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-white/55">
