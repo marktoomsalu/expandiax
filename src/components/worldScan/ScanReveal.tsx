@@ -8,6 +8,7 @@ import type { FoundWorld } from "@/lib/tripFinder";
 import type { FoundEvent } from "@/lib/worldStory";
 import { tapLight, tapSuccess } from "@/lib/haptics";
 import { Burst, CountUp } from "./Burst";
+import { warmUpWall } from "./CountriesWall";
 
 /** The big moment: how much of the world they've already seen. */
 export function ScanReveal({
@@ -32,6 +33,9 @@ export function ScanReveal({
   const home = countryByCode(world.homeCode);
   const trips = world.trips.filter((t) => t.sure).length;
   const eventCount = events?.filter((e) => e.sure).length ?? null;
+
+  // The next screen's first photos load while this one is being looked at.
+  useEffect(() => warmUpWall(world), [world]);
 
   useEffect(() => {
     const t = setTimeout(() => tapSuccess(), reduce ? 0 : 450);

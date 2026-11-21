@@ -64,6 +64,7 @@ export function WorldScanFlow({
   const [saving, setSaving] = useState(false);
   const locator = useRef<((lat: number, lng: number) => string | null) | null>(null);
   const eventsDone = useRef<Promise<{ events: FoundEvent[]; bigDays: BigDay[] }> | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
 
   // The world's outlines load while the first screen is up.
   useEffect(() => {
@@ -244,15 +245,26 @@ export function WorldScanFlow({
       break;
   }
 
+  // The scrolling screens have a button bar fixed to the bottom of the screen
+  // and a header that sticks to the top: sliding them in (a transform) would
+  // pin that bar to the sliding page instead, out of sight until the slide
+  // ends and it jumps into place. They fade in where they stand.
+  const scrolls = phase === "countries" || phase === "memories";
+
   return (
     // Full screen, over the app's header and tab bar: nothing else on the way.
-    <div className="fixed inset-0 z-[80] overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_50%_25%,#5a1758_0%,#2b0b2e_55%,#14051a_100%)] text-white">
-      <AnimatePresence mode="wait" initial={false}>
+    <div ref={scroller} className="fixed inset-0 z-[80] overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_50%_25%,#5a1758_0%,#2b0b2e_55%,#14051a_100%)] text-white">
+      <AnimatePresence
+        mode="wait"
+        initial={false}
+        // Each screen starts at its top, not where the last one was scrolled to.
+        onExitComplete={() => scroller.current?.scrollTo({ top: 0 })}
+      >
         <motion.div
           key={phase === "scanning" ? "awakening" : phase}
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE } }}
-          exit={{ opacity: 0, y: -14, transition: { duration: 0.3, ease: "easeIn" } }}
+          initial={scrolls ? { opacity: 0 } : { opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0, transition: { duration: scrolls ? 0.35 : 0.5, ease: EASE } }}
+          exit={{ opacity: 0, transition: { duration: 0.18, ease: "easeIn" } }}
         >
           {scene}
         </motion.div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, Home, Plus, Search, X } from "lucide-react";
@@ -11,8 +11,48 @@ import { tapLight, tapSuccess } from "@/lib/haptics";
 
 const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), {
   ssr: false,
-  loading: () => <div className="h-[80px] w-full" />,
+  loading: () => <GlobeSpot />,
 });
+
+/** Where the little globe goes, until it's drawn: a faint sphere of the same size. */
+function GlobeSpot() {
+  return (
+    <div className="flex h-[77px] w-full items-center justify-center">
+      <span className="h-14 w-14 rounded-full bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,0.18),rgba(255,255,255,0.04)_70%)]" />
+    </div>
+  );
+}
+
+/** The countries that open the wall, most visited first (home has its own tile). */
+function wallOrder(world: FoundWorld): Tile[] {
+  const by = new Map<string, Tile>();
+  for (const t of world.trips) {
+    const cur = by.get(t.code);
+    if (!cur) by.set(t.code, { code: t.code, firstYear: t.from.slice(0, 4), trips: 1, sure: t.sure });
+    else {
+      cur.trips += 1;
+      if (t.from.slice(0, 4) < cur.firstYear) cur.firstYear = t.from.slice(0, 4);
+      cur.sure ||= t.sure;
+    }
+  }
+  // The places they've been most lead.
+  return [...by.values()].sort((a, b) => b.trips - a.trips || a.firstYear.localeCompare(b.firstYear));
+}
+
+const tileUrl = (raw: string) => stockUrl(raw, 440, "4:5", 72);
+
+/**
+ * Fetch the photos of the first tiles while the count is still on screen, so
+ * the wall opens with them already there instead of filling in as it fades in.
+ */
+export function warmUpWall(world: FoundWorld) {
+  for (const t of wallOrder(world)
+    .filter((t) => t.sure && t.code !== world.homeCode)
+    .slice(0, 6)) {
+    const photo = stockPhotoFor(t.code, "wall");
+    if (photo) new Image().src = tileUrl(photo.raw);
+  }
+}
 
 export type CountryPick = {
   /** Countries kept: found ones not tapped off, doubtful ones tapped on, and added ones. */
@@ -38,20 +78,14 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
   const [adding, setAdding] = useState(false);
   const [toast, setToast] = useState<{ code: string; kept: boolean; n: number } | null>(null);
 
-  const tiles: Tile[] = useMemo(() => {
-    const by = new Map<string, Tile>();
-    for (const t of world.trips) {
-      const cur = by.get(t.code);
-      if (!cur) by.set(t.code, { code: t.code, firstYear: t.from.slice(0, 4), trips: 1, sure: t.sure });
-      else {
-        cur.trips += 1;
-        if (t.from.slice(0, 4) < cur.firstYear) cur.firstYear = t.from.slice(0, 4);
-        cur.sure ||= t.sure;
-      }
-    }
-    // The places they've been most lead.
-    return [...by.values()].sort((a, b) => b.trips - a.trips || a.firstYear.localeCompare(b.firstYear));
-  }, [world.trips]);
+  const tiles: Tile[] = useMemo(() => wallOrder(world), [world]);
+  // The little globe starts up (a WebGL scene) once the screen has faded in,
+  // not during it, where it would stall the fade.
+  const [globeOn, setGlobeOn] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setGlobeOn(true), 420);
+    return () => clearTimeout(t);
+  }, []);
 
   const sure = tiles.filter((t) => t.sure && t.code !== world.homeCode);
   const unsure = tiles.filter((t) => !t.sure && t.code !== world.homeCode);
@@ -79,7 +113,13 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
       {/* The globe and the count, changing with every tap */}
       <div className="sticky top-0 z-20 flex items-center gap-3 bg-[#1f0822]/85 px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur-xl">
         <div className="pointer-events-none -my-2 -ml-3 w-24 shrink-0">
-          <WorldGlobeInner visitedCodes={codes} homeCode={world.homeCode ?? undefined} interactive={false} labels={false} autoRotate />
+          {globeOn ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+              <WorldGlobeInner visitedCodes={codes} homeCode={world.homeCode ?? undefined} interactive={false} labels={false} autoRotate />
+            </motion.div>
+          ) : (
+            <GlobeSpot />
+          )}
         </div>
         <div className="min-w-0">
           <p className="font-serif text-xl leading-tight">Your countries</p>
@@ -234,7 +274,7 @@ function PhotoTile({ tile, on, index, onToggle, label }: { tile: Tile; on: boole
       <span className={`absolute inset-0 transition-[filter,opacity] duration-300 ${on ? "" : "opacity-35 grayscale"}`}>
         {photo && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={stockUrl(photo.raw, 440, "4:5", 72)} alt="" className="h-full w-full object-cover" loading={index < 6 ? "eager" : "lazy"} />
+          <img src={tileUrl(photo.raw)} alt="" className="h-full w-full object-cover" loading={index < 6 ? "eager" : "lazy"} />
         )}
         <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
       </span>
