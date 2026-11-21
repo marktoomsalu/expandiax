@@ -32,11 +32,12 @@ const config: CapacitorConfig = {
       showSpinner: false,
     },
     StatusBar: {
-      // "light" -> dark icons/text (StatusBar's naming is inverted: it names
-      // the *content* style, not the background), correct for our light
-      // (#faf9f6) canvas background below.
-      style: "light",
-      backgroundColor: "#faf9f6",
+      // Brand purple with light icons from the first moment, behind the
+      // Dynamic Island on the launch screen too, matching the header the
+      // website sets once it's loaded (NativeStatusBar). "DARK" names the
+      // content style for a dark background (light icons).
+      style: "DARK",
+      backgroundColor: "#2B0B2E",
       // Reserve space for the status bar instead of drawing under it —
       // without this the WebView renders edge-to-edge and the site's fixed
       // header lands underneath the notch/status bar.

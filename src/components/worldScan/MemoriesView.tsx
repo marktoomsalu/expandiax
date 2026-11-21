@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Check, Music2, PartyPopper, Plus, Presentation, Sparkles, Tent, Ticket, Trophy, X } from "lucide-react";
+import { Check, Music2, PartyPopper, Plus, Presentation, Sparkles, Tent, Ticket, Trophy } from "lucide-react";
 import { countryByCode } from "@/lib/countries";
 import { eventPhotoKind, eventStockPhoto, stockPhotoFor, stockUrl, type StockPhoto } from "@/lib/stockPhotos";
 import type { BigDay, FoundEvent } from "@/lib/worldStory";
@@ -38,12 +38,8 @@ const KINDS: { key: string; label: string; emoji: string; type: EventType; hint:
 
 type Named = { kind: string; title: string };
 
-/** How many fit on one screen without scrolling; the rest are in "See all". */
-const TICKETS = 3;
-const DAYS = 2;
-
 /**
- * "Your memories", all on one screen: the concerts, matches, festivals and
+ * "Your memories": the concerts, matches, festivals and
  * races found, as tickets (the surest already kept), and the big days
  * nothing was listed for, each one tap from being named. Pictures are
  * curated Unsplash ones for each kind of event: their own photos stay
@@ -63,7 +59,6 @@ export function MemoriesView({
 }) {
   const [flipped, setFlipped] = useState<Set<string>>(new Set());
   const [named, setNamed] = useState<Record<string, Named>>({});
-  const [all, setAll] = useState(false);
 
   const isKept = (e: FoundEvent) => (e.sure ? !flipped.has(e.id) : flipped.has(e.id));
   const toggle = (id: string) => {
@@ -85,7 +80,6 @@ export function MemoriesView({
 
   const found = events ?? [];
   const keptCount = found.filter(isKept).length + Object.keys(named).length;
-  const extra = Math.max(0, found.length - TICKETS) + Math.max(0, bigDays.length - DAYS);
 
   function save() {
     tapSuccess();
@@ -125,8 +119,8 @@ export function MemoriesView({
   );
 
   return (
-    <div className="mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.9rem+env(safe-area-inset-top))]">
-      <div className="shrink-0">
+    <div className="mx-auto min-h-[100dvh] max-w-md">
+      <div className="sticky top-0 z-20 bg-[#1f0822]/85 px-5 pb-3 pt-[calc(0.9rem+env(safe-area-inset-top))] backdrop-blur-xl">
         <p className="font-serif text-2xl">Your memories</p>
         <p className="mt-0.5 text-sm text-white/65">
           <motion.span key={keptCount} className="inline-block font-semibold text-white" initial={{ y: -6, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
@@ -136,7 +130,7 @@ export function MemoriesView({
         </p>
       </div>
 
-      <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden">
+      <div className="flex flex-col gap-3 px-4 pb-44 pt-3">
         <AnimatePresence>
           {events === null && (
             <motion.div
@@ -154,47 +148,20 @@ export function MemoriesView({
           )}
         </AnimatePresence>
 
-        {list(found.slice(0, TICKETS), bigDays.slice(0, DAYS))}
-
-        {extra > 0 && (
-          <button type="button" onClick={() => setAll(true)} className="self-center rounded-full bg-white/10 px-4 py-2 text-sm font-medium ring-1 ring-white/15">
-            See all ({found.length + bigDays.length})
-          </button>
-        )}
+        {list(found, bigDays, true)}
         {events !== null && !found.length && !bigDays.length && (
           <p className="px-1 pt-10 text-center text-sm text-white/55">No concerts or big days found this time. You can add them any time.</p>
         )}
       </div>
 
-      <button type="button" onClick={save} className="btn-accent mt-3 w-full shrink-0 py-4 text-lg shadow-[0_12px_30px_-8px_rgba(250,81,162,0.7)]">
-        {saveLabel}
-      </button>
+      <div className="fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-[#14051a] via-[#14051a]/95 to-transparent px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-10">
+        <div className="mx-auto max-w-md">
+          <button type="button" onClick={save} className="btn-accent w-full py-4 text-lg shadow-[0_12px_30px_-8px_rgba(250,81,162,0.7)]">
+            {saveLabel}
+          </button>
+        </div>
+      </div>
 
-      <AnimatePresence>
-        {all && (
-          <motion.div className="fixed inset-0 z-50 flex items-end bg-black/50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAll(false)}>
-            <motion.div
-              role="dialog"
-              aria-modal="true"
-              aria-label="All your memories"
-              className="mx-auto flex h-[85dvh] w-full max-w-md flex-col rounded-t-[28px] bg-[#24092a] pb-[env(safe-area-inset-bottom)] text-white ring-1 ring-white/10"
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 34 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-5 pb-2 pt-5">
-                <p className="font-serif text-xl">All your memories</p>
-                <button type="button" onClick={() => setAll(false)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10" aria-label="Done">
-                  <X size={20} aria-hidden />
-                </button>
-              </div>
-              <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 pb-6">{list(found, bigDays, true)}</div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -229,8 +196,8 @@ function EventTicket({ e, index, kept, onToggle }: { e: FoundEvent; index: numbe
       transition={{ delay: reduce ? 0 : Math.min(index, 6) * 0.07, type: "spring", stiffness: 220, damping: 22 }}
       className="relative block w-full shrink-0 text-left"
     >
-      <div className={`relative flex h-[5.5rem] overflow-hidden rounded-2xl bg-gradient-to-br from-[#fff4f9] to-[#ffe9da] text-[#2b0b2e] shadow-[0_14px_30px_-12px_rgba(0,0,0,0.6)] transition-[filter,opacity] duration-300 ${kept ? "" : "opacity-45 grayscale"}`}>
-        <Photo photo={photo} className="h-full w-[5.5rem] shrink-0" />
+      <div className={`relative flex h-32 overflow-hidden rounded-2xl bg-gradient-to-br from-[#fff4f9] to-[#ffe9da] text-[#2b0b2e] shadow-[0_14px_30px_-12px_rgba(0,0,0,0.6)] transition-[filter,opacity] duration-300 ${kept ? "" : "opacity-45 grayscale"}`}>
+        <Photo photo={photo} className="h-full w-32 shrink-0" />
         <span aria-hidden className="relative w-0 border-l-2 border-dashed border-[#2b0b2e]/20">
           <span className="absolute -left-[9px] -top-2 h-4 w-4 rounded-full bg-[#1f0822]" />
           <span className="absolute -bottom-2 -left-[9px] h-4 w-4 rounded-full bg-[#1f0822]" />
@@ -240,7 +207,7 @@ function EventTicket({ e, index, kept, onToggle }: { e: FoundEvent; index: numbe
             <Icon size={12} aria-hidden /> {meta.label}
             {!e.sure && <span className="rounded-full bg-[#d63384]/10 px-1.5 normal-case tracking-normal">maybe</span>}
           </p>
-          <p className="mt-0.5 truncate font-serif text-lg leading-tight">{e.title}</p>
+          <p className="mt-1 truncate font-serif text-xl leading-tight">{e.title}</p>
           <p className="truncate text-xs text-[#2b0b2e]/60">
             {where || countryByCode(e.code)?.name} · {day(e.date)}
           </p>
@@ -265,9 +232,9 @@ function BigDayCard({ b, named, onName }: { b: BigDay; named: Named | null; onNa
   return (
     <motion.div layout className={`shrink-0 overflow-hidden rounded-2xl ring-1 transition-colors ${named ? "bg-white/[0.12] ring-[#fa51a2]" : "bg-white/[0.06] ring-white/10"}`}>
       <div className="flex gap-3 p-2.5">
-        <Photo photo={photo} className="h-14 w-14 shrink-0 rounded-xl" />
+        <Photo photo={photo} className="h-20 w-20 shrink-0 rounded-2xl" />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-serif text-base leading-tight">
+          <p className="truncate font-serif text-lg leading-tight">
             {flag} {b.place ?? b.city ?? countryByCode(b.code)?.name}
           </p>
           <p className="mt-0.5 text-xs text-white/55">

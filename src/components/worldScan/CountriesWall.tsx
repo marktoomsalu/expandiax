@@ -23,24 +23,19 @@ export type CountryPick = {
 
 type Tile = { code: string; firstYear: string; trips: number; sure: boolean };
 
-/** Big photo tiles for the countries they've been to most; the rest as flags. */
-const BIG = 6;
-/** Flags shown before "+N" (the rest are in the full list). */
-const FLAGS = 21;
-
 /**
- * "Your countries", all on one screen (nothing to scroll): the places
- * they've been most as photo tiles (curated Unsplash: their own photos stay
- * theirs), the rest as flags, all kept unless tapped off. The ones the
- * photos aren't sure about (a phone's position across a sea, a photo from a
- * plane) wait in their own row, off until tapped. "+ Add" for anything missed.
+ * "Your countries": every country found, each as a tile with a photo of it
+ * (curated Unsplash: their own photos stay theirs), kept unless tapped off.
+ * The ones the photos aren't sure about (a phone's position across a sea, a
+ * photo from a plane) wait at the end, off until tapped. "+ Add" for
+ * anything missed. It scrolls; the count and the button stay in view.
  */
 export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next: string; onNext: (pick: CountryPick) => void }) {
   const reduce = useReducedMotion();
   const [off, setOff] = useState<Set<string>>(new Set());
   const [on, setOn] = useState<Set<string>>(new Set());
   const [added, setAdded] = useState<string[]>([]);
-  const [sheet, setSheet] = useState<"add" | "all" | null>(null);
+  const [adding, setAdding] = useState(false);
   const [toast, setToast] = useState<{ code: string; kept: boolean; n: number } | null>(null);
 
   const tiles: Tile[] = useMemo(() => {
@@ -63,11 +58,6 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
   const isOn = (t: Tile) => (t.sure ? !off.has(t.code) : on.has(t.code));
   const codes = [...(world.homeCode ? [world.homeCode] : []), ...sure.filter(isOn).map((t) => t.code), ...unsure.filter(isOn).map((t) => t.code), ...added];
 
-  const big = sure.slice(0, BIG);
-  const small = sure.slice(BIG);
-  const flags = small.slice(0, FLAGS);
-  const more = small.length - flags.length;
-
   function toggle(t: Tile) {
     tapLight();
     const flip = (set: Set<string>) => {
@@ -85,9 +75,9 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
   const home = countryByCode(world.homeCode);
 
   return (
-    <div className="mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.5rem+env(safe-area-inset-top))]">
+    <div className="mx-auto min-h-[100dvh] max-w-md">
       {/* The globe and the count, changing with every tap */}
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="sticky top-0 z-20 flex items-center gap-3 bg-[#1f0822]/85 px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur-xl">
         <div className="pointer-events-none -my-2 -ml-3 w-24 shrink-0">
           <WorldGlobeInner visitedCodes={codes} homeCode={world.homeCode ?? undefined} interactive={false} labels={false} autoRotate />
         </div>
@@ -102,143 +92,110 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
         </div>
       </div>
 
-      {/* The places they've been most */}
-      <div className="mt-2 grid min-h-0 flex-1 grid-cols-3 grid-rows-[repeat(3,minmax(0,1fr))] gap-2">
+      <div className="grid grid-cols-2 gap-3 px-4 pb-44 pt-3">
         {home && (
-          <div className="relative flex flex-col justify-end overflow-hidden rounded-2xl bg-gradient-to-br from-[#fa51a2] via-[#f43f5e] to-[#fb7822] p-2.5">
-            <span className="absolute inset-0 flex items-center justify-center text-5xl" aria-hidden>
+          <div className="relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-3xl bg-gradient-to-br from-[#fa51a2] via-[#f43f5e] to-[#fb7822] p-4">
+            <span className="absolute inset-0 flex items-center justify-center text-7xl" aria-hidden>
               {home.flag}
             </span>
-            <span className="relative inline-flex w-fit items-center gap-1 rounded-full bg-black/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
-              <Home size={10} aria-hidden /> Home
+            <span className="relative inline-flex w-fit items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider">
+              <Home size={11} aria-hidden /> Home
             </span>
-            <span className="relative mt-0.5 truncate font-serif text-base leading-tight">{home.name}</span>
+            <span className="relative mt-1 font-serif text-xl leading-tight">{home.name}</span>
           </div>
         )}
-        {big.map((t, i) => (
+        {sure.map((t, i) => (
           <PhotoTile key={t.code} tile={t} on={isOn(t)} index={i} onToggle={() => toggle(t)} />
         ))}
-        {/* Fill the grid's last spaces with "+ Add" and, when there are fewer countries, nothing. */}
+        <AnimatePresence>
+          {added.map((code) => (
+            <PhotoTile
+              key={code}
+              tile={{ code, firstYear: "", trips: 0, sure: true }}
+              on
+              index={0}
+              label="Added"
+              onToggle={() => {
+                tapLight();
+                setAdded((a) => a.filter((c) => c !== code));
+              }}
+            />
+          ))}
+        </AnimatePresence>
         <button
           type="button"
           onClick={() => {
             tapLight();
-            setSheet("add");
+            setAdding(true);
           }}
-          className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-white/25 text-white/75"
+          className="flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-white/25 text-white/75"
         >
-          <Plus size={22} aria-hidden />
-          <span className="text-xs font-medium">Add a country</span>
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10">
+            <Plus size={24} aria-hidden />
+          </span>
+          <span className="text-sm font-medium">Add a country</span>
         </button>
+
+        {/* The doubtful ones */}
+        {unsure.length > 0 && (
+          <div className="col-span-2 mt-4">
+            <p className="font-serif text-lg">Were you really here?</p>
+            <p className="text-xs text-white/55">A few photos placed here, maybe from a plane or across a border at sea. Tap if you were.</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {unsure.map((t) => {
+                const kept = isOn(t);
+                const c = countryByCode(t.code);
+                return (
+                  <button
+                    key={t.code}
+                    type="button"
+                    onClick={() => toggle(t)}
+                    aria-pressed={kept}
+                    className={`flex h-9 items-center gap-1.5 rounded-full border-2 px-2.5 text-xs transition-colors ${kept ? "border-[#fa51a2] bg-white/15" : "border-dashed border-white/25 text-white/70"}`}
+                  >
+                    <span className={kept ? "" : "grayscale"} aria-hidden>
+                      {c?.flag}
+                    </span>
+                    <span className="max-w-[7rem] truncate">{c?.name}</span>
+                    <span aria-hidden>{kept ? <Check size={12} strokeWidth={3} /> : "?"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* The rest, as flags */}
-      {(flags.length > 0 || more > 0 || added.length > 0) && (
-        <div className="mt-3 shrink-0">
-          <div className="flex flex-wrap gap-1.5">
-            {flags.map((t) => {
-              const kept = isOn(t);
-              const c = countryByCode(t.code);
-              return (
-                <button
-                  key={t.code}
-                  type="button"
-                  onClick={() => toggle(t)}
-                  aria-pressed={kept}
-                  aria-label={`${c?.name}${kept ? "" : ", removed"}`}
-                  className={`relative flex h-10 w-10 items-center justify-center rounded-full text-xl transition ${kept ? "bg-white/15 ring-1 ring-white/25" : "bg-white/[0.04] opacity-40 grayscale"}`}
-                >
-                  <span aria-hidden>{c?.flag}</span>
-                </button>
-              );
-            })}
-            {added.map((code) => (
-              <motion.button
-                key={code}
-                type="button"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                onClick={() => {
-                  tapLight();
-                  setAdded((a) => a.filter((c) => c !== code));
-                }}
-                aria-label={`${countryByCode(code)?.name}, added: tap to remove`}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-xl ring-2 ring-[#fa51a2]"
-              >
-                <span aria-hidden>{countryByCode(code)?.flag}</span>
-              </motion.button>
-            ))}
-            {more > 0 && (
-              <button type="button" onClick={() => setSheet("all")} className="flex h-10 items-center justify-center rounded-full bg-white/15 px-3 text-sm font-semibold ring-1 ring-white/25">
-                +{more}
-              </button>
-            )}
+      {/* What a tap just did, and the way on */}
+      <div className="fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-[#14051a] via-[#14051a]/95 to-transparent px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-8">
+        <div className="mx-auto max-w-md">
+          <div className="relative h-7">
+            <AnimatePresence>
+              {toast && (
+                <motion.p key={toast.n} className="absolute inset-x-0 text-center text-xs text-white/80" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                  {countryByCode(toast.code)?.flag} {countryByCode(toast.code)?.name} {toast.kept ? "kept" : "removed"} ·{" "}
+                  <button type="button" className="font-semibold text-white underline underline-offset-2" onClick={() => toggle(tiles.find((t) => t.code === toast.code)!)}>
+                    Undo
+                  </button>
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              tapSuccess();
+              onNext({ codes, added });
+            }}
+            className="btn-accent w-full py-4 text-lg shadow-[0_12px_30px_-8px_rgba(250,81,162,0.7)]"
+          >
+            {next}
+          </button>
         </div>
-      )}
-
-      {/* The doubtful ones */}
-      {unsure.length > 0 && (
-        <div className="mt-3 shrink-0">
-          <p className="text-xs text-white/55">Were you really here? (a plane, a border at sea…) Tap if you were.</p>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {unsure.slice(0, 8).map((t) => {
-              const kept = isOn(t);
-              const c = countryByCode(t.code);
-              return (
-                <button
-                  key={t.code}
-                  type="button"
-                  onClick={() => toggle(t)}
-                  aria-pressed={kept}
-                  className={`flex h-9 items-center gap-1.5 rounded-full border-2 px-2.5 text-xs transition-colors ${kept ? "border-[#fa51a2] bg-white/15" : "border-dashed border-white/25 text-white/70"}`}
-                >
-                  <span className={kept ? "" : "grayscale"} aria-hidden>
-                    {c?.flag}
-                  </span>
-                  <span className="max-w-[6rem] truncate">{c?.name}</span>
-                  <span aria-hidden>{kept ? <Check size={12} strokeWidth={3} /> : "?"}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* What a tap just did */}
-      <div className="relative mt-2 h-7 shrink-0">
-        <AnimatePresence>
-          {toast && (
-            <motion.p
-              key={toast.n}
-              className="absolute inset-x-0 text-center text-xs text-white/75"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {countryByCode(toast.code)?.flag} {countryByCode(toast.code)?.name} {toast.kept ? "kept" : "removed"} ·{" "}
-              <button type="button" className="font-semibold text-white underline underline-offset-2" onClick={() => toggle(tiles.find((t) => t.code === toast.code)!)}>
-                Undo
-              </button>
-            </motion.p>
-          )}
-        </AnimatePresence>
       </div>
-
-      <button
-        type="button"
-        onClick={() => {
-          tapSuccess();
-          onNext({ codes, added });
-        }}
-        className="btn-accent w-full shrink-0 py-4 text-lg shadow-[0_12px_30px_-8px_rgba(250,81,162,0.7)]"
-      >
-        {next}
-      </button>
 
       <AnimatePresence>
-        {sheet === "add" && (
+        {adding && (
           <AddCountry
             have={new Set(codes)}
             near={codes}
@@ -250,16 +207,15 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
                 else setOn((s) => new Set([...s, code]));
               } else setAdded((a) => [...a, code]);
             }}
-            onClose={() => setSheet(null)}
+            onClose={() => setAdding(false)}
           />
         )}
-        {sheet === "all" && <AllCountries tiles={sure} isOn={isOn} onToggle={toggle} onClose={() => setSheet(null)} />}
       </AnimatePresence>
     </div>
   );
 }
 
-function PhotoTile({ tile, on, index, onToggle }: { tile: Tile; on: boolean; index: number; onToggle: () => void }) {
+function PhotoTile({ tile, on, index, onToggle, label }: { tile: Tile; on: boolean; index: number; onToggle: () => void; label?: string }) {
   const reduce = useReducedMotion();
   const c = countryByCode(tile.code);
   const photo = stockPhotoFor(tile.code, "wall");
@@ -271,28 +227,30 @@ function PhotoTile({ tile, on, index, onToggle }: { tile: Tile; on: boolean; ind
       aria-label={`${c?.name}${on ? "" : ", removed"}`}
       initial={reduce ? false : { opacity: 0, y: 18, scale: 0.92 }}
       animate={{ opacity: 1, y: 0, scale: on ? 1 : 0.95 }}
-      transition={{ delay: reduce ? 0 : index * 0.06, type: "spring", stiffness: 260, damping: 24 }}
-      className="relative flex flex-col justify-end overflow-hidden rounded-2xl p-2.5 text-left ring-1 ring-white/10"
+      transition={{ delay: reduce ? 0 : Math.min(index, 8) * 0.05, type: "spring", stiffness: 260, damping: 24 }}
+      className="relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-3xl p-3.5 text-left ring-1 ring-white/10"
       style={{ background: photo?.color ?? "#3a1240" }}
     >
       <span className={`absolute inset-0 transition-[filter,opacity] duration-300 ${on ? "" : "opacity-35 grayscale"}`}>
         {photo && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={stockUrl(photo.raw, 320, "4:5", 70)} alt="" className="h-full w-full object-cover" />
+          <img src={stockUrl(photo.raw, 440, "4:5", 72)} alt="" className="h-full w-full object-cover" loading={index < 6 ? "eager" : "lazy"} />
         )}
         <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
       </span>
-      <span className={`relative text-lg leading-none ${on ? "" : "opacity-60"}`} aria-hidden>
+      <span className={`relative text-2xl leading-none ${on ? "" : "opacity-60"}`} aria-hidden>
         {c?.flag}
       </span>
-      <span className={`relative mt-0.5 truncate font-serif text-base leading-tight ${on ? "" : "text-white/60 line-through"}`}>{c?.name}</span>
-      <span className="relative truncate text-[10px] text-white/65">{on ? `Since ${tile.firstYear}${tile.trips > 1 ? ` · ${tile.trips} trips` : ""}` : "Tap to bring back"}</span>
-      {photo && <span className="absolute left-2 top-1.5 max-w-[70%] truncate text-[8px] text-white/60 drop-shadow">Photo: {photo.author} / Unsplash</span>}
+      <span className={`relative mt-1 truncate font-serif text-xl leading-tight ${on ? "" : "text-white/60 line-through"}`}>{c?.name}</span>
+      <span className="relative truncate text-xs text-white/65">
+        {!on ? "Tap to bring back" : label ?? `Since ${tile.firstYear}${tile.trips > 1 ? ` · ${tile.trips} trips` : ""}`}
+      </span>
+      {photo && <span className="absolute bottom-1 right-2 max-w-[70%] truncate text-[8px] text-white/55 drop-shadow">Photo: {photo.author} / Unsplash</span>}
       <span
-        className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full ${on ? "bg-gradient-to-br from-[#fa51a2] to-[#fb7822] text-white" : "bg-black/40 text-white ring-1 ring-white/50"}`}
+        className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full ${on ? "bg-gradient-to-br from-[#fa51a2] to-[#fb7822] text-white shadow-lg" : "bg-black/40 text-white ring-1 ring-white/50 backdrop-blur"}`}
         aria-hidden
       >
-        {on ? <Check size={13} strokeWidth={3} /> : <Plus size={13} strokeWidth={2.5} />}
+        {on ? <Check size={16} strokeWidth={3} /> : <Plus size={16} strokeWidth={2.5} />}
       </span>
     </motion.button>
   );
@@ -315,40 +273,6 @@ function Sheet({ label, onClose, children }: { label: string; onClose: () => voi
         {children}
       </motion.div>
     </motion.div>
-  );
-}
-
-/** Every found country, to check them all at once. */
-function AllCountries({ tiles, isOn, onToggle, onClose }: { tiles: Tile[]; isOn: (t: Tile) => boolean; onToggle: (t: Tile) => void; onClose: () => void }) {
-  return (
-    <Sheet label="All your countries" onClose={onClose}>
-      <div className="flex items-center justify-between px-5 pb-2 pt-5">
-        <p className="font-serif text-xl">All your countries</p>
-        <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10" aria-label="Done">
-          <X size={20} aria-hidden />
-        </button>
-      </div>
-      <ul className="flex-1 overflow-y-auto px-3 pb-6">
-        {tiles.map((t) => {
-          const c = countryByCode(t.code);
-          const kept = isOn(t);
-          return (
-            <li key={t.code}>
-              <button type="button" onClick={() => onToggle(t)} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left hover:bg-white/5" aria-pressed={kept}>
-                <span className={`text-2xl ${kept ? "" : "grayscale opacity-50"}`} aria-hidden>
-                  {c?.flag}
-                </span>
-                <span className={`flex-1 ${kept ? "" : "text-white/50 line-through"}`}>{c?.name}</span>
-                <span className="text-xs text-white/50">{t.trips > 1 ? `${t.trips} trips` : `since ${t.firstYear}`}</span>
-                <span className={`flex h-7 w-7 items-center justify-center rounded-full ${kept ? "bg-gradient-to-br from-[#fa51a2] to-[#fb7822]" : "ring-1 ring-white/30"}`} aria-hidden>
-                  {kept ? <Check size={14} strokeWidth={3} /> : <Plus size={14} />}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </Sheet>
   );
 }
 
