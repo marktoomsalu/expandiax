@@ -86,6 +86,32 @@ function centroidOf(geometry: unknown): { lat: number; lng: number } | null {
   return { lat: sumLat / points.length, lng: sumLng / points.length };
 }
 
+/** The middle and the size (in degrees) of a country's main land: its biggest polygon, not overseas islands. */
+function mainLandOf(geometry: unknown): { lat: number; lng: number; span: number } | null {
+  const g = geometry as { type: string; coordinates: unknown };
+  const polygons: number[][][][] = g.type === "Polygon" ? [g.coordinates as number[][][]] : g.type === "MultiPolygon" ? (g.coordinates as number[][][][]) : [];
+  const biggest = polygons.sort((a, b) => b[0].length - a[0].length)[0];
+  const ring = biggest?.[0];
+  if (!ring?.length) return null;
+  let minLat = 90;
+  let maxLat = -90;
+  let minLng = 180;
+  let maxLng = -180;
+  let sumLat = 0;
+  let sumLng = 0;
+  for (const [lng, lat] of ring) {
+    sumLat += lat;
+    sumLng += lng;
+    minLat = Math.min(minLat, lat);
+    maxLat = Math.max(maxLat, lat);
+    minLng = Math.min(minLng, lng);
+    maxLng = Math.max(maxLng, lng);
+  }
+  const lat = sumLat / ring.length;
+  const lngSpan = maxLng - minLng > 180 ? 360 - (maxLng - minLng) : maxLng - minLng;
+  return { lat, lng: sumLng / ring.length, span: Math.max(maxLat - minLat, lngSpan * Math.cos((lat * Math.PI) / 180)) };
+}
+
 type Props = {
   // Territories (Greenland, New Caledonia, Puerto Rico — whichever ones
   // happen to have their own shape at this map's resolution) share the
@@ -114,6 +140,12 @@ type Props = {
    * shape at this map's resolution.
    */
   focusCode?: string | null;
+  /** Fly in close, at a distance fitting the country's size (a small one closer), instead of the usual view. */
+  focusClose?: boolean;
+  /** How long a fly to a country takes (default 1.2 s). */
+  focusMs?: number;
+  /** Pull back to the whole world (keeping where it's looking). */
+  pullBack?: boolean;
 };
 
 export function WorldGlobeInner({
@@ -128,10 +160,14 @@ export function WorldGlobeInner({
   autoRotate = false,
   labels = true,
   focusCode,
+  focusClose = false,
+  focusMs = 1200,
+  pullBack = false,
 }: Props) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
+  const placed = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [features, setFeatures] = useState<GeoFeature[]>([]);
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -150,10 +186,25 @@ export function WorldGlobeInner({
     const country = focusCode ? countryByCode(focusCode) : null;
     if (!g || !country) return;
     const target = features.find((f) => f.id === country.numeric);
-    const center = target && centroidOf(target.geometry);
+    if (!target) return;
+    if (focusClose) {
+      const land = mainLandOf(target.geometry);
+      if (!land) return;
+      // Close enough to fill the view with it: Belgium near, Russia further.
+      g.pointOfView({ lat: land.lat, lng: land.lng, altitude: Math.min(1.7, Math.max(0.6, 0.45 + land.span / 28)) }, focusMs);
+      return;
+    }
+    const center = centroidOf(target.geometry);
     if (!center) return;
-    g.pointOfView({ lat: center.lat, lng: center.lng, altitude: 1.5 }, 1200);
-  }, [focusCode, features]);
+    g.pointOfView({ lat: center.lat, lng: center.lng, altitude: 1.5 }, focusMs);
+  }, [focusCode, features, focusClose, focusMs]);
+
+  useEffect(() => {
+    const g = globeRef.current;
+    if (!g || !pullBack) return;
+    const pov = g.pointOfView();
+    g.pointOfView({ lat: Math.max(-30, Math.min(40, pov.lat)), lng: pov.lng, altitude: 2 }, 1100);
+  }, [pullBack]);
 
   useEffect(() => {
     let alive = true;
@@ -213,7 +264,9 @@ export function WorldGlobeInner({
     camera.near = 10;
     camera.updateProjectionMatrix();
     controls.minDistance = 100 + camera.near * 1.1;
-    g.pointOfView({ lat: 18, lng: 14, altitude: 1.8 });
+    // The opening view once; switching rotation on later keeps where it's looking.
+    if (!placed.current) g.pointOfView({ lat: 18, lng: 14, altitude: 1.8 });
+    placed.current = true;
   }, [interactive, autoRotate]);
 
   function placeOf(f: GeoFeature): { code: string; name: string; flag: string; isTerritory: boolean } | undefined {

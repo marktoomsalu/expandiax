@@ -34,6 +34,8 @@ export function ScanAwakening({
 }) {
   const reduce = useReducedMotion();
   const order = useMemo(() => world?.countries ?? [], [world]);
+  // The fly to each country takes most of its turn, so it lands as the next one comes.
+  const step = Math.max(320, Math.min(1100, 9000 / Math.max(1, order.length)));
   const [shown, setShown] = useState(0);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
@@ -46,7 +48,6 @@ export function ScanAwakening({
       const t = setTimeout(() => doneRef.current(), 600);
       return () => clearTimeout(t);
     }
-    const step = Math.max(320, Math.min(1100, 9000 / order.length));
     let i = 0;
     let t: ReturnType<typeof setTimeout>;
     const next = () => {
@@ -61,13 +62,13 @@ export function ScanAwakening({
     };
     t = setTimeout(next, 900);
     return () => clearTimeout(t);
-  }, [world, order, reduce]);
+  }, [world, order, reduce, step]);
 
   const lit = order.slice(0, shown).map((c) => c.code);
   const current = shown > 0 ? order[shown - 1] : null;
   const country = current ? countryByCode(current.code) : null;
   const year = current ? current.firstDay.slice(0, 4) : null;
-  const slow = order.length <= 14;
+  const done = !scanning && !!world && shown >= order.length;
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
@@ -101,14 +102,18 @@ export function ScanAwakening({
           animate={{ opacity: scanning ? [0.12, 0.32, 0.12] : 0.22, scale: scanning ? [0.85, 1.05, 0.85] : 1 }}
           transition={{ duration: 2.2, repeat: scanning ? Infinity : 0 }}
         />
-        <div className="relative">
+        {/* A round lens with soft edges: zoomed in, the map fades out instead of stopping at a frame. */}
+        <div className="relative [-webkit-mask-image:radial-gradient(circle_closest-side_at_50%_50%,black_80%,transparent_100%)] [mask-image:radial-gradient(circle_closest-side_at_50%_50%,black_80%,transparent_100%)]">
           <WorldGlobeInner
             visitedCodes={lit}
             homeCode={world?.homeCode ?? undefined}
             interactive={false}
             labels={false}
-            autoRotate={scanning || !slow}
-            focusCode={!scanning && slow ? current?.code : undefined}
+            autoRotate={scanning || done}
+            focusCode={!scanning && !done ? current?.code : undefined}
+            focusClose
+            focusMs={Math.round(step * 0.9)}
+            pullBack={done}
           />
         </div>
       </div>
