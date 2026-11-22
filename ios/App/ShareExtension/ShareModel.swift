@@ -19,6 +19,8 @@ struct ShareTrip: Decodable, Identifiable, Hashable {
     let to: String?
     let year: Int
     let precision: String
+    /// "lived": months or years there. Never picked by itself: a trip while living there is a trip of its own.
+    let kind: String?
     let places: [String]
     let photos: Int
     let videos: Int
@@ -291,7 +293,7 @@ final class ShareModel: ObservableObject {
         guard !ds.isEmpty else { return nil }
         var top: (ShareTrip, Int)?
         for t in trips {
-            guard let from = t.from, let to = t.to, t.precision != "year" else { continue }
+            guard let from = t.from, let to = t.to, t.precision != "year", t.kind != "lived" else { continue }
             let lo = Self.shift(from, -1), hi = Self.shift(to, 1)
             let n = ds.filter { $0 >= lo && $0 <= hi }.count
             if n > 0, n > (top?.1 ?? 0) { top = (t, n) }
@@ -343,7 +345,7 @@ final class ShareModel: ObservableObject {
         newPlaces = places
         // No trip with those days, but one saved with only a year (or month) there: offer that one.
         if best == nil, let code = newCode, let year = days.first.map({ Int($0.prefix(4)) ?? 0 }),
-           let loose = trips.first(where: { $0.code == code && $0.precision != "day" && $0.year == year }) {
+           let loose = trips.first(where: { $0.code == code && $0.precision != "day" && $0.kind != "lived" && $0.year == year }) {
             best = loose
             if choice == nil { choice = .trip(loose.visitId) }
         }

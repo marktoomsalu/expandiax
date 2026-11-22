@@ -14,6 +14,8 @@ export type ShareTrip = {
   to: string | null;
   year: number;
   precision: "year" | "month" | "day";
+  /** "lived": a stay of months or years. Never picked for a share by itself: a trip while living there is its own trip. */
+  kind: string;
   places: string[];
   photos: number;
   videos: number;
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
 
   const [{ data: profile }, { data: countries }, { data: eventRows }] = await Promise.all([
     admin.from("profiles").select("home_country_code").eq("id", userId).maybeSingle(),
-    admin.from("visited_countries").select("id, country_code, country_name, country_visits(id, year, visited_from, visited_to, date_precision)").eq("user_id", userId),
+    admin.from("visited_countries").select("id, country_code, country_name, country_visits(id, year, visited_from, visited_to, date_precision, kind)").eq("user_id", userId),
     admin.from("events").select("id, title, event_date, end_date, event_type, venue, city, country_code").eq("user_id", userId).order("event_date", { ascending: false }).limit(300),
   ]);
   const eventIds = (eventRows ?? []).map((e) => e.id as string);
@@ -94,15 +96,17 @@ export async function GET(request: NextRequest) {
 
   const trips: ShareTrip[] = [];
   for (const c of countries ?? []) {
-    for (const v of (c.country_visits ?? []) as { id: string; year: number; visited_from: string | null; visited_to: string | null; date_precision: string | null }[]) {
+    for (const v of (c.country_visits ?? []) as { id: string; year: number; visited_from: string | null; visited_to: string | null; date_precision: string | null; kind: string | null }[]) {
       trips.push({
         visitId: v.id,
         code: c.country_code as string,
         name: c.country_name as string,
         from: v.visited_from,
-        to: v.visited_to ?? v.visited_from,
+        // Still living there: up to today.
+        to: v.visited_to ?? (v.kind === "lived" && v.visited_from ? new Date().toISOString().slice(0, 10) : v.visited_from),
         year: v.year,
         precision: v.date_precision === "day" || v.date_precision === "month" ? v.date_precision : v.visited_from ? "day" : "year",
+        kind: v.kind ?? "trip",
         places: (places.get(v.id) ?? []).slice(0, 4),
         ...(counts.get(v.id) ?? { photos: 0, videos: 0 }),
       });

@@ -18,6 +18,11 @@ private func serif(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
 }
 
 private func tripDates(_ t: ShareTrip) -> String {
+    let when = tripDays(t)
+    return t.kind == "lived" ? "Lived here · \(when)" : when
+}
+
+private func tripDays(_ t: ShareTrip) -> String {
     guard let from = t.from, let a = ShareModel.date(from) else { return String(t.year) }
     let b = t.to.flatMap(ShareModel.date) ?? a
     let f = DateFormatter()
@@ -74,6 +79,8 @@ struct ShareView: View {
     @ObservedObject var model: ShareModel
     @State private var search = ""
     @State private var pickingCountry = false
+    enum Tab { case trips, events }
+    @State private var tab: Tab?
 
     var body: some View {
         ZStack {
@@ -194,8 +201,7 @@ struct ShareView: View {
                     }
                     label(model.best == nil && model.bestEvent == nil ? "Add to" : "Or")
                     newTripCard
-                    otherTrips
-                    otherEvents
+                    library
                 }
                 .padding(.bottom, 24)
             }
@@ -264,13 +270,47 @@ struct ShareView: View {
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
+    /// Everything else they could add to: trips or events, one switch away, one search for both.
+    private var library: some View {
+        let current = tab ?? (model.bestEvent != nil ? .events : .trips)
+        return VStack(spacing: 0) {
+            if model.events.isEmpty {
+                label("Your trips")
+            } else {
+                Picker("Show", selection: Binding(get: { current }, set: { tab = $0 })) {
+                    Text("Trips").tag(Tab.trips)
+                    Text("Events").tag(Tab.events)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.top, 22)
+                .padding(.bottom, 10)
+            }
+            if model.trips.count + model.events.count > 6 {
+                HStack {
+                    Image(systemName: "magnifyingglass").foregroundColor(.secondary)
+                    TextField(current == .events ? "Search your events" : "Search your trips", text: $search)
+                        .textInputAutocapitalization(.words)
+                        .disableAutocorrection(true)
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 44)
+                .background(Color.card)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.line))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+            }
+            if current == .events { otherEvents } else { otherTrips }
+        }
+    }
+
     private var otherEvents: some View {
         let others = model.events.filter { $0.eventId != model.bestEvent?.eventId }
         let q = search.trimmingCharacters(in: .whitespaces).lowercased()
         let shown = (q.isEmpty ? others : others.filter { "\($0.title) \($0.venue ?? "") \($0.city ?? "")".lowercased().contains(q) }).prefix(40)
         return VStack(spacing: 0) {
             if !shown.isEmpty {
-                label("Your events")
                 VStack(spacing: 0) {
                     ForEach(Array(shown.enumerated()), id: \.element.eventId) { i, e in
                         let on = model.choice == .event(e.eventId)
@@ -378,20 +418,6 @@ struct ShareView: View {
         let shown = (q.isEmpty ? others : others.filter { $0.name.lowercased().contains(q) || $0.places.joined(separator: " ").lowercased().contains(q) }).prefix(40)
         return VStack(spacing: 0) {
             if !others.isEmpty {
-                label("Your trips")
-                if others.count + model.events.count > 6 {
-                    HStack {
-                        Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                        TextField("Search your trips and events", text: $search).textInputAutocapitalization(.words).disableAutocorrection(true)
-                    }
-                    .padding(.horizontal, 14)
-                    .frame(height: 44)
-                    .background(Color.card)
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(Color.line))
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
-                }
                 VStack(spacing: 0) {
                     ForEach(Array(shown.enumerated()), id: \.element.visitId) { i, t in
                         let on = model.choice == .trip(t.visitId)

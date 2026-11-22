@@ -62,9 +62,11 @@ export async function POST(request: NextRequest) {
       countryId = (vc?.id as string) ?? null;
       code = country.code;
       if (countryId) {
-        // Already there for those days? Then it's that trip.
-        const { data: visits } = await admin.from("country_visits").select("id, visited_from, visited_to").eq("visited_country_id", countryId).not("visited_from", "is", null);
-        const same = (visits ?? []).find((v) => (v.visited_from as string) <= t.to && ((v.visited_to as string) ?? (v.visited_from as string)) >= t.from);
+        // Already a trip for those days? Then it's that one. (Not a stay they lived: a trip while living there is a trip of its own.)
+        const { data: visits } = await admin.from("country_visits").select("id, visited_from, visited_to, kind").eq("visited_country_id", countryId).not("visited_from", "is", null);
+        const same = (visits ?? []).find(
+          (v) => v.kind !== "lived" && (v.visited_from as string) <= t.to && ((v.visited_to as string) ?? (v.visited_from as string)) >= t.from
+        );
         if (same) visitId = same.id as string;
         else {
           const { data: visit } = await admin
