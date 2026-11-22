@@ -25,7 +25,7 @@ export function ColdOpenStep({ onStart, leaving = false, onGlobeReady }: { onSta
   const [release] = useState(() => (typeof window === "undefined" ? () => {} : holdSplash()));
   useEffect(() => release, [release]);
   const reduce = useReducedMotion();
-  // Leaving for "Find my world": into the globe, as if flying in, while the words fade away.
+  // Leaving for "Find my world": the words fade, the globe gathers into a point (where the photos then burst out of).
   // The purple stays put underneath, so nothing flashes between the two screens.
   const EASE = [0.4, 0, 0.2, 1] as const;
   return (
@@ -33,8 +33,8 @@ export function ColdOpenStep({ onStart, leaving = false, onGlobeReady }: { onSta
       <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-brand-purple px-6 pt-[env(safe-area-inset-top)] text-center text-white">
         <motion.div
           className="w-full max-w-xl opacity-90"
-          animate={leaving ? { opacity: 0, scale: reduce ? 1 : 1.35 } : { opacity: 0.9, scale: 1 }}
-          transition={{ duration: 0.55, ease: EASE }}
+          animate={leaving ? { opacity: 0, scale: reduce ? 1 : 0.15 } : { opacity: 0.9, scale: 1 }}
+          transition={leaving ? { duration: 0.45, ease: [0.6, 0, 0.8, 0.4] } : { duration: 0.55, ease: EASE }}
         >
           <WorldGlobeInner
             visitedCodes={[]}
@@ -50,7 +50,7 @@ export function ColdOpenStep({ onStart, leaving = false, onGlobeReady }: { onSta
         <motion.div
           className="flex flex-col items-center"
           animate={leaving ? { opacity: 0, y: reduce ? 0 : 16 } : { opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: EASE }}
+          transition={{ duration: 0.25, ease: EASE }}
         >
         <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} priority className="mt-4 h-8 w-auto" />
         <p className="mt-6 font-serif text-2xl leading-snug sm:text-3xl">

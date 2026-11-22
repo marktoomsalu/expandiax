@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from "framer-motion";
 import { Lock, Sparkles } from "lucide-react";
 import { stockPhotoFor, stockUrl, type StockPhoto } from "@/lib/stockPhotos";
 import { ExternalLink } from "@/components/ExternalLink";
@@ -42,7 +42,20 @@ export function preloadInviteWall() {
  * countries and memories adding up over it, and one button. It should feel
  * like a game you want to play: see in seconds how big your world is.
  */
-export function InviteHero({ mode, error, onStart, onManual }: { mode: "new" | "member"; error: string | null; onStart: () => void; onManual: () => void }) {
+export function InviteHero({
+  mode,
+  error,
+  onStart,
+  onManual,
+  burst = false,
+}: {
+  mode: "new" | "member";
+  error: string | null;
+  onStart: () => void;
+  onManual: () => void;
+  /** Arriving from the globe: the photos burst out of where it was, into the wall. */
+  burst?: boolean;
+}) {
   const reduce = useReducedMotion();
   const columns = useMemo(() => COLUMNS.map((col) => col.map((cc, i) => stockPhotoFor(cc, `invite${i}`)).filter((p): p is StockPhoto => !!p)), []);
   const credits = useMemo(() => [...new Map(columns.flat().map((p) => [p.author, p])).values()], [columns]);
@@ -52,35 +65,22 @@ export function InviteHero({ mode, error, onStart, onManual }: { mode: "new" | "
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[#14051a]">
       {/* The wall */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[72dvh] overflow-hidden">
-        {/* Arriving: settles from a little closer, as the globe zooms away behind it. */}
-        <motion.div
-          className="absolute inset-0"
-          initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.12 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-        >
+        <div className="absolute inset-0">
         <div className="absolute -inset-x-16 -top-24 bottom-0 flex -rotate-[8deg] gap-3 opacity-90">
           {columns.map((col, c) => (
             <motion.div
               key={c}
               className="flex flex-1 flex-col gap-3"
-              initial={{ opacity: 0 }}
-              animate={reduce ? { opacity: 1 } : { opacity: 1, y: c % 2 ? ["-50%", "0%"] : ["0%", "-50%"] }}
-              transition={{
-                opacity: { duration: 0.8, delay: 0.1 + c * 0.12 },
-                y: { duration: 46 + c * 9, repeat: Infinity, ease: "linear" },
-              }}
+              animate={reduce ? undefined : { y: c % 2 ? ["-50%", "0%"] : ["0%", "-50%"] }}
+              transition={{ y: { duration: 46 + c * 9, repeat: Infinity, ease: "linear" } }}
             >
               {[...col, ...col].map((p, i) => (
-                <div key={i} className="relative aspect-[3/4] w-full shrink-0 overflow-hidden rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.45)]" style={{ background: p.color }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={stockUrl(p.raw, 360, "3:4", 70)} alt="" className="h-full w-full object-cover" loading={i < 3 ? "eager" : "lazy"} />
-                </div>
+                <WallTile key={i} photo={p} eager={i < 3} burst={burst && !reduce} />
               ))}
             </motion.div>
           ))}
         </div>
-        </motion.div>
+        </div>
         {/* Into the night at the bottom, so the words read */}
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(20,5,26,0.55)_0%,rgba(20,5,26,0.05)_25%,rgba(20,5,26,0.25)_55%,#14051a_100%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(250,81,162,0.25),transparent_60%)]" />
@@ -97,7 +97,7 @@ export function InviteHero({ mode, error, onStart, onManual }: { mode: "new" | "
           className="text-center font-serif text-[2.6rem] leading-[1.05]"
           initial={reduce ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.7 }}
+          transition={{ delay: burst ? 0.75 : 0.3, duration: 0.7 }}
         >
           {mode === "new" ? (
             <>
@@ -109,12 +109,12 @@ export function InviteHero({ mode, error, onStart, onManual }: { mode: "new" | "
             </>
           )}
         </motion.h1>
-        <motion.p className="mt-3 text-center text-base leading-relaxed text-white/75" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.7 }}>
+        <motion.p className="mt-3 text-center text-base leading-relaxed text-white/75" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: burst ? 0.95 : 0.6, duration: 0.7 }}>
           Countries, trips, concerts, matches, festivals: all added up from your photos, in seconds.
         </motion.p>
         {error && <p className="mt-3 text-center text-sm text-[#ffb3b3]">{error}</p>}
 
-        <motion.div initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85, duration: 0.6 }} className="mt-7">
+        <motion.div initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: burst ? 1.1 : 0.85, duration: 0.6 }} className="mt-7">
           <motion.button
             type="button"
             onClick={onStart}
@@ -175,6 +175,64 @@ export function InviteHero({ mode, error, onStart, onManual }: { mode: "new" | "
         </motion.div>
       </div>
     </div>
+  );
+}
+
+// Where the globe was on the screen before (its middle, a little above the screen's).
+const GLOBE_Y = 0.38;
+const TILT = (8 * Math.PI) / 180;
+
+/**
+ * One photo of the wall. Arriving from the globe, it bursts out of where the
+ * globe just shrank away, spinning a little and growing into its place;
+ * the ones nearest the middle first. Off screen, it's simply there.
+ */
+function WallTile({ photo, eager, burst }: { photo: StockPhoto; eager: boolean; burst: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const controls = useAnimationControls();
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!burst || !el) {
+      controls.set({ opacity: 1 });
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    if (r.bottom < 0 || r.top > vh) {
+      controls.set({ opacity: 1 });
+      return;
+    }
+    // From the globe's middle to here, on screen; the wall is turned 8° to the left, so turned back for its own moves.
+    const dx = vw / 2 - (r.left + r.width / 2);
+    const dy = vh * GLOBE_Y - (r.top + r.height / 2);
+    const x = dx * Math.cos(TILT) - dy * Math.sin(TILT);
+    const y = dx * Math.sin(TILT) + dy * Math.cos(TILT);
+    const delay = Math.min(0.45, (Math.hypot(dx, dy) / Math.hypot(vw, vh)) * 0.7);
+    controls.set({ x, y, scale: 0.12, rotate: (Math.random() - 0.5) * 50, opacity: 0 });
+    void controls.start({
+      x: 0,
+      y: 0,
+      scale: 1,
+      rotate: 0,
+      opacity: 1,
+      transition: {
+        default: { type: "spring", stiffness: 70, damping: 14, mass: 0.9, delay },
+        opacity: { duration: 0.2, delay },
+      },
+    });
+  }, [burst, controls]);
+  return (
+    <motion.div
+      ref={ref}
+      animate={controls}
+      initial={{ opacity: burst ? 0 : 1 }}
+      className="relative aspect-[3/4] w-full shrink-0 overflow-hidden rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
+      style={{ background: photo.color }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={stockUrl(photo.raw, 360, "3:4", 70)} alt="" className="h-full w-full object-cover" loading={eager ? "eager" : "lazy"} />
+    </motion.div>
   );
 }
 

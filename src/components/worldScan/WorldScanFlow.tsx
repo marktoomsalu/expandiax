@@ -66,6 +66,11 @@ export function WorldScanFlow({
   const locator = useRef<((lat: number, lng: number) => string | null) | null>(null);
   const eventsDone = useRef<Promise<{ events: FoundEvent[]; bigDays: BigDay[] }> | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  // The photos burst out of the globe only on the way in, not when coming back to the first screen.
+  const firstInvite = useRef(true);
+  useEffect(() => {
+    if (phase !== "invite") firstInvite.current = false;
+  }, [phase]);
 
   // The world's outlines load while the first screen is up.
   useEffect(() => {
@@ -196,7 +201,7 @@ export function WorldScanFlow({
   let scene: React.ReactNode = null;
   switch (phase) {
     case "invite":
-      scene = <InviteHero mode={mode} error={error} onStart={discover} onManual={onManual} />;
+      scene = <InviteHero mode={mode} error={error} onStart={discover} onManual={onManual} burst={mode === "new" && firstInvite.current} />;
       break;
     case "explain":
       scene = <PhotoPrimer onContinue={() => void start()} onBack={() => setPhase("invite")} />;

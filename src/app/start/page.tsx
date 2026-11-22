@@ -69,7 +69,16 @@ export default function StartPage() {
       <>
         {/* The globe screen's purple, held underneath while the wall fades in: no flash between the two. */}
         <div aria-hidden className="fixed inset-0 z-[79] bg-brand-purple" />
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
+        {/* The moment the globe becomes the photos: a soft pink flash from where it was. */}
+        <motion.div
+          aria-hidden
+          className="pointer-events-none fixed left-1/2 top-[38%] z-[81] h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(255,179,214,0.9)_0%,rgba(250,81,162,0.45)_35%,transparent_70%)]"
+          style={{ x: "-50%", y: "-50%" }}
+          initial={{ scale: 0.2, opacity: 1 }}
+          animate={{ scale: 5, opacity: 0 }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+        />
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
           <WorldScanFlow
             mode="new"
             onManual={() => {
@@ -111,7 +120,7 @@ export default function StartPage() {
               if (leaving) return;
               setLeaving(true);
               preloadInviteWall();
-              setTimeout(() => setScanning(true), 450);
+              setTimeout(() => setScanning(true), 420);
             }}
           />
         );
