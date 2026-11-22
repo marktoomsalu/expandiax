@@ -79,6 +79,8 @@ struct ShareView: View {
     @ObservedObject var model: ShareModel
     @State private var search = ""
     @State private var pickingCountry = false
+    /// Whose country the picker sets: the new trip's or the new event's.
+    @State private var countryForEvent = false
     enum Tab { case trips, events }
     @State private var tab: Tab?
 
@@ -192,15 +194,19 @@ struct ShareView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     header
-                    if model.bestEvent != nil || model.best != nil {
+                    if model.bestEvent != nil || model.best != nil || model.lived != nil {
                         label("They're from")
                         VStack(spacing: 10) {
                             if let e = model.bestEvent { eventCard(e) }
                             if let best = model.best { bestCard(best) }
+                            if let lived = model.lived, lived.visitId != model.best?.visitId { bestCard(lived) }
                         }
                     }
-                    label(model.best == nil && model.bestEvent == nil ? "Add to" : "Or")
-                    newTripCard
+                    label(model.best == nil && model.bestEvent == nil && model.lived == nil ? "Add to" : "Or")
+                    VStack(spacing: 10) {
+                        newTripCard
+                        newEventCard
+                    }
                     library
                 }
                 .padding(.bottom, 24)
@@ -341,6 +347,146 @@ struct ShareView: View {
         }
     }
 
+    private static let eventTypes: [(type: String, label: String)] = [
+        ("concert", "Concert"), ("festival", "Festival"), ("sport", "Sport"), ("conference", "Conference"), ("personal", "Personal"), ("other", "Other"),
+    ]
+
+    private var namePrompt: String {
+        switch model.evType {
+        case "concert": return "Artist or band"
+        case "festival": return "Festival name"
+        case "sport": return "Match, race or game"
+        case "conference": return "Conference name"
+        case "personal": return "A wedding, a birthday…"
+        default: return "What was it?"
+        }
+    }
+
+    /// A new event: what was on there, filled in when it can be found; type, name, day(s), place.
+    private var newEventCard: some View {
+        let on = model.choice == .newEvent
+        let guess = [model.evTitle, model.evVenue].filter { !$0.isEmpty }.joined(separator: " · ")
+        return VStack(spacing: 0) {
+            Button { model.choice = .newEvent } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle().fill(Color(red: 43 / 255, green: 11 / 255, blue: 46 / 255))
+                        Image(systemName: eventSymbol(model.evType)).font(.system(size: 16, weight: .bold)).foregroundStyle(brand)
+                    }
+                    .frame(width: 38, height: 38)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("A new event").font(.body.weight(.medium)).foregroundColor(.primary)
+                        if !on, !guess.isEmpty {
+                            Text(guess).font(.footnote).foregroundColor(.secondary).lineLimit(1)
+                        } else if !on, model.evGuessing {
+                            Text("Looking up what was on…").font(.footnote).foregroundColor(.secondary)
+                        }
+                    }
+                    Spacer()
+                    radio(on)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if on {
+                Divider().background(Color.line)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Self.eventTypes, id: \.type) { t in
+                            let picked = model.evType == t.type
+                            Button {
+                                model.evType = t.type
+                                if t.type == "concert" { model.evMulti = false }
+                            } label: {
+                                Label(t.label, systemImage: eventSymbol(t.type))
+                                    .font(.subheadline.weight(picked ? .semibold : .regular))
+                                    .foregroundColor(picked ? .pink : .primary)
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 36)
+                                    .background(Capsule().fill(picked ? Color.softPink : Color.clear))
+                                    .overlay(Capsule().stroke(picked ? Color.pink : Color.line))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(picked ? .isSelected : [])
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                }
+                Divider().background(Color.line)
+                HStack {
+                    Image(systemName: "pencil").foregroundColor(.pink).frame(width: 24)
+                    TextField(namePrompt, text: $model.evTitle).textInputAutocapitalization(.words)
+                    if model.evGuessing { ProgressView().scaleEffect(0.8) }
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 48)
+                Divider().background(Color.line)
+                VStack(spacing: 6) {
+                    HStack {
+                        Image(systemName: "calendar").foregroundColor(.pink).frame(width: 24)
+                        DatePicker(model.evMulti ? "First day" : "Date", selection: $model.evFrom, displayedComponents: .date).labelsHidden()
+                        if model.evMulti {
+                            Text("–").foregroundColor(.secondary)
+                            DatePicker("Last day", selection: $model.evTo, in: model.evFrom..., displayedComponents: .date).labelsHidden()
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    // A festival, a conference, a tournament: easy to make it several days. A concert: one night.
+                    if model.evType != "concert" || model.evMulti {
+                        Toggle("Multiple days", isOn: $model.evMulti)
+                            .font(.subheadline)
+                            .tint(.pink)
+                            .padding(.leading, 32)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .environment(\.timeZone, TimeZone(identifier: "UTC")!)
+                Divider().background(Color.line)
+                HStack {
+                    Image(systemName: "mappin.and.ellipse").foregroundColor(.orange).frame(width: 24)
+                    TextField("Venue (optional)", text: $model.evVenue).textInputAutocapitalization(.words)
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 48)
+                Divider().background(Color.line)
+                HStack {
+                    Image(systemName: "building.2").foregroundColor(.orange).frame(width: 24)
+                    TextField("City", text: $model.evCity).textInputAutocapitalization(.words)
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 48)
+                Divider().background(Color.line)
+                Button { countryForEvent = true; pickingCountry = true } label: {
+                    HStack {
+                        Image(systemName: "globe.europe.africa").foregroundColor(.pink).frame(width: 24)
+                        if let code = model.evCode, let name = ShareModel.countryName(code) {
+                            Text("\(ShareModel.flag(code)) \(name)").foregroundColor(.primary)
+                        } else {
+                            Text("Choose the country").foregroundColor(.pink)
+                        }
+                        Spacer()
+                        Text(model.evCode == nil ? "" : "Change").font(.subheadline.weight(.semibold)).foregroundColor(.pink)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 48)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(Color.card)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(on ? Color.pink : Color.line, lineWidth: on ? 2 : 1))
+        .padding(.horizontal, 16)
+        .onChange(of: model.evMulti) { multi in
+            if multi, model.evTo <= model.evFrom { model.evTo = model.evFrom.addingTimeInterval(86_400) }
+        }
+    }
+
     private var newTripCard: some View {
         let on = model.choice == .newTrip
         return VStack(spacing: 0) {
@@ -368,7 +514,7 @@ struct ShareView: View {
 
             if on {
                 Divider().background(Color.line)
-                Button { pickingCountry = true } label: {
+                Button { countryForEvent = false; pickingCountry = true } label: {
                     HStack {
                         Image(systemName: "globe.europe.africa").foregroundColor(.pink).frame(width: 24)
                         if let code = model.newCode, let name = ShareModel.countryName(code) {
@@ -413,7 +559,7 @@ struct ShareView: View {
     }
 
     private var otherTrips: some View {
-        let others = model.trips.filter { $0.visitId != model.best?.visitId }
+        let others = model.trips.filter { $0.visitId != model.best?.visitId && $0.visitId != model.lived?.visitId }
         let q = search.trimmingCharacters(in: .whitespaces).lowercased()
         let shown = (q.isEmpty ? others : others.filter { $0.name.lowercased().contains(q) || $0.places.joined(separator: " ").lowercased().contains(q) }).prefix(40)
         return VStack(spacing: 0) {
@@ -453,6 +599,9 @@ struct ShareView: View {
         case .trip: return "Add to \(model.chosenTrip?.name ?? "this trip")"
         case .event: return "Add to \(model.chosenEvent?.title ?? "this event")"
         case .newTrip: return model.newCode == nil ? "Choose the country" : "Create the trip"
+        case .newEvent:
+            if model.evTitle.trimmingCharacters(in: .whitespaces).isEmpty { return "Name the event" }
+            return model.evCode == nil ? "Choose the country" : "Create the event"
         case nil: return "Choose a trip"
         }
     }
@@ -463,7 +612,8 @@ struct ShareView: View {
                 Text(note).font(.footnote).foregroundColor(.secondary).multilineTextAlignment(.center).padding(.horizontal, 12)
             }
             Button {
-                if model.choice == .newTrip, model.newCode == nil { pickingCountry = true; return }
+                if model.choice == .newTrip, model.newCode == nil { countryForEvent = false; pickingCountry = true; return }
+                if model.choice == .newEvent, model.evCode == nil, !model.evTitle.isEmpty { countryForEvent = true; pickingCountry = true; return }
                 Task { await model.add() }
             } label: {
                 Text(addLabel)
@@ -528,7 +678,7 @@ struct ShareView: View {
 
     private var sending: some View {
         let done: String? = { if case .done(let s) = model.phase { return s }; return nil }()
-        let place = done ?? (model.choice == .newTrip ? ShareModel.countryName(model.newCode) : model.chosenEvent?.title ?? model.chosenTrip?.name) ?? "your trip"
+        let place = done ?? (model.choice == .newTrip ? ShareModel.countryName(model.newCode) : model.choice == .newEvent ? model.evTitle : model.chosenEvent?.title ?? model.chosenTrip?.name) ?? "your trip"
         return VStack(spacing: 0) {
             Spacer()
             ZStack(alignment: .bottom) {
@@ -575,9 +725,14 @@ struct ShareView: View {
     }
 
     private var countryPicker: some View {
-        CountryPicker(selected: model.newCode) { code in
-            model.newCode = code
-            model.choice = .newTrip
+        CountryPicker(selected: countryForEvent ? model.evCode : model.newCode) { code in
+            if countryForEvent {
+                model.evCode = code
+                model.choice = .newEvent
+            } else {
+                model.newCode = code
+                model.choice = .newTrip
+            }
             pickingCountry = false
         }
     }

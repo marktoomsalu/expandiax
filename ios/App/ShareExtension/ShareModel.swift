@@ -59,6 +59,7 @@ enum Choice: Hashable {
     case trip(String)
     case event(String)
     case newTrip
+    case newEvent
 }
 
 struct SharedItem: Identifiable {
@@ -96,6 +97,19 @@ final class ShareModel: ObservableObject {
     @Published var events: [ShareEvent] = []
     /// An event these were all taken at (a concert, a match): offered first, the trip right after.
     @Published var bestEvent: ShareEvent?
+    /// The stay they lived in, when these are from it: offered (a day out from home), never merged into a new trip.
+    @Published var lived: ShareTrip?
+
+    // A new event, filled in from the photos where it can be: what was on at that venue that day.
+    @Published var evType = "other"
+    @Published var evTitle = ""
+    @Published var evVenue = ""
+    @Published var evCity = ""
+    @Published var evCode: String?
+    @Published var evMulti = false
+    @Published var evFrom = Date()
+    @Published var evTo = Date()
+    @Published var evGuessing = false
     @Published var choice: Choice?
     @Published var newCode: String?
     @Published var newFrom = Date()
@@ -143,10 +157,116 @@ final class ShareModel: ObservableObject {
         guessDates()
         best = bestTrip()
         bestEvent = bestEventMatch()
-        choice = bestEvent.map { .event($0.eventId) } ?? best.map { .trip($0.visitId) }
+        lived = bestLived(code: nil)
+        choice = bestEvent.map { .event($0.eventId) } ?? best.map { .trip($0.visitId) } ?? lived.map { .trip($0.visitId) }
         phase = .choosing
         await guessNewTrip()
+        // Where they were, now that it's known: the stay in that country, if any.
+        if let code = newCode, lived?.code != code {
+            let was = lived
+            lived = bestLived(code: code)
+            if let was, choice == .trip(was.visitId) { choice = lived.map { .trip($0.visitId) } }
+        }
         if choice == nil, newCode != nil { choice = .newTrip }
+        await guessNewEvent()
+    }
+
+    /// A stay they lived that most of these days fall in (in that country, once it's known).
+    private func bestLived(code: String?) -> ShareTrip? {
+        let ds = days
+        guard !ds.isEmpty else { return nil }
+        let today = Self.day(Date())
+        var top: (ShareTrip, Int)?
+        for t in trips where t.kind == "lived" && (code == nil || t.code == code) {
+            guard let from = t.from else { continue }
+            let to = t.to ?? today
+            let n = ds.filter { $0 >= from && $0 <= to }.count
+            if n > 0, n > (top?.1 ?? 0) { top = (t, n) }
+        }
+        if let top, top.1 * 2 >= ds.count { return top.0 }
+        return nil
+    }
+
+    /// What these could be as a new event: the busiest day, the venue the photos were taken at, and
+    /// what was on there (a concert by setlist, a match, a festival, a conference from our catalogue).
+    private func guessNewEvent() async {
+        evCode = newCode
+        if evCity.isEmpty { evCity = newPlaces.first?.name ?? "" }
+        let ds = days
+        let counts = Dictionary(grouping: ds, by: { $0 }).mapValues(\.count)
+        guard let mainDay = counts.max(by: { $0.value < $1.value || ($0.value == $1.value && $0.key > $1.key) })?.key,
+              let main = Self.date(mainDay) else { return }
+        evFrom = main
+        evTo = ds.last.flatMap(Self.date) ?? main
+        let onDay = items.filter { $0.day == mainDay }.compactMap(\.location)
+        guard let spot = onDay.first ?? items.compactMap(\.location).first, let code = newCode else { return }
+        evGuessing = true
+        defer { evGuessing = false }
+
+        // The venues right there (the same list the app uses, from Wikidata).
+        var near: [(name: String, aka: [String], metres: Double)] = []
+        if let data = try? await request("data/venues/\(code).json"),
+           let rows = try? JSONSerialization.jsonObject(with: data) as? [[Any]] {
+            for row in rows where row.count >= 3 {
+                guard let name = row[0] as? String, let lat = (row[1] as? NSNumber)?.doubleValue, let lng = (row[2] as? NSNumber)?.doubleValue else { continue }
+                let m = spot.distance(from: CLLocation(latitude: lat, longitude: lng))
+                if m < 600 { near.append((name, (row.count > 4 ? row[4] as? [String] : nil) ?? [], m)) }
+            }
+            near.sort { $0.metres < $1.metres }
+        }
+        if evVenue.isEmpty, let v = near.first, v.metres < 350 { evVenue = v.name }
+
+        let ask: [String: Any] = [
+            "moments": [[
+                "id": "share",
+                "day": mainDay,
+                "countryCode": code,
+                "towns": evCity.isEmpty ? [] : [evCity],
+                // Each venue by its other names too ("Olympiastadion"): listings use whichever.
+                "venues": Array(NSOrderedSet(array: near.prefix(3).flatMap { [$0.name] + $0.aka.prefix(2) }).array.prefix(6)),
+                "area": ["lat": spot.coordinate.latitude, "lng": spot.coordinate.longitude],
+            ]],
+        ]
+        guard let data = try? await request("api/scan/events", method: "POST", body: ask),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let answer = (json["answers"] as? [[String: Any]])?.first else { return }
+        guard evTitle.isEmpty else { return }
+
+        let at = { (o: [String: Any]) -> Double? in
+            guard let lat = (o["lat"] as? NSNumber)?.doubleValue, let lng = (o["lng"] as? NSNumber)?.doubleValue else { return nil }
+            return spot.distance(from: CLLocation(latitude: lat, longitude: lng))
+        }
+        let names = Set(near.flatMap { [$0.name] + $0.aka }.map { $0.lowercased() })
+        // A show listed at the venue the photos were taken at, or right there.
+        let shows = (answer["shows"] as? [[String: Any]] ?? []).filter { ($0["atVenue"] as? Bool) == true || (at($0).map { $0 < 600 } ?? false) }
+        if let show = shows.max(by: { (($0["songs"] as? NSNumber)?.intValue ?? 0) < (($1["songs"] as? NSNumber)?.intValue ?? 0) }),
+           let artist = show["artist"] as? String {
+            evType = "concert"
+            evTitle = artist
+            if let v = show["venue"] as? String, !v.isEmpty { evVenue = v }
+            if let c = show["city"] as? String, !c.isEmpty { evCity = c }
+            evMulti = false
+        } else if let known = (answer["known"] as? [[String: Any]] ?? []).first(where: { k in
+            // A match, festival or conference at that place; a race (that day) through the town. A race series with no date: never.
+            switch k["kind"] as? String {
+            case "race": return (at(k).map { $0 < 5_000 } ?? false)
+            case "race_series": return false
+            default:
+                let byName = (k["venue"] as? String).map { names.contains($0.lowercased()) } ?? false
+                return byName || (at(k).map { $0 < 800 } ?? false)
+            }
+        }), let title = known["title"] as? String {
+            let kind = known["kind"] as? String ?? ""
+            evType = ["football": "sport", "race": "sport", "race_series": "sport", "festival": "festival", "conference": "conference"][kind]
+                ?? (known["eventType"] as? String) ?? "other"
+            evTitle = title
+            if let v = known["venue"] as? String, !v.isEmpty { evVenue = v }
+            if let c = known["city"] as? String, !c.isEmpty { evCity = c }
+        } else {
+            return
+        }
+        // Something was on right there: a new event is the likelier home, unless they already have a trip or event for it.
+        if choice == nil || choice == .newTrip { choice = .newEvent }
     }
 
     private func request(_ path: String, method: String = "GET", body: Any? = nil) async throws -> Data {
@@ -371,7 +491,7 @@ final class ShareModel: ObservableObject {
         }
         guard let t = chosenTrip else {
             let over = max(0, photoCount - caps.photos) + max(0, videoCount - caps.videos)
-            return over > 0 ? "A trip holds \(caps.photos) photos and \(caps.videos) videos: the first ones are kept." : nil
+            return over > 0 ? "A trip or event holds \(caps.photos) photos and \(caps.videos) videos: the first ones are kept." : nil
         }
         let photosRoom = max(0, caps.photos - t.photos), videosRoom = max(0, caps.videos - t.videos)
         if photoCount <= photosRoom && videoCount <= videosRoom { return nil }
@@ -482,6 +602,7 @@ final class ShareModel: ObservableObject {
         switch choice {
         case .trip, .event: return true
         case .newTrip: return newCode != nil
+        case .newEvent: return evCode != nil && !evTitle.trimmingCharacters(in: .whitespaces).isEmpty
         case nil: return false
         }
     }
@@ -511,6 +632,19 @@ final class ShareModel: ObservableObject {
         case .event(let id):
             body["eventId"] = id
             destination = events.first { $0.eventId == id }?.title ?? "your event"
+        case .newEvent:
+            let from = Self.day(min(evFrom, evTo)), to = Self.day(max(evFrom, evTo))
+            var e: [String: Any] = [
+                "type": evType,
+                "title": evTitle.trimmingCharacters(in: .whitespaces),
+                "date": evMulti ? from : Self.day(evFrom),
+                "venue": evVenue,
+                "city": evCity,
+                "code": evCode ?? "",
+            ]
+            if evMulti, to > from { e["endDate"] = to }
+            body["newEvent"] = e
+            destination = evTitle.trimmingCharacters(in: .whitespaces)
         default:
             let from = Self.day(min(newFrom, newTo)), to = Self.day(max(newFrom, newTo))
             body["newTrip"] = [

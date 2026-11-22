@@ -7,7 +7,10 @@ export const dynamic = "force-dynamic";
 
 type Item = { path: string; kind: "image" | "video"; takenAt?: string | null };
 type NewTrip = { code: string; from: string; to: string; places?: { name: string; lat: number; lng: number }[] };
-type Body = { visitId?: string; eventId?: string; newTrip?: NewTrip; items?: Item[]; unused?: string[] };
+type NewEvent = { type: string; title: string; date: string; endDate?: string | null; venue?: string | null; city?: string | null; code: string };
+type Body = { visitId?: string; eventId?: string; newTrip?: NewTrip; newEvent?: NewEvent; items?: Item[]; unused?: string[] };
+
+const EVENT_TYPES = ["concert", "festival", "sport", "conference", "personal", "other"];
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
@@ -33,6 +36,14 @@ export async function POST(request: NextRequest) {
   if (!items.length) return NextResponse.json({ error: "Nothing arrived." }, { status: 400 });
 
   if (body?.eventId) return addToEvent(userId, body.eventId, items);
+  if (body?.newEvent) {
+    const eventId = await makeEvent(userId, body.newEvent);
+    if (!eventId) {
+      await bucket.remove(items.map((i) => i.path));
+      return NextResponse.json({ error: "That event couldn't be made." }, { status: 400 });
+    }
+    return addToEvent(userId, eventId, items, true);
+  }
 
   let visitId: string | null = null;
   let countryId: string | null = null;
@@ -133,8 +144,44 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ visitId, code, created, added: { photos, videos }, skipped: skipped.length });
 }
 
+/**
+ * A new event, from the share sheet. One of theirs that day with the same
+ * name or venue is that event (never two of the same). A fresh one goes to
+ * followers; an old one fills in quietly.
+ */
+async function makeEvent(userId: string, e: NewEvent): Promise<string | null> {
+  const country = countryByCode(e.code);
+  const title = (e.title ?? "").trim().slice(0, 120);
+  if (!country || !title || !DAY.test(e.date) || !EVENT_TYPES.includes(e.type)) return null;
+  const end = e.endDate && DAY.test(e.endDate) && e.endDate > e.date ? e.endDate : null;
+  const venue = (e.venue ?? "").trim().slice(0, 120);
+  const admin = createAdminClient();
+  const { data: sameDay } = await admin.from("events").select("id, title, venue").eq("user_id", userId).eq("event_date", e.date);
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const twin = (sameDay ?? []).find((x) => norm(x.title as string) === norm(title) || (!!venue && norm((x.venue as string) ?? "") === norm(venue)));
+  if (twin) return twin.id as string;
+  const { data, error } = await admin
+    .from("events")
+    .insert({
+      user_id: userId,
+      event_type: e.type,
+      title,
+      event_date: e.date,
+      ...(end ? { end_date: end } : {}),
+      venue,
+      city: (e.city ?? "").trim().slice(0, 120),
+      country_code: country.code,
+      country_name: country.name,
+      share_to_feed: days(end ?? e.date, today()) <= 30,
+      ...(e.type === "concert" ? { spotify_artist_name: title } : {}),
+    })
+    .select("id")
+    .single();
+  return error || !data ? null : (data.id as string);
+}
+
 /** Onto an event of theirs: the same, into its photos and videos. */
-async function addToEvent(userId: string, eventId: string, items: Item[]) {
+async function addToEvent(userId: string, eventId: string, items: Item[], created = false) {
   const admin = createAdminClient();
   const bucket = admin.storage.from("media");
   const { data: event } = await admin.from("events").select("id, user_id, title").eq("id", eventId).maybeSingle();
@@ -167,5 +214,5 @@ async function addToEvent(userId: string, eventId: string, items: Item[]) {
     else photos += 1;
   }
   if (skipped.length) await bucket.remove(skipped);
-  return NextResponse.json({ eventId, created: false, added: { photos, videos }, skipped: skipped.length });
+  return NextResponse.json({ eventId, created, added: { photos, videos }, skipped: skipped.length });
 }
