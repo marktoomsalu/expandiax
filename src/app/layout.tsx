@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { SiteNav } from "@/components/SiteNav";
 import { SiteChrome } from "@/components/SiteChrome";
 import { NativeStatusBar } from "@/components/NativeStatusBar";
+import { NativeShareKey } from "@/components/NativeShareKey";
 import { NativeBackButton } from "@/components/NativeBackButton";
 import { NativeDeepLinks } from "@/components/NativeDeepLinks";
 import { NativeSplash } from "@/components/NativeSplash";
@@ -85,6 +86,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ThemeProvider>
           <NativeSplash />
           <NativeStatusBar />
+          <NativeShareKey />
           <NativeBackButton />
           <NativeDeepLinks />
           <NativeKeyboard />

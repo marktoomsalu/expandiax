@@ -78,5 +78,6 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(GlobeTouchPlugin())
         bridge?.registerPluginInstance(PhotoPickerPlugin())
         bridge?.registerPluginInstance(PhotoScanPlugin())
+        bridge?.registerPluginInstance(ShareBridgePlugin())
     }
 }

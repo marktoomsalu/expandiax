@@ -8,6 +8,11 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)com.expandiax.travelapp</string>
+		<string>$(AppIdentifierPrefix)com.expandiax.shared</string>
+	</array>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:expandiax.com</string>

@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>ExpandiaX</string>
+	<string>ExpandiaX</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -42,16 +42,16 @@
 		<string>_expx-touch._tcp</string>
 		<string>_expx-touch._udp</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>ExpandiaX uses your camera to add photos to your trips and events.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>ExpandiaX looks for friends' iPhones nearby for World Connect, so you can see the countries you've both been to.</string>
 	<key>NSNearbyInteractionUsageDescription</key>
 	<string>ExpandiaX feels when your iPhone is close to a friend's, so your worlds can connect.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>ExpandiaX uses your camera to add photos to your trips and events.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>ExpandiaX finds your trips by looking at when and where your photos were taken, here on your phone. Photos are only uploaded when you choose to keep them.</string>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
+	<key>ShareKeychainGroup</key>
+	<string>$(AppIdentifierPrefix)com.expandiax.shared</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -71,6 +71,8 @@
 			</array>
 		</dict>
 	</dict>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>armv7</string>
