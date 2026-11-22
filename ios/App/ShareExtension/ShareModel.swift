@@ -25,9 +25,23 @@ struct ShareTrip: Decodable, Identifiable, Hashable {
     var id: String { visitId }
 }
 
+struct ShareEvent: Decodable, Identifiable, Hashable {
+    let eventId: String
+    let title: String
+    let date: String
+    let type: String
+    let venue: String?
+    let city: String?
+    let code: String?
+    let photos: Int
+    let videos: Int
+    var id: String { eventId }
+}
+
 private struct TripsResponse: Decodable {
     struct Caps: Decodable { let photos: Int; let videos: Int }
     let trips: [ShareTrip]
+    let events: [ShareEvent]?
     let caps: Caps
     let homeCode: String?
 }
@@ -40,6 +54,7 @@ struct NewTripPlace: Encodable, Hashable {
 
 enum Choice: Hashable {
     case trip(String)
+    case event(String)
     case newTrip
 }
 
@@ -75,6 +90,9 @@ final class ShareModel: ObservableObject {
     @Published var items: [SharedItem] = []
     @Published var trips: [ShareTrip] = []
     @Published var best: ShareTrip?
+    @Published var events: [ShareEvent] = []
+    /// An event these were all taken at (a concert, a match): offered first, the trip right after.
+    @Published var bestEvent: ShareEvent?
     @Published var choice: Choice?
     @Published var newCode: String?
     @Published var newFrom = Date()
@@ -121,7 +139,8 @@ final class ShareModel: ObservableObject {
         }
         guessDates()
         best = bestTrip()
-        choice = best.map { .trip($0.visitId) }
+        bestEvent = bestEventMatch()
+        choice = bestEvent.map { .event($0.eventId) } ?? best.map { .trip($0.visitId) }
         phase = .choosing
         await guessNewTrip()
         if choice == nil, newCode != nil { choice = .newTrip }
@@ -150,6 +169,7 @@ final class ShareModel: ObservableObject {
         guard let data = try? await request("api/share/trips"),
               let res = try? JSONDecoder().decode(TripsResponse.self, from: data) else { return false }
         trips = res.trips
+        events = res.events ?? []
         caps = (res.caps.photos, res.caps.videos)
         return true
     }
@@ -279,6 +299,19 @@ final class ShareModel: ObservableObject {
         return nil
     }
 
+    /// An event on the day these were taken (or the night after: a show past midnight), when they're all from one or two days.
+    private func bestEventMatch() -> ShareEvent? {
+        let ds = days
+        guard let first = ds.first, let last = ds.last, Self.shift(first, 1) >= last else { return nil }
+        var top: (ShareEvent, Int)?
+        for e in events {
+            let n = ds.filter { $0 == e.date || $0 == Self.shift(e.date, 1) }.count
+            if n > 0, n > (top?.1 ?? 0) { top = (e, n) }
+        }
+        if let top, top.1 * 2 >= ds.count { return top.0 }
+        return nil
+    }
+
     private func guessDates() {
         let ds = days
         if let first = ds.first.flatMap(Self.date), let last = ds.last.flatMap(Self.date) {
@@ -319,8 +352,19 @@ final class ShareModel: ObservableObject {
         return nil
     }
 
+    var chosenEvent: ShareEvent? {
+        if case .event(let id) = choice { return events.first { $0.eventId == id } }
+        return nil
+    }
+
     /// "11 of 13 photos fit on this trip": said before, not after.
     var roomNote: String? {
+        if let e = chosenEvent {
+            let photosRoom = max(0, caps.photos - e.photos), videosRoom = max(0, caps.videos - e.videos)
+            if photoCount <= photosRoom && videoCount <= videosRoom { return nil }
+            if photosRoom == 0 && videosRoom == 0 { return "This event is full (\(caps.photos) photos, \(caps.videos) videos)." }
+            return "Room for \(photosRoom) more \(photosRoom == 1 ? "photo" : "photos") and \(videosRoom) more \(videosRoom == 1 ? "video" : "videos") on this event: the first ones are kept."
+        }
         guard let t = chosenTrip else {
             let over = max(0, photoCount - caps.photos) + max(0, videoCount - caps.videos)
             return over > 0 ? "A trip holds \(caps.photos) photos and \(caps.videos) videos: the first ones are kept." : nil
@@ -432,7 +476,7 @@ final class ShareModel: ObservableObject {
 
     var canAdd: Bool {
         switch choice {
-        case .trip: return true
+        case .trip, .event: return true
         case .newTrip: return newCode != nil
         case nil: return false
         }
@@ -460,6 +504,9 @@ final class ShareModel: ObservableObject {
         case .trip(let id):
             body["visitId"] = id
             destination = trips.first { $0.visitId == id }?.name ?? "your trip"
+        case .event(let id):
+            body["eventId"] = id
+            destination = events.first { $0.eventId == id }?.title ?? "your event"
         default:
             let from = Self.day(min(newFrom, newTo)), to = Self.day(max(newFrom, newTo))
             body["newTrip"] = [

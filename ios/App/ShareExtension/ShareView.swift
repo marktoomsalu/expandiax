@@ -48,6 +48,27 @@ private func rangeText(_ a: Date, _ b: Date, _ f: DateFormatter = DateFormatter(
     return "\(start)–\(f.string(from: b))"
 }
 
+private func eventDate(_ e: ShareEvent) -> String {
+    guard let d = ShareModel.date(e.date) else { return e.date }
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_GB")
+    f.timeZone = TimeZone(identifier: "UTC")
+    f.dateFormat = "d MMM yyyy"
+    return f.string(from: d)
+}
+
+/** An event's kind as a symbol: a note for a concert, a ball for a match. */
+private func eventSymbol(_ type: String) -> String {
+    switch type {
+    case "concert": return "music.note"
+    case "festival": return "sparkles"
+    case "sport": return "sportscourt"
+    case "conference": return "person.3"
+    case "personal": return "heart"
+    default: return "ticket"
+    }
+}
+
 struct ShareView: View {
     @ObservedObject var model: ShareModel
     @State private var search = ""
@@ -163,13 +184,17 @@ struct ShareView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     header
-                    if let best = model.best {
+                    if model.bestEvent != nil || model.best != nil {
                         label("They're from")
-                        bestCard(best)
+                        VStack(spacing: 10) {
+                            if let e = model.bestEvent { eventCard(e) }
+                            if let best = model.best { bestCard(best) }
+                        }
                     }
-                    label(model.best == nil ? "Add to" : "Or")
+                    label(model.best == nil && model.bestEvent == nil ? "Add to" : "Or")
                     newTripCard
                     otherTrips
+                    otherEvents
                 }
                 .padding(.bottom, 24)
             }
@@ -205,6 +230,74 @@ struct ShareView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
         .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private func eventCard(_ e: ShareEvent) -> some View {
+        let on = model.choice == .event(e.eventId)
+        return Button { model.choice = .event(e.eventId) } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(red: 43 / 255, green: 11 / 255, blue: 46 / 255))
+                    Image(systemName: eventSymbol(e.type)).font(.system(size: 24, weight: .semibold)).foregroundStyle(brand)
+                }
+                .frame(width: 58, height: 70)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(e.title).font(serif(20)).foregroundColor(.primary).lineLimit(2)
+                    Text(eventDate(e)).font(.subheadline).foregroundColor(.primary)
+                    let place = [e.venue, e.city].compactMap { $0 }.joined(separator: ", ")
+                    if !place.isEmpty {
+                        Text(place).font(.footnote).foregroundColor(.secondary).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 0)
+                radio(on)
+            }
+            .padding(12)
+            .background(Color.card)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(on ? Color.pink : Color.line, lineWidth: on ? 2 : 1))
+            .shadow(color: Color.pink.opacity(on ? 0.25 : 0), radius: 14, y: 8)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private var otherEvents: some View {
+        let others = model.events.filter { $0.eventId != model.bestEvent?.eventId }
+        let q = search.trimmingCharacters(in: .whitespaces).lowercased()
+        let shown = (q.isEmpty ? others : others.filter { "\($0.title) \($0.venue ?? "") \($0.city ?? "")".lowercased().contains(q) }).prefix(40)
+        return VStack(spacing: 0) {
+            if !shown.isEmpty {
+                label("Your events")
+                VStack(spacing: 0) {
+                    ForEach(Array(shown.enumerated()), id: \.element.eventId) { i, e in
+                        let on = model.choice == .event(e.eventId)
+                        if i > 0 { Divider().background(Color.line).padding(.leading, 62) }
+                        Button { model.choice = .event(e.eventId) } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: eventSymbol(e.type)).font(.system(size: 17, weight: .semibold)).foregroundColor(.pink).frame(width: 36, height: 36)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(e.title).foregroundColor(.primary).lineLimit(1)
+                                    Text([eventDate(e), e.city].compactMap { $0 }.joined(separator: " · ")).font(.footnote).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                radio(on)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                    }
+                }
+                .background(Color.card)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.line))
+                .padding(.horizontal, 16)
+            }
+        }
     }
 
     private var newTripCard: some View {
@@ -285,10 +378,10 @@ struct ShareView: View {
         return VStack(spacing: 0) {
             if !others.isEmpty {
                 label("Your trips")
-                if others.count > 6 {
+                if others.count + model.events.count > 6 {
                     HStack {
                         Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                        TextField("Search your trips", text: $search).textInputAutocapitalization(.words).disableAutocorrection(true)
+                        TextField("Search your trips and events", text: $search).textInputAutocapitalization(.words).disableAutocorrection(true)
                     }
                     .padding(.horizontal, 14)
                     .frame(height: 44)
@@ -331,6 +424,7 @@ struct ShareView: View {
     private var addLabel: String {
         switch model.choice {
         case .trip: return "Add to \(model.chosenTrip?.name ?? "this trip")"
+        case .event: return "Add to \(model.chosenEvent?.title ?? "this event")"
         case .newTrip: return model.newCode == nil ? "Choose the country" : "Create the trip"
         case nil: return "Choose a trip"
         }
@@ -407,7 +501,7 @@ struct ShareView: View {
 
     private var sending: some View {
         let done: String? = { if case .done(let s) = model.phase { return s }; return nil }()
-        let place = done ?? (model.choice == .newTrip ? ShareModel.countryName(model.newCode) : model.chosenTrip?.name) ?? "your trip"
+        let place = done ?? (model.choice == .newTrip ? ShareModel.countryName(model.newCode) : model.chosenEvent?.title ?? model.chosenTrip?.name) ?? "your trip"
         return VStack(spacing: 0) {
             Spacer()
             ZStack(alignment: .bottom) {

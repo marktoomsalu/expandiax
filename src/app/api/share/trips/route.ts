@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { shareUser } from "@/lib/shareTokens";
+import { PHOTO_CAP, VIDEO_CAP } from "@/lib/plan";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +19,21 @@ export type ShareTrip = {
   videos: number;
 };
 
+export type ShareEvent = {
+  eventId: string;
+  title: string;
+  /** yyyy-mm-dd */
+  date: string;
+  type: string;
+  venue: string | null;
+  city: string | null;
+  code: string | null;
+  photos: number;
+  videos: number;
+};
+
 /**
- * The share sheet opening: their trips (newest first) with how many photos
+ * The share sheet opening: their trips and events (newest first) with how many photos
  * and videos each already has, and how many fit, so it can pick the right
  * one and say up front if some won't fit.
  */
@@ -28,10 +42,30 @@ export async function GET(request: NextRequest) {
   if (!userId) return NextResponse.json({ error: "signed-out" }, { status: 401 });
   const admin = createAdminClient();
 
-  const [{ data: profile }, { data: countries }] = await Promise.all([
-    admin.from("profiles").select("plan, home_country_code").eq("id", userId).maybeSingle(),
+  const [{ data: profile }, { data: countries }, { data: eventRows }] = await Promise.all([
+    admin.from("profiles").select("home_country_code").eq("id", userId).maybeSingle(),
     admin.from("visited_countries").select("id, country_code, country_name, country_visits(id, year, visited_from, visited_to, date_precision)").eq("user_id", userId),
+    admin.from("events").select("id, title, event_date, event_type, venue, city, country_code").eq("user_id", userId).order("event_date", { ascending: false }).limit(300),
   ]);
+  const eventIds = (eventRows ?? []).map((e) => e.id as string);
+  const { data: eventMedia } = eventIds.length ? await admin.from("event_media").select("event_id, media_type").in("event_id", eventIds) : { data: [] };
+  const eventCounts = new Map<string, { photos: number; videos: number }>();
+  for (const m of eventMedia ?? []) {
+    const c = eventCounts.get(m.event_id as string) ?? { photos: 0, videos: 0 };
+    if (m.media_type === "video") c.videos += 1;
+    else c.photos += 1;
+    eventCounts.set(m.event_id as string, c);
+  }
+  const events: ShareEvent[] = (eventRows ?? []).map((e) => ({
+    eventId: e.id as string,
+    title: (e.title as string) || "Event",
+    date: e.event_date as string,
+    type: (e.event_type as string) ?? "other",
+    venue: (e.venue as string) || null,
+    city: (e.city as string) || null,
+    code: (e.country_code as string) || null,
+    ...(eventCounts.get(e.id as string) ?? { photos: 0, videos: 0 }),
+  }));
   const ids = (countries ?? []).map((c) => c.id as string);
   const [{ data: media }, { data: cities }] = ids.length
     ? await Promise.all([
@@ -73,10 +107,11 @@ export async function GET(request: NextRequest) {
   }
   trips.sort((a, b) => (b.from ?? `${b.year}`).localeCompare(a.from ?? `${a.year}`));
 
-  const premium = profile?.plan === "premium";
   return NextResponse.json({
     trips: trips.slice(0, 300),
-    caps: { photos: premium ? 15 : 5, videos: premium ? 8 : 3 },
+    events,
+    // The same for everyone now (migration 053): the fair-use limits.
+    caps: { photos: PHOTO_CAP, videos: VIDEO_CAP },
     homeCode: profile?.home_country_code ?? null,
   });
 }
