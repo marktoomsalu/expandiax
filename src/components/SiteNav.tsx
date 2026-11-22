@@ -73,7 +73,8 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
   // While editing (a trip, an event) or typing anywhere, the bottom bar steps
   // aside: more room, and nothing between you and the keyboard.
   const editing = /\/edit$/.test(path) || path === "/events/new";
-  const hideBar = signingUp || editing || typing;
+  // Setting up the profile (step 2 of 2): its own Continue at the bottom, no tab bar over it.
+  const hideBar = signingUp || path === "/onboarding" || editing || typing;
 
   const leftLinks = [
     { href: "/feed", label: "Feed", icon: Rss },

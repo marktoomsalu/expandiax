@@ -31,11 +31,11 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const immersive = path === "/start" || path === "/touch";
   // No tab bar while signing up either (see SiteNav.tsx), so no room for one.
-  const hasTabBar = !immersive && path !== "/sign-up";
+  const hasTabBar = !immersive && path !== "/sign-up" && path !== "/onboarding";
   // In the app, creating an account is one screen: no website footer below it to scroll to.
   const [native, setNative] = useState(false);
   useEffect(() => setNative(isNativePlatform()), []);
-  const footer = !immersive && !(native && path === "/sign-up");
+  const footer = !immersive && !(native && (path === "/sign-up" || path === "/onboarding"));
 
   return (
     <div className={cn(hasTabBar && "pb-[calc(5.25rem+env(safe-area-inset-bottom))]")}>
