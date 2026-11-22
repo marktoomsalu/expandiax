@@ -23,7 +23,6 @@ import { signMedia } from "@/lib/signedMedia";
 import { loadDreamPlaces } from "@/lib/dreams";
 import { DreamPlaces } from "@/components/dreams/DreamPlaces";
 import { JourneyCard } from "@/components/journey/JourneyCard";
-import { FindTripsCard } from "@/components/worldScan/FindTripsCard";
 
 export const metadata = { title: "My World" };
 
@@ -131,9 +130,6 @@ export default async function MyWorldPage() {
           <AddCountryButton className="btn-accent"><Plus size={17} /> Add country</AddCountryButton>
         </div>
       </div>
-
-      {/* iPhone app (build 12 on): the trips hiding in their photos. */}
-      <FindTripsCard />
 
       {/* Like Events: each country waiting for photos, straight into adding them. */}
       <PhotoReminder

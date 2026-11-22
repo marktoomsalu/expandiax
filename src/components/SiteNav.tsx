@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Bell, Compass, Globe2, Plus, Rss, Ticket, UserRound } from "lucide-react";
+import { Bell, Compass, Globe2, Plus, Rss, Sparkles, Ticket, UserRound } from "lucide-react";
+import { canScanPhotos } from "@/lib/photoScan";
+import { fromPhotosSeen } from "@/lib/memoryFinder";
 import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 import { tapLight } from "@/lib/haptics";
@@ -36,6 +38,11 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
   }, []);
   const shownUnread = path === "/notifications" ? 0 : unread;
   const [addOpen, setAddOpen] = useState(false);
+  // "From my photos" (iPhone app with the scanner): its row in the add menu, marked new until first opened.
+  const [fromPhotos, setFromPhotos] = useState<null | { fresh: boolean }>(null);
+  useEffect(() => {
+    if (addOpen) setFromPhotos(canScanPhotos() ? { fresh: !fromPhotosSeen() } : null);
+  }, [addOpen]);
   const addCountry = useRef<AddCountrySheetHandle>(null);
   const active = (href: string) =>
     href === "/" ? path === "/" : path === href || path.startsWith(href + "/");
@@ -155,7 +162,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
                   />
                   <div
                     role="menu"
-                    className="absolute bottom-full z-50 mb-4 w-48 overflow-hidden rounded-card border border-line bg-surface shadow-xl"
+                    className={cn("absolute bottom-full z-50 mb-4 overflow-hidden rounded-card border border-line bg-surface shadow-xl", fromPhotos ? "w-72" : "w-48")}
                   >
                     {/* Opens the search right here, keyboard up, rather than scrolling My World. */}
                     <button
@@ -178,6 +185,26 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
                     >
                       <Ticket size={16} className="text-accent" /> Add an event
                     </Link>
+                    {fromPhotos && (
+                      <>
+                        <div className="h-px bg-line" aria-hidden />
+                        <Link
+                          href="/my-world/find-trips"
+                          role="menuitem"
+                          onClick={() => setAddOpen(false)}
+                          className="flex items-center gap-3 bg-accent-soft/60 px-4 py-3 hover:bg-accent-soft"
+                        >
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#fa51a2] to-[#fb7822] text-white">
+                            <Sparkles size={15} aria-hidden />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold">From my photos</span>
+                            <span className="block text-xs text-muted">Find what&apos;s missing, fill in the rest</span>
+                          </span>
+                          {fromPhotos.fresh && <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">New</span>}
+                        </Link>
+                      </>
+                    )}
                   </div>
                 </>
               )}

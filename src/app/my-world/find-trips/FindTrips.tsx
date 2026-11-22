@@ -2,15 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { WorldScanFlow } from "@/components/worldScan/WorldScanFlow";
+import { FromPhotos } from "@/components/fromPhotos/FromPhotos";
 import { canScanPhotos } from "@/lib/photoScan";
-import { markWorldScanned, saveWorld } from "@/lib/worldScan";
 
-export function FindTrips({ userId, homeCode }: { userId: string; homeCode: string | null }) {
+/** "From my photos": only in the iPhone app with the scanner (build 12 on); anywhere else, back to the map. */
+export function FindTrips({ userId, homeCode, countryCodes }: { userId: string; homeCode: string | null; countryCodes: string[] }) {
   const router = useRouter();
   const [ok, setOk] = useState<boolean | null>(null);
 
-  // Only in the iPhone app with the scanner (build 12 on); anywhere else, back to the map.
   useEffect(() => {
     const can = canScanPhotos();
     setOk(can);
@@ -18,16 +17,5 @@ export function FindTrips({ userId, homeCode }: { userId: string; homeCode: stri
   }, [router]);
 
   if (!ok) return null;
-  return (
-    <WorldScanFlow
-      mode="member"
-      homeCode={homeCode}
-      onManual={() => router.push("/my-world")}
-      onKeep={async (world) => {
-        markWorldScanned();
-        await saveWorld(userId, world).catch(() => {});
-        router.refresh();
-      }}
-    />
-  );
+  return <FromPhotos userId={userId} homeCode={homeCode} countryCodes={countryCodes} />;
 }
