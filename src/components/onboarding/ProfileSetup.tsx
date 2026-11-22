@@ -3,25 +3,35 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from "framer-motion";
-import { AtSign, Camera, Check, ChevronDown, Globe2, Loader2, Lock, Trash2, X } from "lucide-react";
+import { AtSign, Camera, Check, Globe2, ImagePlus, Loader2, Lock, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PLACEHOLDER_NAME, hasRealName } from "@/lib/profileName";
-import { COUNTRIES, countryByCode } from "@/lib/countries";
+import { countryByCode } from "@/lib/countries";
+import { stockPhotoFor, stockUrl } from "@/lib/stockPhotos";
+import { preparePhoto } from "@/lib/photoPrepare";
+import { loadDraft } from "@/lib/onboardingDraft";
+import { loadKeptWorld } from "@/lib/worldScan";
 import { validateFile } from "@/lib/media";
 import { convertHeic } from "@/lib/heic";
 import { tapLight, tapSuccess } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import { AvatarCropper } from "@/components/AvatarCropper";
-import { Switch } from "@/components/Switch";
+import { CountrySearch } from "@/components/CountrySearch";
 import { Burst } from "@/components/worldScan/Burst";
 import type { Profile, ProfileVisibility } from "@/lib/types";
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 const EASE = [0.22, 1, 0.36, 1] as const;
-// The first is ExpandiaX's own pink: choosing it saves no colour (the default).
-const COLOURS = ["#FA51A2", "#FB7822", "#F43F5E", "#8B5CF6", "#0EA5E9", "#10B981", "#EAB308"];
+const PINK = "#FA51A2";
 
 type Avatar = { url: string; from: "saved" | "provider" | "picked"; blob?: Blob } | null;
+type Cover = { url: string; blob?: Blob } | null;
+
+/** The home the earlier steps found or were told (read before they're saved and cleared). */
+function homeFromEarlier(): string | null {
+  if (typeof window === "undefined") return null;
+  return loadKeptWorld()?.homeCode ?? loadDraft().homeCode ?? null;
+}
 
 /** "Mark Toomsalu" → "marktoomsalu": a username from a name, if it makes one. */
 function usernameFrom(name: string): string | null {
@@ -35,11 +45,12 @@ function usernameFrom(name: string): string | null {
 }
 
 /**
- * "Make it yours" (step 2 of 2): a live profile card at the top that
- * becomes theirs as they go (photo, name, @username, colour, home, who
- * sees it), and only what's needed below it. With Google, their photo and
- * name are already there (the photo saved only if they keep it); with
- * Apple, their name. Everything else waits under "Add more".
+ * "Make it yours" (step 2 of 2), quick: a live profile card that becomes
+ * theirs as they go (photo, name, @username, who sees it), its cover their
+ * home country (changeable right there). With Google, their photo and name
+ * are already there (the photo saved only if they keep it); with Apple,
+ * their name. Home is asked only if the earlier steps didn't find or ask it
+ * (those who started with a memory). Everything else is in Settings.
  */
 export function ProfileSetup({
   profile,
@@ -64,12 +75,18 @@ export function ProfileSetup({
   const [avatar, setAvatar] = useState<Avatar>(profile.avatar_url ? { url: profile.avatar_url, from: "saved" } : null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [avatarBusy, setAvatarBusy] = useState(false);
-  const [colour, setColour] = useState<string>(profile.accent_color ?? COLOURS[0]);
   const [visibility, setVisibility] = useState<ProfileVisibility | null>(null);
-  const [more, setMore] = useState(false);
-  const [bio, setBio] = useState(profile.bio ?? "");
-  const [home, setHome] = useState(profile.home_country_code ?? "");
-  const [discoverable, setDiscoverable] = useState(profile.discoverable ?? true);
+  // Read during the first render, before the earlier steps are saved and cleared; shown after it (no mismatch with the server's render).
+  const [earlierHome] = useState(homeFromEarlier);
+  const knownHome = profile.home_country_code ?? earlierHome;
+  const [home, setHome] = useState<string | null>(null);
+  const [askHome, setAskHome] = useState(false);
+  useEffect(() => {
+    setHome(knownHome);
+    setAskHome(!knownHome);
+  }, [knownHome]);
+  const [cover, setCover] = useState<Cover>(profile.cover_url ? { url: profile.cover_url } : null);
+  const coverInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +179,22 @@ export function ProfileSetup({
     setAvatar({ url: URL.createObjectURL(blob), from: "picked", blob });
   }
 
+  /** Their own cover: made smaller (and its location dropped) on the phone, uploaded when they continue. */
+  async function pickCover(file: File | undefined) {
+    if (!file) return;
+    const {
+      files: [ready],
+      failed,
+    } = await convertHeic([file]);
+    if (!ready || failed.length) return setError(`Couldn't read “${file.name}”. Try exporting it from Photos as JPEG.`);
+    const problem = validateFile(ready, "image");
+    if (problem) return setError(problem);
+    setError(null);
+    const small = await preparePhoto(ready);
+    tapLight();
+    setCover({ url: URL.createObjectURL(small), blob: small });
+  }
+
   async function upload(blob: Blob): Promise<string | null> {
     const path = `${profile.id}/avatar/${crypto.randomUUID()}.jpg`;
     const { error: upErr } = await supabase.storage.from("avatars").upload(path, blob, { contentType: blob.type || "image/jpeg" });
@@ -190,6 +223,16 @@ export function ProfileSetup({
         return setError("Couldn't upload the photo. Try again, or remove it for now.");
       }
     }
+    let coverUrl: string | null = cover && !cover.blob ? cover.url : null;
+    if (cover?.blob) {
+      const path = `${profile.id}/cover/${crypto.randomUUID()}.jpg`;
+      const { error: coverErr } = await supabase.storage.from("avatars").upload(path, cover.blob, { contentType: cover.blob.type || "image/jpeg" });
+      if (coverErr) {
+        setBusy(false);
+        return setError("Couldn't upload the cover. Try again, or use photos of home.");
+      }
+      coverUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+    }
     if (uname !== profile.username) {
       const { data: taken } = await supabase.from("profiles").select("id").eq("username", uname).neq("id", profile.id).maybeSingle();
       if (taken) {
@@ -203,13 +246,12 @@ export function ProfileSetup({
       .update({
         username: uname,
         display_name: displayName.trim() || PLACEHOLDER_NAME,
-        bio: bio.trim(),
-        home_country_code: home || null,
+        // Home only when it was asked here; otherwise the earlier steps save it.
+        ...(askHome && home ? { home_country_code: home } : {}),
         visibility,
-        discoverable,
         avatar_url: avatarUrl,
-        // ExpandiaX's own pink is the default: only another colour is saved.
-        accent_color: colour === COLOURS[0] ? null : colour,
+        // No cover of their own: their home country's photos take turns at the top (as in Settings).
+        cover_url: coverUrl,
       })
       .eq("id", profile.id);
     if (upErr) {
@@ -226,6 +268,8 @@ export function ProfileSetup({
 
   const first = displayName.trim().split(" ")[0];
   const country = countryByCode(home);
+  const homePhoto = home ? stockPhotoFor(home) : null;
+  const coverSrc = cover?.url ?? (homePhoto ? stockUrl(homePhoto.raw, 900, "5:2", 75) : null);
   const rise = (i: number) => ({
     initial: reduce ? { opacity: 0 } : { opacity: 0, y: 14 },
     animate: { opacity: 1, y: 0 },
@@ -241,18 +285,42 @@ export function ProfileSetup({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 180, damping: 22 }}
       >
-        <div className="relative h-28 overflow-hidden">
+        {/* The cover: their own photo, or their home country's; until there's a home, ExpandiaX's colours */}
+        <div className="relative h-36 overflow-hidden bg-[linear-gradient(135deg,#fa51a2_0%,#7c1d6f_55%,#2b0b2e_100%)]">
           <AnimatePresence initial={false}>
-            <motion.div
-              key={colour}
-              className="absolute inset-0"
-              style={{ background: `radial-gradient(circle at 20% 10%, ${colour} 0%, transparent 60%), linear-gradient(135deg, ${colour} 0%, #2b0b2e 100%)` }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-            />
+            {coverSrc && (
+              <motion.img
+                key={coverSrc}
+                src={coverSrc}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.08 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.7, ease: EASE }}
+              />
+            )}
           </AnimatePresence>
+          <span className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/25" aria-hidden />
+          <button
+            type="button"
+            onClick={() => coverInput.current?.click()}
+            className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/50"
+          >
+            <ImagePlus size={13} aria-hidden /> {cover ? "Change cover" : "Your own cover"}
+          </button>
+          {cover && (
+            <button
+              type="button"
+              onClick={() => {
+                tapLight();
+                setCover(null);
+              }}
+              className="absolute bottom-3 left-3 rounded-full bg-black/35 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm hover:bg-black/50"
+            >
+              {homePhoto ? "Use photos of home" : "Remove"}
+            </button>
+          )}
           {/* A slow shine across it */}
           {!reduce && (
             <motion.div
@@ -280,7 +348,7 @@ export function ProfileSetup({
         </div>
 
         <div className="relative px-5 pb-5">
-          {/* Their photo, or their initial on their colour; tap to change */}
+          {/* Their photo, or their initial; tap to change */}
           <div className="-mt-11 flex items-end justify-between">
             <button
               type="button"
@@ -290,9 +358,9 @@ export function ProfileSetup({
             >
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
-                  key={avatar?.url ?? `initial-${colour}`}
+                  key={avatar?.url ?? "initial"}
                   className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-full font-serif text-4xl text-white"
-                  style={{ background: avatar ? undefined : colour }}
+                  style={{ background: avatar ? undefined : PINK }}
                   initial={reduce ? { opacity: 0 } : { scale: 0.6, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.8, opacity: 0 }}
@@ -318,7 +386,6 @@ export function ProfileSetup({
           </div>
           <p className="mt-3 min-h-[2.25rem] font-serif text-[1.75rem] leading-tight">{displayName.trim() || <span className="text-muted/60">Your name</span>}</p>
           <p className="text-sm text-muted">@{username.trim().toLowerCase() || "username"}</p>
-          {bio.trim() && <p className="mt-2 line-clamp-2 text-sm">{bio.trim()}</p>}
         </div>
       </motion.div>
 
@@ -341,6 +408,18 @@ export function ProfileSetup({
           </button>
         )}
       </motion.div>
+      <input
+        ref={coverInput}
+        type="file"
+        accept="image/*,.heic,.heif"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(e) => {
+          void pickCover(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
       <input
         ref={fileInput}
         type="file"
@@ -405,31 +484,29 @@ export function ProfileSetup({
           </p>
         </motion.div>
 
-        <motion.div {...rise(3)}>
-          <p className="mb-2 text-sm font-medium">Your colour</p>
-          <div className="flex flex-wrap gap-2.5" role="radiogroup" aria-label="Your colour">
-            {COLOURS.map((c, i) => {
-              const on = colour.toLowerCase() === c.toLowerCase();
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  aria-label={i === 0 ? "ExpandiaX pink" : c}
-                  onClick={() => {
-                    tapLight();
-                    setColour(c);
-                  }}
-                  className="relative flex h-11 w-11 items-center justify-center rounded-full"
-                >
-                  {on && <motion.span layoutId="colour-ring" className="absolute inset-0 rounded-full ring-2 ring-ink" transition={{ type: "spring", stiffness: 400, damping: 30 }} />}
-                  <motion.span className="h-8 w-8 rounded-full" style={{ background: c }} whileTap={{ scale: 0.85 }} />
-                </button>
-              );
-            })}
-          </div>
-        </motion.div>
+        {/* Home: only when the earlier steps didn't find or ask it (they started with a memory). */}
+        {askHome && (
+          <motion.div {...rise(3)}>
+            <p className="mb-1.5 text-sm font-medium">Where&apos;s home?</p>
+            {country ? (
+              <button type="button" onClick={() => setHome(null)} className="field flex w-full items-center justify-between text-left">
+                <span>
+                  {country.flag} {country.name}
+                </span>
+                <span className="text-xs font-medium text-accent">Change</span>
+              </button>
+            ) : (
+              <CountrySearch
+                onSelect={(code) => {
+                  tapLight();
+                  setHome(code);
+                }}
+                placeholder="Search for your country…"
+              />
+            )}
+            <p className="mt-1.5 text-xs text-muted">It goes on your map, and its photos on your profile.</p>
+          </motion.div>
+        )}
 
         <motion.fieldset {...rise(4)}>
           <legend className="mb-2 text-sm font-medium">Who can see your world?</legend>
@@ -479,53 +556,6 @@ export function ProfileSetup({
           <p className="mt-2 text-xs text-muted">Either way, each trip and event can still be just for you. Your name, username and photo are always visible to members.</p>
         </motion.fieldset>
 
-        <motion.div {...rise(5)}>
-          <button
-            type="button"
-            onClick={() => setMore((m) => !m)}
-            aria-expanded={more}
-            className="flex w-full items-center justify-between rounded-2xl px-1 py-2 text-sm font-medium text-muted hover:text-ink"
-          >
-            <span>
-              Add more <span className="font-normal">· a few words, your home</span>
-            </span>
-            <ChevronDown size={18} className={cn("transition-transform", more && "rotate-180")} aria-hidden />
-          </button>
-          <AnimatePresence initial={false}>
-            {more && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="space-y-5 pt-3">
-                  <div>
-                    <label htmlFor="ps-bio" className="mb-1.5 block text-sm font-medium">
-                      A few words
-                    </label>
-                    <textarea id="ps-bio" className="field min-h-20" value={bio} onChange={(e) => setBio(e.target.value)} maxLength={400} placeholder="Festival chaser, slow traveller, always one more country…" />
-                  </div>
-                  <div>
-                    <label htmlFor="ps-home" className="mb-1.5 block text-sm font-medium">
-                      Home country
-                    </label>
-                    <select id="ps-home" className="field" value={home} onChange={(e) => setHome(e.target.value)}>
-                      <option value="">Choose a country</option>
-                      {COUNTRIES.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-sm">
-                      <span className="block font-medium">Show me in search and suggestions</span>
-                      <span className="mt-0.5 block text-xs text-muted">So friends can find you.</span>
-                    </span>
-                    <Switch checked={discoverable} onChange={setDiscoverable} label="Show me in search and suggestions" />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
       </div>
 
       {/* Always in reach */}
