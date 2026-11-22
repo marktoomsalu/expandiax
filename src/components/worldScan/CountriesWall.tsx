@@ -83,7 +83,8 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
   // not during it, where it would stall the fade.
   const [globeOn, setGlobeOn] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setGlobeOn(true), 420);
+    // After the tiles have landed: a WebGL scene starting up mid-animation makes it stutter.
+    const t = setTimeout(() => setGlobeOn(true), 900);
     return () => clearTimeout(t);
   }, []);
 
@@ -111,7 +112,8 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
   return (
     <div className="mx-auto min-h-[100dvh] max-w-md">
       {/* The globe and the count, changing with every tap */}
-      <div className="sticky top-0 z-20 flex items-center gap-3 bg-[#1f0822]/85 px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur-xl">
+      {/* Solid, not frosted: iPhone can't draw a blur inside a page that's fading in, so it flashed. */}
+      <div className="sticky top-0 z-20 flex items-center gap-3 bg-[#1f0822] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] shadow-[0_8px_20px_-12px_rgba(0,0,0,0.7)]">
         <div className="pointer-events-none -my-2 -ml-3 w-24 shrink-0">
           {globeOn ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
@@ -265,9 +267,14 @@ function PhotoTile({ tile, on, index, onToggle, label }: { tile: Tile; on: boole
       onClick={onToggle}
       aria-pressed={on}
       aria-label={`${c?.name}${on ? "" : ", removed"}`}
-      initial={reduce ? false : { opacity: 0, y: 18, scale: 0.92 }}
+      // One calm move in: up and into view, one after another. (No zoom: with the page fading in too, it read as a wobble.)
+      initial={reduce ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0, scale: on ? 1 : 0.95 }}
-      transition={{ delay: reduce ? 0 : Math.min(index, 8) * 0.05, type: "spring", stiffness: 260, damping: 24 }}
+      transition={{
+        opacity: { duration: 0.45, ease: "easeOut", delay: reduce ? 0 : 0.12 + Math.min(index, 6) * 0.04 },
+        y: { duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: reduce ? 0 : 0.12 + Math.min(index, 6) * 0.04 },
+        scale: { type: "spring", stiffness: 260, damping: 24 },
+      }}
       className="relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-3xl p-3.5 text-left ring-1 ring-white/10"
       style={{ background: photo?.color ?? "#3a1240" }}
     >
@@ -287,7 +294,7 @@ function PhotoTile({ tile, on, index, onToggle, label }: { tile: Tile; on: boole
       </span>
       {photo && <span className="absolute bottom-1 right-2 max-w-[70%] truncate text-[8px] text-white/55 drop-shadow">Photo: {photo.author} / Unsplash</span>}
       <span
-        className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full ${on ? "bg-gradient-to-br from-[#fa51a2] to-[#fb7822] text-white shadow-lg" : "bg-black/40 text-white ring-1 ring-white/50 backdrop-blur"}`}
+        className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full ${on ? "bg-gradient-to-br from-[#fa51a2] to-[#fb7822] text-white shadow-lg" : "bg-black/50 text-white ring-1 ring-white/50"}`}
         aria-hidden
       >
         {on ? <Check size={16} strokeWidth={3} /> : <Plus size={16} strokeWidth={2.5} />}

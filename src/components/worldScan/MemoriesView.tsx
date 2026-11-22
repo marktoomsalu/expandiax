@@ -120,7 +120,7 @@ export function MemoriesView({
 
   return (
     <div className="mx-auto min-h-[100dvh] max-w-md">
-      <div className="sticky top-0 z-20 bg-[#1f0822]/85 px-5 pb-3 pt-[calc(0.9rem+env(safe-area-inset-top))] backdrop-blur-xl">
+      <div className="sticky top-0 z-20 bg-[#1f0822] px-5 pb-3 pt-[calc(0.9rem+env(safe-area-inset-top))] shadow-[0_8px_20px_-12px_rgba(0,0,0,0.7)]">
         <p className="font-serif text-2xl">Your memories</p>
         <p className="mt-0.5 text-sm text-white/65">
           <motion.span key={keptCount} className="inline-block font-semibold text-white" initial={{ y: -6, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
