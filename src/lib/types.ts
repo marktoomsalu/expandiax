@@ -124,6 +124,8 @@ export type Event = {
   title: string;
   subtitle: string;
   event_date: string;
+  /** The last day of an event that lasts more than one (migration 089); null for a one-day event. */
+  end_date?: string | null;
   venue: string;
   city: string;
   country_code: string;

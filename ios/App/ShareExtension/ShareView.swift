@@ -50,6 +50,7 @@ private func rangeText(_ a: Date, _ b: Date, _ f: DateFormatter = DateFormatter(
 
 private func eventDate(_ e: ShareEvent) -> String {
     guard let d = ShareModel.date(e.date) else { return e.date }
+    if let end = e.endDate.flatMap(ShareModel.date), end > d { return rangeText(d, end) }
     let f = DateFormatter()
     f.locale = Locale(identifier: "en_GB")
     f.timeZone = TimeZone(identifier: "UTC")

@@ -23,6 +23,22 @@ export function formatDate(iso: string) {
   });
 }
 
+/**
+ * An event's day, or its days when it lasts more than one:
+ * "12 June 2025", "12–15 June 2025", "30 June – 2 July 2025",
+ * "30 December 2025 – 2 January 2026".
+ */
+export function formatEventDates(start: string, end?: string | null) {
+  if (!end || end <= start) return formatDate(start);
+  const a = new Date(start + "T00:00:00");
+  const b = new Date(end + "T00:00:00");
+  if (a.getFullYear() !== b.getFullYear()) return `${formatDate(start)} – ${formatDate(end)}`;
+  if (a.getMonth() !== b.getMonth()) {
+    return `${a.toLocaleDateString("en-GB", { day: "numeric", month: "long" })} – ${formatDate(end)}`;
+  }
+  return `${a.getDate()}–${formatDate(end)}`;
+}
+
 /** "October 1st, 2026" — a warmer, spelled-out form for single moments. */
 export function formatDateOrdinal(iso: string) {
   const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cn, formatDate, formatMonthYear, formatRelative, formatVisitRange, hexToRgbTriplet, visitSortKey } from "./utils";
+import { cn, formatDate, formatEventDates, formatMonthYear, formatRelative, formatVisitRange, hexToRgbTriplet, visitSortKey } from "./utils";
 
 describe("cn", () => {
   it("joins truthy class names and drops falsy ones", () => {
@@ -79,5 +79,18 @@ describe("formatRelative", () => {
   it("shows years ago for old timestamps", () => {
     const twoYearsAgo = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString();
     expect(formatRelative(twoYearsAgo)).toBe("2y ago");
+  });
+});
+
+describe("formatEventDates", () => {
+  it("one day, as before", () => {
+    expect(formatEventDates("2025-06-12")).toBe("12 June 2025");
+    expect(formatEventDates("2025-06-12", null)).toBe("12 June 2025");
+    expect(formatEventDates("2025-06-12", "2025-06-12")).toBe("12 June 2025");
+  });
+  it("days in one month, across months, across years", () => {
+    expect(formatEventDates("2025-06-12", "2025-06-15")).toBe("12–15 June 2025");
+    expect(formatEventDates("2025-06-30", "2025-07-02")).toBe("30 June – 2 July 2025");
+    expect(formatEventDates("2025-12-30", "2026-01-02")).toBe("30 December 2025 – 2 January 2026");
   });
 });

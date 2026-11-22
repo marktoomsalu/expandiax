@@ -4,7 +4,7 @@ import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { RatingStars } from "@/components/Rating";
-import { formatDate } from "@/lib/utils";
+import { formatEventDates } from "@/lib/utils";
 import type { Event, EventMedia } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 
@@ -97,7 +97,7 @@ export default async function AllEventsPage({
                   </div>
                   <div className="px-4 py-3.5">
                     <p className="font-serif text-lg">{e.title}</p>
-                    <p className="mt-0.5 text-xs text-muted">{formatDate(e.event_date)} · {[e.city, e.country_name].filter(Boolean).join(", ")}</p>
+                    <p className="mt-0.5 text-xs text-muted">{formatEventDates(e.event_date, e.end_date)} · {[e.city, e.country_name].filter(Boolean).join(", ")}</p>
                     <div className="mt-1.5"><RatingStars value={e.rating} size={13} /></div>
                   </div>
                 </Link>

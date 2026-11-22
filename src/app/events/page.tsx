@@ -6,7 +6,7 @@ import { EventList } from "@/components/EventList";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { RatingStars } from "@/components/Rating";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatEventDates } from "@/lib/utils";
 import type { Event, EventMedia } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 import { loadDreamEvents } from "@/lib/dreams";
@@ -140,7 +140,7 @@ export default async function EventsPage() {
                 <Link href={`/events/${favourite.id}/edit`} className="group mt-4">
                   <p className="font-serif text-2xl leading-tight group-hover:text-accent">{favourite.title}</p>
                   {favourite.subtitle && <p className="mt-1 text-sm italic text-muted">{favourite.subtitle}</p>}
-                  <p className="mt-2 text-xs text-muted">{formatDate(favourite.event_date)} · {favourite.city || favourite.country_name}</p>
+                  <p className="mt-2 text-xs text-muted">{formatEventDates(favourite.event_date, favourite.end_date)} · {favourite.city || favourite.country_name}</p>
                 </Link>
               ) : (
                 <p className="mt-4 text-sm text-muted">Mark one event as your favourite when editing it, and it will live here.</p>

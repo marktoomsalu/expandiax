@@ -23,7 +23,7 @@ import { alsoThere } from "@/lib/companions";
 import type { TogetherEvent } from "@/lib/together";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { ArtistUpcomingShows } from "@/components/UpcomingShows";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatEventDates } from "@/lib/utils";
 import { focalPosition } from "@/lib/media";
 import type { CommentWithAuthor, Event, EventFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
@@ -167,7 +167,7 @@ export default async function PublicEventPage({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/10" aria-hidden />
         <div className="relative mx-auto w-full max-w-shell px-5 pb-10 pt-28 text-white">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-            <TypeIcon size={12} aria-hidden /> {typeMeta.label} · {formatDate(event.event_date)}
+            <TypeIcon size={12} aria-hidden /> {typeMeta.label} · {formatEventDates(event.event_date, event.end_date)}
           </p>
           <h1 className="mt-2 max-w-3xl text-5xl leading-[1.05] md:text-7xl">{event.title}</h1>
           {event.subtitle && <p className="mt-3 font-serif text-xl italic text-white/85">{event.subtitle}</p>}

@@ -20,7 +20,7 @@ import { BlockButton } from "@/components/BlockButton";
 import { ShareButton } from "@/components/ShareButton";
 import { SpotifyEmbed } from "@/components/SpotifyEmbed";
 import { PhotoGallery } from "@/components/PhotoGallery";
-import { formatDate, visitSortKey } from "@/lib/utils";
+import { visitSortKey, formatEventDates } from "@/lib/utils";
 import type { Event, VisitedCountryFull } from "@/lib/types";
 import { signMedia } from "@/lib/signedMedia";
 
@@ -228,7 +228,7 @@ export default async function PublicCountryPage({
                   <Link href={`/u/${profile.username}/events/${e.id}`} className="card group flex items-center justify-between px-4 py-3">
                     <div>
                       <p className="font-serif group-hover:text-accent">{e.title}</p>
-                      <p className="text-xs text-muted">{formatDate(e.event_date)} · {[e.venue, e.city].filter(Boolean).join(", ")}</p>
+                      <p className="text-xs text-muted">{formatEventDates(e.event_date, e.end_date)} · {[e.venue, e.city].filter(Boolean).join(", ")}</p>
                     </div>
                     <RatingStars value={e.rating} size={13} />
                   </Link>

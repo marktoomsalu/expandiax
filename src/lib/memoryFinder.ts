@@ -24,7 +24,17 @@ export type SavedVisit = {
   cities: string[];
 };
 
-export type SavedEvent = { id: string; title: string; date: string; venue: string | null; city: string | null; code: string | null; artist: string | null };
+export type SavedEvent = {
+  id: string;
+  title: string;
+  date: string;
+  /** The last day of one that lasts more than a day (migration 089). */
+  end?: string | null;
+  venue: string | null;
+  city: string | null;
+  code: string | null;
+  artist: string | null;
+};
 
 export type Saved = { visits: SavedVisit[]; countries: Map<string, string>; events: SavedEvent[] };
 
@@ -48,7 +58,7 @@ export async function loadSaved(userId: string): Promise<Saved> {
   const supabase = createClient();
   const [{ data: rows }, { data: events }] = await Promise.all([
     supabase.from("visited_countries").select("id, country_code, country_visits(id, year, visited_from, visited_to, date_precision)").eq("user_id", userId),
-    supabase.from("events").select("id, title, event_date, venue, city, country_code, spotify_artist_name").eq("user_id", userId),
+    supabase.from("events").select("*").eq("user_id", userId),
   ]);
   const countries = new Map<string, string>();
   const visits: SavedVisit[] = [];
@@ -80,6 +90,7 @@ export async function loadSaved(userId: string): Promise<Saved> {
       id: e.id as string,
       title: (e.title as string) ?? "",
       date: e.event_date as string,
+      end: (e.end_date as string) || null,
       venue: (e.venue as string) || null,
       city: (e.city as string) || null,
       code: (e.country_code as string) || null,
@@ -204,7 +215,8 @@ export function matchMemories(input: {
   const newCountries = new Set(out.filter((s) => s.kind === "new-trip" && s.newCountry).map((s) => (s as { trip: FoundTrip }).trip.code));
   for (const e of input.events.filter((x) => x.sure)) {
     const free = saved.events.filter((s) => !used.has(s.id));
-    const sameDay = free.filter((s) => s.date === e.date);
+    // Its day, or any of its days (a festival, a tournament).
+    const sameDay = free.filter((s) => s.date === e.date || (!!s.end && s.date <= e.date && e.date <= s.end));
     let match =
       sameDay.find((s) => (e.venue && s.venue && sameVenue(s.venue, e.venue)) || sameName(s, e)) ??
       // Saved that day with no venue, in that country (or none said): theirs, waiting for its venue.
@@ -213,7 +225,8 @@ export function matchMemories(input: {
     if (match) {
       used.add(match.id);
       const changes: EventChanges = {};
-      if (match.date !== e.date) changes.date = e.date;
+      // A day of a festival they saved isn't a wrong date.
+      if (match.date !== e.date && !(match.end && match.date <= e.date && e.date <= match.end)) changes.date = e.date;
       if (!match.venue && e.venue) changes.venue = e.venue;
       if (!match.city && e.city) changes.city = e.city;
       if (!match.artist && e.artist) changes.artist = e.artist;

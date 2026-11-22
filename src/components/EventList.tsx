@@ -9,7 +9,7 @@ import { countryByCode } from "@/lib/countries";
 import { EVENT_TYPES, eventTypeMeta } from "@/lib/events";
 import { RatingStars } from "./Rating";
 import { CardPhotos } from "./CardPhotos";
-import { formatDate } from "@/lib/utils";
+import { formatEventDates } from "@/lib/utils";
 
 import { Users } from "lucide-react";
 
@@ -141,7 +141,7 @@ export function EventList({ events, hrefBase, editable }: { events: Row[]; hrefB
                       <p className="font-serif text-xl leading-snug drop-shadow-sm">{e.title}</p>
                       {e.subtitle && <p className="text-sm italic text-white/80">{e.subtitle}</p>}
                       <p className="mt-1.5 text-xs text-white/75">
-                        {formatDate(e.event_date)} · {[e.city, meta?.name].filter(Boolean).join(", ")}
+                        {formatEventDates(e.event_date, e.end_date)} · {[e.city, meta?.name].filter(Boolean).join(", ")}
                       </p>
                       <div className="mt-2"><RatingStars value={e.rating} tone="light" /></div>
                     </div>

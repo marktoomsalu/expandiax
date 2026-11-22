@@ -29,6 +29,7 @@ struct ShareEvent: Decodable, Identifiable, Hashable {
     let eventId: String
     let title: String
     let date: String
+    let endDate: String?
     let type: String
     let venue: String?
     let city: String?
@@ -299,13 +300,14 @@ final class ShareModel: ObservableObject {
         return nil
     }
 
-    /// An event on the day these were taken (or the night after: a show past midnight), when they're all from one or two days.
+    /// The event most of these were taken at: on its day (or days, for a festival), or the night after (a show past midnight).
     private func bestEventMatch() -> ShareEvent? {
         let ds = days
-        guard let first = ds.first, let last = ds.last, Self.shift(first, 1) >= last else { return nil }
+        guard !ds.isEmpty else { return nil }
         var top: (ShareEvent, Int)?
         for e in events {
-            let n = ds.filter { $0 == e.date || $0 == Self.shift(e.date, 1) }.count
+            let hi = Self.shift(e.endDate ?? e.date, 1)
+            let n = ds.filter { $0 >= e.date && $0 <= hi }.count
             if n > 0, n > (top?.1 ?? 0) { top = (e, n) }
         }
         if let top, top.1 * 2 >= ds.count { return top.0 }

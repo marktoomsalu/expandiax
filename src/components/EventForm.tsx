@@ -24,6 +24,7 @@ import { PastShowPicker } from "./PastShowPicker";
 import { KnownEventPicker } from "./KnownEventPicker";
 import { canScanPhotos } from "@/lib/photoScan";
 import { MediaUploader } from "./MediaUploader";
+import { Switch } from "./Switch";
 import { PendingMediaPicker, type PendingItem } from "./PendingMediaPicker";
 import { cn } from "@/lib/utils";
 import { tapSuccess } from "@/lib/haptics";
@@ -63,6 +64,9 @@ export function EventForm({
     title: event?.title ?? "",
     subtitle: event?.subtitle ?? "",
     event_date: event?.event_date ?? TODAY,
+    // A festival weekend, a conference, a tournament (migration 089): one day unless switched on.
+    multi_day: !!event?.end_date,
+    end_date: event?.end_date ?? "",
     venue: event?.venue ?? "",
     city: event?.city ?? "",
     country_code: event?.country_code ?? "",
@@ -186,6 +190,15 @@ export function EventForm({
       setError(`${meta.titleLabel}, date and country are required.`);
       return;
     }
+    if (f.multi_day && !f.end_date) {
+      setError("Choose the last day too, or switch off Multiple days.");
+      return;
+    }
+    if (f.multi_day && f.end_date < f.event_date) {
+      setError("The last day can't be before the first.");
+      return;
+    }
+    const endDate = f.multi_day && f.end_date > f.event_date ? f.end_date : null;
     setBusy(true);
     const countryMeta = countryByCode(f.country_code)!;
     const payload = {
@@ -193,6 +206,8 @@ export function EventForm({
       title: f.title.trim(),
       subtitle: f.subtitle.trim(),
       event_date: f.event_date,
+      // Only sent when there is one (or was), so a one-day event saves as it always has.
+      ...(endDate || event?.end_date ? { end_date: endDate } : {}),
       venue: f.venue.trim(),
       city: f.city.trim(),
       country_code: countryMeta.code,
@@ -305,7 +320,7 @@ export function EventForm({
             coverTable="events"
             captions
             label="Photos & videos"
-            days={{ from: event.event_date, to: event.event_date }}
+            days={{ from: event.event_date, to: event.end_date ?? event.event_date }}
           />
         ) : (
           <div>
@@ -417,6 +432,8 @@ export function EventForm({
                 ...cur,
                 title: hit.title.slice(0, 120),
                 event_date: hit.startsOn ?? cur.event_date,
+                // A festival's or tournament's days, when the catalogue knows them.
+                ...(hit.startsOn && hit.endsOn && hit.endsOn > hit.startsOn ? { multi_day: true, end_date: hit.endsOn } : {}),
                 venue: hit.venue ?? cur.venue,
                 city: hit.city ?? cur.city,
                 country_code: hit.countryCode ?? cur.country_code,
@@ -457,8 +474,46 @@ export function EventForm({
         </div>
 
         <div>
-          <label htmlFor="e-date" className="mb-1.5 block text-sm font-medium">Date *</label>
-          <DateField id="e-date" label="Date" placeholder="Choose the date" value={f.event_date} onChange={(v) => set("event_date", v)} required />
+          {/* One day by default. Festivals, matches, conferences: "Multiple days" right
+              beside it. Concerts (nearly always one night): a quieter way in. */}
+          <div className="mb-1.5 flex min-h-[31px] items-center justify-between gap-3">
+            <label htmlFor="e-date" className="text-sm font-medium">
+              {f.multi_day ? "Dates *" : "Date *"}
+            </label>
+            {(f.event_type !== "concert" || f.multi_day) && (
+              <span className="flex items-center gap-2 text-sm text-muted">
+                Multiple days
+                <Switch
+                  checked={f.multi_day}
+                  label="Multiple days"
+                  onChange={(on) => setF((cur) => ({ ...cur, multi_day: on, end_date: on ? cur.end_date || cur.event_date : cur.end_date }))}
+                />
+              </span>
+            )}
+          </div>
+          {f.multi_day ? (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="mb-1 block text-xs text-muted">First day</span>
+                <DateField id="e-date" label="First day" placeholder="First day" value={f.event_date} onChange={(v) => setF((cur) => ({ ...cur, event_date: v, end_date: cur.end_date && cur.end_date < v ? v : cur.end_date }))} required />
+              </div>
+              <div>
+                <span className="mb-1 block text-xs text-muted">Last day</span>
+                <DateField id="e-end" label="Last day" placeholder="Last day" value={f.end_date} min={f.event_date} openTo={f.end_date || f.event_date} onChange={(v) => set("end_date", v)} required />
+              </div>
+            </div>
+          ) : (
+            <DateField id="e-date" label="Date" placeholder="Choose the date" value={f.event_date} onChange={(v) => set("event_date", v)} required />
+          )}
+          {f.event_type === "concert" && !f.multi_day && (
+            <button
+              type="button"
+              onClick={() => setF((cur) => ({ ...cur, multi_day: true, end_date: cur.end_date || cur.event_date }))}
+              className="mt-2 text-xs font-medium text-accent underline-offset-4 hover:underline"
+            >
+              Over more than one day?
+            </button>
+          )}
         </div>
 
         {!event && (

@@ -106,3 +106,13 @@ describe("matchMemories: events", () => {
     expect(r.suggestions[0]).toMatchObject({ kind: "new-event" });
   });
 });
+
+describe("matchMemories: events over several days", () => {
+  it("a find on a saved festival's second day is that festival, not a new event or a date fix", () => {
+    const r = run({
+      events: [event({ title: "Roskilde Festival", artist: null, venue: "Roskilde Festival", code: "DK", date: "2025-07-03" })],
+      savedEvents: [savedEvent({ title: "Roskilde Festival", date: "2025-07-02", end: "2025-07-05", venue: "Roskilde Festival", code: "DK" })],
+    });
+    expect(r).toMatchObject({ suggestions: [], matchedEvents: 1 });
+  });
+});

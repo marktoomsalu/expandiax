@@ -24,6 +24,8 @@ export type ShareEvent = {
   title: string;
   /** yyyy-mm-dd */
   date: string;
+  /** The last day, for one that lasts more than a day. */
+  endDate: string | null;
   type: string;
   venue: string | null;
   city: string | null;
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
   const [{ data: profile }, { data: countries }, { data: eventRows }] = await Promise.all([
     admin.from("profiles").select("home_country_code").eq("id", userId).maybeSingle(),
     admin.from("visited_countries").select("id, country_code, country_name, country_visits(id, year, visited_from, visited_to, date_precision)").eq("user_id", userId),
-    admin.from("events").select("id, title, event_date, event_type, venue, city, country_code").eq("user_id", userId).order("event_date", { ascending: false }).limit(300),
+    admin.from("events").select("id, title, event_date, end_date, event_type, venue, city, country_code").eq("user_id", userId).order("event_date", { ascending: false }).limit(300),
   ]);
   const eventIds = (eventRows ?? []).map((e) => e.id as string);
   const { data: eventMedia } = eventIds.length ? await admin.from("event_media").select("event_id, media_type").in("event_id", eventIds) : { data: [] };
@@ -60,6 +62,7 @@ export async function GET(request: NextRequest) {
     eventId: e.id as string,
     title: (e.title as string) || "Event",
     date: e.event_date as string,
+    endDate: (e.end_date as string) || null,
     type: (e.event_type as string) ?? "other",
     venue: (e.venue as string) || null,
     city: (e.city as string) || null,
