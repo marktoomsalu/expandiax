@@ -134,14 +134,23 @@ export function InviteHero({ mode, error, onStart, onManual }: { mode: "new" | "
               <Sparkles size={20} aria-hidden /> {mode === "new" ? "Discover my world" : "Find them"}
             </span>
           </motion.button>
-          <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-white/55">
-            <Lock size={12} aria-hidden /> Your photos stay on your phone
+          <p className="mt-2.5 flex items-center justify-center gap-1.5 text-center text-xs text-white/65">
+            <Lock size={12} aria-hidden /> Dates and places, read on your phone. You review it all.
           </p>
-          <div className="mt-2 flex items-center justify-center gap-4 text-sm">
-            <button type="button" onClick={onManual} className="text-white/55 hover:text-white">
-              {mode === "new" ? "Add it myself" : "Not now"}
-            </button>
-          </div>
+          {/* The other way in, as real a choice as the first: no photos needed. */}
+          <button
+            type="button"
+            onClick={onManual}
+            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-white/[0.08] py-3 text-[15px] font-medium text-white ring-1 ring-white/25 transition-colors hover:bg-white/15"
+          >
+            {mode === "new" ? (
+              <>
+                Add it myself <span className="font-normal text-white/60">· no photo access</span>
+              </>
+            ) : (
+              "Not now"
+            )}
+          </button>
           <div className="mt-3 text-center">
             <button type="button" onClick={() => setShowCredits((v) => !v)} className="text-[10px] text-white/35 hover:text-white/60">
               Photos: Unsplash

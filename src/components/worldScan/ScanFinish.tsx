@@ -148,7 +148,7 @@ export function ScanFinish({
             <p className="mt-2 text-xs text-white/50">Add your own photos to any trip, from its days.</p>
           </>
         )}
-        {limited && <p className="mt-1 text-xs text-white/40">Only the photos you shared were looked at.</p>}
+        {limited && <p className="mt-1 text-xs text-white/50">Only the photos you chose were looked at. Share more any time in Settings › ExpandiaX › Photos.</p>}
       </div>
     </div>
   );

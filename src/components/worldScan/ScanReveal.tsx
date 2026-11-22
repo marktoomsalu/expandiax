@@ -17,6 +17,8 @@ export function ScanReveal({
   canChangeHome,
   onChangeHome,
   onNext,
+  limited = false,
+  onMore,
 }: {
   world: FoundWorld;
   /** Null while still looking. */
@@ -24,6 +26,9 @@ export function ScanReveal({
   canChangeHome: boolean;
   onChangeHome: (code: string) => void;
   onNext: () => void;
+  /** They let ExpandiaX see only some photos: say so, and offer more (never pushed). */
+  limited?: boolean;
+  onMore?: () => void;
 }) {
   const reduce = useReducedMotion();
   const [pickHome, setPickHome] = useState(false);
@@ -126,7 +131,16 @@ export function ScanReveal({
         )}
       </div>
 
-      <motion.div {...rise(1.7)} className="pt-8">
+      {limited && onMore && (
+        <motion.p {...rise(1.6)} className="mt-4 text-center text-xs text-white/60">
+          From the photos you chose.{" "}
+          <button type="button" onClick={onMore} className="font-semibold text-white underline underline-offset-2">
+            Add more photos
+          </button>
+        </motion.p>
+      )}
+
+      <motion.div {...rise(1.7)} className={limited && onMore ? "pt-5" : "pt-8"}>
         <button type="button" onClick={onNext} className="btn-accent w-full py-4 text-lg">
           See my countries
         </button>

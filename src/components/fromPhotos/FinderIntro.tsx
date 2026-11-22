@@ -101,6 +101,15 @@ export function FinderIntro({ countryCodes, error, onStart }: { countryCodes: st
             <span className="block text-muted">For the memories you&apos;ve already saved</span>
           </span>
         </li>
+        <li className="flex items-start gap-3.5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-raised text-ink/70">
+            <Lock size={18} aria-hidden />
+          </span>
+          <span className="pt-0.5 text-[15px] leading-snug">
+            <span className="font-semibold">Only when and where</span>
+            <span className="block text-muted">Each photo&apos;s date and place, read on your phone. Never what&apos;s in it, and no photos uploaded.</span>
+          </span>
+        </li>
       </motion.ul>
 
       <motion.div {...rise(0.85)} className="mt-auto pt-8">

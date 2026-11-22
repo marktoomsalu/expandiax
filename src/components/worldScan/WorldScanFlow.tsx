@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ImageOff } from "lucide-react";
+import { Globe2, Settings } from "lucide-react";
 import { askPhotoAccess, chooseMorePhotos, openAppSettings, photoAccess, scanPhotos, type PhotoAccess } from "@/lib/photoScan";
 import { findWorld, type FoundWorld, type ScanPlace } from "@/lib/tripFinder";
 import { loadShapes, makeLocator } from "@/lib/countryLocator";
@@ -16,8 +16,9 @@ import { CountriesWall, type CountryPick } from "./CountriesWall";
 import { MemoriesView } from "./MemoriesView";
 import { ScanFinish } from "./ScanFinish";
 import { InviteHero } from "./InviteHero";
+import { PhotoPrimer } from "./PhotoPrimer";
 
-type Phase = "invite" | "denied" | "scanning" | "awakening" | "reveal" | "countries" | "memories" | "finish" | "empty";
+type Phase = "invite" | "explain" | "denied" | "scanning" | "awakening" | "reveal" | "countries" | "memories" | "finish" | "empty";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -90,6 +91,19 @@ export function WorldScanFlow({
       alive = false;
     };
   }, [world]);
+
+  /**
+   * "Discover my world": first, in plain words, what happens with their
+   * photos (only if iPhone hasn't asked them yet); already answered yes, it
+   * starts; answered no before, iPhone won't ask again, so the way to
+   * Settings, or by hand.
+   */
+  function discover() {
+    tapLight();
+    if (access === "full" || access === "limited") return void start();
+    if (access === "denied" || access === "restricted") return setPhase("denied");
+    setPhase("explain");
+  }
 
   async function start() {
     tapLight();
@@ -182,7 +196,10 @@ export function WorldScanFlow({
   let scene: React.ReactNode = null;
   switch (phase) {
     case "invite":
-      scene = <InviteHero mode={mode} error={error} onStart={start} onManual={onManual} />;
+      scene = <InviteHero mode={mode} error={error} onStart={discover} onManual={onManual} />;
+      break;
+    case "explain":
+      scene = <PhotoPrimer onContinue={() => void start()} onBack={() => setPhase("invite")} />;
       break;
     case "denied":
       scene = <Denied restricted={access === "restricted"} onManual={onManual} onRetry={start} />;
@@ -208,6 +225,11 @@ export function WorldScanFlow({
             canChangeHome={mode === "new" || !knownHome}
             onChangeHome={(code) => setHome(code)}
             onNext={() => setPhase("countries")}
+            limited={access === "limited"}
+            onMore={async () => {
+              await chooseMorePhotos().catch(() => {});
+              void start();
+            }}
           />
         );
       break;
@@ -293,18 +315,31 @@ function Denied({ restricted, onManual, onRetry }: { restricted: boolean; onManu
   return (
     <div className={shell}>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <ImageOff size={44} className="text-[#ffb3d6]" aria-hidden />
-        <h1 className="mt-5 font-serif text-4xl">No problem.</h1>
-        <p className="mt-2 text-base text-white/65">{restricted ? "Photos are off on this phone." : "Your photos stay closed."}</p>
+        <span className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-[#ffb3d6]">
+          <Globe2 size={38} aria-hidden />
+        </span>
+        <h1 className="mt-6 font-serif text-4xl">No problem.</h1>
+        <p className="mt-3 max-w-xs text-base leading-relaxed text-white/70">
+          {restricted
+            ? "Photos are switched off on this phone. Add your countries and memories yourself: your world adds up just the same."
+            : "Your photos stay private. Add your countries and memories yourself: your world adds up just the same."}
+        </p>
       </div>
-      <div className="pt-8 text-center">
+      <div className="space-y-3 pt-8 text-center">
         <button type="button" onClick={onManual} className="btn-accent w-full py-4 text-lg">
           Add it myself
         </button>
         {!restricted && (
-          <button type="button" onClick={() => void openAppSettings()} className="mt-4 text-sm text-white/55 hover:text-white">
-            Allow in Settings
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => void openAppSettings()}
+              className="flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-base font-medium text-white ring-1 ring-white/30 hover:bg-white/10"
+            >
+              <Settings size={17} aria-hidden /> Allow photos in Settings
+            </button>
+            <p className="text-xs text-white/50">Changed your mind? It carries on by itself when you come back.</p>
+          </>
         )}
       </div>
     </div>
