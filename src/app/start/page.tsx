@@ -7,7 +7,9 @@ import { HomeCountryStep } from "@/components/start/HomeCountryStep";
 import { CountryGridStep } from "@/components/start/CountryGridStep";
 import { MemoryStep } from "@/components/start/MemoryStep";
 import { RevealStep } from "@/components/start/RevealStep";
+import { motion } from "framer-motion";
 import { WorldScanFlow } from "@/components/worldScan/WorldScanFlow";
+import { preloadInviteWall } from "@/components/worldScan/InviteHero";
 import { canScanPhotos } from "@/lib/photoScan";
 import { saveKeptWorld } from "@/lib/worldScan";
 import { BackButton, StepTransition } from "@/components/start/StepTransition";
@@ -37,6 +39,8 @@ export default function StartPage() {
   const [photo, setPhoto] = useState<File | null>(null);
   // iPhone app build 12 and later: the world is found in their photos first.
   const [scanning, setScanning] = useState(false);
+  // "Start my journey" in the app: the globe screen leaves first (flying into the globe), then the photo wall arrives.
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     const loaded = loadDraft();
@@ -62,14 +66,21 @@ export default function StartPage() {
 
   if (scanning) {
     return (
-      <WorldScanFlow
-        mode="new"
-        onManual={() => {
-          setScanning(false);
-          setStep("fork");
-        }}
-        onKeep={(world) => saveKeptWorld(world)}
-      />
+      <>
+        {/* The globe screen's purple, held underneath while the wall fades in: no flash between the two. */}
+        <div aria-hidden className="fixed inset-0 z-[79] bg-brand-purple" />
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
+          <WorldScanFlow
+            mode="new"
+            onManual={() => {
+              setScanning(false);
+              setLeaving(false);
+              setStep("fork");
+            }}
+            onKeep={(world) => saveKeptWorld(world)}
+          />
+        </motion.div>
+      </>
     );
   }
 
@@ -90,9 +101,17 @@ export default function StartPage() {
       case "cold-open":
         screen = (
           <ColdOpenStep
+            leaving={leaving}
+            // The wall's photos load while the globe turns, so they're there when it arrives.
+            onGlobeReady={() => {
+              if (canScanPhotos()) preloadInviteWall();
+            }}
             onStart={() => {
-              if (canScanPhotos()) setScanning(true);
-              else setStep("fork");
+              if (!canScanPhotos()) return setStep("fork");
+              if (leaving) return;
+              setLeaving(true);
+              preloadInviteWall();
+              setTimeout(() => setScanning(true), 450);
             }}
           />
         );

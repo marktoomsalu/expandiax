@@ -5,6 +5,7 @@ import Image from "next/image";
 import { holdSplash } from "@/lib/splash";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { motion, useReducedMotion } from "framer-motion";
 
 const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), {
   ssr: false,
@@ -19,16 +20,38 @@ const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").the
 // The first thing anyone sees: the globe turning, and one button. (The
 // launch film that used to play first is gone: it was a detour before the
 // real start, and confused more than it explained.)
-export function ColdOpenStep({ onStart }: { onStart: () => void }) {
+export function ColdOpenStep({ onStart, leaving = false, onGlobeReady }: { onStart: () => void; leaving?: boolean; onGlobeReady?: () => void }) {
   // The app's launch screen stays until the globe is drawn: no empty space where it'll be.
   const [release] = useState(() => (typeof window === "undefined" ? () => {} : holdSplash()));
   useEffect(() => release, [release]);
+  const reduce = useReducedMotion();
+  // Leaving for "Find my world": into the globe, as if flying in, while the words fade away.
+  // The purple stays put underneath, so nothing flashes between the two screens.
+  const EASE = [0.4, 0, 0.2, 1] as const;
   return (
     <>
       <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-brand-purple px-6 pt-[env(safe-area-inset-top)] text-center text-white">
-        <div className="w-full max-w-xl opacity-90">
-          <WorldGlobeInner visitedCodes={[]} interactive={false} labels={false} autoRotate onReady={release} />
-        </div>
+        <motion.div
+          className="w-full max-w-xl opacity-90"
+          animate={leaving ? { opacity: 0, scale: reduce ? 1 : 1.35 } : { opacity: 0.9, scale: 1 }}
+          transition={{ duration: 0.55, ease: EASE }}
+        >
+          <WorldGlobeInner
+            visitedCodes={[]}
+            interactive={false}
+            labels={false}
+            autoRotate
+            onReady={() => {
+              release();
+              onGlobeReady?.();
+            }}
+          />
+        </motion.div>
+        <motion.div
+          className="flex flex-col items-center"
+          animate={leaving ? { opacity: 0, y: reduce ? 0 : 16 } : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: EASE }}
+        >
         <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} priority className="mt-4 h-8 w-auto" />
         <p className="mt-6 font-serif text-2xl leading-snug sm:text-3xl">
           Your world, <span className="italic">remembered.</span>
@@ -39,6 +62,7 @@ export function ColdOpenStep({ onStart }: { onStart: () => void }) {
         <Link href="/sign-in" className="mt-5 pb-8 text-sm text-white/60 hover:text-white">
           I already have an account
         </Link>
+        </motion.div>
       </div>
     </>
   );

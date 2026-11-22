@@ -27,6 +27,16 @@ const TALLY: { emoji: string; label: string; kind: "country" | "memory" }[] = [
   { emoji: "🎓", label: "A conference", kind: "memory" },
 ];
 
+/** The wall's first photos (the ones in view), fetched ahead: while the globe screen is up, so the wall arrives whole. */
+export function preloadInviteWall() {
+  for (const col of COLUMNS) {
+    col.slice(0, 4).forEach((cc, i) => {
+      const p = stockPhotoFor(cc, `invite${i}`);
+      if (p) new Image().src = stockUrl(p.raw, 360, "3:4", 70);
+    });
+  }
+}
+
 /**
  * The first screen of "Find my world": a wall of travel photos drifting by,
  * countries and memories adding up over it, and one button. It should feel
@@ -42,13 +52,24 @@ export function InviteHero({ mode, error, onStart, onManual }: { mode: "new" | "
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-[#14051a]">
       {/* The wall */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[72dvh] overflow-hidden">
+        {/* Arriving: settles from a little closer, as the globe zooms away behind it. */}
+        <motion.div
+          className="absolute inset-0"
+          initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.12 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+        >
         <div className="absolute -inset-x-16 -top-24 bottom-0 flex -rotate-[8deg] gap-3 opacity-90">
           {columns.map((col, c) => (
             <motion.div
               key={c}
               className="flex flex-1 flex-col gap-3"
-              animate={reduce ? undefined : { y: c % 2 ? ["-50%", "0%"] : ["0%", "-50%"] }}
-              transition={{ duration: 46 + c * 9, repeat: Infinity, ease: "linear" }}
+              initial={{ opacity: 0 }}
+              animate={reduce ? { opacity: 1 } : { opacity: 1, y: c % 2 ? ["-50%", "0%"] : ["0%", "-50%"] }}
+              transition={{
+                opacity: { duration: 0.8, delay: 0.1 + c * 0.12 },
+                y: { duration: 46 + c * 9, repeat: Infinity, ease: "linear" },
+              }}
             >
               {[...col, ...col].map((p, i) => (
                 <div key={i} className="relative aspect-[3/4] w-full shrink-0 overflow-hidden rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.45)]" style={{ background: p.color }}>
@@ -59,6 +80,7 @@ export function InviteHero({ mode, error, onStart, onManual }: { mode: "new" | "
             </motion.div>
           ))}
         </div>
+        </motion.div>
         {/* Into the night at the bottom, so the words read */}
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(20,5,26,0.55)_0%,rgba(20,5,26,0.05)_25%,rgba(20,5,26,0.25)_55%,#14051a_100%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(250,81,162,0.25),transparent_60%)]" />
