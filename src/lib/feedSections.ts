@@ -180,6 +180,54 @@ export function splitFresh<T extends { created_at: string }>(
   return { fresh: items.slice(0, n), earlier: items.slice(n) };
 }
 
+// ---------- Welcome: someone new, as one card ----------
+
+export type Welcome<T> = { kind: "welcome"; actorId: string; items: T[]; created_at: string };
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Someone who joined in the last week is welcomed with one card, not a
+ * flood: their bare posts from that week (no photos, no words) and anything
+ * bare from their first day (all their onboarding finds) go into it, placed
+ * where the newest of them was. Posts with photos or words stay posts.
+ * Only for people with something in the feed: nothing visible, no card.
+ */
+export function groupWelcomes<T extends { kind: string; actor_id: string; created_at: string }>(
+  items: T[],
+  isBare: (item: T) => boolean,
+  joinedAt: (actorId: string) => string | null | undefined,
+  now = new Date()
+): (T | Welcome<T>)[] {
+  const isNew = (actorId: string) => {
+    const joined = joinedAt(actorId);
+    return !!joined && now.getTime() - Date.parse(joined) < 7 * DAY_MS;
+  };
+  const absorbed = (item: T) => {
+    const joined = joinedAt(item.actor_id);
+    if (!joined || !isNew(item.actor_id) || !isBare(item)) return false;
+    const age = Date.parse(item.created_at) - Date.parse(joined);
+    if (age < -DAY_MS) return false;
+    // A country with nothing else, any time in their first week; a trip or event, on their first day.
+    return item.kind === "country" ? age < 7 * DAY_MS : age < DAY_MS;
+  };
+  const groups = new Map<string, T[]>();
+  for (const item of items) if (absorbed(item)) groups.set(item.actor_id, [...(groups.get(item.actor_id) ?? []), item]);
+  const out: (T | Welcome<T>)[] = [];
+  const placed = new Set<string>();
+  for (const item of items) {
+    const group = groups.get(item.actor_id);
+    if (!group || !group.includes(item)) {
+      out.push(item);
+      continue;
+    }
+    if (placed.has(item.actor_id)) continue;
+    placed.add(item.actor_id);
+    out.push({ kind: "welcome", actorId: item.actor_id, items: group, created_at: group[0].created_at });
+  }
+  return out;
+}
+
 // ---------- Country bursts: one card instead of a flood ----------
 
 export type CountryBurst<T> = { kind: "burst"; actorId: string; items: T[] };

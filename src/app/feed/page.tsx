@@ -16,6 +16,8 @@ import {
   pickResurfacedMemory,
   splitFresh,
   type CountryBurst,
+  groupWelcomes,
+  type Welcome,
   type OwnCountryLite,
   type OwnEventLite,
 } from "@/lib/feedSections";
@@ -23,6 +25,8 @@ import { loadThenMemory } from "@/lib/thenMemory";
 import { ThenCard } from "@/components/ThenCard";
 import { TogetherSection } from "@/components/TogetherSection";
 import { CountryBurstCard } from "@/components/CountryBurstCard";
+import { WelcomeCard } from "@/components/feed/WelcomeCard";
+import { loadWelcomeWorlds } from "@/lib/welcomeWorld";
 import { whereAmI } from "@/lib/location";
 import { formatRelative } from "@/lib/utils";
 import type { FeedEvent, Profile } from "@/lib/types";
@@ -204,10 +208,25 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const isBareCountry = (item: FeedEvent) =>
     item.kind === "country" && !(postCtx.mediaByKey.get(`country:${item.ref_id}`)?.length) && !item.cover_url && !item.body?.trim() && !item.spotify_track_id;
 
+  // Someone new: their onboarding (everything bare from their first day, and
+  // bare countries all week) is one welcome card, not a flood of posts.
+  const isBareItem = (item: FeedEvent) =>
+    item.kind === "country" ? isBareCountry(item) : !(postCtx.mediaByKey.get(`event:${item.ref_id}`)?.length) && !item.body?.trim();
+  const welcomed = groupWelcomes(items, isBareItem, (id) => actors.get(id)?.created_at);
+  const welcomes = welcomed.filter((e): e is Welcome<FeedEvent> => "items" in e);
+  const rest = welcomed.filter((e): e is FeedEvent => !("items" in e));
+  // Their whole start (countries, trips, memories), as far as this viewer may see it: not just what went to the feed.
+  const worldsPending = loadWelcomeWorlds(supabase, welcomes.map((w) => w.actorId));
+
   // Group first, then split into new / earlier — so one person's burst of
   // countries is always a single card, never cut in two by the caught-up line.
-  const entries = groupCountryBursts(items, isBareCountry, { joinedAt: (id) => actors.get(id)?.created_at });
-  const timed = entries.map((entry) => ({ entry, created_at: entry.kind === "burst" ? entry.items[0].created_at : entry.created_at }));
+  type Entry = FeedEvent | CountryBurst<FeedEvent> | Welcome<FeedEvent>;
+  const whenOf = (e: Entry) => ("items" in e && e.kind === "burst" ? e.items[0].created_at : e.created_at);
+  const entries: Entry[] = [...groupCountryBursts(rest, isBareCountry, { joinedAt: (id) => actors.get(id)?.created_at }), ...welcomes].sort((a, b) =>
+    whenOf(b).localeCompare(whenOf(a))
+  );
+  const worlds = await worldsPending;
+  const timed = entries.map((entry) => ({ entry, created_at: whenOf(entry) }));
   const split = splitFresh(timed, previousLastSeenAt);
   const fresh = split.fresh.map((t) => t.entry);
   const earlier = split.earlier.map((t) => t.entry);
@@ -225,7 +244,17 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   const suggestAt = suggestInFresh ? 3 : Math.min(earlier.length, Math.max(1, 3 - fresh.length));
   const withSuggested = (nodes: React.ReactNode[], here: boolean) => (here ? [...nodes.slice(0, suggestAt), suggested, ...nodes.slice(suggestAt)] : nodes);
 
-  const renderEntry = (entry: FeedEvent | CountryBurst<FeedEvent>, index: number) => {
+  const renderEntry = (entry: Entry, index: number) => {
+    if (entry.kind === "welcome") {
+      const actor = actors.get(entry.actorId);
+      const world = worlds.get(entry.actorId);
+      if (!actor || !world) return null;
+      return (
+        <li key={`welcome:${entry.actorId}`} data-feed-key={`welcome:${entry.actorId}`} className="card overflow-hidden">
+          <WelcomeCard actor={actor} world={world} when={formatRelative(actor.created_at ?? entry.created_at)} isYou={entry.actorId === user.id} />
+        </li>
+      );
+    }
     if (entry.kind !== "burst") return renderPost(entry, index);
     const actor = actors.get(entry.actorId);
     if (!actor) return null;

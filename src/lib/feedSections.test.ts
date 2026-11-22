@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupCountryBursts, pickResurfacedMemory, splitFresh, type OwnCountryLite, type OwnEventLite } from "./feedSections";
+import { groupCountryBursts, groupWelcomes, pickResurfacedMemory, splitFresh, type OwnCountryLite, type OwnEventLite } from "./feedSections";
 
 const NOW = new Date("2026-09-23T12:00:00");
 
@@ -155,5 +155,38 @@ describe("groupCountryBursts for new members", () => {
   it("long-time members still need 3 within a few hours", () => {
     const out = groupCountryBursts([c("a", "24", "09:00", "old"), c("b", "21", "18:00", "old")], () => true, { joinedAt });
     expect(out.every((o) => !("items" in o))).toBe(true);
+  });
+});
+
+describe("groupWelcomes", () => {
+  const now = new Date("2026-11-22T20:00:00Z");
+  const joined: Record<string, string> = { newbie: "2026-11-22T10:00:00Z", old: "2025-01-01T00:00:00Z" };
+  const post = (id: string, actor: string, at: string, kind = "country", bare = true) => ({ id, kind, actor_id: actor, created_at: at, bare });
+  const run = (items: ReturnType<typeof post>[]) => groupWelcomes(items, (i) => i.bare, (a) => joined[a], now);
+
+  it("turns a new member's onboarding into one card, where their newest was", () => {
+    const out = run([
+      post("o1", "old", "2026-11-22T19:00:00Z"),
+      post("n1", "newbie", "2026-11-22T10:05:00Z"),
+      post("n2", "newbie", "2026-11-22T10:04:00Z", "event"),
+      post("o2", "old", "2026-11-22T09:00:00Z", "country", false),
+    ]);
+    expect(out.map((e) => ("items" in e ? `welcome:${e.items.length}` : e.id))).toEqual(["o1", "welcome:2", "o2"]);
+  });
+
+  it("keeps a new member's posts with photos or words as posts, and old members' bare ones untouched", () => {
+    const out = run([post("n1", "newbie", "2026-11-22T12:00:00Z", "country", false), post("o1", "old", "2026-11-22T11:00:00Z")]);
+    expect(out.map((e) => ("items" in e ? "welcome" : e.id))).toEqual(["n1", "o1"]);
+  });
+
+  it("only a first day's bare trip or event joins the card; a bare country, the whole first week", () => {
+    const later = new Date("2026-11-26T20:00:00Z");
+    const out = groupWelcomes(
+      [post("e2", "newbie", "2026-11-25T10:00:00Z", "event"), post("c2", "newbie", "2026-11-25T09:00:00Z"), post("c1", "newbie", "2026-11-22T10:01:00Z")],
+      (i) => i.bare,
+      (a) => joined[a],
+      later
+    );
+    expect(out.map((e) => ("items" in e ? `welcome:${e.items.map((i) => i.id).join("+")}` : e.id))).toEqual(["e2", "welcome:c2+c1"]);
   });
 });
