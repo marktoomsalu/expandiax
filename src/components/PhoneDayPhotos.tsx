@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, ChevronDown, Smartphone } from "lucide-react";
+import { Check, ChevronDown, Heart, Smartphone } from "lucide-react";
 import { photoFile, photosBetween, photoThumbs, type DayPhoto } from "@/lib/photoScan";
 import { tapLight } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,7 @@ export function PhoneDayPhotos({ from, to, remaining, onAdd }: { from: string; t
     for (const p of photos ?? []) by.set(p.t.slice(0, 10), [...(by.get(p.t.slice(0, 10)) ?? []), p]);
     return [...by.entries()];
   }, [photos]);
+  const favourites = useMemo(() => (photos ?? []).filter((p) => p.f).length, [photos]);
 
   const want = useCallback((ids: string[]) => {
     const need = ids.filter((id) => !asked.current.has(id));
@@ -78,7 +79,15 @@ export function PhoneDayPhotos({ from, to, remaining, onAdd }: { from: string; t
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium">Your photos from these days</span>
           <span className="block text-xs text-muted">
-            {photos.length} on this phone · {from === to ? dayLabel(from) : `${dayLabel(from)} – ${dayLabel(to)}`}
+            {photos.length} on this phone
+            {favourites > 0 && (
+              <>
+                {" · "}
+                <Heart size={11} className="-mt-0.5 inline fill-accent text-accent" aria-hidden /> {favourites}
+                <span className="sr-only"> {favourites === 1 ? "favourite" : "favourites"}</span>
+              </>
+            )}{" "}
+            · {from === to ? dayLabel(from) : `${dayLabel(from)} – ${dayLabel(to)}`}
           </span>
         </span>
         <ChevronDown size={18} className={cn("shrink-0 text-muted transition-transform", open && "rotate-180")} aria-hidden />
@@ -100,12 +109,16 @@ export function PhoneDayPhotos({ from, to, remaining, onAdd }: { from: string; t
                       type="button"
                       onClick={() => toggle(p.id)}
                       aria-pressed={on}
-                      aria-label={`Photo at ${p.t.slice(11)}`}
+                      aria-label={`Photo at ${p.t.slice(11)}${p.f ? ", a favourite" : ""}`}
                       className={cn("relative aspect-square overflow-hidden rounded-md bg-line/40", on && "ring-[3px] ring-accent ring-inset")}
                     >
                       {thumbs[p.id] && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={thumbs[p.id]} alt="" className={cn("h-full w-full object-cover transition-transform", on && "scale-90 rounded-sm")} />
+                      )}
+                      {/* A favourite in their Photos app: the same white heart, in the same corner. */}
+                      {p.f && (
+                        <Heart size={14} className="absolute bottom-1 left-1 fill-white text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" aria-hidden />
                       )}
                       {on && (
                         <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-white shadow">
