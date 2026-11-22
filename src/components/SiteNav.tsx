@@ -50,16 +50,45 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
   // Typing anywhere (a field has focus): the bottom bar steps aside.
   const [typing, setTyping] = useState(false);
   useEffect(() => {
-    const isField = (t: EventTarget | null) => t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !["checkbox", "radio", "button", "submit", "range", "file", "color"].includes(t.type));
+    const isField = (t: EventTarget | null) =>
+      (t instanceof HTMLTextAreaElement || (t instanceof HTMLInputElement && !["checkbox", "radio", "button", "submit", "range", "file", "color"].includes(t.type))) &&
+      // Still on the page: a field taken away while focused (a sheet closing, a refresh after following
+      // someone) says nothing on iPhone, and the bar would stay hidden. So: still there, and visible
+      // (a closed sheet can keep its field, hidden).
+      t.isConnected &&
+      t.getClientRects().length > 0;
+    const check = () => setTyping(isField(document.activeElement));
     const on = (e: FocusEvent) => isField(e.target) && setTyping(true);
-    const off = () => setTimeout(() => setTyping(isField(document.activeElement)), 0);
+    const off = () => setTimeout(check, 0);
+    // Looked at again after any tap (once what it did has settled) and when the keyboard goes away.
+    const afterTap = () => {
+      setTimeout(check, 50);
+      setTimeout(check, 700);
+    };
     document.addEventListener("focusin", on);
     document.addEventListener("focusout", off);
+    document.addEventListener("click", afterTap, true);
+    window.visualViewport?.addEventListener("resize", check);
     return () => {
       document.removeEventListener("focusin", on);
       document.removeEventListener("focusout", off);
+      document.removeEventListener("click", afterTap, true);
+      window.visualViewport?.removeEventListener("resize", check);
     };
   }, []);
+  // A new page: whatever had focus on the last one is gone.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const el = document.activeElement;
+      setTyping(
+        !!el &&
+          el.isConnected &&
+          el.getClientRects().length > 0 &&
+          (el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !["checkbox", "radio", "button", "submit", "range", "file", "color"].includes(el.type)))
+      );
+    }, 100);
+    return () => clearTimeout(t);
+  }, [path]);
 
   // /start is a full-screen, immersive flow with no site chrome at all
   // until there's an account to actually navigate around with — see
