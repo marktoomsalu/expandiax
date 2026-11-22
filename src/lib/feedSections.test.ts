@@ -23,19 +23,18 @@ const country = (over: Partial<OwnCountryLite> & { id: string }): OwnCountryLite
 });
 
 describe("pickResurfacedMemory", () => {
-  it("prefers an anniversary and links to the public view", () => {
+  it("prefers an anniversary and opens it where they can edit it", () => {
     const picked = pickResurfacedMemory(
       [event({ id: "fav", is_favourite: true, media_count: 3 }), event({ id: "anniv", event_date: "2024-09-23" })],
       [],
       "u1",
-      NOW,
-      "mark"
+      NOW
     );
-    expect(picked).toMatchObject({ id: "anniv", isAnniversary: true, subtitle: "2 years ago today", href: "/u/mark/events/anniv" });
+    expect(picked).toMatchObject({ id: "anniv", isAnniversary: true, subtitle: "2 years ago today", href: "/events/anniv/edit" });
   });
 
   it("picks a memory with photos over a favourite without any", () => {
-    const picked = pickResurfacedMemory([event({ id: "fav-no-photos", is_favourite: true }), event({ id: "photos", media_count: 4 })], [], "u1", NOW, "mark");
+    const picked = pickResurfacedMemory([event({ id: "fav-no-photos", is_favourite: true }), event({ id: "photos", media_count: 4 })], [], "u1", NOW);
     expect(picked?.id).toBe("photos");
   });
 
@@ -44,46 +43,45 @@ describe("pickResurfacedMemory", () => {
       [event({ id: "a", media_count: 2 }), event({ id: "b", media_count: 2 })],
       [country({ id: "c", is_favourite: true, media_count: 5 })],
       "u1",
-      NOW,
-      "mark"
+      NOW
     );
-    expect(picked).toMatchObject({ id: "c", kind: "country", href: "/u/mark/countries/de", isAnniversary: false });
+    expect(picked).toMatchObject({ id: "c", kind: "country", href: "/my-world/de", isAnniversary: false });
   });
 
   it("prefers older memories, but shows a recent one when that's all there is", () => {
     const recent = event({ id: "recent", event_date: "2026-09-01", is_favourite: true, media_count: 9 });
-    expect(pickResurfacedMemory([recent, event({ id: "old", event_date: "2022-03-03" })], [], "u1", NOW, "mark")?.id).toBe("old");
-    expect(pickResurfacedMemory([recent], [], "u1", NOW, "mark")?.id).toBe("recent");
+    expect(pickResurfacedMemory([recent, event({ id: "old", event_date: "2022-03-03" })], [], "u1", NOW)?.id).toBe("old");
+    expect(pickResurfacedMemory([recent], [], "u1", NOW)?.id).toBe("recent");
   });
 
   it("shows any memory when there's nothing better, and nothing when there are none", () => {
-    expect(pickResurfacedMemory([event({ id: "plain" })], [], "u1", NOW, "mark")?.id).toBe("plain");
-    expect(pickResurfacedMemory([], [], "u1", NOW, "mark")).toBeNull();
+    expect(pickResurfacedMemory([event({ id: "plain" })], [], "u1", NOW)?.id).toBe("plain");
+    expect(pickResurfacedMemory([], [], "u1", NOW)).toBeNull();
   });
 
   it("then months ago today, when there's no year anniversary", () => {
-    const picked = pickResurfacedMemory([event({ id: "fav", is_favourite: true, media_count: 3 }), event({ id: "m3", event_date: "2026-06-23" })], [], "u1", NOW, "mark");
+    const picked = pickResurfacedMemory([event({ id: "fav", is_favourite: true, media_count: 3 }), event({ id: "m3", event_date: "2026-06-23" })], [], "u1", NOW);
     expect(picked).toMatchObject({ id: "m3", isAnniversary: true, subtitle: "3 months ago today" });
   });
 
   it("says a long stretch of months in years and months", () => {
-    const picked = pickResurfacedMemory([event({ id: "m15", event_date: "2025-06-23" })], [], "u1", NOW, "mark");
+    const picked = pickResurfacedMemory([event({ id: "m15", event_date: "2025-06-23" })], [], "u1", NOW);
     expect(picked?.subtitle).toBe("1 year and 3 months ago today");
   });
 
   it("prefers an anniversary with photos over one without", () => {
-    const picked = pickResurfacedMemory([event({ id: "bare", event_date: "2026-06-23" }), event({ id: "pics", event_date: "2026-07-23", media_count: 2 })], [], "u1", NOW, "mark");
+    const picked = pickResurfacedMemory([event({ id: "bare", event_date: "2026-06-23" }), event({ id: "pics", event_date: "2026-07-23", media_count: 2 })], [], "u1", NOW);
     expect(picked?.id).toBe("pics");
   });
 
   it("counts a trip's exact days for anniversaries", () => {
     const trip = country({ id: "trip", country_visits: [{ year: 2025, visited_from: "2025-09-20", visited_to: "2025-09-23", date_precision: "day" }] });
-    expect(pickResurfacedMemory([], [trip], "u1", NOW, "mark")).toMatchObject({ id: "trip", subtitle: "1 year ago today" });
+    expect(pickResurfacedMemory([], [trip], "u1", NOW)).toMatchObject({ id: "trip", subtitle: "1 year ago today" });
   });
 
   it("doesn't show yesterday's memory again when there's another", () => {
     const events = [event({ id: "a", media_count: 1 }), event({ id: "b", media_count: 1 }), event({ id: "c", media_count: 1 })];
-    const ids = Array.from({ length: 12 }, (_, i) => pickResurfacedMemory(events, [], "u1", new Date(2026, 2, i + 1, 12), "mark")?.id);
+    const ids = Array.from({ length: 12 }, (_, i) => pickResurfacedMemory(events, [], "u1", new Date(2026, 2, i + 1, 12))?.id);
     for (let i = 1; i < ids.length; i++) expect(ids[i]).not.toBe(ids[i - 1]);
     // Every one has its turn.
     expect(new Set(ids.slice(0, 3)).size).toBe(3);
@@ -91,8 +89,8 @@ describe("pickResurfacedMemory", () => {
 
   it("keeps the same pick all day", () => {
     const events = [event({ id: "a", media_count: 1 }), event({ id: "b", media_count: 1 }), event({ id: "c", media_count: 1 })];
-    const morning = pickResurfacedMemory(events, [], "u1", new Date("2026-09-23T08:00:00"), "mark");
-    const evening = pickResurfacedMemory(events, [], "u1", new Date("2026-09-23T22:00:00"), "mark");
+    const morning = pickResurfacedMemory(events, [], "u1", new Date("2026-09-23T08:00:00"));
+    const evening = pickResurfacedMemory(events, [], "u1", new Date("2026-09-23T22:00:00"));
     expect(morning?.id).toBe(evening?.id);
   });
 });

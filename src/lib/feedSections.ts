@@ -92,16 +92,17 @@ function pickOfDay<T extends { memory: ResurfacedMemory }>(list: T[], userId: st
  *     anything with photos, then any favourite, then anything), never the
  *     same as yesterday's when there's another to show.
  * Returns null when there's nothing at all — the section just doesn't render.
+ * It's their own memory, so it opens where they can add to it: the country
+ * on My World, the event's edit page (not the public pages others see).
  */
 export function pickResurfacedMemory(
   events: OwnEventLite[],
   countries: OwnCountryLite[],
   userId: string,
-  now: Date,
-  username: string
+  now: Date
 ): ResurfacedMemory | null {
-  const eventHref = (id: string) => `/u/${username}/events/${id}`;
-  const countryHref = (code: string) => `/u/${username}/countries/${code.toLowerCase()}`;
+  const eventHref = (id: string) => `/events/${id}/edit`;
+  const countryHref = (code: string) => `/my-world/${code.toLowerCase()}`;
   const all = allMemories(events, countries, eventHref, countryHref);
   if (!all.length) return null;
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());

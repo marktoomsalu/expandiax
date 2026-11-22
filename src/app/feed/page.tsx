@@ -124,16 +124,16 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
   // A memory reminder names the memory it was about ("country:<id>"); that one shows.
   const remembered = (() => {
     const [kind, id] = (searchParams?.remember ?? "").split(":");
-    const me = viewerProfile?.username;
-    if (!me || !id) return null;
+    if (!id) return null;
+    // Their own memory: it opens where they can add to it, not their public page.
     if (kind === "event") {
       const e = ownEvents.find((x) => x.id === id);
-      return e ? { kind: "event" as const, id, title: e.title, subtitle: "One to remember", href: `/u/${me}/events/${id}`, isAnniversary: false } : null;
+      return e ? { kind: "event" as const, id, title: e.title, subtitle: "One to remember", href: `/events/${id}/edit`, isAnniversary: false } : null;
     }
     const c = kind === "country" ? ownCountries.find((x) => x.id === id) : null;
-    return c ? { kind: "country" as const, id, title: c.country_name, subtitle: "One to remember", href: `/u/${me}/countries/${c.country_code.toLowerCase()}`, isAnniversary: false } : null;
+    return c ? { kind: "country" as const, id, title: c.country_name, subtitle: "One to remember", href: `/my-world/${c.country_code.toLowerCase()}`, isAnniversary: false } : null;
   })();
-  const picked = remembered ?? (viewerProfile?.username ? pickResurfacedMemory(ownEvents, ownCountries, user.id, now, viewerProfile.username) : null);
+  const picked = remembered ?? (viewerProfile?.username ? pickResurfacedMemory(ownEvents, ownCountries, user.id, now) : null);
   const thenPending = picked ? loadThenMemory(supabase, picked, now, user.id) : Promise.resolve(null);
 
   if (followeeIds.length > 0) {
