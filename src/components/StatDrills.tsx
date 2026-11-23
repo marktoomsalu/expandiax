@@ -114,8 +114,12 @@ const SHOWN = 8;
 
 function DrillPanel({ drill, onClose }: { drill: Drill; onClose: () => void }) {
   const [all, setAll] = useState(false);
-  const total = drill.groups ? drill.groups.reduce((n, g) => n + g.items.length, 0) : drill.items?.length ?? 0;
-  const cut = !all && total > SHOWN + 2;
+  const [picked, setPicked] = useState<DrillItem | null>(null);
+  const everything = drill.groups ? drill.groups.flatMap((g) => g.items) : drill.items ?? [];
+  const total = everything.length;
+  // Countries and territories: a mosaic of flags, small enough to show them all.
+  const flags = total > 0 && everything.every((i) => !!i.flag);
+  const cut = !flags && !all && total > SHOWN + 2;
   // The first few (all of them once asked), across groups in order.
   let left = cut ? SHOWN : Infinity;
   const take = (items: DrillItem[]) => {
@@ -142,22 +146,100 @@ function DrillPanel({ drill, onClose }: { drill: Drill; onClose: () => void }) {
                   {g.color && <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: g.color }} />}
                   {g.name} <span className="font-normal text-muted">· {g.items.length}</span>
                 </p>
-                <List items={items} />
+                {flags ? <FlagMosaic items={items} picked={picked} onPick={setPicked} /> : <List items={items} />}
               </div>
             );
           })}
         </div>
       ) : drill.items?.length ? (
-        <List items={take(drill.items)} />
+        flags ? <FlagMosaic items={drill.items} picked={picked} onPick={setPicked} /> : <List items={take(drill.items)} />
       ) : (
         <p className="mt-3 text-sm text-muted">{drill.empty ?? "Nothing here yet."}</p>
       )}
+      {flags && <FlagCaption picked={picked} />}
       {cut && (
         <button type="button" onClick={() => setAll(true)} className="mt-3 w-full rounded-full border border-line py-2.5 text-sm font-medium hover:border-accent hover:text-accent">
           Show all {total}
         </button>
       )}
     </section>
+  );
+}
+
+/**
+ * Places as a mosaic of round flags, popping in one after another: tap one
+ * for its name and when, and the way to it. Takes a line or two, not a page.
+ */
+function FlagMosaic({ items, picked, onPick }: { items: DrillItem[]; picked: DrillItem | null; onPick: (i: DrillItem | null) => void }) {
+  const reduce = useReducedMotion();
+  return (
+      <ul className="mt-3 flex flex-wrap gap-2">
+        {items.map((i, n) => {
+          const on = picked?.key === i.key;
+          return (
+            <motion.li
+              key={i.key}
+              initial={reduce ? false : { scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 420, damping: 22, delay: reduce ? 0 : Math.min(n, 30) * 0.025 }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  tapLight();
+                  onPick(on ? null : i);
+                }}
+                aria-pressed={on}
+                aria-label={i.secondary ? `${i.primary}, ${i.secondary}` : i.primary}
+                title={i.primary}
+                className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-full bg-raised text-[1.6rem] leading-none ring-1 ring-line transition-all duration-200 hover:-translate-y-0.5 hover:ring-accent/50",
+                  on && "-translate-y-0.5 bg-accent-soft ring-2 ring-accent"
+                )}
+              >
+                <span aria-hidden>{i.flag}</span>
+              </button>
+            </motion.li>
+          );
+        })}
+      </ul>
+  );
+}
+
+/** What the tapped flag is: its name, when, and the way to it. */
+function FlagCaption({ picked }: { picked: DrillItem | null }) {
+  return (
+      <div className="mt-3 min-h-[2.75rem]">
+        <AnimatePresence mode="wait" initial={false}>
+          {picked ? (
+            <motion.div
+              key={picked.key}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
+              className="flex items-center gap-3 rounded-2xl bg-raised px-3 py-2"
+            >
+              <span className="text-2xl leading-none" aria-hidden>
+                {picked.flag}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">{picked.primary}</span>
+                {picked.secondary && <span className="block truncate text-xs text-muted">{picked.secondary}</span>}
+              </span>
+              {picked.href && (
+                <Link href={picked.href} className="inline-flex shrink-0 items-center gap-0.5 text-sm font-medium text-accent">
+                  Open <ChevronRight size={15} aria-hidden />
+                </Link>
+              )}
+            </motion.div>
+          ) : (
+            <motion.p key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="px-1 pt-2 text-xs text-muted">
+              Tap a flag to see when.
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
   );
 }
 
