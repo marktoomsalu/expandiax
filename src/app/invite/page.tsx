@@ -6,6 +6,9 @@ import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { Check } from "lucide-react";
 import { BADGES } from "@/lib/badges";
 import { InviteShare } from "@/components/invite/InviteShare";
+import { InviteQR } from "@/components/invite/InviteQR";
+import { inviteUrl } from "@/lib/invite";
+import { qrArt } from "@/lib/qrArt";
 
 // The Friends badges, in order: Connector 5, Ambassador 10, Trailblazer 25.
 // The invite badges only (Worlds Collide is earned with World Connect, not by inviting).
@@ -19,7 +22,7 @@ export default async function InvitePage() {
   if (!user) redirect("/sign-in?next=/invite");
   const supabase = createClient();
   const [{ data: me }, { data: rows }] = await Promise.all([
-    supabase.from("profiles").select("username, display_name").eq("id", user.id).single(),
+    supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).single(),
     supabase.from("invites").select("invitee_id, created_at").eq("inviter_id", user.id).order("created_at", { ascending: false }),
   ]);
   const ids = (rows ?? []).map((r) => r.invitee_id as string);
@@ -88,6 +91,9 @@ export default async function InvitePage() {
         </div>
       </div>
 
+      {me?.username && (
+        <InviteQR art={qrArt(inviteUrl(me.username))} photo={me.avatar_url ?? null} firstName={(me.display_name ?? "").trim().split(" ")[0] || `@${me.username}`} username={me.username} />
+      )}
 
       {joined.length > 0 && (
         <section className="mt-8" aria-labelledby="joined-h">

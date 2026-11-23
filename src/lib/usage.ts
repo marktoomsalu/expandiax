@@ -39,6 +39,8 @@ export const PAGE_LABELS: Record<string, string> = {
 
 export const FEATURE_LABELS: Record<string, string> = {
   invite_shared: "Invite link shared",
+  invite_qr: "Invite QR code shown",
+  connect_story: "World Connect shared to Story",
   chat_opened: "Chat opened",
   memory_invite_sent: "Invitation to a memory sent",
   world_scan_started: "Find my world: started",
