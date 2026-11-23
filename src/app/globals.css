@@ -145,6 +145,19 @@
   animation: badge-shimmer 3.2s ease-in-out infinite;
 }
 
+/* A photo that drifts slowly closer and back: "One to remember". */
+@keyframes ken-burns {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.08) translate(-1.5%, -1%);
+  }
+}
+.animate-ken-burns {
+  animation: ken-burns 16s ease-in-out infinite alternate;
+}
+
 @keyframes eq-bar {
   0%, 100% {
     transform: scaleY(0.35);

@@ -55,6 +55,7 @@ export async function loadThenMemory(supabase: ReturnType<typeof createClient>, 
       event_media: MediaRow[];
     };
     return {
+      id: picked.id,
       href: picked.href,
       eyebrow: eyebrow(new Date(`${e.event_date}T00:00:00`)),
       kind: "event",
@@ -90,6 +91,7 @@ export async function loadThenMemory(supabase: ReturnType<typeof createClient>, 
   const latest = visits[0];
   const meta = countryByCode(c.country_code);
   return {
+    id: picked.id,
     href: picked.href,
     eyebrow: eyebrow(latest ? new Date(`${sortKey(latest)}T00:00:00`) : null),
     kind: "country",

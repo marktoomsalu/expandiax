@@ -377,7 +377,7 @@ export default async function FeedPage({ searchParams }: { searchParams?: { limi
           <h2 id="then-h" className="flex items-center gap-1.5 text-sm font-medium text-muted">
             <Clock size={14} aria-hidden /> One to remember
           </h2>
-          <ThenCard m={then} />
+          <ThenCard m={then} shareable />
         </section>
       )}
 

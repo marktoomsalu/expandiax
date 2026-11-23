@@ -175,6 +175,7 @@ export function EventScreen() {
 }
 
 const PORTUGAL: ThenMemory = {
+  id: "sample",
   href: "#",
   eyebrow: "1 year ago today",
   kind: "country",
