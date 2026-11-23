@@ -67,13 +67,18 @@ export default function LandingPage() {
           aria-hidden
           className="gradient-travel pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[64rem] -translate-x-1/2 rounded-full opacity-[0.16] blur-3xl dark:opacity-[0.22]"
         />
-        <div className="relative mx-auto max-w-shell px-5 pb-10 pt-16 md:pt-24">
+        <div className="relative mx-auto max-w-shell px-5 pb-10 pt-8 md:pt-24">
           <FadeIn className="text-center">
-            <p className="eyebrow">ExpandiaX</p>
-            <h1 className="mx-auto mt-4 max-w-3xl text-5xl leading-[1.02] md:text-7xl">
+            <p className="eyebrow hidden md:block">ExpandiaX</p>
+            <h1 className="mx-auto max-w-3xl text-5xl leading-[1.02] md:mt-4 md:text-7xl">
               Your world, <span className="italic text-accent">remembered.</span>
             </h1>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted">
+            {/* On a phone, getting the app comes first: in view the moment the page opens, no scrolling. */}
+            <div className="mt-6 flex flex-col items-center md:hidden">
+              <StoreBadges height={52} className="justify-center" />
+              <p className="mt-2 text-xs text-muted">Free on iPhone and Android</p>
+            </div>
+            <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted md:text-lg">
               Track the countries you have explored, keep the moments that mattered and build a
               visual journey of every event that made you feel alive.
             </p>
@@ -87,7 +92,7 @@ export default function LandingPage() {
               Already have an account?{" "}
               <Link href="/sign-in" className="text-accent underline-offset-4 hover:underline">Sign in</Link>
             </p>
-            <StoreBadges className="mt-6 justify-center" />
+            <StoreBadges className="mt-6 hidden justify-center md:flex" />
           </FadeIn>
 
           <FadeIn delay={0.15} className="mt-14">
