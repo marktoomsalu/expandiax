@@ -6,6 +6,8 @@ import { drawGlobe, worldFeatures, type WorldFeature } from "@/lib/globeArt";
 
 let world: Promise<WorldFeature[]> | null = null;
 const loadWorld = () => (world ??= fetch("/data/world-110m.json").then((r) => r.json() as Promise<Topology>).then(worldFeatures));
+/** Start loading the map ahead of time, so the globe is drawn the moment it's shown. */
+export const warmGlobe = () => void loadWorld().catch(() => (world = null));
 
 /**
  * The Earth at night as a picture, not a 3D scene: quick to show, light on

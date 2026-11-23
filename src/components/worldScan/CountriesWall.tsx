@@ -1,27 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
+import { useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, Home, Plus, Search, X } from "lucide-react";
 import { COUNTRIES, TOTAL_COUNTRIES, countryByCode } from "@/lib/countries";
 import { stockPhotoFor, stockUrl } from "@/lib/stockPhotos";
 import type { FoundWorld } from "@/lib/tripFinder";
 import { tapLight, tapSuccess } from "@/lib/haptics";
-
-const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), {
-  ssr: false,
-  loading: () => <GlobeSpot />,
-});
-
-/** Where the little globe goes, until it's drawn: a faint sphere of the same size. */
-function GlobeSpot() {
-  return (
-    <div className="flex h-[77px] w-full items-center justify-center">
-      <span className="h-14 w-14 rounded-full bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,0.18),rgba(255,255,255,0.04)_70%)]" />
-    </div>
-  );
-}
+// A picture of the globe, not a 3D scene: there at once, and nothing starting
+// up mid-animation (the 3D one froze the screen for a moment as it began).
+import { GlobePicture, warmGlobe } from "@/components/wrapped/GlobePicture";
 
 /** The countries that open the wall, most visited first (home has its own tile). */
 function wallOrder(world: FoundWorld): Tile[] {
@@ -46,6 +34,7 @@ const tileUrl = (raw: string) => stockUrl(raw, 440, "4:5", 72);
  * the wall opens with them already there instead of filling in as it fades in.
  */
 export function warmUpWall(world: FoundWorld) {
+  warmGlobe();
   for (const t of wallOrder(world)
     .filter((t) => t.sure && t.code !== world.homeCode)
     .slice(0, 6)) {
@@ -79,19 +68,16 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
   const [toast, setToast] = useState<{ code: string; kept: boolean; n: number } | null>(null);
 
   const tiles: Tile[] = useMemo(() => wallOrder(world), [world]);
-  // The little globe starts up (a WebGL scene) once the screen has faded in,
-  // not during it, where it would stall the fade.
-  const [globeOn, setGlobeOn] = useState(false);
-  useEffect(() => {
-    // After the tiles have landed: a WebGL scene starting up mid-animation makes it stutter.
-    const t = setTimeout(() => setGlobeOn(true), 900);
-    return () => clearTimeout(t);
-  }, []);
-
-  const sure = tiles.filter((t) => t.sure && t.code !== world.homeCode);
-  const unsure = tiles.filter((t) => !t.sure && t.code !== world.homeCode);
+  const sure = useMemo(() => tiles.filter((t) => t.sure && t.code !== world.homeCode), [tiles, world.homeCode]);
+  const unsure = useMemo(() => tiles.filter((t) => !t.sure && t.code !== world.homeCode), [tiles, world.homeCode]);
   const isOn = (t: Tile) => (t.sure ? !off.has(t.code) : on.has(t.code));
-  const codes = [...(world.homeCode ? [world.homeCode] : []), ...sure.filter(isOn).map((t) => t.code), ...unsure.filter(isOn).map((t) => t.code), ...added];
+  const codes = useMemo(
+    () => [...(world.homeCode ? [world.homeCode] : []), ...sure.filter((t) => !off.has(t.code)).map((t) => t.code), ...unsure.filter((t) => on.has(t.code)).map((t) => t.code), ...added],
+    [world.homeCode, sure, unsure, off, on, added]
+  );
+  // The count pops when a tap changes it, not when the screen first opens.
+  const opened = useRef(codes.length);
+  const changed = codes.length !== opened.current;
 
   function toggle(t: Tile) {
     tapLight();
@@ -114,19 +100,13 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
       {/* The globe and the count, changing with every tap */}
       {/* Solid, not frosted: iPhone can't draw a blur inside a page that's fading in, so it flashed. */}
       <div className="sticky top-0 z-20 flex items-center gap-3 bg-[#1f0822] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] shadow-[0_8px_20px_-12px_rgba(0,0,0,0.7)]">
-        <div className="pointer-events-none -my-2 -ml-3 w-24 shrink-0">
-          {globeOn ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
-              <WorldGlobeInner visitedCodes={codes} homeCode={world.homeCode ?? undefined} interactive={false} labels={false} autoRotate />
-            </motion.div>
-          ) : (
-            <GlobeSpot />
-          )}
+        <div className="pointer-events-none -my-2 -ml-3 flex h-[77px] w-24 shrink-0 items-center justify-center">
+          <GlobePicture countries={codes} home={world.homeCode} className="h-[77px] w-[77px]" />
         </div>
         <div className="min-w-0">
           <p className="font-serif text-xl leading-tight">Your countries</p>
           <p className="text-sm text-white/65">
-            <motion.span key={codes.length} className="inline-block font-serif text-2xl font-semibold text-white" initial={reduce ? false : { scale: 1.35, color: "#ff8cc6" }} animate={{ scale: 1, color: "#ffffff" }}>
+            <motion.span key={codes.length} className="inline-block font-serif text-2xl font-semibold text-white" initial={reduce || !changed ? false : { scale: 1.35, color: "#ff8cc6" }} animate={{ scale: 1, color: "#ffffff" }}>
               {codes.length}
             </motion.span>{" "}
             of {TOTAL_COUNTRIES} · tap any that aren&apos;t right
@@ -136,7 +116,12 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
 
       <div className="grid grid-cols-2 gap-3 px-4 pb-44 pt-3">
         {home && (
-          <div className="relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-3xl bg-gradient-to-br from-[#fa51a2] via-[#f43f5e] to-[#fb7822] p-4">
+          <motion.div
+            initial={reduce ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: reduce ? 0 : 0.08 }}
+            className="relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-3xl bg-gradient-to-br from-[#fa51a2] via-[#f43f5e] to-[#fb7822] p-4"
+          >
             <span className="absolute inset-0 flex items-center justify-center text-7xl" aria-hidden>
               {home.flag}
             </span>
@@ -144,10 +129,10 @@ export function CountriesWall({ world, next, onNext }: { world: FoundWorld; next
               <Home size={11} aria-hidden /> Home
             </span>
             <span className="relative mt-1 font-serif text-xl leading-tight">{home.name}</span>
-          </div>
+          </motion.div>
         )}
         {sure.map((t, i) => (
-          <PhotoTile key={t.code} tile={t} on={isOn(t)} index={i} onToggle={() => toggle(t)} />
+          <PhotoTile key={t.code} tile={t} on={isOn(t)} index={i + 1} onToggle={() => toggle(t)} />
         ))}
         <AnimatePresence>
           {added.map((code) => (
@@ -281,7 +266,17 @@ function PhotoTile({ tile, on, index, onToggle, label }: { tile: Tile; on: boole
       <span className={`absolute inset-0 transition-[filter,opacity] duration-300 ${on ? "" : "opacity-35 grayscale"}`}>
         {photo && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={tileUrl(photo.raw)} alt="" className="h-full w-full object-cover" loading={index < 6 ? "eager" : "lazy"} />
+          <img
+            src={tileUrl(photo.raw)}
+            alt=""
+            className="h-full w-full object-cover opacity-0 transition-opacity duration-500"
+            loading={index < 7 ? "eager" : "lazy"}
+            // Fades in once it's there (at once if it already was).
+            ref={(el) => {
+              if (el?.complete && el.naturalWidth) el.style.opacity = "1";
+            }}
+            onLoad={(e) => (e.currentTarget.style.opacity = "1")}
+          />
         )}
         <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
       </span>
