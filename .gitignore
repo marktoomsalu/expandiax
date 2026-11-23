@@ -53,3 +53,6 @@ next-env.d.ts
 
 # Generated App Store screenshots (scripts/appstore-screenshots.mjs)
 /appstore-screenshots/
+
+# Claude Code personal settings
+.claude/settings.local.json
