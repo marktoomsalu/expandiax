@@ -13,10 +13,14 @@ export const POSTER_H = 1920;
 /** The big photo and the ones around it: how many photos the collage holds. */
 export const COLLAGE_SLOTS = 5;
 /** The globe's size on the picture, and how it's turned (their places near its top). */
-export const POSTER_GLOBE = { size: 1640, tilt: 50, scale: 1 } as const;
+export const POSTER_GLOBE = { size: 1640, tilt: 50, scale: 1, reach: 0.9, widen: true } as const;
 
 // The big photo: [left, top, width, height, turn].
 export const MAIN: [number, number, number, number, number] = [280, 640, 520, 470, -2];
+/** The white frame round the big photo, and round the others. */
+export const BORDER = { main: 7, around: 6 } as const;
+/** The photo inside a frame, in pixels: exactly what it fills. */
+export const inside = (box: [number, number, number, number, number], border: number) => [box[2] - border * 2, box[3] - border * 2] as const;
 // Where the photos sit around the big one.
 export const AROUND: [number, number, number, number, number][] = [
   [52, 676, 270, 210, -8],
@@ -66,8 +70,10 @@ export function PosterArt({
   onPhoto?: (slot: number) => void;
 }) {
   const G = POSTER_GLOBE.size;
+  const disc = globe?.disc ?? { cx: G / 2, cy: G / 2, r: G / 2 };
   const [main, ...others] = photos;
   const tap = (slot: number) => (onPhoto ? { onClick: () => onPhoto(slot), role: "button" as const } : {});
+  // A white frame with the photo filling it exactly: the photo is sized in pixels to the inside of the frame.
   const frame = (box: [number, number, number, number, number], border: number, radius: number, shadow: string) => ({
     position: "absolute" as const,
     left: box[0],
@@ -75,13 +81,18 @@ export function PosterArt({
     width: box[2],
     height: box[3],
     display: "flex",
+    boxSizing: "border-box" as const,
     borderRadius: radius,
     border: `${border}px solid white`,
     overflow: "hidden",
     transform: `rotate(${box[4]}deg)`,
     boxShadow: shadow,
-    background: "#3a1a52",
+    background: "white",
   });
+  const photo = (src: string, box: [number, number, number, number, number], border: number, radius: number) => {
+    const [w, h] = inside(box, border);
+    return <img alt="" src={src} width={w} height={h} style={{ width: w, height: h, minWidth: w, minHeight: h, flexShrink: 0, objectFit: "cover", borderRadius: radius - border }} />;
+  };
 
   return (
     <div
@@ -112,9 +123,9 @@ export function PosterArt({
             <stop offset="1" stopColor="#fb7822" />
           </linearGradient>
         </defs>
-        <circle cx={G / 2} cy={G / 2} r={G / 2 + 26} fill="rgba(196,140,255,0.28)" />
-        <circle cx={G / 2} cy={G / 2} r={G / 2 + 10} fill="rgba(226,190,255,0.45)" />
-        <circle cx={G / 2} cy={G / 2} r={G / 2} fill="url(#wp-ocean)" />
+        <circle cx={disc.cx} cy={disc.cy} r={disc.r + 26} fill="rgba(196,140,255,0.28)" />
+        <circle cx={disc.cx} cy={disc.cy} r={disc.r + 10} fill="rgba(226,190,255,0.45)" />
+        <circle cx={disc.cx} cy={disc.cy} r={disc.r} fill="url(#wp-ocean)" />
         {/* A group, not a fragment: next/og can't draw a fragment inside an svg. */}
         {globe && (
           <g>
@@ -155,14 +166,14 @@ export function PosterArt({
       {/* Their photos around the big one */}
       {others.slice(0, AROUND.length).map((src, i) =>
         src ? (
-          <div key={`${i}-${src}`} style={frame(AROUND[i], 6, 26, "0 24px 50px rgba(0,0,0,0.45)")} {...tap(i + 1)}>
-            <img alt="" src={src} width={AROUND[i][2]} height={AROUND[i][3]} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <div key={`${i}-${src}`} style={frame(AROUND[i], BORDER.around, 26, "0 24px 50px rgba(0,0,0,0.45)")} {...tap(i + 1)}>
+            {photo(src, AROUND[i], BORDER.around, 26)}
           </div>
         ) : null
       )}
       {main && (
-        <div key={`main-${main}`} style={frame(MAIN, 7, 34, "0 34px 70px rgba(0,0,0,0.55)")} {...tap(0)}>
-          <img alt="" src={main} width={MAIN[2]} height={MAIN[3]} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <div key={`main-${main}`} style={frame(MAIN, BORDER.main, 34, "0 34px 70px rgba(0,0,0,0.55)")} {...tap(0)}>
+          {photo(main, MAIN, BORDER.main, 34)}
         </div>
       )}
 

@@ -9,7 +9,7 @@ import { ImageResponse } from "next/og";
 import type { Topology } from "topojson-specification";
 import { drawGlobe, worldFeatures, type WorldFeature } from "@/lib/globeArt";
 import { collageDefault, type WrappedYear } from "@/lib/wrapped";
-import { AROUND, COLLAGE_SLOTS, MAIN, POSTER_GLOBE, POSTER_H, POSTER_W, PosterArt, storyFacts } from "@/lib/wrappedPosterArt";
+import { AROUND, BORDER, COLLAGE_SLOTS, inside, MAIN, POSTER_GLOBE, POSTER_H, POSTER_W, PosterArt, storyFacts } from "@/lib/wrappedPosterArt";
 
 const fontCache = new Map<string, Promise<ArrayBuffer | null>>();
 function loadFont(query: string): Promise<ArrayBuffer | null> {
@@ -58,8 +58,9 @@ export async function renderWrappedPoster(w: WrappedYear, photoIds: string[]): P
   // Not one photo of their own: their top highlight's picture (a concert's, say), if there is one.
   if (!urls.length && w.highlights[0]?.photo) urls.push(w.highlights[0].photo);
 
-  const boxes = [MAIN, ...AROUND];
-  const photos = await Promise.all(urls.map((u, i) => photoData(u, boxes[i][2] * 2, boxes[i][3] * 2)));
+  // Each photo cut to exactly the inside of its frame (twice the size, for sharpness).
+  const sizes = [inside(MAIN, BORDER.main), ...AROUND.map((b) => inside(b, BORDER.around))];
+  const photos = await Promise.all(urls.map((u, i) => photoData(u, sizes[i][0] * 2, sizes[i][1] * 2)));
   const [titleFont, inter, interSemi, interBold, wordmark, features] = await Promise.all([
     loadFont("Fraunces:ital,opsz,wght@1,72,700"),
     loadFont("Inter:wght@400"),

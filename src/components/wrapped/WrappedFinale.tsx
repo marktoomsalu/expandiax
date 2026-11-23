@@ -116,6 +116,33 @@ function WrappedCollage({ w, ids, onPhoto }: { w: WrappedYear; ids: string[]; on
   );
 }
 
+/** A 9:16 frame, as big as the space it's given allows (measured, so it's always exactly Story-shaped). */
+function StoryFrame({ className, children }: { className: string; children: React.ReactNode }) {
+  const area = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = area.current;
+    if (!el) return;
+    const fit = () => {
+      const h = Math.min(el.clientHeight, (el.clientWidth * 16) / 9);
+      setSize(h > 0 ? { w: Math.round((h * 9) / 16), h: Math.round(h) } : null);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={area} className={`flex min-h-0 items-center justify-center ${className}`}>
+      {size && (
+        <div className="relative shrink-0 overflow-hidden rounded-[1.2rem] shadow-[0_30px_80px_-20px_rgba(250,81,162,0.55)] ring-1 ring-white/15" style={{ width: size.w, height: size.h }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- the finale
 
 export function Finale({ w, onReplay }: { w: WrappedYear; onReplay: () => void }) {
@@ -190,23 +217,20 @@ export function Finale({ w, onReplay }: { w: WrappedYear; onReplay: () => void }
 
   return (
     <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,#3b1660_0%,#1a0b2c_55%,#120818_100%)]" data-own-taps>
-      <div className="absolute inset-0 flex flex-col px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(5.6rem+env(safe-area-inset-top))]">
+      {/* Well clear of the bottom edge, so the buttons are easy to reach on any phone. */}
+      <div className="absolute inset-0 flex flex-col px-5 pb-[calc(2.25rem+env(safe-area-inset-bottom))] pt-[calc(5.6rem+env(safe-area-inset-top))]">
         {!editing && <p className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-white/60">Your {w.year}, in one picture</p>}
-        {/* The picture: smaller while they choose, so it stays in view as it changes. */}
-        <div
-          className={`relative mx-auto aspect-[9/16] shrink-0 overflow-hidden rounded-[1.2rem] shadow-[0_30px_80px_-20px_rgba(250,81,162,0.55)] ring-1 ring-white/15 transition-[height,margin] duration-300 ease-out ${
-            editing ? "mt-0 h-[min(36dvh,calc((100vw-2.5rem)*16/9))]" : "mt-3 h-[min(60dvh,calc((100vw-2.5rem)*16/9))]"
-          }`}
-        >
+        {/* The picture takes the room the buttons leave (smaller while they choose, so it stays in view as it changes). */}
+        <StoryFrame className={editing ? "h-[34dvh] flex-none" : "mt-3 flex-1"}>
           <WrappedCollage w={w} ids={ids} onPhoto={ids.length > 1 ? makeBig : undefined} />
-        </div>
+        </StoryFrame>
         {!editing && ids.length > 1 && <p className="mt-2 text-center text-xs text-white/50">Tap a small photo to make it the big one</p>}
 
         <AnimatePresence mode="wait" initial={false}>
           {editing ? (
             <Picker key="picker" w={w} ids={ids} pending={pending} note={note} onToggle={toggle} onDone={() => (setEditing(false), setPending(null), setNote(null))} />
           ) : (
-            <motion.div key="actions" className="mx-auto mt-auto w-full max-w-sm pt-3" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <motion.div key="actions" className="mx-auto w-full max-w-sm shrink-0 pt-4" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               {note && <p className="mb-3 text-center text-sm text-white/80">{note}</p>}
               <button
                 type="button"
