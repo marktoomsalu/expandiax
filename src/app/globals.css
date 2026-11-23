@@ -145,6 +145,16 @@
   animation: badge-shimmer 3.2s ease-in-out infinite;
 }
 
+/* A line drawing itself in (Year Wrapped's routes): pathLength 1, dasharray 1, dashoffset 1. */
+@keyframes draw-line {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.animate-draw-line {
+  animation: draw-line 0.9s ease-out forwards;
+}
+
 /* A photo that drifts slowly closer and back: "One to remember". */
 @keyframes ken-burns {
   0% {

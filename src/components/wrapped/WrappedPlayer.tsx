@@ -4,15 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from "framer-motion";
-import { ArrowRight, CalendarDays, Camera, Check, Globe2, ImagePlus, Loader2, MapPin, Mountain, Pause, Plane, Share2, Sparkles, Ticket, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Camera, Check, Globe2, ImagePlus, Loader2, MapPin, Mountain, Pause, Plane, Sparkles, Ticket, X } from "lucide-react";
 import { TOTAL_COUNTRIES, countryByCode } from "@/lib/countries";
 import { tapLight, tapSuccess } from "@/lib/haptics";
 import { Burst, CountUp } from "@/components/worldScan/Burst";
 import { hasStory, type WrappedPhoto, type WrappedYear } from "@/lib/wrapped";
 
-const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), { ssr: false, loading: () => <div className="h-full w-full" /> });
+import { GlobePicture } from "./GlobePicture";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const MAX_PHOTOS = 12;
@@ -163,12 +162,12 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
   }, [w, quiz, chosen.length, badges.length]);
   const durations: Record<SlideKey, number | null> = {
     intro: null,
-    glance: 9000,
-    world: Math.min(26000, 6500 + w.journey.length * 1500),
-    highlights: 8500,
+    glance: 7500,
+    world: 7000,
+    highlights: 7000,
     quiz: null,
-    memories: 5200 + Math.min(chosen.length, 7) * 600,
-    achievements: 8000,
+    memories: 4800 + Math.min(chosen.length, 7) * 500,
+    achievements: 6500,
     finale: null,
     empty: null,
   };
@@ -248,6 +247,12 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
   };
 
   const cover = picks.cover ?? w.highlights[0]?.id ?? null;
+  // The Story picture, made while they watch (after their saved cover has loaded).
+  useEffect(() => {
+    if (!hasStory(w)) return;
+    const t = setTimeout(() => void storyFile(storyUrl(w, cover), w.year), 1500);
+    return () => clearTimeout(t);
+  }, [w, cover]);
 
   return (
     <div
@@ -294,7 +299,7 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
         >
           {slide === "intro" && <Intro w={w} onGo={() => go(index + 1)} />}
           {slide === "glance" && <Glance w={w} />}
-          {slide === "world" && <World w={w} paused={paused} />}
+          {slide === "world" && <World w={w} />}
           {slide === "highlights" && <Highlights w={w} />}
           {slide === "quiz" && quiz && <QuizSlide w={w} quiz={quiz} onNext={() => go(index + 1)} />}
           {slide === "memories" && <Memories w={w} photos={chosen} onChoose={() => setSheet("photos")} />}
@@ -377,7 +382,7 @@ function Delta({ now, before, year, unit = "" }: { now: number; before: number |
 
 function Intro({ w, onGo }: { w: WrappedYear; onGo: () => void }) {
   const reduce = useReducedMotion();
-  const word = (delay: number) => ({ initial: { opacity: 0, y: reduce ? 0 : 24, filter: "blur(6px)" }, animate: { opacity: 1, y: 0, filter: "blur(0px)" }, transition: { duration: 0.9, delay, ease: EASE } });
+  const word = (delay: number) => ({ initial: { opacity: 0, y: reduce ? 0 : 24 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.8, delay, ease: EASE } });
   return (
     <div className="absolute inset-0">
       {/* Someone on a mountain at dusk, slowly coming closer */}
@@ -467,7 +472,7 @@ function Glance({ w }: { w: WrappedYear }) {
         {cards.map((c, i) => (
           <motion.div
             key={c.label}
-            className="rounded-[22px] bg-white/[0.07] p-4 ring-1 ring-white/12 backdrop-blur-md"
+            className="rounded-[22px] bg-[#2a1336]/80 p-4 ring-1 ring-white/12"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 22, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 220, damping: 20, delay: 0.5 + i * 0.2 }}
@@ -483,26 +488,20 @@ function Glance({ w }: { w: WrappedYear }) {
       </div>
       {/* The Earth at night, rising from below */}
       <motion.div
-        className="pointer-events-none absolute inset-x-[-25%] bottom-[-38%] h-[78%]"
-        initial={{ opacity: 0, y: 80 }}
+        className="pointer-events-none absolute inset-x-[-30%] bottom-[-62%]"
+        initial={{ opacity: 0, y: 60 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.6, delay: 0.3, ease: EASE }}
+        transition={{ duration: 1.1, delay: 0.2, ease: EASE }}
       >
-        <WorldGlobeInner visitedCodes={w.countries} homeCode={w.homeCode ?? undefined} interactive={false} labels={false} autoRotate night />
+        <GlobePicture countries={w.countries} home={w.homeCode} route={w.journey.map((s) => s.code)} tilt={-22} drawDelay={1.2} className="w-full" />
       </motion.div>
     </div>
   );
 }
 
-function World({ w, paused }: { w: WrappedYear; paused: boolean }) {
-  const [step, setStep] = useState(0);
-  const stops = w.journey;
-  useEffect(() => {
-    if (paused || step >= stops.length - 1) return;
-    const t = setTimeout(() => setStep((s) => s + 1), step === 0 ? 2600 : 1500);
-    return () => clearTimeout(t);
-  }, [step, paused, stops.length]);
-  const route = useMemo(() => stops.slice(0, step + 1).map((s) => s.code), [stops, step]);
+function World({ w }: { w: WrappedYear }) {
+  // The whole year's route at once: a picture, drawn in line by line.
+  const route = useMemo(() => w.journey.map((s) => s.code), [w.journey]);
   const pct = Math.round((w.countries.length / TOTAL_COUNTRIES) * 1000) / 10;
   const prevPct = w.previous ? Math.round((w.previous.countries / TOTAL_COUNTRIES) * 1000) / 10 : null;
   // The continent with the most of their countries, and the first new one.
@@ -515,7 +514,6 @@ function World({ w, paused }: { w: WrappedYear; paused: boolean }) {
     return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   }, [w.countries]);
   const fresh = w.newCountries[0] ? countryByCode(w.newCountries[0]) : null;
-  const here = stops[step] ? countryByCode(stops[step].code) : null;
   return (
     <div className={page}>
       <Title>
@@ -531,33 +529,15 @@ function World({ w, paused }: { w: WrappedYear; paused: boolean }) {
           ↑ +{Math.round((pct - prevPct) * 10) / 10} pp vs {w.previous?.year}
         </motion.p>
       )}
-      <div className="pointer-events-none relative mx-auto mt-2 h-[44dvh] w-full max-w-md">
-        <WorldGlobeInner
-          visitedCodes={stops.length >= 2 ? [...new Set(route)] : w.countries}
-          homeCode={w.homeCode ?? undefined}
-          interactive={false}
-          labels={false}
-          night
-          autoRotate={stops.length < 2}
-          focusCode={stops.length >= 2 ? stops[step]?.code : null}
-          focusMs={1300}
-          route={stops.length >= 2 ? route : undefined}
-        />
-        <AnimatePresence mode="wait">
-          {here && stops.length >= 2 && (
-            <motion.span
-              key={step}
-              className="absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full bg-black/40 px-3 py-1 text-sm backdrop-blur-sm"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-            >
-              {here.flag} {stops[step].label} · {new Date(`${stops[step].date}T00:00:00`).toLocaleDateString("en-GB", { month: "short" })}
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </div>
-      <div className="mx-auto mt-auto grid w-full max-w-sm grid-cols-2 gap-3">
+      <motion.div
+        className="pointer-events-none -mx-6 my-auto w-[calc(100%+3rem)] max-w-[34rem] self-center"
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.8, ease: EASE }}
+      >
+        <GlobePicture countries={w.countries} home={w.homeCode} route={route} drawDelay={0.5} className="w-full" />
+      </motion.div>
+      <div className="mx-auto grid w-full max-w-sm grid-cols-2 gap-3">
         {continent && (
           <motion.div className="flex items-center gap-3 rounded-[20px] bg-white/[0.07] px-4 py-3 ring-1 ring-white/12" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}>
             <Globe2 size={22} className="shrink-0 text-[#ff8cc6]" aria-hidden />
@@ -839,41 +819,56 @@ function Achievements({ w, badges }: { w: WrappedYear; badges: Badge[] }) {
   );
 }
 
-function Finale({ w, cover, onChangeCover, onReplay }: { w: WrappedYear; cover: string | null; onChangeCover: () => void; onReplay: () => void }) {
-  const reduce = useReducedMotion();
+// The Story picture: made once per cover, ahead of time, so the finale shows it at once.
+const storyFiles = new Map<string, Promise<File | null>>();
+function storyUrl(w: WrappedYear, cover: string | null) {
   const hl = w.highlights.find((h) => h.id === cover);
-  const pic = hl ? { url: hl.photo, title: hl.title, from: hl.from, to: hl.to } : (() => {
-    const p = w.photos.find((x) => x.id === cover) ?? w.photos[0];
-    return p ? { url: p.url, title: p.label, from: p.takenAt?.slice(0, 10) ?? null, to: null } : null;
-  })();
-  const photoParam = hl ? w.photos.find((p) => p.url === hl.photo)?.id ?? null : cover;
-  const story = `/api/wrapped/poster?year=${w.year}&format=story${photoParam ? `&photo=${photoParam}` : ""}`;
-  const wide = `/api/wrapped/poster?year=${w.year}&format=wide${photoParam ? `&photo=${photoParam}` : ""}`;
-  const files = useRef(new Map<string, Promise<File | null>>());
-  const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState<null | "wide" | "story">(null);
-  const get = useCallback((url: string, name: string) => {
-    let p = files.current.get(url);
-    if (!p) {
-      p = fetch(url)
-        .then((r) => (r.ok ? r.blob() : null))
-        .then((b) => (b ? new File([b], name, { type: "image/png" }) : null))
-        .catch(() => null);
-      files.current.set(url, p);
-    }
-    return p;
-  }, []);
-  // Made ahead, so Share opens at once.
-  useEffect(() => {
-    void get(story, `expandiax-${w.year}-story.png`);
-    void get(wide, `expandiax-${w.year}.png`);
-  }, [story, wide, get, w.year]);
+  const photo = hl ? w.photos.find((p) => p.url === hl.photo)?.id ?? null : cover;
+  return `/api/wrapped/poster?year=${w.year}${photo ? `&photo=${photo}` : ""}`;
+}
+function storyFile(url: string, year: number) {
+  let p = storyFiles.get(url);
+  if (!p) {
+    p = fetch(url)
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((b) => (b ? new File([b], `expandiax-${year}-wrapped.png`, { type: "image/png" }) : null))
+      .catch(() => null);
+    p.then((f) => !f && storyFiles.delete(url));
+    storyFiles.set(url, p);
+  }
+  return p;
+}
 
-  async function share(which: "story" | "wide") {
+function Finale({ w, cover, onChangeCover, onReplay }: { w: WrappedYear; cover: string | null; onChangeCover: () => void; onReplay: () => void }) {
+  const url = storyUrl(w, cover);
+  const [shown, setShown] = useState<{ url: string; src: string } | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    let made: string | null = null;
+    setFailed(false);
+    void storyFile(url, w.year).then((f) => {
+      if (!alive) return;
+      if (!f) return setFailed(true);
+      made = URL.createObjectURL(f);
+      setShown({ url, src: made });
+    });
+    return () => {
+      alive = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [url, w.year, attempt]);
+  const ready = shown?.url === url;
+
+  async function share() {
     setNote(null);
-    setBusy(which);
-    const f = await get(which === "story" ? story : wide, which === "story" ? `expandiax-${w.year}-story.png` : `expandiax-${w.year}.png`);
-    setBusy(null);
+    setBusy(true);
+    const f = await storyFile(url, w.year);
+    setBusy(false);
     if (!f) return setNote("Couldn't make the picture. Try again?");
     try {
       if (navigator.canShare?.({ files: [f] })) return void (await navigator.share({ files: [f] }));
@@ -888,52 +883,47 @@ function Finale({ w, cover, onChangeCover, onReplay }: { w: WrappedYear; cover: 
   }
 
   return (
-    <div className="absolute inset-0" data-own-taps>
-      {pic && (
-        <motion.div className="absolute inset-0" initial={{ scale: 1.12 }} animate={{ scale: reduce ? 1.12 : 1 }} transition={{ duration: 10, ease: "easeOut" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={pic.url} alt="" className="h-full w-full object-cover" />
-        </motion.div>
-      )}
-      <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,#120818_0%,rgba(18,8,24,0.55)_22%,rgba(18,8,24,0.05)_45%,rgba(18,8,24,0.55)_70%,#120818_96%)]" />
+    <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,#3b1660_0%,#1a0b2c_55%,#120818_100%)]" data-own-taps>
       <div className={page}>
-        <Title>
-          Your
-          <br />
-          One to Remember
-        </Title>
-        {w.photos.length > 1 && (
-          <button type="button" onClick={onChangeCover} className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full bg-black/30 px-3 py-1.5 text-xs font-semibold backdrop-blur-sm hover:bg-black/45">
-            <ImagePlus size={13} aria-hidden /> Change photo
-          </button>
-        )}
-        <div className="mx-auto mt-auto w-full max-w-sm">
-          {pic && (
-            <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.7 }}>
-              <p className="text-2xl font-bold">{pic.title}</p>
-              {pic.from && (
-                <p className="mt-1 inline-flex items-center gap-1.5 text-white/85">
-                  <CalendarDays size={15} aria-hidden /> {shortRange(pic.from, pic.to)} {w.year}
-                </p>
-              )}
-            </motion.div>
+        <p className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-white/60">Your {w.year}, in one picture</p>
+        <div className="relative mx-auto mt-4 aspect-[9/16] h-[min(58dvh,calc((100vw-3rem)*16/9))] overflow-hidden rounded-[1.4rem] bg-white/5 shadow-[0_30px_80px_-20px_rgba(250,81,162,0.55)] ring-1 ring-white/15">
+          {shown && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <motion.img key={shown.src} src={shown.src} alt={`My ${w.year} Wrapped`} className="h-full w-full object-cover" initial={{ opacity: 0, scale: 1.03 }} animate={{ opacity: ready ? 1 : 0.5, scale: 1 }} transition={{ duration: 0.45 }} />
           )}
-          {note && <p className="mt-3 text-center text-sm text-white/80">{note}</p>}
+          {!ready && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-white/70">
+              {failed ? (
+                <button type="button" onClick={() => setAttempt((a) => a + 1)} className="rounded-full px-4 py-2 ring-1 ring-white/30">
+                  Couldn&apos;t make it. Try again
+                </button>
+              ) : (
+                <>
+                  <Loader2 size={22} className="animate-spin" aria-hidden /> Making your picture…
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="mx-auto mt-auto w-full max-w-sm pt-4">
+          {note && <p className="mb-3 text-center text-sm text-white/80">{note}</p>}
           <button
             type="button"
-            onClick={() => void share("story")}
-            disabled={!!busy}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#ffe4f1] py-4 text-lg font-semibold text-[#2b0b2e] shadow-[0_14px_40px_-12px_rgba(250,81,162,0.8)]"
+            onClick={() => void share()}
+            disabled={busy || failed}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-[#ffe4f1] py-4 text-lg font-semibold text-[#2b0b2e] shadow-[0_14px_40px_-12px_rgba(250,81,162,0.8)] disabled:opacity-70"
           >
-            {busy === "story" ? <Loader2 size={19} className="animate-spin" aria-hidden /> : <InstagramGlyph />} Share to Instagram
+            {busy ? <Loader2 size={19} className="animate-spin" aria-hidden /> : <InstagramGlyph />} Share to Instagram
           </button>
           <div className="mt-3 flex gap-3">
+            {w.photos.length > 1 && (
+              <button type="button" onClick={onChangeCover} className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-3.5 font-medium ring-1 ring-white/40 hover:bg-white/10">
+                <ImagePlus size={16} aria-hidden /> Change photo
+              </button>
+            )}
             <Link href="/my-world" className="flex flex-1 items-center justify-center rounded-full py-3.5 font-medium ring-1 ring-white/40 hover:bg-white/10">
               Keep exploring
             </Link>
-            <button type="button" onClick={() => void share("wide")} disabled={!!busy} aria-label="Share the wide picture" className="flex h-[52px] w-[52px] items-center justify-center rounded-full ring-1 ring-white/40 hover:bg-white/10">
-              {busy === "wide" ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Share2 size={18} aria-hidden />}
-            </button>
           </div>
           <button type="button" onClick={onReplay} className="mx-auto mt-3 block text-sm text-white/60 hover:text-white">
             Watch again

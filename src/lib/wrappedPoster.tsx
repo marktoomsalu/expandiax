@@ -1,17 +1,20 @@
 /* eslint-disable @next/next/no-img-element -- drawn into a picture (next/og), not a page */
-// The Year Wrapped finale, as a picture: a travel poster of someone's year.
-// Wide (16:9, 1920×1080) to share anywhere, tall (9:16, 1080×1920) for
-// Stories: their chosen photo, the year big, a few numbers that are really
-// theirs, and a small world map with their year's countries lit.
+// The Year Wrapped finale, as one picture for Instagram Stories (1080×1920):
+// "My 2026 Wrapped", their photos (their chosen one big, a few around it),
+// the Earth at night rising like a horizon with their countries lit and
+// lines from place to place, and three facts that are really theirs. No
+// place names on the photos.
 
 import { readFile } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import { ImageResponse } from "next/og";
-import { feature } from "topojson-client";
-import type { GeometryCollection, Topology } from "topojson-specification";
-import { countryByCode } from "@/lib/countries";
+import type { Topology } from "topojson-specification";
+import { drawGlobe, worldFeatures, type WorldFeature } from "@/lib/globeArt";
 import type { WrappedYear } from "@/lib/wrapped";
+
+const W = 1080;
+const H = 1920;
 
 const fontCache = new Map<string, Promise<ArrayBuffer | null>>();
 function loadFont(query: string): Promise<ArrayBuffer | null> {
@@ -34,36 +37,10 @@ function loadFont(query: string): Promise<ArrayBuffer | null> {
 let logo: Promise<string> | null = null;
 const loadLogo = () => (logo ??= readFile(path.join(process.cwd(), "public", "wordmark.svg")).then((b) => `data:image/svg+xml;base64,${b.toString("base64")}`));
 
-// The world, flat (equirectangular, without Antarctica): one path per country, made once.
-type Shape = { numeric: string; d: string };
-let world: Promise<Shape[]> | null = null;
-function loadWorld(): Promise<Shape[]> {
-  world ??= readFile(path.join(process.cwd(), "public", "data", "world-110m.json"), "utf8").then((raw) => {
-    const topo = JSON.parse(raw) as Topology;
-    const fc = feature(topo, topo.objects.countries as GeometryCollection) as unknown as { features: { id: string; geometry: { type: string; coordinates: unknown } | null }[] };
-    const W = 360;
-    const top = 84;
-    const bottom = -58;
-    const H = ((top - bottom) / 360) * W;
-    const pt = ([lng, lat]: number[]) => `${(((lng + 180) / 360) * W).toFixed(1)},${(((top - lat) / (top - bottom)) * H).toFixed(1)}`;
-    return fc.features
-      .filter((f) => f.geometry && f.id !== "010")
-      .map((f) => {
-        const g = f.geometry!;
-        const polys = (g.type === "Polygon" ? [g.coordinates] : g.coordinates) as number[][][][];
-        // Outlines that wrap round the map's edge (Russia, Fiji) break there instead of crossing the whole map.
-        const ringPath = (ring: number[][]) =>
-          ring.map((p, i) => (i === 0 || Math.abs(p[0] - ring[i - 1][0]) > 180 ? "M" : "L") + pt(p)).join("") + "Z";
-        const d = polys.map((poly) => poly.map(ringPath).join("")).join("");
-        return { numeric: String(f.id), d };
-      });
-  });
-  return world;
-}
-const MAP_W = 360;
-const MAP_H = ((84 + 58) / 360) * MAP_W;
+let world: Promise<WorldFeature[]> | null = null;
+const loadWorld = () => (world ??= readFile(path.join(process.cwd(), "public", "data", "world-110m.json"), "utf8").then((raw) => worldFeatures(JSON.parse(raw) as Topology)));
 
-async function photoData(url: string | null, w: number, h: number): Promise<string | null> {
+async function photoData(url: string | null | undefined, w: number, h: number): Promise<string | null> {
   if (!url) return null;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
@@ -75,109 +52,219 @@ async function photoData(url: string | null, w: number, h: number): Promise<stri
   }
 }
 
-/** A few numbers that are really theirs (never zeros, never guesses). */
-export function posterFacts(w: WrappedYear): { value: string; label: string }[] {
-  const facts: { value: string; label: string }[] = [];
-  const n = w.countries.length;
-  if (n) facts.push({ value: String(n), label: n === 1 ? "country" : "countries" });
-  if (w.newCountries.length) facts.push({ value: String(w.newCountries.length), label: w.newCountries.length === 1 ? "new country" : "new countries" });
-  if (w.trips) facts.push({ value: String(w.trips), label: w.trips === 1 ? "trip" : "trips" });
-  if (w.events.length) facts.push({ value: String(w.events.length), label: w.events.length === 1 ? "moment" : "moments" });
-  if (w.places.length >= 2) facts.push({ value: String(w.places.length), label: "places" });
-  return facts.slice(0, 4);
+type Fact = { value: number; label: string; before: number | null; icon: "plane" | "globe" | "calendar" | "pin" | "spark" };
+
+/** Three facts that are really theirs: trips, countries, events first; places and new countries if those are missing. */
+export function storyFacts(w: WrappedYear): Fact[] {
+  const p = w.previous;
+  const all: Fact[] = [
+    { value: w.trips, label: w.trips === 1 ? "trip" : "trips", before: p?.trips ?? null, icon: "plane" },
+    { value: w.countries.length, label: w.countries.length === 1 ? "country" : "countries", before: p?.countries ?? null, icon: "globe" },
+    { value: w.events.length, label: w.events.length === 1 ? "event" : "events", before: p?.events ?? null, icon: "calendar" },
+    { value: w.places.length, label: w.places.length === 1 ? "place" : "places", before: null, icon: "pin" },
+    { value: w.newCountries.length, label: "new countries", before: null, icon: "spark" },
+  ];
+  return all.filter((f) => f.value > 0).slice(0, 3);
 }
 
-function WorldMap({ shapes, lit, home, width }: { shapes: Shape[]; lit: Set<string>; home: string | null; width: number }) {
-  return (
-    <svg width={width} height={(width / MAP_W) * MAP_H} viewBox={`0 0 ${MAP_W} ${MAP_H}`}>
-      {shapes.map((s) => (
-        <path key={s.numeric} d={s.d} fill={s.numeric === home ? "#fb7822" : lit.has(s.numeric) ? "#fa51a2" : "rgba(255,255,255,0.16)"} />
-      ))}
-    </svg>
-  );
-}
+// Lucide's shapes, drawn here.
+const ICONS: Record<Fact["icon"], string[]> = {
+  plane: ["M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"],
+  globe: ["M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20", "M2 12h20", "M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"],
+  calendar: ["M8 2v4", "M16 2v4", "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M3 10h18"],
+  pin: ["M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0", "M12 7a3 3 0 1 0 0 6 3 3 0 1 0 0-6"],
+  spark: ["M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"],
+};
 
-export async function renderWrappedPoster(w: WrappedYear, format: "wide" | "story", photoId: string | null): Promise<ImageResponse> {
-  const wide = format === "wide";
-  const W = wide ? 1920 : 1080;
-  const H = wide ? 1080 : 1920;
-  const chosen = (photoId && w.photos.find((p) => p.id === photoId)) || w.photos[0] || null;
-  const photoUrl = chosen?.url ?? w.events.find((e) => e.photo)?.photo ?? null;
-  const [photo, serif, serifItalic, inter, interBold, wordmark, shapes] = await Promise.all([
-    photoData(photoUrl, wide ? 1120 : 1080, wide ? 1080 : 860),
-    loadFont("Fraunces:opsz,wght@72,600"),
-    loadFont("Fraunces:ital,opsz,wght@1,72,400"),
+// Where the photos sit around the big one: [left, top, width, height, turn].
+const AROUND: [number, number, number, number, number][] = [
+  [52, 676, 270, 210, -8],
+  [36, 905, 255, 235, -5],
+  [762, 666, 262, 225, 7],
+  [780, 905, 250, 235, 6],
+];
+
+export async function renderWrappedPoster(w: WrappedYear, photoId: string | null): Promise<ImageResponse> {
+  // Their chosen photo big; others around it (their highlights first), never the same twice.
+  const urls: string[] = [];
+  const chosen = (photoId && (w.photos.find((p) => p.id === photoId)?.url ?? w.highlights.find((h) => h.id === photoId)?.photo)) || w.highlights[0]?.photo || w.photos[0]?.url;
+  if (chosen) urls.push(chosen);
+  for (const u of [...w.highlights.map((h) => h.photo), ...w.photos.map((p) => p.url)]) if (u && !urls.includes(u)) urls.push(u);
+  const around = urls.slice(1, 5);
+
+  const [main, ...others] = await Promise.all([photoData(urls[0], 1040, 940), ...around.map((u, i) => photoData(u, AROUND[i][2] * 2, AROUND[i][3] * 2))]);
+  const [titleFont, inter, interSemi, interBold, wordmark, features] = await Promise.all([
+    loadFont("Fraunces:ital,opsz,wght@1,72,700"),
     loadFont("Inter:wght@400"),
+    loadFont("Inter:wght@600"),
     loadFont("Inter:wght@700"),
     loadLogo(),
     loadWorld(),
   ]);
   const fonts = [
-    serif && { name: "Fraunces", data: serif, weight: 600 as const, style: "normal" as const },
-    serifItalic && { name: "Fraunces", data: serifItalic, weight: 400 as const, style: "italic" as const },
+    titleFont && { name: "Fraunces", data: titleFont, weight: 700 as const, style: "italic" as const },
     inter && { name: "Inter", data: inter, weight: 400 as const, style: "normal" as const },
+    interSemi && { name: "Inter", data: interSemi, weight: 600 as const, style: "normal" as const },
     interBold && { name: "Inter", data: interBold, weight: 700 as const, style: "normal" as const },
   ].filter((f): f is NonNullable<typeof f> => !!f);
-  const lit = new Set(w.countries.map((c) => countryByCode(c)?.numeric).filter((x): x is string => !!x));
-  const home = w.homeCode ? countryByCode(w.homeCode)?.numeric ?? null : null;
-  // Wide: three numbers in a row; tall: four.
-  const facts = posterFacts(w).slice(0, wide ? 3 : 4);
-  // Wide only (tall has its map in their place).
-  const flags = wide ? w.countries.slice(0, 12).map((c) => countryByCode(c)?.flag ?? "").join(" ") : "";
-  const PHOTO_H = wide ? H : 860;
-  const tagline = w.firstName ? `${w.firstName}’s year, remembered.` : "A year, remembered.";
 
-  const text = (
-    <div style={{ display: "flex", flexDirection: "column", color: "white" }}>
-      <img alt="" src={wordmark} width={wide ? 260 : 300} height={wide ? 76 : 88} style={{ width: wide ? 260 : 300, height: wide ? 76 : 88 }} />
-      <div style={{ display: "flex", marginTop: wide ? 40 : 28, fontFamily: "Fraunces", fontWeight: 600, fontSize: wide ? 230 : 200, lineHeight: 0.9, letterSpacing: -6 }}>{String(w.year)}</div>
-      <div style={{ display: "flex", marginTop: 18, fontFamily: "Fraunces", fontStyle: "italic", fontWeight: 400, fontSize: wide ? 48 : 52, color: "#ffb3d6" }}>{tagline}</div>
-      {facts.length > 0 && (
-        <div style={{ display: "flex", marginTop: wide ? 44 : 40, gap: wide ? 48 : 40 }}>
-          {facts.map((f) => (
-            <div key={f.label} style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ display: "flex", fontFamily: "Fraunces", fontWeight: 600, fontSize: wide ? 76 : 72, lineHeight: 1 }}>{f.value}</div>
-              <div style={{ display: "flex", marginTop: 8, fontSize: wide ? 24 : 24, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: 3 }}>{f.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      {flags && <div style={{ display: "flex", marginTop: wide ? 36 : 40, fontSize: wide ? 40 : 46, letterSpacing: 4 }}>{flags}</div>}
-    </div>
-  );
+  // The Earth as a horizon: their countries near the top of it.
+  const G = 1640;
+  const globe = drawGlobe(features, { size: G, countries: w.countries, home: w.homeCode, route: w.journey.map((s) => s.code), tilt: 50, scale: 1 });
+  const facts = storyFacts(w);
+  const year = String(w.year);
 
   return new ImageResponse(
     (
-      <div style={{ display: "flex", flexDirection: wide ? "row" : "column", width: W, height: H, background: "#14051a", fontFamily: "Inter", position: "relative" }}>
-        {/* Their photo */}
-        <div style={{ display: "flex", position: "relative", width: wide ? 1120 : W, height: PHOTO_H, background: "linear-gradient(135deg, #5a1758, #2b0b2e)" }}>
-          {photo && <img alt="" src={photo} width={wide ? 1120 : W} height={PHOTO_H} style={{ width: wide ? 1120 : W, height: PHOTO_H, objectFit: "cover" }} />}
+      <div
+        style={{
+          display: "flex",
+          position: "relative",
+          width: W,
+          height: H,
+          fontFamily: "Inter",
+          color: "white",
+          background: "linear-gradient(180deg, #160a2b 0%, #2c1250 26%, #5b2577 46%, #a2508a 58%, #e9907a 66%, #3a1a52 78%, #120818 100%)",
+          overflow: "hidden",
+        }}
+      >
+        {/* A soft pink sun behind the photos */}
+        <div style={{ position: "absolute", left: 140, top: 560, width: 800, height: 800, display: "flex", borderRadius: 999, background: "radial-gradient(circle, rgba(255,179,214,0.45) 0%, rgba(255,179,214,0) 65%)" }} />
+
+        {/* The Earth at night, rising */}
+        <svg width={G} height={G} viewBox={`0 0 ${G} ${G}`} style={{ position: "absolute", left: (W - G) / 2, top: 1100 }}>
+          <defs>
+            <radialGradient id="o" cx="50%" cy="20%" r="70%">
+              <stop offset="0" stopColor="#24356a" />
+              <stop offset="0.6" stopColor="#111a3a" />
+              <stop offset="1" stopColor="#090e22" />
+            </radialGradient>
+            <linearGradient id="l" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#ff6cb5" />
+              <stop offset="1" stopColor="#fb7822" />
+            </linearGradient>
+          </defs>
+          <circle cx={G / 2} cy={G / 2} r={G / 2 + 26} fill="rgba(196,140,255,0.28)" />
+          <circle cx={G / 2} cy={G / 2} r={G / 2 + 10} fill="rgba(226,190,255,0.45)" />
+          <path d={globe.sphere} fill="url(#o)" />
+          <path d={globe.land} fill="#26386a" stroke="#3a4f8a" strokeWidth={1} />
+          {globe.lit.map((c) => (
+            <path key={c.code} d={c.d} fill={c.home ? "#fb7822" : "url(#l)"} stroke="#ffd1e8" strokeWidth={1.2} />
+          ))}
+          {globe.arcs.map((d, i) => (
+            <path key={i} d={d} fill="none" stroke="#ffd1e8" strokeWidth={4} strokeLinecap="round" />
+          ))}
+          {globe.dots.map((p, i) => (
+            <circle key={i} cx={p.x} cy={p.y} r={8} fill="#ffffff" />
+          ))}
+        </svg>
+
+        <div style={{ position: "absolute", left: 0, top: 0, width: W, height: H, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <img alt="" src={wordmark} width={330} height={97} style={{ marginTop: 100, width: 330, height: 97 }} />
+
+          {/* My 2026 Wrapped */}
+          <div style={{ display: "flex", position: "relative", flexDirection: "column", alignItems: "center", marginTop: 34 }}>
+            <svg width={860} height={360} viewBox="0 0 860 360" style={{ position: "absolute", left: -110, top: 0 }}>
+              <path d="M150 326 C 360 350, 640 338, 820 262" fill="none" stroke="#e7c6ff" strokeWidth={5} strokeLinecap="round" />
+            </svg>
+            <svg width={70} height={70} viewBox="0 0 24 24" style={{ position: "absolute", right: -70, top: -18 }}>
+              <path d="M12 1 L14.2 9.8 L23 12 L14.2 14.2 L12 23 L9.8 14.2 L1 12 L9.8 9.8 Z" fill="#f3dcff" />
+            </svg>
+            <div style={{ display: "flex", fontFamily: "Fraunces", fontStyle: "italic", fontWeight: 700, fontSize: 150, lineHeight: 1, letterSpacing: -3 }}>
+              <span style={{ marginRight: 34 }}>My</span>
+              <span style={{ color: "#e7c6ff" }}>{year}</span>
+            </div>
+            <div style={{ display: "flex", fontFamily: "Fraunces", fontStyle: "italic", fontWeight: 700, fontSize: 150, lineHeight: 1, letterSpacing: -3, marginTop: 4 }}>Wrapped</div>
+          </div>
+          <div style={{ display: "flex", marginTop: 34, fontSize: 42, color: "rgba(255,255,255,0.88)" }}>A year in experiences</div>
+        </div>
+
+        {/* Their photos around the big one */}
+        {others.map((src, i) =>
+          src ? (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                left: AROUND[i][0],
+                top: AROUND[i][1],
+                width: AROUND[i][2],
+                height: AROUND[i][3],
+                display: "flex",
+                borderRadius: 26,
+                border: "6px solid white",
+                overflow: "hidden",
+                transform: `rotate(${AROUND[i][4]}deg)`,
+                boxShadow: "0 24px 50px rgba(0,0,0,0.45)",
+              }}
+            >
+              <img alt="" src={src} width={AROUND[i][2]} height={AROUND[i][3]} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+          ) : null
+        )}
+        {main && (
           <div
             style={{
               position: "absolute",
-              top: 0,
-              left: 0,
-              width: wide ? 1120 : W,
-              height: PHOTO_H,
+              left: 280,
+              top: 640,
+              width: 520,
+              height: 470,
               display: "flex",
-              background: wide ? "linear-gradient(90deg, rgba(20,5,26,0) 55%, rgba(20,5,26,1) 100%)" : "linear-gradient(180deg, rgba(20,5,26,0) 60%, rgba(20,5,26,1) 100%)",
+              borderRadius: 34,
+              border: "7px solid white",
+              overflow: "hidden",
+              transform: "rotate(-2deg)",
+              boxShadow: "0 34px 70px rgba(0,0,0,0.55)",
             }}
-          />
-          {chosen?.label && (
-            <div style={{ position: "absolute", left: wide ? 40 : 80, bottom: wide ? 40 : 140, display: "flex", padding: "10px 22px", borderRadius: 999, background: "rgba(0,0,0,0.4)", color: "white", fontSize: 26 }}>
-              {chosen.label}
-            </div>
-          )}
-        </div>
-        {/* The year */}
-        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", flex: 1, padding: wide ? "80px 80px 70px 40px" : "0px 80px 250px" }}>
-          {text}
-          <div style={{ display: "flex", flexDirection: "column", marginTop: 30 }}>
-            <WorldMap shapes={shapes} lit={lit} home={home} width={wide ? 640 : 760} />
+          >
+            <img alt="" src={main} width={520} height={470} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
-        </div>
+        )}
+
+        {/* My year at a glance */}
+        {facts.length > 0 && (
+          <div
+            style={{
+              position: "absolute",
+              left: 90,
+              top: 1420,
+              width: 900,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "26px 10px 28px",
+              borderRadius: 42,
+              background: "rgba(22,11,40,0.72)",
+              border: "2px solid rgba(255,255,255,0.16)",
+            }}
+          >
+            <div style={{ display: "flex", fontSize: 34, fontWeight: 600, color: "rgba(255,255,255,0.85)", marginBottom: 22 }}>My year at a glance</div>
+            <div style={{ display: "flex", width: "100%" }}>
+              {facts.map((f, i) => {
+                const up = f.before != null && f.value > f.before;
+                return (
+                  <div key={f.label} style={{ display: "flex", flex: 1, flexDirection: "column", alignItems: "center", borderLeft: i ? "2px solid rgba(255,255,255,0.12)" : "none" }}>
+                    <svg width={46} height={46} viewBox="0 0 24 24" fill="none" stroke="#e7c6ff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      {ICONS[f.icon].map((d) => (
+                        <path key={d} d={d} />
+                      ))}
+                    </svg>
+                    <div style={{ display: "flex", marginTop: 10, fontSize: 92, fontWeight: 700, lineHeight: 1 }}>{f.value}</div>
+                    <div style={{ display: "flex", marginTop: 6, fontSize: 36 }}>{f.label}</div>
+                    {up && (
+                      <div style={{ display: "flex", marginTop: 10, fontSize: 28, fontWeight: 600, color: "#86efac" }}>
+                        ↑ +{f.value - (f.before ?? 0)} vs {w.previous?.year}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     ),
-    { width: W, height: H, emoji: "twemoji", fonts: fonts.length ? fonts : undefined, headers: { "Cache-Control": "private, max-age=600" } }
+    { width: W, height: H, fonts: fonts.length ? fonts : undefined, headers: { "Cache-Control": "private, max-age=600" } }
   );
 }
