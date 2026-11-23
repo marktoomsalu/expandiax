@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWrapped, hasStory, type WrappedEventRow, type WrappedVisit } from "./wrapped";
+import { buildWrapped, collageDefault, hasStory, spreadOrder, type WrappedEventRow, type WrappedVisit } from "./wrapped";
 
 const v = (code: string, from: string | null, to: string | null, extra: Partial<WrappedVisit> = {}): WrappedVisit => ({
   id: `${code}-${from ?? extra.year}`,
@@ -59,3 +59,35 @@ describe("buildWrapped", () => {
     expect(hasStory(build([v("SE", "2025-02-01", "2025-02-03")]))).toBe(false);
   });
 });
+
+describe("Wrapped photos", () => {
+  // One huge trip early in the year (Prague, 200 photos), then three small ones.
+  const trips = [v("CZ", "2026-02-01", "2026-02-06"), v("CH", "2026-06-01", "2026-06-03"), v("IT", "2026-08-01", "2026-08-04"), v("PT", "2026-10-01", "2026-10-03")];
+  const photos = [
+    ...Array.from({ length: 200 }, (_, i) => ({ id: `cz${i}`, url: `u/cz${i}`, takenAt: `2026-02-0${1 + (i % 5)}`, label: "Czechia", code: "CZ", visitId: "CZ-2026-02-01" })),
+    ...["CH", "IT", "PT"].flatMap((c, k) => Array.from({ length: 6 }, (_, i) => ({ id: `${c}${i}`, url: `u/${c}${i}`, takenAt: `2026-${["06", "08", "10"][k]}-0${1 + (i % 3)}`, label: c, code: c, visitId: trips[k + 1].id }))),
+  ];
+  const w = buildWrapped({ year: 2026, firstName: "Melody", homeCode: "EE", visits: trips, undatedCodes: [], events: [], photos });
+
+  it("lets every trip in, not just the biggest one first", () => {
+    expect(w.photos.length).toBe(80);
+    for (const c of ["CH", "IT", "PT"]) expect(w.photos.filter((p) => p.code === c)).toHaveLength(6);
+    // Still in the order they were taken.
+    expect(w.photos.map((p) => p.takenAt)).toEqual([...w.photos.map((p) => p.takenAt)].sort());
+  });
+
+  it("starts the collage with a different trip and country in every photo, the same each time", () => {
+    const ids = collageDefault(w);
+    expect(ids).toHaveLength(5);
+    const codes = ids.map((id) => w.photos.find((p) => p.id === id)!.code);
+    expect(new Set(codes).size).toBe(4); // Czechia, Switzerland, Italy, Portugal (and one more of them)
+    expect(collageDefault(w)).toEqual(ids);
+  });
+
+  it("spreads a trip's photos out: its middle, then its quarters", () => {
+    expect(spreadOrder(8)).toEqual([4, 0, 6, 2, 5, 1, 7, 3]);
+    expect([...spreadOrder(5)].sort()).toEqual([0, 1, 2, 3, 4]);
+    expect(spreadOrder(0)).toEqual([]);
+  });
+});
+

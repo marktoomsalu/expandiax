@@ -30,7 +30,8 @@ export type WrappedEventRow = {
   photo: string | null;
 };
 
-export type WrappedPhoto = { id: string; url: string; takenAt: string | null; label: string; code: string | null };
+/** A photo of theirs from the year; `group` is the trip or event it's from. */
+export type WrappedPhoto = { id: string; url: string; takenAt: string | null; label: string; code: string | null; group?: string };
 
 export type WrappedStop = { code: string; date: string; label: string; kind: "trip" | "event" };
 
@@ -63,6 +64,59 @@ export type WrappedYear = {
 };
 
 const yearOf = (d: string | null) => (d ? Number(d.slice(0, 4)) : NaN);
+const PHOTO_CAP = 80;
+
+/** 0..n-1 spread out: the middle, then the quarters, then the eighths… (so the first few cover the whole trip). */
+export function spreadOrder(n: number): number[] {
+  const out: number[] = [];
+  const seen = new Set<number>();
+  for (let k = 0; out.length < n && k < n * 8; k++) {
+    // van der Corput: 0, 1/2, 1/4, 3/4, 1/8…, turned to start in the middle.
+    let f = 0;
+    for (let b = 0.5, x = k; x; x >>= 1, b /= 2) if (x & 1) f += b;
+    const i = (Math.floor(f * n) + Math.floor(n / 2)) % n;
+    if (!seen.has(i)) {
+      seen.add(i);
+      out.push(i);
+    }
+  }
+  for (let i = 0; i < n; i++) if (!seen.has(i)) out.push(i);
+  return out;
+}
+
+function hash(s: string) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;
+  return h;
+}
+
+/**
+ * The collage before they choose: as varied as their year allows. Their top
+ * highlight's photo big, then one from each other trip or event (different
+ * countries first), in an order that's shuffled but the same every time.
+ */
+export function collageDefault(w: Pick<WrappedYear, "year" | "photos" | "highlights">, slots = 5): string[] {
+  if (!w.photos.length) return [];
+  const groups = new Map<string, WrappedPhoto[]>();
+  for (const p of w.photos) groups.set(p.group ?? p.id, [...(groups.get(p.group ?? p.id) ?? []), p]);
+  const top = w.highlights.map((h) => w.photos.find((p) => p.url === h.photo)).find(Boolean);
+  const first = top ?? w.photos[hash(`${w.year}`) % w.photos.length];
+  const picked = [first];
+  const pick = (list: WrappedPhoto[], salt: string) => list[hash(`${w.year}:${salt}`) % list.length];
+  const order = [...groups.keys()].sort((a, b) => hash(`${w.year}:${a}`) - hash(`${w.year}:${b}`));
+  // A different trip or event each, a different country where possible; then more of the same if that's all there is.
+  for (const pass of ["new country", "new moment", "anything"] as const) {
+    for (const g of order) {
+      if (picked.length >= slots) break;
+      const list = groups.get(g)!.filter((p) => !picked.includes(p));
+      if (!list.length) continue;
+      if (pass !== "anything" && picked.some((p) => (p.group ?? p.id) === g)) continue;
+      if (pass === "new country" && list[0].code && picked.some((p) => p.code === list[0].code)) continue;
+      picked.push(pick(list, `${g}:${picked.length}`));
+    }
+  }
+  return picked.slice(0, slots).map((p) => p.id);
+}
 const DAY = 86_400_000;
 const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / DAY);
 
@@ -164,13 +218,23 @@ export function buildWrapped(input: {
     .sort((a, b) => b.photos - a.photos || (b.from ?? "").localeCompare(a.from ?? ""))
     .slice(0, 3);
 
+  // Photos: taking turns, a trip or event at a time (each one's spread across
+  // its days), so one big trip can't fill them all; then in the order taken.
   const visitIds = new Set(yearVisits.map((v) => v.id));
   const eventIds = new Set(yearEvents.map((e) => e.id));
-  const photos = input.photos
+  const byMoment = new Map<string, WrappedPhoto[]>();
+  for (const p of input.photos
     .filter((p) => (p.visitId && visitIds.has(p.visitId)) || (p.eventId && eventIds.has(p.eventId)))
-    .sort((a, b) => (a.takenAt ?? "9999").localeCompare(b.takenAt ?? "9999"))
-    .slice(0, 60)
-    .map(({ id, url, takenAt, label, code }) => ({ id, url, takenAt, label, code }));
+    .sort((a, b) => (a.takenAt ?? "9999").localeCompare(b.takenAt ?? "9999"))) {
+    const group = (p.visitId || p.eventId)!;
+    byMoment.set(group, [...(byMoment.get(group) ?? []), { id: p.id, url: p.url, takenAt: p.takenAt, label: p.label, code: p.code, group }]);
+  }
+  const turns = [...byMoment.values()].map((list) => spreadOrder(list.length).map((i) => list[i]));
+  const photos: WrappedPhoto[] = [];
+  for (let round = 0; photos.length < PHOTO_CAP && turns.some((t) => t.length > round); round++) {
+    for (const t of turns) if (t[round] && photos.length < PHOTO_CAP) photos.push(t[round]);
+  }
+  photos.sort((a, b) => (a.takenAt ?? "9999").localeCompare(b.takenAt ?? "9999"));
 
   return {
     year,

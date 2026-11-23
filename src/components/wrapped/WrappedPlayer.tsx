@@ -5,16 +5,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from "framer-motion";
-import { ArrowRight, CalendarDays, Camera, Check, Globe2, ImagePlus, Loader2, MapPin, Mountain, Pause, Plane, Sparkles, Ticket, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Camera, Check, Globe2, MapPin, Mountain, Pause, Plane, Sparkles, Ticket, X } from "lucide-react";
 import { TOTAL_COUNTRIES, countryByCode } from "@/lib/countries";
 import { tapLight, tapSuccess } from "@/lib/haptics";
 import { Burst, CountUp } from "@/components/worldScan/Burst";
-import { hasStory, type WrappedPhoto, type WrappedYear } from "@/lib/wrapped";
+import { hasStory, type WrappedYear } from "@/lib/wrapped";
 
 import { GlobePicture } from "./GlobePicture";
+import { Finale, resizable, warmStory } from "./WrappedFinale";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const MAX_PHOTOS = 12;
 const ICON: Record<string, string> = { concert: "🎤", festival: "🎪", sport: "⚽", conference: "🎓", personal: "💛", other: "✨" };
 
 // Unsplash, credited on the slide (the opening and the achievements).
@@ -29,7 +29,7 @@ const PEAKS = {
   authorUrl: "https://unsplash.com/@brunovdkraan?utm_source=expandiax&utm_medium=referral",
 };
 
-type SlideKey = "intro" | "glance" | "world" | "highlights" | "quiz" | "memories" | "achievements" | "finale" | "empty";
+type SlideKey = "intro" | "glance" | "world" | "highlights" | "quiz" | "achievements" | "finale" | "empty";
 
 const shortRange = (from: string | null, to: string | null) => {
   if (!from) return "";
@@ -109,31 +109,6 @@ function achievements(w: WrappedYear): Badge[] {
   return out.slice(0, 3);
 }
 
-function usePicks(year: number) {
-  const key = `expandiax:wrapped:${year}`;
-  const [hidden, setHidden] = useState<string[]>([]);
-  const [cover, setCover] = useState<string | null>(null);
-  useEffect(() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(key) ?? "{}") as { hidden?: string[]; cover?: string | null };
-      setHidden(raw.hidden ?? []);
-      setCover(raw.cover ?? null);
-    } catch {
-      // nothing saved
-    }
-  }, [key]);
-  const save = (h: string[], c: string | null) => {
-    setHidden(h);
-    setCover(c);
-    try {
-      localStorage.setItem(key, JSON.stringify({ hidden: h, cover: c }));
-    } catch {
-      // only for this time
-    }
-  };
-  return { hidden, cover, setHidden: (h: string[]) => save(h, cover), setCover: (c: string | null) => save(hidden, c) };
-}
-
 /**
  * ExpandiaX Year Wrapped: someone's year as a short film to tap through,
  * built only from what they've saved, each chapter only when there's
@@ -143,8 +118,6 @@ function usePicks(year: number) {
 export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: number }) {
   const router = useRouter();
   const reduce = useReducedMotion();
-  const picks = usePicks(w.year);
-  const chosen = useMemo(() => w.photos.filter((p) => !picks.hidden.includes(p.id)).slice(0, MAX_PHOTOS), [w.photos, picks.hidden]);
   const quiz = useMemo(() => makeQuiz(w), [w]);
   const badges = useMemo(() => achievements(w), [w]);
   const slides: SlideKey[] = useMemo(() => {
@@ -155,18 +128,16 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
       ...(w.countries.length ? (["world"] as const) : []),
       ...(w.highlights.length ? (["highlights"] as const) : []),
       ...(quiz ? (["quiz"] as const) : []),
-      ...(chosen.length >= 3 ? (["memories"] as const) : []),
       ...(badges.length ? (["achievements"] as const) : []),
       "finale",
     ];
-  }, [w, quiz, chosen.length, badges.length]);
+  }, [w, quiz, badges.length]);
   const durations: Record<SlideKey, number | null> = {
     intro: null,
     glance: 7500,
     world: 7000,
     highlights: 7000,
     quiz: null,
-    memories: 4800 + Math.min(chosen.length, 7) * 500,
     achievements: 6500,
     finale: null,
     empty: null,
@@ -174,8 +145,7 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
 
   const [index, setIndex] = useState(startAt);
   const [held, setHeld] = useState(false);
-  const [sheet, setSheet] = useState<null | "photos" | "cover">(null);
-  const paused = held || sheet !== null;
+  const paused = held;
   const [progress, setProgress] = useState(0);
   const slide = slides[Math.min(index, slides.length - 1)];
   const duration = durations[slide];
@@ -246,13 +216,12 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
     go(e.clientX < window.innerWidth * 0.3 ? index - 1 : index + 1);
   };
 
-  const cover = picks.cover ?? w.highlights[0]?.id ?? null;
-  // The Story picture, made while they watch (after their saved cover has loaded).
+  // The Story picture, made while they watch, so Share is instant at the end.
   useEffect(() => {
     if (!hasStory(w)) return;
-    const t = setTimeout(() => void storyFile(storyUrl(w, cover), w.year), 1500);
+    const t = setTimeout(() => warmStory(w), 1500);
     return () => clearTimeout(t);
-  }, [w, cover]);
+  }, [w]);
 
   return (
     <div
@@ -302,39 +271,14 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
           {slide === "world" && <World w={w} />}
           {slide === "highlights" && <Highlights w={w} />}
           {slide === "quiz" && quiz && <QuizSlide w={w} quiz={quiz} onNext={() => go(index + 1)} />}
-          {slide === "memories" && <Memories w={w} photos={chosen} onChoose={() => setSheet("photos")} />}
           {slide === "achievements" && <Achievements w={w} badges={badges} />}
-          {slide === "finale" && <Finale w={w} cover={cover} onChangeCover={() => setSheet("cover")} onReplay={() => go(0)} />}
+          {slide === "finale" && <Finale w={w} onReplay={() => go(0)} />}
           {slide === "empty" && <Empty w={w} />}
         </motion.div>
       </AnimatePresence>
 
-      <AnimatePresence>
-        {sheet && (
-          <PhotoChooser
-            photos={sheet === "cover" ? coverChoices(w) : w.photos}
-            mode={sheet}
-            hidden={picks.hidden}
-            cover={cover}
-            onDone={(r) => {
-              if (sheet === "photos" && r.hidden) picks.setHidden(r.hidden);
-              if (sheet === "cover" && r.cover !== undefined) picks.setCover(r.cover);
-              setSheet(null);
-            }}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
-}
-
-/** What the finale can show: their highlights first, then any photo of the year. */
-/** Photos next/image may resize (the hosts in next.config.mjs); anything else is shown as it is. */
-const resizable = (url: string) => /^https:\/\/(([a-z0-9-]+\.)+supabase\.co|i\.scdn\.co|([a-z0-9-]+\.)+mzstatic\.com)\//.test(url);
-
-function coverChoices(w: WrappedYear): WrappedPhoto[] {
-  const hl = w.highlights.map((h) => ({ id: h.id, url: h.photo, takenAt: h.from, label: h.title, code: h.code }));
-  return [...hl, ...w.photos.filter((p) => !hl.some((h) => h.url === p.url))];
 }
 
 // ---------------------------------------------------------------- pieces
@@ -695,65 +639,6 @@ function QuizSlide({ w, quiz, onNext }: { w: WrappedYear; quiz: Quiz; onNext: ()
   );
 }
 
-// Where each print lands on the table, and how it's turned.
-const PRINTS = [
-  { x: -24, y: 0, r: -7, w: 50 },
-  { x: 26, y: 4, r: 5, w: 48 },
-  { x: -28, y: 31, r: 4, w: 40 },
-  { x: 2, y: 29, r: -3, w: 34 },
-  { x: 30, y: 33, r: 6, w: 40 },
-  { x: -22, y: 61, r: -4, w: 46 },
-  { x: 25, y: 62, r: 5, w: 44 },
-];
-
-function Memories({ w, photos, onChoose }: { w: WrappedYear; photos: WrappedPhoto[]; onChoose: () => void }) {
-  const reduce = useReducedMotion();
-  const shown = photos.slice(0, PRINTS.length);
-  return (
-    <div className={page}>
-      <div className="relative">
-        <Title>A year in memories</Title>
-        <button
-          type="button"
-          data-own-taps
-          onClick={onChoose}
-          className="absolute -right-2 -top-10 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold ring-1 ring-white/20 hover:bg-white/15"
-        >
-          <ImagePlus size={13} aria-hidden /> Choose
-        </button>
-      </div>
-      {/* Prints dropped on a table, one after another */}
-      <div className="relative mx-auto mt-6 w-full max-w-sm flex-1">
-        {shown.map((p, i) => {
-          const at = PRINTS[i];
-          return (
-            <motion.div
-              key={p.id}
-              className="absolute bg-white p-[5px] pb-[18px] shadow-[0_16px_30px_-10px_rgba(0,0,0,0.75)]"
-              style={{ left: `calc(50% + ${at.x}% - ${at.w / 2}%)`, top: `${at.y}%`, width: `${at.w}%`, zIndex: i }}
-              initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.6, rotate: at.r * 3, y: -40 }}
-              animate={{ opacity: 1, scale: 1, rotate: at.r, y: 0 }}
-              transition={{ type: "spring", stiffness: 160, damping: 17, delay: 0.5 + i * 0.45 }}
-            >
-              <div className="relative aspect-[4/3] w-full">
-                <Image src={p.url} alt="" fill sizes="(max-width: 640px) 50vw, 220px" unoptimized={!resizable(p.url)} className="object-cover" />
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-      <motion.p
-        className="mt-2 text-center font-serif text-3xl italic text-white/90"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 + shown.length * 0.45, duration: 0.8 }}
-      >
-        Thank you, {w.year} <span className="not-italic text-[#ff8cc6]">♡</span>
-      </motion.p>
-    </div>
-  );
-}
-
 function Hexagon({ badge, i }: { badge: Badge; i: number }) {
   const reduce = useReducedMotion();
   return (
@@ -824,131 +709,6 @@ function Achievements({ w, badges }: { w: WrappedYear; badges: Badge[] }) {
   );
 }
 
-// The Story picture: made once per cover, ahead of time, so the finale shows it at once.
-const storyFiles = new Map<string, Promise<File | null>>();
-function storyUrl(w: WrappedYear, cover: string | null) {
-  const hl = w.highlights.find((h) => h.id === cover);
-  const photo = hl ? w.photos.find((p) => p.url === hl.photo)?.id ?? null : cover;
-  return `/api/wrapped/poster?year=${w.year}${photo ? `&photo=${photo}` : ""}`;
-}
-function storyFile(url: string, year: number) {
-  let p = storyFiles.get(url);
-  if (!p) {
-    p = fetch(url)
-      .then((r) => (r.ok ? r.blob() : null))
-      .then((b) => (b ? new File([b], `expandiax-${year}-wrapped.png`, { type: "image/png" }) : null))
-      .catch(() => null);
-    p.then((f) => !f && storyFiles.delete(url));
-    storyFiles.set(url, p);
-  }
-  return p;
-}
-
-function Finale({ w, cover, onChangeCover, onReplay }: { w: WrappedYear; cover: string | null; onChangeCover: () => void; onReplay: () => void }) {
-  const url = storyUrl(w, cover);
-  const [shown, setShown] = useState<{ url: string; src: string } | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let alive = true;
-    let made: string | null = null;
-    setFailed(false);
-    void storyFile(url, w.year).then((f) => {
-      if (!alive) return;
-      if (!f) return setFailed(true);
-      made = URL.createObjectURL(f);
-      setShown({ url, src: made });
-    });
-    return () => {
-      alive = false;
-      if (made) URL.revokeObjectURL(made);
-    };
-  }, [url, w.year, attempt]);
-  const ready = shown?.url === url;
-
-  async function share() {
-    setNote(null);
-    setBusy(true);
-    const f = await storyFile(url, w.year);
-    setBusy(false);
-    if (!f) return setNote("Couldn't make the picture. Try again?");
-    try {
-      if (navigator.canShare?.({ files: [f] })) return void (await navigator.share({ files: [f] }));
-    } catch (e) {
-      if ((e as Error).name === "AbortError") return;
-      if ((e as Error).name === "NotAllowedError") return setNote("Ready: tap again to share.");
-    }
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(f);
-    a.download = f.name;
-    a.click();
-  }
-
-  return (
-    <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,#3b1660_0%,#1a0b2c_55%,#120818_100%)]" data-own-taps>
-      <div className={page}>
-        <p className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-white/60">Your {w.year}, in one picture</p>
-        <div className="relative mx-auto mt-4 aspect-[9/16] h-[min(58dvh,calc((100vw-3rem)*16/9))] overflow-hidden rounded-[1.4rem] bg-white/5 shadow-[0_30px_80px_-20px_rgba(250,81,162,0.55)] ring-1 ring-white/15">
-          {shown && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <motion.img key={shown.src} src={shown.src} alt={`My ${w.year} Wrapped`} className="h-full w-full object-cover" initial={{ opacity: 0, scale: 1.03 }} animate={{ opacity: ready ? 1 : 0.5, scale: 1 }} transition={{ duration: 0.45 }} />
-          )}
-          {!ready && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-white/70">
-              {failed ? (
-                <button type="button" onClick={() => setAttempt((a) => a + 1)} className="rounded-full px-4 py-2 ring-1 ring-white/30">
-                  Couldn&apos;t make it. Try again
-                </button>
-              ) : (
-                <>
-                  <Loader2 size={22} className="animate-spin" aria-hidden /> Making your picture…
-                </>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="mx-auto mt-auto w-full max-w-sm pt-4">
-          {note && <p className="mb-3 text-center text-sm text-white/80">{note}</p>}
-          <button
-            type="button"
-            onClick={() => void share()}
-            disabled={busy || failed}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-[#ffe4f1] py-4 text-lg font-semibold text-[#2b0b2e] shadow-[0_14px_40px_-12px_rgba(250,81,162,0.8)] disabled:opacity-70"
-          >
-            {busy ? <Loader2 size={19} className="animate-spin" aria-hidden /> : <InstagramGlyph />} Share to Instagram
-          </button>
-          <div className="mt-3 flex gap-3">
-            {w.photos.length > 1 && (
-              <button type="button" onClick={onChangeCover} className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-3.5 font-medium ring-1 ring-white/40 hover:bg-white/10">
-                <ImagePlus size={16} aria-hidden /> Change photo
-              </button>
-            )}
-            <Link href="/my-world" className="flex flex-1 items-center justify-center rounded-full py-3.5 font-medium ring-1 ring-white/40 hover:bg-white/10">
-              Keep exploring
-            </Link>
-          </div>
-          <button type="button" onClick={onReplay} className="mx-auto mt-3 block text-sm text-white/60 hover:text-white">
-            Watch again
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InstagramGlyph() {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
-      <circle cx="12" cy="12" r="4.25" />
-      <circle cx="17.4" cy="6.6" r="0.6" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
 function Empty({ w }: { w: WrappedYear }) {
   return (
     <div className={page} data-own-taps>
@@ -972,78 +732,3 @@ function Empty({ w }: { w: WrappedYear }) {
     </div>
   );
 }
-
-function PhotoChooser({
-  photos,
-  mode,
-  hidden,
-  cover,
-  onDone,
-}: {
-  photos: WrappedPhoto[];
-  mode: "photos" | "cover";
-  hidden: string[];
-  cover: string | null;
-  onDone: (r: { hidden?: string[]; cover?: string | null }) => void;
-}) {
-  const [off, setOff] = useState<Set<string>>(new Set(hidden));
-  const [pick, setPick] = useState<string | null>(cover);
-  const shown = photos.filter((p) => !off.has(p.id)).length;
-  return (
-    <motion.div className="absolute inset-0 z-40 flex items-end bg-black/60" data-own-taps initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div
-        className="flex max-h-[85dvh] w-full flex-col rounded-t-[28px] bg-[#1f0a25] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 ring-1 ring-white/10"
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: "spring", stiffness: 300, damping: 32 }}
-      >
-        <div className="flex items-center justify-between px-1">
-          <p className="text-xl font-bold">{mode === "cover" ? "Your One to Remember" : "Photos in your Wrapped"}</p>
-          <button
-            type="button"
-            onClick={() => onDone(mode === "cover" ? { cover: pick } : { hidden: [...off] })}
-            className="rounded-full bg-[#ffe4f1] px-4 py-2 text-sm font-semibold text-[#2b0b2e]"
-          >
-            Done
-          </button>
-        </div>
-        <p className="mt-1 px-1 text-xs text-white/55">{mode === "cover" ? "Tap one." : `Tap to leave one out (${Math.min(shown, MAX_PHOTOS)} in).`}</p>
-        <div className="-mx-1 mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1">
-          <div className="grid grid-cols-3 gap-2">
-          {photos.map((p) => {
-            const on = mode === "cover" ? pick === p.id : !off.has(p.id);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  tapLight();
-                  if (mode === "cover") setPick(p.id);
-                  else
-                    setOff((o) => {
-                      const n = new Set(o);
-                      if (n.has(p.id)) n.delete(p.id);
-                      else n.add(p.id);
-                      return n;
-                    });
-                }}
-                aria-pressed={on}
-                className={`relative block w-full overflow-hidden rounded-xl bg-white/5 pt-[100%] transition-opacity ${on ? "ring-2 ring-[#fa51a2]" : "opacity-40"}`}
-              >
-                <Image src={p.url} alt={p.label} fill sizes="(max-width: 640px) 33vw, 160px" unoptimized={!resizable(p.url)} className="object-cover" />
-                {on && (
-                  <span className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#fa51a2] shadow">
-                    <Check size={14} strokeWidth={3} aria-hidden />
-                  </span>
-                )}
-              </button>
-            );
-          })}
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-

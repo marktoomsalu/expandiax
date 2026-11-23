@@ -9,6 +9,19 @@ const loadWorld = () => (world ??= fetch("/data/world-110m.json").then((r) => r.
 /** Start loading the map ahead of time, so the globe is drawn the moment it's shown. */
 export const warmGlobe = () => void loadWorld().catch(() => (world = null));
 
+/** The world map's shapes, once loaded (shared by every globe on the page). */
+export function useWorldFeatures(): WorldFeature[] | null {
+  const [features, setFeatures] = useState<WorldFeature[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void loadWorld().then((f) => alive && setFeatures(f));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return features;
+}
+
 /**
  * The Earth at night as a picture, not a 3D scene: quick to show, light on
  * the phone. Their countries glow; the route is drawn in, line by line.
@@ -30,14 +43,7 @@ export function GlobePicture({
   drawDelay?: number;
 }) {
   const id = useId().replace(/:/g, "");
-  const [features, setFeatures] = useState<WorldFeature[] | null>(null);
-  useEffect(() => {
-    let alive = true;
-    void loadWorld().then((f) => alive && setFeatures(f));
-    return () => {
-      alive = false;
-    };
-  }, []);
+  const features = useWorldFeatures();
   const S = 600;
   const art = useMemo(() => (features ? drawGlobe(features, { size: S, countries, home, route, tilt }) : null), [features, countries, home, route, tilt]);
 

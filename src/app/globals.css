@@ -2,9 +2,12 @@
 @import "@fontsource/fraunces/500.css";
 @import "@fontsource/fraunces/600.css";
 @import "@fontsource/fraunces/400-italic.css";
+/* Year Wrapped's Story picture, drawn live on the phone: its title and numbers. */
+@import "@fontsource/fraunces/700-italic.css";
 @import "@fontsource/inter/400.css";
 @import "@fontsource/inter/500.css";
 @import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
 
 @tailwind base;
 @tailwind components;
@@ -201,3 +204,22 @@
   user-select: none;
   -webkit-touch-callout: none;
 }
+
+/* A photo landing in the Wrapped collage as it's picked. */
+@keyframes collage-in {
+  from {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.wrapped-collage img {
+  animation: collage-in 0.35s ease-out;
+}
+.wrapped-collage [role="button"] {
+  cursor: pointer;
+}
+
