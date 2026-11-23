@@ -2,9 +2,10 @@
 
 import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, X } from "lucide-react";
+import { Check, Copy, Share2, X } from "lucide-react";
 import type { QrArt } from "@/lib/qrArt";
-import { tapLight } from "@/lib/haptics";
+import { INVITE_TEXT, inviteUrl } from "@/lib/invite";
+import { tapLight, tapSuccess } from "@/lib/haptics";
 import { noteFeature } from "@/lib/usageClient";
 
 /** The code itself: dark dots on white, soft eyes, their photo (or the logo) in the middle. */
@@ -43,15 +44,34 @@ function Code({ art, photo, size }: { art: QrArt; photo: string | null; size: nu
   );
 }
 
+/** One of the two ways to invite: a picture on top, what it does underneath. Both look alike, so neither is the "other" way. */
+function Option({ onClick, label, hint, art, ariaLabel }: { onClick: () => void; label: string; hint: string; art: React.ReactNode; ariaLabel?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="flex flex-col items-center rounded-[22px] bg-white/[0.07] px-3 pb-3.5 pt-3.5 ring-1 ring-white/15 transition hover:bg-white/[0.11] active:scale-[0.97]"
+    >
+      <span className="flex h-16 w-16 items-center justify-center">{art}</span>
+      <span className="mt-2.5 text-[15px] font-semibold leading-tight">{label}</span>
+      <span className="mt-0.5 text-xs leading-snug text-white/60">{hint}</span>
+    </button>
+  );
+}
+
 /**
- * "Met someone new?": a QR code of your invite link, for inviting people in
- * person. Their phone's camera opens it: straight to the App Store or Google
- * Play, and the invite is remembered through the install (lib/inviteClicks),
- * so you follow each other once they've joined. Full screen for scanning
- * across a table.
+ * How to invite, side by side at the top of the invite card: send your link
+ * (the phone's share sheet) or show your QR code to someone in front of you.
+ * The code is the same link: their camera opens it, straight to the App Store
+ * or Google Play, and the invite is remembered through the install
+ * (lib/inviteClicks), so you follow each other once they've joined. Below
+ * both, the link itself, to copy.
  */
-export function InviteQR({ art, photo, firstName, username }: { art: QrArt; photo: string | null; firstName: string; username: string }) {
+export function InviteActions({ art, photo, firstName, username }: { art: QrArt; photo: string | null; firstName: string; username: string }) {
+  const url = inviteUrl(username);
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -60,34 +80,61 @@ export function InviteQR({ art, photo, firstName, username }: { art: QrArt; phot
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
   }, [open]);
-  const show = () => {
+
+  async function copy() {
+    noteFeature("invite_shared");
+    await navigator.clipboard?.writeText(url).catch(() => {});
+    tapSuccess();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  async function share() {
+    tapLight();
+    noteFeature("invite_shared");
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "ExpandiaX", text: INVITE_TEXT, url });
+        return;
+      }
+    } catch {
+      return; // Closed the share sheet.
+    }
+    await copy();
+  }
+  function show() {
     tapLight();
     noteFeature("invite_qr");
     setOpen(true);
-  };
+  }
 
   return (
-    <>
-      {/* In the invite card, under the link: the other way to invite, face to face. */}
-      <div className="mt-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45" aria-hidden>
-        <span className="h-px flex-1 bg-white/15" />
-        or in person
-        <span className="h-px flex-1 bg-white/15" />
+    <div className="w-full">
+      <div className="grid grid-cols-2 gap-3">
+        <Option
+          onClick={() => void share()}
+          label="Share link"
+          hint="Send anywhere"
+          art={
+            <span className="gradient-travel flex h-16 w-16 items-center justify-center rounded-[18px] shadow-[0_12px_30px_-12px_rgba(250,81,162,0.8)]">
+              <Share2 size={26} aria-hidden />
+            </span>
+          }
+        />
+        <Option
+          onClick={show}
+          label="Show QR code"
+          hint="Scan in person"
+          ariaLabel="Show QR code, to scan in person"
+          art={
+            <span className="rounded-[14px] bg-white p-1 shadow-[0_12px_30px_-12px_rgba(250,81,162,0.8)]">
+              <Code art={art} photo={photo} size={56} />
+            </span>
+          }
+        />
       </div>
-      <button
-        type="button"
-        onClick={show}
-        className="mt-4 flex w-full items-center gap-4 rounded-2xl bg-white/[0.07] p-3 text-left ring-1 ring-white/15 transition hover:bg-white/[0.1] active:scale-[0.98]"
-        aria-label="Show your QR code full screen"
-      >
-        <span className="shrink-0 rounded-xl bg-white p-1 shadow-[0_10px_30px_-12px_rgba(250,81,162,0.7)]">
-          <Code art={art} photo={photo} size={84} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-semibold">Let them scan your code</span>
-          <span className="mt-0.5 block text-sm text-white/65">Their phoneWith their phone&rsquo;s camera. Once they join, you follow each other.rsquo;s camera opens your invite.</span>
-        </span>
-        <Maximize2 size={18} className="shrink-0 text-white/55" aria-hidden />
+      <button type="button" onClick={() => void copy()} className="mt-3 flex w-full items-center justify-center gap-2 rounded-full py-2 text-sm text-white/70 hover:text-white">
+        {copied ? <Check size={15} aria-hidden /> : <Copy size={15} aria-hidden />}
+        <span className="truncate">{copied ? "Copied" : url.replace("https://", "")}</span>
       </button>
 
       {mounted &&
@@ -125,6 +172,6 @@ export function InviteQR({ art, photo, firstName, username }: { art: QrArt; phot
           </div>,
           document.body
         )}
-    </>
+    </div>
   );
 }

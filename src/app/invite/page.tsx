@@ -5,8 +5,7 @@ import { Users } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { Check } from "lucide-react";
 import { BADGES } from "@/lib/badges";
-import { InviteShare } from "@/components/invite/InviteShare";
-import { InviteQR } from "@/components/invite/InviteQR";
+import { InviteActions } from "@/components/invite/InviteActions";
 import { inviteUrl } from "@/lib/invite";
 import { qrArt } from "@/lib/qrArt";
 
@@ -35,18 +34,26 @@ export default async function InvitePage() {
 
   return (
     <div className="mx-auto max-w-md px-5 pb-16 pt-8">
-      <div className="overflow-hidden rounded-[28px] px-6 pb-6 pt-8 text-center text-white" style={{ background: "radial-gradient(120% 90% at 50% 0%, #4a1450 0%, #2b0b2e 55%, #12041a 100%)" }}>
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl gradient-travel shadow-lg" aria-hidden>
-          <Users size={26} />
+      <div className="overflow-hidden rounded-[28px] px-5 pb-6 pt-7 text-center text-white" style={{ background: "radial-gradient(120% 90% at 50% 0%, #4a1450 0%, #2b0b2e 55%, #12041a 100%)" }}>
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl gradient-travel shadow-lg" aria-hidden>
+          <Users size={22} />
         </span>
-        <h1 className="mt-4 font-serif text-3xl leading-tight">Worlds are better shared</h1>
+        <h1 className="mt-3 font-serif text-3xl leading-tight">Worlds are better shared</h1>
         <p className="mx-auto mt-2 max-w-xs text-sm text-white/75">
           Invite your friends to ExpandiaX! You&rsquo;ll automatically follow each other, and their memories will appear in your feed.
         </p>
 
+        {/* The two ways to invite, first: online or face to face. */}
+        {me?.username && (
+          <div className="mt-6">
+            <InviteActions art={qrArt(inviteUrl(me.username))} photo={me.avatar_url ?? null} firstName={(me.display_name ?? "").trim().split(" ")[0] || `@${me.username}`} username={me.username} />
+          </div>
+        )}
+        <div className="mt-5 h-px w-full bg-white/10" aria-hidden />
+
         {/* The first five: a stamp for each friend who joins. Past five, a bar to the next level. */}
         {n < 5 ? (
-        <div className="mt-6 flex justify-center gap-2" aria-label={`${n} of 5 friends joined`}>
+        <div className="mt-5 flex justify-center gap-2" aria-label={`${n} of 5 friends joined`}>
           {Array.from({ length: 5 }, (_, i) => {
             const p = joined[i];
             return (
@@ -85,13 +92,6 @@ export default async function InvitePage() {
             );
           })}
         </ul>
-
-        <div className="mt-6">
-          <InviteShare username={me?.username ?? ""} dark />
-          {me?.username && (
-            <InviteQR art={qrArt(inviteUrl(me.username))} photo={me.avatar_url ?? null} firstName={(me.display_name ?? "").trim().split(" ")[0] || `@${me.username}`} username={me.username} />
-          )}
-        </div>
       </div>
 
       {joined.length > 0 && (
