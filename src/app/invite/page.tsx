@@ -49,11 +49,10 @@ export default async function InvitePage() {
             <InviteActions art={qrArt(inviteUrl(me.username))} photo={me.avatar_url ?? null} firstName={(me.display_name ?? "").trim().split(" ")[0] || `@${me.username}`} username={me.username} />
           </div>
         )}
-        <div className="mt-5 h-px w-full bg-white/10" aria-hidden />
 
         {/* The first five: a stamp for each friend who joins. Past five, a bar to the next level. */}
         {n < 5 ? (
-        <div className="mt-5 flex justify-center gap-2" aria-label={`${n} of 5 friends joined`}>
+        <div className="mt-3 flex justify-center gap-2" aria-label={`${n} of 5 friends joined`}>
           {Array.from({ length: 5 }, (_, i) => {
             const p = joined[i];
             return (
@@ -67,7 +66,7 @@ export default async function InvitePage() {
           })}
         </div>
         ) : (
-          <div className="mx-auto mt-6 max-w-xs">
+          <div className="mx-auto mt-3 max-w-xs">
             <div className="h-2 overflow-hidden rounded-full bg-white/15">
               <div className="gradient-travel h-full rounded-full" style={{ width: `${next ? (n / next.target) * 100 : 100}%` }} />
             </div>
