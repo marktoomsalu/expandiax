@@ -6,7 +6,8 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { countryByCode } from "@/lib/countries";
 import { UsageSection } from "@/components/admin/UsageSection";
-import { activeCounts, activePerDay, addDays, cameBack, pct, perDay, type ActiveDay, type Member } from "@/lib/adminStats";
+import { MembersByCountry } from "@/components/admin/MembersByCountry";
+import { activeCounts, activePerDay, addDays, cameBack, membersByCountry, pct, perDay, type ActiveDay, type Member } from "@/lib/adminStats";
 
 export const metadata: Metadata = { title: "Dashboard", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -101,7 +102,7 @@ export default async function AdminPage() {
 
   const today = new Date().toISOString().slice(0, 10);
   const [profiles, activity, countryOwners, eventOwners, followers, tokens, audience, totals] = await Promise.all([
-    all<{ id: string; created_at: string }>((a, b) => admin.from("profiles").select("id, created_at").order("created_at").range(a, b)),
+    all<{ id: string; created_at: string; home_country_code: string | null }>((a, b) => admin.from("profiles").select("id, created_at, home_country_code").order("created_at").range(a, b)),
     all<ActiveDay>((a, b) => admin.from("activity_days").select("user_id, day").gte("day", addDays(today, -400)).order("day").range(a, b)),
     all<{ user_id: string }>((a, b) => admin.from("visited_countries").select("user_id").range(a, b)),
     all<{ user_id: string }>((a, b) => admin.from("events").select("user_id").range(a, b)),
@@ -117,6 +118,7 @@ export default async function AdminPage() {
   const members: Member[] = profiles.map((p) => ({ id: p.id, joined: p.created_at.slice(0, 10) }));
   const trackingSince = activity[0]?.day ?? null;
   const active = activeCounts(activity, today);
+  const where = membersByCountry(profiles.map((p) => ({ home: p.home_country_code, joined: p.created_at.slice(0, 10) })), today);
   const joinedThisWeek = members.filter((m) => m.joined >= addDays(today, -6)).length;
   const back = [1, 7, 30].map((n) => ({ n, ...cameBack(members, activity, n, today, trackingSince) }));
   const withCountry = new Set(countryOwners.map((r) => r.user_id)).size;
@@ -193,6 +195,8 @@ export default async function AdminPage() {
           note={trackingSince ? `Counted since ${shortDay(trackingSince)}.` : "Starts filling in once members use ExpandiaX after this update."}
         />
       </section>
+
+      <MembersByCountry {...where} members={members.length} />
 
       <section aria-labelledby="back-h" className="mt-8">
         <h2 id="back-h" className="font-serif text-xl">Do they come back?</h2>

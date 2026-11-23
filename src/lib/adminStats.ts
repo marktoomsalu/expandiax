@@ -54,3 +54,38 @@ export function cameBack(members: Member[], activity: ActiveDay[], n: number, to
 export function pct(part: number, whole: number): string {
   return whole > 0 ? `${Math.round((part / whole) * 100)}%` : "–";
 }
+
+export type Market = { code: string; members: number; recent: number; before: number };
+
+/**
+ * Where members come from: the home country each one chose (onboarding asks;
+ * nothing is worked out from their connection). Per country: members in
+ * all, those who joined in the last `days` days, and in the `days` before
+ * that (to see which markets are growing). Most members first.
+ */
+export function membersByCountry(
+  rows: { home: string | null; joined: string }[],
+  today: string,
+  days = 30
+): { markets: Market[]; unknown: number; recentTotal: number } {
+  const from = addDays(today, -(days - 1));
+  const fromBefore = addDays(from, -days);
+  const by = new Map<string, Market>();
+  let unknown = 0;
+  let recentTotal = 0;
+  for (const r of rows) {
+    const recent = r.joined >= from && r.joined <= today;
+    if (recent) recentTotal++;
+    const code = r.home?.trim().toUpperCase();
+    if (!code) {
+      unknown++;
+      continue;
+    }
+    const m = by.get(code) ?? by.set(code, { code, members: 0, recent: 0, before: 0 }).get(code)!;
+    m.members++;
+    if (recent) m.recent++;
+    else if (r.joined >= fromBefore && r.joined < from) m.before++;
+  }
+  const markets = [...by.values()].sort((a, b) => b.members - a.members || b.recent - a.recent || a.code.localeCompare(b.code));
+  return { markets, unknown, recentTotal };
+}

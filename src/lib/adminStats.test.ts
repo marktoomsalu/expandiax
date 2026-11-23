@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeCounts, activePerDay, cameBack, pct, perDay } from "./adminStats";
+import { activeCounts, activePerDay, cameBack, membersByCountry, pct, perDay } from "./adminStats";
 
 const today = "2026-11-10";
 
@@ -43,5 +43,28 @@ describe("dashboard numbers", () => {
     expect(cameBack(members, activity, 7, today, null)).toEqual({ eligible: 0, returned: 0 });
     expect(pct(1, 2)).toBe("50%");
     expect(pct(1, 0)).toBe("–");
+  });
+});
+
+describe("members by country", () => {
+  it("counts each home country, newest joiners and the month before, most members first", () => {
+    const today = "2026-11-23";
+    const r = membersByCountry(
+      [
+        { home: "EE", joined: "2026-01-10" },
+        { home: "EE", joined: "2026-11-20" },
+        { home: "ee", joined: "2026-10-10" },
+        { home: "FI", joined: "2026-11-01" },
+        { home: null, joined: "2026-11-22" },
+        { home: "", joined: "2025-05-05" },
+      ],
+      today
+    );
+    expect(r.markets).toEqual([
+      { code: "EE", members: 3, recent: 1, before: 1 },
+      { code: "FI", members: 1, recent: 1, before: 0 },
+    ]);
+    expect(r.unknown).toBe(2);
+    expect(r.recentTotal).toBe(3);
   });
 });
