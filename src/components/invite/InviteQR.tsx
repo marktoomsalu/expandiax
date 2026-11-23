@@ -68,18 +68,27 @@ export function InviteQR({ art, photo, firstName, username }: { art: QrArt; phot
 
   return (
     <>
-      <section aria-labelledby="qr-h" className="mt-6 flex items-center gap-4 rounded-[24px] border border-line bg-surface p-4">
-        <button type="button" onClick={show} className="shrink-0 rounded-2xl p-1 ring-1 ring-line transition active:scale-[0.97]" aria-label="Show your QR code full screen">
-          <Code art={art} photo={photo} size={112} />
-        </button>
-        <div className="min-w-0">
-          <h2 id="qr-h" className="font-serif text-lg leading-tight">Met someone new?</h2>
-          <p className="mt-1 text-sm text-muted">Let them scan this with their phone&rsquo;s camera. Once they join, you follow each other.</p>
-          <button type="button" onClick={show} className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-accent">
-            <Maximize2 size={14} aria-hidden /> Show full screen
-          </button>
-        </div>
-      </section>
+      {/* In the invite card, under the link: the other way to invite, face to face. */}
+      <div className="mt-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45" aria-hidden>
+        <span className="h-px flex-1 bg-white/15" />
+        or in person
+        <span className="h-px flex-1 bg-white/15" />
+      </div>
+      <button
+        type="button"
+        onClick={show}
+        className="mt-4 flex w-full items-center gap-4 rounded-2xl bg-white/[0.07] p-3 text-left ring-1 ring-white/15 transition hover:bg-white/[0.1] active:scale-[0.98]"
+        aria-label="Show your QR code full screen"
+      >
+        <span className="shrink-0 rounded-xl bg-white p-1 shadow-[0_10px_30px_-12px_rgba(250,81,162,0.7)]">
+          <Code art={art} photo={photo} size={84} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">Let them scan your code</span>
+          <span className="mt-0.5 block text-sm text-white/65">Their phoneWith their phone&rsquo;s camera. Once they join, you follow each other.rsquo;s camera opens your invite.</span>
+        </span>
+        <Maximize2 size={18} className="shrink-0 text-white/55" aria-hidden />
+      </button>
 
       {mounted &&
         open &&

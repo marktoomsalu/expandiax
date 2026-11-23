@@ -88,12 +88,11 @@ export default async function InvitePage() {
 
         <div className="mt-6">
           <InviteShare username={me?.username ?? ""} dark />
+          {me?.username && (
+            <InviteQR art={qrArt(inviteUrl(me.username))} photo={me.avatar_url ?? null} firstName={(me.display_name ?? "").trim().split(" ")[0] || `@${me.username}`} username={me.username} />
+          )}
         </div>
       </div>
-
-      {me?.username && (
-        <InviteQR art={qrArt(inviteUrl(me.username))} photo={me.avatar_url ?? null} firstName={(me.display_name ?? "").trim().split(" ")[0] || `@${me.username}`} username={me.username} />
-      )}
 
       {joined.length > 0 && (
         <section className="mt-8" aria-labelledby="joined-h">
