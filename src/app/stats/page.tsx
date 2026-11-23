@@ -21,6 +21,9 @@ import {
   type EventStatInput,
 } from "@/lib/stats";
 import { cn } from "@/lib/utils";
+import { adminId } from "@/lib/adminAuth";
+import { wrappedOpenFor } from "@/lib/wrapped";
+import { Sparkles } from "lucide-react";
 import type { EventType } from "@/lib/types";
 
 export const metadata = { title: "Stats" };
@@ -228,10 +231,33 @@ export default async function StatsPage({ searchParams }: { searchParams: { year
     return { year: y, countries: ys.countryCodes.length, events: ys.events.length };
   });
 
+  // Year Wrapped: the year that's ending (in January, the one just ended). Admins see it before it opens.
+  const now = new Date();
+  const wrappedYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  const wrappedOpen = wrappedOpenFor(wrappedYear);
+  const wrappedPreview = !wrappedOpen && !!(await adminId());
+
   return (
     <div className="mx-auto max-w-shell px-5 py-10">
       <p className="eyebrow">Stats</p>
       <h1 className="mt-2 text-3xl md:text-4xl">Your world, by the numbers.</h1>
+
+      {(wrappedOpen || wrappedPreview) && (
+        <Link
+          href={`/wrapped/${wrappedYear}`}
+          className="group relative mt-6 flex items-center gap-4 overflow-hidden rounded-[24px] bg-[radial-gradient(circle_at_15%_20%,#7a2276_0%,#2b0b2e_60%,#14051a_100%)] px-5 py-5 text-white shadow-[0_20px_40px_-20px_rgba(250,81,162,0.7)]"
+        >
+          <span aria-hidden className="animate-badge-shimmer pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#fa51a2] to-[#fb7822]">
+            <Sparkles size={22} aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-serif text-xl leading-tight">Your {wrappedYear}, Wrapped</span>
+            <span className="block text-sm text-white/70">{wrappedPreview ? "Preview: only admins see this until it opens" : "Where your year took you, as a short film"}</span>
+          </span>
+          <span className="text-sm font-semibold text-[#ffb3d6] transition-transform group-hover:translate-x-0.5">Watch →</span>
+        </Link>
+      )}
 
       {!hasAnyData ? (
         <div className="mt-10">

@@ -148,6 +148,8 @@ type Props = {
   pullBack?: boolean;
   /** Called once the globe is drawn. */
   onReady?: () => void;
+  /** Countries in the order they were travelled: glowing arcs between them, light running along each (Year Wrapped). */
+  route?: string[];
 };
 
 export function WorldGlobeInner({
@@ -166,6 +168,7 @@ export function WorldGlobeInner({
   focusMs = 1200,
   pullBack = false,
   onReady,
+  route,
 }: Props) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -181,6 +184,22 @@ export function WorldGlobeInner({
   const [size, setSize] = useState({ width: 320, height: 320 });
 
   const visited = useMemo(() => new Set(visitedCodes), [visitedCodes]);
+  // The route's legs, from each country's main land to the next's.
+  const arcs = useMemo(() => {
+    if (!route || route.length < 2 || !features.length) return [];
+    const at = (code: string) => {
+      const c = countryByCode(code);
+      const f = c && features.find((x) => x.id === c.numeric);
+      return f ? mainLandOf(f.geometry) ?? centroidOf(f.geometry) : null;
+    };
+    const legs: { startLat: number; startLng: number; endLat: number; endLng: number }[] = [];
+    for (let i = 1; i < route.length; i++) {
+      const a = at(route[i - 1]);
+      const b = at(route[i]);
+      if (a && b) legs.push({ startLat: a.lat, startLng: a.lng, endLat: b.lat, endLng: b.lng });
+    }
+    return legs;
+  }, [route, features]);
   const dreams = useMemo(() => new Set(dreamCodes ?? []), [dreamCodes]);
   const lived = useMemo(() => new Set(livedCodes ?? []), [livedCodes]);
 
@@ -367,6 +386,14 @@ export function WorldGlobeInner({
             else if (labels) showTapped(f as GeoFeature);
           }}
           onGlobeClick={() => setTapped(null)}
+          arcsData={arcs}
+          arcColor={() => ["rgba(250,81,162,0.95)", "rgba(251,120,34,0.95)"]}
+          arcStroke={0.7}
+          arcDashLength={0.55}
+          arcDashGap={0.25}
+          arcDashAnimateTime={2400}
+          arcAltitudeAutoScale={0.42}
+          arcsTransitionDuration={700}
           pointsData={ANTARCTICA_POINTS}
           pointLat="lat"
           pointLng="lng"

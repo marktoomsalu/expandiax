@@ -29,7 +29,7 @@ function InstagramGlyph() {
 
 export function SiteChrome({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const immersive = path === "/start" || path === "/touch";
+  const immersive = path === "/start" || path === "/touch" || path.startsWith("/wrapped");
   // No tab bar while signing up either (see SiteNav.tsx), so no room for one.
   const hasTabBar = !immersive && path !== "/sign-up" && path !== "/onboarding";
   // In the app, creating an account is one screen: no website footer below it to scroll to.
