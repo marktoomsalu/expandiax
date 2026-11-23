@@ -34,6 +34,9 @@ export type WrappedPhoto = { id: string; url: string; takenAt: string | null; la
 
 export type WrappedStop = { code: string; date: string; label: string; kind: "trip" | "event" };
 
+/** A trip or event that stood out: the ones with the most photos. */
+export type WrappedHighlight = { id: string; kind: "trip" | "event"; title: string; code: string | null; from: string | null; to: string | null; photo: string; photos: number };
+
 export type WrappedYear = {
   year: number;
   firstName: string;
@@ -49,6 +52,8 @@ export type WrappedYear = {
   daysAway: number | null;
   events: WrappedEventRow[];
   photos: WrappedPhoto[];
+  /** Up to three, most photos first (only ones with a photo). */
+  highlights: WrappedHighlight[];
   /** Dated stops in order: the year unfolding on the globe. */
   journey: WrappedStop[];
   busiestMonth: { month: number; count: number } | null;
@@ -141,6 +146,24 @@ export function buildWrapped(input: {
   const prevCountries = new Set([...prevVisits.map((v) => v.code), ...prevEvents.map((e) => e.code).filter((c): c is string => !!c)]);
   const previous = prevCountries.size || prevEvents.length ? { year: year - 1, countries: prevCountries.size, trips: prevVisits.filter((v) => v.kind !== "lived").length, events: prevEvents.length } : null;
 
+  // Highlights: the trips and events with the most photos (a trip by its first place, a concert by its city).
+  const ofVisit = (id: string) => input.photos.filter((p) => p.visitId === id);
+  const ofEvent = (id: string) => input.photos.filter((p) => p.eventId === id);
+  const highlights: WrappedHighlight[] = [
+    ...trips.map((v) => {
+      const ps = ofVisit(v.id);
+      const where = v.places[0]?.name?.trim();
+      return { id: v.id, kind: "trip" as const, title: where || countryByCode(v.code)?.name || v.code, code: v.code, from: v.from, to: v.to, photo: ps[0]?.url ?? "", photos: ps.length };
+    }),
+    ...yearEvents.map((e) => {
+      const ps = ofEvent(e.id);
+      return { id: e.id, kind: "event" as const, title: e.type === "concert" && e.city ? `${e.title} in ${e.city}` : e.title, code: e.code, from: e.date, to: e.endDate, photo: ps[0]?.url ?? e.photo ?? "", photos: ps.length };
+    }),
+  ]
+    .filter((h) => !!h.photo)
+    .sort((a, b) => b.photos - a.photos || (b.from ?? "").localeCompare(a.from ?? ""))
+    .slice(0, 3);
+
   const visitIds = new Set(yearVisits.map((v) => v.id));
   const eventIds = new Set(yearEvents.map((e) => e.id));
   const photos = input.photos
@@ -161,6 +184,7 @@ export function buildWrapped(input: {
     daysAway,
     events: yearEvents,
     photos,
+    highlights,
     journey,
     busiestMonth,
     previous,

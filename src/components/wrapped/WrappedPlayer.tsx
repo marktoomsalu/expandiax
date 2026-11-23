@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from "framer-motion";
-import { Check, ImagePlus, Loader2, Pause, RotateCcw, Share2, Sparkles, X } from "lucide-react";
-import { countryByCode } from "@/lib/countries";
-import { formatEventDates } from "@/lib/utils";
+import { ArrowRight, CalendarDays, Camera, Check, Globe2, ImagePlus, Loader2, MapPin, Mountain, Pause, Plane, Share2, Sparkles, Ticket, X } from "lucide-react";
+import { TOTAL_COUNTRIES, countryByCode } from "@/lib/countries";
 import { tapLight, tapSuccess } from "@/lib/haptics";
 import { Burst, CountUp } from "@/components/worldScan/Burst";
 import { hasStory, type WrappedPhoto, type WrappedYear } from "@/lib/wrapped";
@@ -15,14 +15,31 @@ import { hasStory, type WrappedPhoto, type WrappedYear } from "@/lib/wrapped";
 const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), { ssr: false, loading: () => <div className="h-full w-full" /> });
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const ICON: Record<string, string> = { concert: "🎤", festival: "🎪", sport: "⚽", conference: "🎓", personal: "💛", other: "✨" };
-const TYPE: Record<string, string> = { concert: "Concert", festival: "Festival", sport: "Sport", conference: "Conference", personal: "A day to remember", other: "A moment" };
 const MAX_PHOTOS = 12;
+const ICON: Record<string, string> = { concert: "🎤", festival: "🎪", sport: "⚽", conference: "🎓", personal: "💛", other: "✨" };
 
-type SlideKey = "intro" | "numbers" | "journey" | "quiz" | "photos" | "moments" | "finale" | "empty";
+// Unsplash, credited on the slide (the opening and the achievements).
+const HERO = {
+  url: "https://images.unsplash.com/photo-1613713569254-7fee3cbb1afa?ixid=M3wxMDgzNTIzfDB8MXxzZWFyY2h8NHx8cGVyc29uJTIwc2l0dGluZyUyMG1vdW50YWluJTIwc3Vuc2V0fGVufDF8MXx8fDE3OTU0MjY2OTZ8MA&ixlib=rb-4.1.0&w=1200&q=80&auto=format",
+  author: "Mohammad Alizade",
+  authorUrl: "https://unsplash.com/@mohamadaz?utm_source=expandiax&utm_medium=referral",
+};
+const PEAKS = {
+  url: "https://images.unsplash.com/photo-1773328937923-c00e0372af4f?ixid=M3wxMDgzNTIzfDB8MXxzZWFyY2h8N3x8bW91bnRhaW4lMjByYW5nZSUyMHN1bnNldCUyMHB1cnBsZXxlbnwxfDF8fHwxNzk1NDI2Njk3fDA&ixlib=rb-4.1.0&w=1200&q=80&auto=format",
+  author: "Bruno van der Kraan",
+  authorUrl: "https://unsplash.com/@brunovdkraan?utm_source=expandiax&utm_medium=referral",
+};
 
-const dayLabel = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+type SlideKey = "intro" | "glance" | "world" | "highlights" | "quiz" | "memories" | "achievements" | "finale" | "empty";
+
+const shortRange = (from: string | null, to: string | null) => {
+  if (!from) return "";
+  const f = new Date(`${from}T00:00:00`);
+  const t = to ? new Date(`${to}T00:00:00`) : f;
+  const d = (x: Date, month: boolean) => x.toLocaleDateString("en-GB", month ? { day: "numeric", month: "short" } : { day: "numeric" });
+  if (+f === +t) return d(f, true);
+  return f.getMonth() === t.getMonth() ? `${d(f, false)} – ${d(t, true)}` : `${d(f, true)} – ${d(t, true)}`;
+};
 
 /** A shuffle that's the same every time for the same year (the quiz doesn't change on replay). */
 function seeded<T>(list: T[], seed: number): T[] {
@@ -36,42 +53,61 @@ function seeded<T>(list: T[], seed: number): T[] {
   return out;
 }
 
-type Quiz = { question: string; options: { id: string; label: string; flag?: string }[]; answer: string; reveal: string };
+type Quiz = { question: string; photo?: string; options: { id: string; label: string; flag?: string }[]; answer: string; reveal: string };
 
-/** One question from their own year (never about something they didn't save). */
+/** One question from their own year: best, one of their own photos ("where did you see this?"). */
 export function makeQuiz(w: WrappedYear): Quiz | null {
-  const first = w.journey.find((s) => s.kind === "trip") ?? null;
-  if (first && w.countries.length >= 3) {
-    const others = seeded(w.countries.filter((c) => c !== first.code), w.year).slice(0, 3);
-    const options = seeded([first.code, ...others], w.year + 1).map((c) => ({ id: c, label: countryByCode(c)?.name ?? c, flag: countryByCode(c)?.flag }));
-    const more = w.countries.length - 1;
-    return {
-      question: `Which country did your ${w.year} start with?`,
-      options,
-      answer: first.code,
-      reveal: `${countryByCode(first.code)?.name}, on ${dayLabel(first.date)}. ${more === 1 ? "One more" : `${more} more`} followed.`,
-    };
+  const others = (code: string, n: number) => seeded(w.countries.filter((c) => c !== code), w.year).slice(0, n);
+  const opt = (c: string) => ({ id: c, label: countryByCode(c)?.name ?? c, flag: countryByCode(c)?.flag });
+  if (w.countries.length >= 3) {
+    const pics = w.photos.filter((p) => p.code && w.countries.includes(p.code) && p.code !== w.homeCode);
+    const pic = pics.length ? pics[w.year % pics.length] : null;
+    if (pic?.code) {
+      return {
+        question: `In which country did you see this view in ${w.year}?`,
+        photo: pic.url,
+        options: seeded([pic.code, ...others(pic.code, 2)], w.year + 3).map(opt),
+        answer: pic.code,
+        reveal: `${countryByCode(pic.code)?.name}${pic.takenAt ? `, ${new Date(pic.takenAt).toLocaleDateString("en-GB", { month: "long" })}` : ""}.`,
+      };
+    }
+    const first = w.journey.find((s) => s.kind === "trip");
+    if (first) {
+      return {
+        question: `Which country did your ${w.year} start with?`,
+        options: seeded([first.code, ...others(first.code, 2)], w.year + 1).map(opt),
+        answer: first.code,
+        reveal: `${countryByCode(first.code)?.name}. ${w.countries.length - 1} more followed.`,
+      };
+    }
   }
   if (w.events.length >= 2) {
-    const evs = w.events.slice(0, 4);
     return {
       question: `Which moment came first in ${w.year}?`,
-      options: seeded(evs.map((e) => ({ id: e.id, label: e.title, flag: ICON[e.type] })), w.year),
+      options: seeded(w.events.slice(0, 3).map((e) => ({ id: e.id, label: e.title, flag: ICON[e.type] })), w.year),
       answer: w.events[0].id,
-      reveal: `${w.events[0].title}, on ${dayLabel(w.events[0].date)}. The year had begun.`,
+      reveal: `${w.events[0].title} opened your year.`,
     };
   }
   if (w.countries.length >= 2) {
     const n = w.countries.length;
-    const opts = seeded([...new Set([n, n + 2, Math.max(1, n - 1), n + 4])].slice(0, 4), w.year);
-    return {
-      question: `How many countries did ${w.year} take you to?`,
-      options: opts.map((x) => ({ id: String(x), label: String(x) })),
-      answer: String(n),
-      reveal: `${n} countries: ${w.countries.map((c) => countryByCode(c)?.flag).join(" ")}`,
-    };
+    const opts = seeded([...new Set([n, n + 2, Math.max(1, n - 1)])], w.year);
+    return { question: `How many countries did ${w.year} take you to?`, options: opts.map((x) => ({ id: String(x), label: String(x) })), answer: String(n), reveal: w.countries.map((c) => countryByCode(c)?.flag).join(" ") };
   }
   return null;
+}
+
+type Badge = { key: string; title: string; note: string; icon: typeof Mountain; from: string; to: string };
+
+/** What they did, as badges (only what's true). */
+function achievements(w: WrappedYear): Badge[] {
+  const out: Badge[] = [];
+  if (w.newCountries.length) out.push({ key: "explorer", title: "Explorer", note: `+${w.newCountries.length} ${w.newCountries.length === 1 ? "country" : "countries"}`, icon: Mountain, from: "#fbbf24", to: "#fb7822" });
+  if (w.events.length) out.push({ key: "events", title: "Event Lover", note: `${w.events.length} ${w.events.length === 1 ? "event" : "events"}`, icon: Ticket, from: "#fa51a2", to: "#c026d3" });
+  if (w.trips) out.push({ key: "trips", title: "Globetrotter", note: `${w.trips} ${w.trips === 1 ? "trip" : "trips"}`, icon: Plane, from: "#a78bfa", to: "#7c3aed" });
+  if (w.continents >= 2) out.push({ key: "continents", title: "Continent Hopper", note: `${w.continents} continents`, icon: Globe2, from: "#38bdf8", to: "#6366f1" });
+  if (w.photos.length >= 10) out.push({ key: "photos", title: "Storyteller", note: `${w.photos.length} photos`, icon: Camera, from: "#fb7822", to: "#fa51a2" });
+  return out.slice(0, 3);
 }
 
 function usePicks(year: number) {
@@ -100,10 +136,10 @@ function usePicks(year: number) {
 }
 
 /**
- * ExpandiaX Year Wrapped: someone's year as a short film they can tap
- * through, built only from what they've saved. It adapts to the year they
- * had: twenty countries or one country and three nights out, each chapter
- * only when there's something true to show.
+ * ExpandiaX Year Wrapped: someone's year as a short film to tap through,
+ * built only from what they've saved, each chapter only when there's
+ * something true to show: twenty countries, or one country and three
+ * nights out, both get a year worth celebrating.
  */
 export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: number }) {
   const router = useRouter();
@@ -111,26 +147,28 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
   const picks = usePicks(w.year);
   const chosen = useMemo(() => w.photos.filter((p) => !picks.hidden.includes(p.id)).slice(0, MAX_PHOTOS), [w.photos, picks.hidden]);
   const quiz = useMemo(() => makeQuiz(w), [w]);
+  const badges = useMemo(() => achievements(w), [w]);
   const slides: SlideKey[] = useMemo(() => {
     if (!hasStory(w)) return ["intro", "empty"];
     return [
       "intro",
-      "numbers",
-      ...(w.journey.length >= 2 ? (["journey"] as const) : []),
+      "glance",
+      ...(w.countries.length ? (["world"] as const) : []),
+      ...(w.highlights.length ? (["highlights"] as const) : []),
       ...(quiz ? (["quiz"] as const) : []),
-      ...(chosen.length >= 3 ? (["photos"] as const) : []),
-      ...(w.events.length ? (["moments"] as const) : []),
+      ...(chosen.length >= 3 ? (["memories"] as const) : []),
+      ...(badges.length ? (["achievements"] as const) : []),
       "finale",
     ];
-  }, [w, quiz, chosen.length]);
+  }, [w, quiz, chosen.length, badges.length]);
   const durations: Record<SlideKey, number | null> = {
-    intro: 7000,
-    numbers: 11000,
-    journey: Math.min(32000, 2600 + w.journey.length * 2000),
+    intro: null,
+    glance: 9000,
+    world: Math.min(26000, 6500 + w.journey.length * 1500),
+    highlights: 8500,
     quiz: null,
-    // The pile, the mosaic, and a moment to take it in.
-    photos: 5200 + Math.min(chosen.length, MAX_PHOTOS) * 480,
-    moments: Math.min(26000, 1800 + Math.min(w.events.length, 8) * 3000),
+    memories: 5200 + Math.min(chosen.length, 7) * 600,
+    achievements: 8000,
     finale: null,
     empty: null,
   };
@@ -153,7 +191,7 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
     [index, slides.length]
   );
 
-  // The clock: each chapter its own time; quiz and finale wait for them.
+  // The clock: each chapter its own time; the opening, quiz and finale wait for them.
   useEffect(() => {
     if (!duration || paused) return;
     let raf = 0;
@@ -191,11 +229,11 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
   }
 
   // Tap: left third back, the rest forward; hold to pause; a swipe sideways too.
-  const press = useRef<{ x: number; y: number; t: number; timer?: ReturnType<typeof setTimeout> } | null>(null);
+  const press = useRef<{ x: number; t: number; timer?: ReturnType<typeof setTimeout> } | null>(null);
   const onDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest("[data-own-taps]")) return;
     const timer = setTimeout(() => setHeld(true), 220);
-    press.current = { x: e.clientX, y: e.clientY, t: Date.now(), timer };
+    press.current = { x: e.clientX, t: Date.now(), timer };
   };
   const onUp = (e: React.PointerEvent) => {
     const p = press.current;
@@ -209,9 +247,11 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
     go(e.clientX < window.innerWidth * 0.3 ? index - 1 : index + 1);
   };
 
+  const cover = picks.cover ?? w.highlights[0]?.id ?? null;
+
   return (
     <div
-      className="fixed inset-0 z-[90] select-none overflow-hidden bg-[#0d0412] text-white"
+      className="fixed inset-0 z-[90] select-none overflow-hidden bg-[#120818] text-white"
       onPointerDown={onDown}
       onPointerUp={onUp}
       onPointerCancel={() => {
@@ -220,10 +260,11 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
         setHeld(false);
       }}
     >
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,#4a1347_0%,#1c0820_55%,#0d0412_100%)]" />
+      {/* ExpandiaX night: deep purple, a pink glow */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_70%_at_50%_0%,#3d1240_0%,#1f0a25_50%,#120818_100%)]" />
 
-      {/* Chapters: where you are */}
-      <div className="absolute inset-x-0 top-0 z-30 px-3 pt-[calc(0.6rem+env(safe-area-inset-top))]">
+      {/* Where you are, and the way out */}
+      <div className="absolute inset-x-0 top-0 z-30 px-4 pt-[calc(0.6rem+env(safe-area-inset-top))]">
         <div className="flex gap-1">
           {slides.map((s, i) => (
             <div key={s} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/25">
@@ -231,11 +272,9 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
             </div>
           ))}
         </div>
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-xs font-semibold tracking-wide text-white/70">
-            ExpandiaX <span className="text-[#ff8cc6]">Wrapped</span> · {w.year}
-          </span>
-          <div className="flex items-center gap-1" data-own-taps>
+        <div className="relative mt-3 flex h-8 items-center justify-center">
+          <Image src="/wordmark.svg" alt="ExpandiaX" width={1780} height={522} className="h-6 w-auto" priority />
+          <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-1" data-own-taps>
             {held && <Pause size={16} className="text-white/70" aria-label="Paused" />}
             <button type="button" onClick={close} aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-full text-white/85 hover:bg-white/10">
               <X size={22} aria-hidden />
@@ -253,13 +292,14 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
           exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.55, ease: EASE }}
         >
-          {slide === "intro" && <Intro w={w} />}
-          {slide === "numbers" && <Numbers w={w} />}
-          {slide === "journey" && <Journey w={w} paused={paused} />}
-          {slide === "quiz" && quiz && <QuizSlide quiz={quiz} onNext={() => go(index + 1)} />}
-          {slide === "photos" && <Photos w={w} photos={chosen} onChoose={() => setSheet("photos")} />}
-          {slide === "moments" && <Moments w={w} paused={paused} />}
-          {slide === "finale" && <Finale w={w} cover={picks.cover ?? chosen[0]?.id ?? null} onChangeCover={() => setSheet("cover")} onReplay={() => go(0)} />}
+          {slide === "intro" && <Intro w={w} onGo={() => go(index + 1)} />}
+          {slide === "glance" && <Glance w={w} />}
+          {slide === "world" && <World w={w} paused={paused} />}
+          {slide === "highlights" && <Highlights w={w} />}
+          {slide === "quiz" && quiz && <QuizSlide w={w} quiz={quiz} onNext={() => go(index + 1)} />}
+          {slide === "memories" && <Memories w={w} photos={chosen} onChoose={() => setSheet("photos")} />}
+          {slide === "achievements" && <Achievements w={w} badges={badges} />}
+          {slide === "finale" && <Finale w={w} cover={cover} onChangeCover={() => setSheet("cover")} onReplay={() => go(0)} />}
           {slide === "empty" && <Empty w={w} />}
         </motion.div>
       </AnimatePresence>
@@ -267,10 +307,10 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
       <AnimatePresence>
         {sheet && (
           <PhotoChooser
-            photos={w.photos}
+            photos={sheet === "cover" ? coverChoices(w) : w.photos}
             mode={sheet}
             hidden={picks.hidden}
-            cover={picks.cover ?? chosen[0]?.id ?? null}
+            cover={cover}
             onDone={(r) => {
               if (sheet === "photos" && r.hidden) picks.setHidden(r.hidden);
               if (sheet === "cover" && r.cover !== undefined) picks.setCover(r.cover);
@@ -283,352 +323,532 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
   );
 }
 
-// ---------------------------------------------------------------- chapters
+/** What the finale can show: their highlights first, then any photo of the year. */
+function coverChoices(w: WrappedYear): WrappedPhoto[] {
+  const hl = w.highlights.map((h) => ({ id: h.id, url: h.photo, takenAt: h.from, label: h.title, code: h.code }));
+  return [...hl, ...w.photos.filter((p) => !hl.some((h) => h.url === p.url))];
+}
 
-const page = "absolute inset-0 flex flex-col px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(5rem+env(safe-area-inset-top))]";
+// ---------------------------------------------------------------- pieces
 
-function Stars() {
+const page = "absolute inset-0 flex flex-col px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(6rem+env(safe-area-inset-top))]";
+
+function Title({ children, delay = 0.1 }: { children: React.ReactNode; delay?: number }) {
+  const reduce = useReducedMotion();
   return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 opacity-60 [background-image:radial-gradient(1px_1px_at_12%_18%,white,transparent),radial-gradient(1px_1px_at_80%_12%,white,transparent),radial-gradient(1.5px_1.5px_at_65%_70%,white,transparent),radial-gradient(1px_1px_at_25%_80%,white,transparent),radial-gradient(1px_1px_at_92%_55%,white,transparent),radial-gradient(1px_1px_at_40%_35%,white,transparent),radial-gradient(1px_1px_at_55%_8%,white,transparent),radial-gradient(1.5px_1.5px_at_8%_60%,white,transparent)]"
-    />
+    <motion.h2
+      className="text-center font-sans text-[2.15rem] font-bold leading-[1.08] tracking-tight"
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.7, delay, ease: EASE }}
+    >
+      {children}
+    </motion.h2>
   );
 }
 
-function Intro({ w }: { w: WrappedYear }) {
-  const reduce = useReducedMotion();
-  const line = (delay: number) => ({ initial: { opacity: 0, y: reduce ? 0 : 18 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.9, delay, ease: EASE } });
+function Credit({ who, href }: { who: string; href: string }) {
   return (
-    <div className={page}>
-      <Stars />
-      {/* The year, huge and faint, slowly coming closer */}
-      <motion.p
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-[14%] text-center font-serif text-[38vw] font-semibold leading-none text-transparent [-webkit-text-stroke:1px_rgba(255,179,214,0.25)] sm:text-[18rem]"
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: reduce ? 1 : 1.08 }}
-        transition={{ duration: 7, ease: "easeOut" }}
-      >
-        {w.year}
-      </motion.p>
-      <motion.div className="pointer-events-none mx-auto mt-[8vh] w-[min(80vw,24rem)]" initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1.6, ease: EASE }}>
-        <WorldGlobeInner visitedCodes={[]} interactive={false} labels={false} autoRotate />
+    <a href={href} target="_blank" rel="noopener noreferrer" data-own-taps className="absolute bottom-[calc(0.4rem+env(safe-area-inset-bottom))] right-3 z-10 text-[9px] text-white/40">
+      Photo: {who} / Unsplash
+    </a>
+  );
+}
+
+function Delta({ now, before, year, unit = "" }: { now: number; before: number | null | undefined; year: number; unit?: string }) {
+  if (before == null) return null;
+  const d = now - before;
+  if (d > 0)
+    return (
+      <p className="mt-1 text-xs font-semibold text-emerald-300">
+        ↑ +{d}
+        {unit} vs {year}
+      </p>
+    );
+  return (
+    <p className="mt-1 text-xs text-white/50">
+      {year}: {before}
+      {unit}
+    </p>
+  );
+}
+
+// ---------------------------------------------------------------- chapters
+
+function Intro({ w, onGo }: { w: WrappedYear; onGo: () => void }) {
+  const reduce = useReducedMotion();
+  const word = (delay: number) => ({ initial: { opacity: 0, y: reduce ? 0 : 24, filter: "blur(6px)" }, animate: { opacity: 1, y: 0, filter: "blur(0px)" }, transition: { duration: 0.9, delay, ease: EASE } });
+  return (
+    <div className="absolute inset-0">
+      {/* Someone on a mountain at dusk, slowly coming closer */}
+      <motion.div className="absolute inset-0" initial={{ scale: 1.15 }} animate={{ scale: reduce ? 1.15 : 1.02 }} transition={{ duration: 12, ease: "easeOut" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={HERO.url} alt="" className="h-full w-full object-cover object-[60%_center]" />
       </motion.div>
-      <div className="mt-auto text-center">
-        {w.firstName && (
-          <motion.p {...line(0.5)} className="text-lg text-[#ffb3d6]">
-            {w.firstName},
+      <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,#120818_0%,rgba(45,12,52,0.85)_22%,rgba(122,34,118,0.35)_48%,rgba(251,120,34,0.12)_62%,rgba(18,8,24,0.75)_88%,#120818_100%)] mix-blend-normal" />
+      <div aria-hidden className="absolute inset-0 bg-[#5a1758]/25 mix-blend-color" />
+
+      <div className="absolute inset-x-0 top-[calc(7rem+env(safe-area-inset-top))] flex flex-col items-center px-6">
+        <div className="relative w-full max-w-sm">
+          <motion.p {...word(0.3)} className="pl-[8%] font-serif text-[4.4rem] font-semibold italic leading-[0.92] bg-gradient-to-b from-[#ffe4f1] to-[#ff8cc6] bg-clip-text text-transparent">
+            Your
           </motion.p>
-        )}
-        <motion.p {...line(1.1)} className="mt-1 font-serif text-[2.4rem] leading-[1.08]">
-          {w.year} was a year
-        </motion.p>
-        <motion.p {...line(1.9)} className="font-serif text-[2.4rem] italic leading-[1.08] text-[#ff8cc6]">
-          you&apos;ll never live again.
-        </motion.p>
-        <motion.p {...line(3.6)} className="mt-5 text-base text-white/70">
-          {hasStory(w) ? "Let's see where it took you." : "Let's look back."}
+          <div className="relative">
+            <motion.p {...word(0.6)} className="pl-[26%] font-serif text-[4.4rem] font-semibold italic leading-[0.92] bg-gradient-to-b from-white to-[#ffc2df] bg-clip-text text-transparent">
+              Year
+            </motion.p>
+            {/* The swoosh round it, drawn in; and a little star */}
+            <svg aria-hidden viewBox="0 0 400 150" className="pointer-events-none absolute -left-[4%] -top-[48%] h-[210%] w-[108%] overflow-visible">
+              <motion.path
+                d="M60 120 C 0 95, 30 40, 200 28 C 350 18, 400 60, 340 92 C 290 118, 160 128, 70 112"
+                fill="none"
+                stroke="url(#swoosh)"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 1 }}
+                transition={{ duration: 1.6, delay: 1.2, ease: "easeInOut" }}
+              />
+              <defs>
+                <linearGradient id="swoosh" x1="0" x2="1">
+                  <stop offset="0" stopColor="#ffb3d6" />
+                  <stop offset="1" stopColor="#fb7822" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <motion.span
+              aria-hidden
+              className="absolute right-[6%] top-[-18%] text-[#ffd1e8]"
+              initial={{ scale: 0, rotate: -45 }}
+              animate={reduce ? { scale: 1, rotate: 0 } : { scale: [0, 1.2, 1], rotate: 0, opacity: [0, 1, 0.85, 1] }}
+              transition={{ duration: 1, delay: 2.4 }}
+            >
+              <Sparkles size={30} />
+            </motion.span>
+          </div>
+          <motion.p {...word(0.9)} className="pl-[4%] font-serif text-[4.4rem] font-semibold italic leading-[0.92] bg-gradient-to-b from-[#ffd1e8] to-[#fa51a2] bg-clip-text text-transparent">
+            Wrapped
+          </motion.p>
+        </div>
+        <motion.p {...word(1.8)} className="mt-10 text-center text-xl leading-snug text-white/90">
+          {w.firstName ? `${w.firstName}, your` : "Your"} {w.year}
+          <br />
+          in experiences
         </motion.p>
       </div>
+
+      <motion.div className="absolute inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] flex justify-center" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2.6, duration: 0.7 }}>
+        <button type="button" data-own-taps onClick={onGo} className="inline-flex items-center gap-2 rounded-full bg-[#ffe4f1] px-8 py-3.5 text-lg font-semibold text-[#2b0b2e] shadow-[0_14px_40px_-10px_rgba(250,81,162,0.8)] transition-transform active:scale-95">
+          Let&apos;s go <ArrowRight size={19} aria-hidden />
+        </button>
+      </motion.div>
+      <Credit who={HERO.author} href={HERO.authorUrl} />
     </div>
   );
 }
 
-function Numbers({ w }: { w: WrappedYear }) {
+function Glance({ w }: { w: WrappedYear }) {
   const reduce = useReducedMotion();
   const prev = w.previous;
-  const stats: { value: number; label: string; note?: string }[] = [];
-  if (w.countries.length)
-    stats.push({ value: w.countries.length, label: w.countries.length === 1 ? "country" : "countries", note: w.newCountries.length ? `${w.newCountries.length} new to you` : prev ? `${prev.year}: ${prev.countries}` : undefined });
-  if (w.trips) stats.push({ value: w.trips, label: w.trips === 1 ? "trip" : "trips", note: prev && prev.trips ? `${prev.year}: ${prev.trips}` : undefined });
-  if (w.events.length) stats.push({ value: w.events.length, label: w.events.length === 1 ? "moment" : "moments", note: prev && prev.events ? `${prev.year}: ${prev.events}` : "concerts, matches & more" });
-  if (w.places.length) stats.push({ value: w.places.length, label: w.places.length === 1 ? "place" : "places", note: w.places.slice(0, 2).join(", ") });
-  if (w.daysAway) stats.push({ value: w.daysAway, label: "days away", note: "on trips with dates" });
-  if (w.continents >= 2) stats.push({ value: w.continents, label: "continents" });
+  const cards = [
+    { icon: Globe2, value: w.countries.length, label: w.countries.length === 1 ? "country" : "countries", before: prev?.countries },
+    { icon: CalendarDays, value: w.events.length, label: w.events.length === 1 ? "event" : "events", before: prev?.events },
+    { icon: Plane, value: w.trips, label: w.trips === 1 ? "trip" : "trips", before: prev?.trips },
+    { icon: MapPin, value: w.places.length, label: w.places.length === 1 ? "place" : "places", before: null },
+  ].filter((c) => c.value > 0);
   return (
     <div className={page}>
-      <Stars />
-      <motion.p className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-[#ffb3d6]" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        {w.year}, at a glance
-      </motion.p>
-      <motion.div className="pointer-events-none mx-auto -mt-2 h-[36dvh] w-[min(88vw,26rem)]" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1.2, ease: EASE }}>
-        <WorldGlobeInner visitedCodes={w.countries} homeCode={w.homeCode ?? undefined} interactive={false} labels={false} autoRotate />
-      </motion.div>
-      <div className="mx-auto mt-2 grid w-full max-w-md grid-cols-2 gap-2.5">
-        {stats.slice(0, 6).map((s, i) => (
+      <Title>
+        Your year
+        <br />
+        at a glance
+      </Title>
+      <div className="relative z-10 mx-auto mt-7 grid w-full max-w-sm grid-cols-2 gap-3">
+        {cards.map((c, i) => (
           <motion.div
-            key={s.label}
-            className="rounded-[20px] bg-white/[0.07] px-4 py-3 ring-1 ring-white/10 backdrop-blur-sm"
-            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.9 }}
+            key={c.label}
+            className="rounded-[22px] bg-white/[0.07] p-4 ring-1 ring-white/12 backdrop-blur-md"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 22, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: "spring", stiffness: 220, damping: 20, delay: 0.8 + i * 0.35 }}
+            transition={{ type: "spring", stiffness: 220, damping: 20, delay: 0.5 + i * 0.2 }}
           >
-            <p className="font-serif text-[2.1rem] font-semibold leading-none">
-              <CountUp value={s.value} duration={1.2} delay={0.9 + i * 0.35} />
+            <c.icon size={22} className="text-[#ff8cc6]" aria-hidden />
+            <p className="mt-3 text-[2.4rem] font-bold leading-none">
+              <CountUp value={c.value} duration={1.1} delay={0.7 + i * 0.2} />
             </p>
-            <p className="mt-1 text-sm text-white/80">{s.label}</p>
-            {s.note && <p className="mt-0.5 truncate text-xs text-[#ffb3d6]">{s.note}</p>}
+            <p className="mt-1 text-white/85">{c.label}</p>
+            <Delta now={c.value} before={c.before} year={prev?.year ?? w.year - 1} />
           </motion.div>
         ))}
       </div>
-      {w.partial && <p className="mx-auto mt-auto max-w-sm pt-3 text-center text-[11px] text-white/45">Some trips this year have no exact dates: these are the ones you&apos;ve saved.</p>}
+      {/* The Earth at night, rising from below */}
+      <motion.div
+        className="pointer-events-none absolute inset-x-[-25%] bottom-[-38%] h-[78%]"
+        initial={{ opacity: 0, y: 80 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1.6, delay: 0.3, ease: EASE }}
+      >
+        <WorldGlobeInner visitedCodes={w.countries} homeCode={w.homeCode ?? undefined} interactive={false} labels={false} autoRotate night />
+      </motion.div>
     </div>
   );
 }
 
-function Journey({ w, paused }: { w: WrappedYear; paused: boolean }) {
+function World({ w, paused }: { w: WrappedYear; paused: boolean }) {
   const [step, setStep] = useState(0);
+  const stops = w.journey;
   useEffect(() => {
-    if (paused || step >= w.journey.length - 1) return;
-    const t = setTimeout(() => setStep((s) => s + 1), step === 0 ? 2400 : 2000);
+    if (paused || step >= stops.length - 1) return;
+    const t = setTimeout(() => setStep((s) => s + 1), step === 0 ? 2600 : 1500);
     return () => clearTimeout(t);
-  }, [step, paused, w.journey.length]);
-  const sofar = w.journey.slice(0, step + 1);
-  const route = useMemo(() => sofar.map((s) => s.code), [sofar]);
-  const lit = useMemo(() => [...new Set(route)], [route]);
-  const stop = w.journey[step];
-  const country = countryByCode(stop.code);
+  }, [step, paused, stops.length]);
+  const route = useMemo(() => stops.slice(0, step + 1).map((s) => s.code), [stops, step]);
+  const pct = Math.round((w.countries.length / TOTAL_COUNTRIES) * 1000) / 10;
+  const prevPct = w.previous ? Math.round((w.previous.countries / TOTAL_COUNTRIES) * 1000) / 10 : null;
+  // The continent with the most of their countries, and the first new one.
+  const continent = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of w.countries) {
+      const k = countryByCode(c)?.continent;
+      if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  }, [w.countries]);
+  const fresh = w.newCountries[0] ? countryByCode(w.newCountries[0]) : null;
+  const here = stops[step] ? countryByCode(stops[step].code) : null;
   return (
     <div className={page}>
-      <Stars />
-      <motion.p className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-[#ffb3d6]" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        Your {w.year}, as it unfolded
+      <Title>
+        Your world
+        <br />
+        in {w.year}
+      </Title>
+      <motion.p className="mt-3 text-center text-white/85" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
+        You explored {pct}% of the world
       </motion.p>
-      <div className="pointer-events-none mx-auto mt-2 h-[52dvh] w-full max-w-lg">
-        <WorldGlobeInner visitedCodes={lit} homeCode={w.homeCode ?? undefined} interactive={false} labels={false} focusCode={stop.code} focusMs={1500} route={route} />
-      </div>
-      <div className="mx-auto mt-auto w-full max-w-md">
+      {prevPct != null && pct > prevPct && (
+        <motion.p className="text-center text-xs font-semibold text-emerald-300" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
+          ↑ +{Math.round((pct - prevPct) * 10) / 10} pp vs {w.previous?.year}
+        </motion.p>
+      )}
+      <div className="pointer-events-none relative mx-auto mt-2 h-[44dvh] w-full max-w-md">
+        <WorldGlobeInner
+          visitedCodes={stops.length >= 2 ? [...new Set(route)] : w.countries}
+          homeCode={w.homeCode ?? undefined}
+          interactive={false}
+          labels={false}
+          night
+          autoRotate={stops.length < 2}
+          focusCode={stops.length >= 2 ? stops[step]?.code : null}
+          focusMs={1300}
+          route={stops.length >= 2 ? route : undefined}
+        />
         <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            className="flex items-center gap-4 rounded-[24px] bg-white/[0.08] px-5 py-4 ring-1 ring-white/10 backdrop-blur-md"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.45, ease: EASE }}
-          >
-            <span className="relative text-5xl leading-none" aria-hidden>
-              {country?.flag}
-              {stop.kind === "event" && <span className="absolute -bottom-1 -right-2 rounded-full bg-[#2b0b2e] text-lg">🎟️</span>}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-[#ffb3d6]">{MONTHS[Number(stop.date.slice(5, 7)) - 1]}</span>
-              <span className="block truncate font-serif text-2xl">{stop.label}</span>
-              {stop.kind === "event" && country && <span className="block truncate text-sm text-white/65">{country.name}</span>}
+          {here && stops.length >= 2 && (
+            <motion.span
+              key={step}
+              className="absolute inset-x-0 bottom-1 mx-auto w-fit rounded-full bg-black/40 px-3 py-1 text-sm backdrop-blur-sm"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              {here.flag} {stops[step].label} · {new Date(`${stops[step].date}T00:00:00`).toLocaleDateString("en-GB", { month: "short" })}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+      <div className="mx-auto mt-auto grid w-full max-w-sm grid-cols-2 gap-3">
+        {continent && (
+          <motion.div className="flex items-center gap-3 rounded-[20px] bg-white/[0.07] px-4 py-3 ring-1 ring-white/12" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}>
+            <Globe2 size={22} className="shrink-0 text-[#ff8cc6]" aria-hidden />
+            <span className="min-w-0">
+              <span className="block text-[11px] text-white/60">Most visited</span>
+              <span className="block truncate font-semibold">{continent}</span>
             </span>
           </motion.div>
-        </AnimatePresence>
-        <div className="mt-3 flex justify-center gap-1.5" aria-hidden>
-          {w.journey.slice(0, 16).map((s, i) => (
-            <span key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i <= step ? "w-4 bg-gradient-to-r from-[#fa51a2] to-[#fb7822]" : "w-1.5 bg-white/25"}`} />
-          ))}
-        </div>
+        )}
+        {fresh && (
+          <motion.div className="flex items-center gap-3 rounded-[20px] bg-white/[0.07] px-4 py-3 ring-1 ring-white/12" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.2 }}>
+            <span className="text-2xl leading-none" aria-hidden>
+              {fresh.flag}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[11px] text-white/60">New this year</span>
+              <span className="block truncate font-semibold">{fresh.name}</span>
+            </span>
+          </motion.div>
+        )}
       </div>
     </div>
   );
 }
 
-function QuizSlide({ quiz, onNext }: { quiz: Quiz; onNext: () => void }) {
+const RANK = ["from-[#fbbf24] to-[#fb7822]", "from-[#fa51a2] to-[#c026d3]", "from-[#a78bfa] to-[#7c3aed]"];
+
+function Highlights({ w }: { w: WrappedYear }) {
+  const reduce = useReducedMotion();
+  return (
+    <div className={page}>
+      <Title>
+        Your
+        <br />
+        highlights
+      </Title>
+      <div className="mx-auto mt-7 w-full max-w-sm space-y-3.5">
+        {w.highlights.map((h, i) => (
+          <motion.div
+            key={h.id}
+            className="relative h-[19dvh] min-h-[118px] overflow-hidden rounded-[22px] shadow-[0_20px_40px_-18px_rgba(0,0,0,0.8)] ring-1 ring-white/15"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, x: i % 2 ? -90 : 90, rotate: i % 2 ? -6 : 6 }}
+            animate={{ opacity: 1, x: 0, rotate: i % 2 ? 1.5 : -1.5 }}
+            transition={{ type: "spring", stiffness: 120, damping: 16, delay: 0.5 + i * 0.35 }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={h.photo} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" aria-hidden />
+            <span className={`absolute right-3 top-3 rounded-full bg-gradient-to-br px-2.5 py-1 text-sm font-bold text-white shadow ${RANK[i]}`}>#{i + 1}</span>
+            <div className="absolute inset-x-4 bottom-3">
+              <p className="truncate text-xl font-bold">{h.title}</p>
+              {h.from && (
+                <p className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-white/85">
+                  <CalendarDays size={14} aria-hidden /> {shortRange(h.from, h.to)}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuizSlide({ w, quiz, onNext }: { w: WrappedYear; quiz: Quiz; onNext: () => void }) {
   const [picked, setPicked] = useState<string | null>(null);
   const right = picked === quiz.answer;
   const controls = useAnimationControls();
   return (
     <div className={page} data-own-taps>
-      <Stars />
-      <motion.p className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-[#ffb3d6]" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        A little quiz
+      <Title>
+        Your
+        <br />
+        travel quiz
+      </Title>
+      <motion.p className="mt-2 text-center text-white/75" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+        How well do you remember your year?
       </motion.p>
-      <motion.h2 className="mt-6 text-center font-serif text-[2.1rem] leading-[1.1]" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7, ease: EASE }}>
-        {quiz.question}
-      </motion.h2>
-      <motion.div animate={controls} className="mx-auto mt-8 w-full max-w-md space-y-3">
-        {quiz.options.map((o, i) => {
-          const isAnswer = o.id === quiz.answer;
-          const state = !picked ? "idle" : isAnswer ? "right" : o.id === picked ? "wrong" : "other";
-          return (
-            <motion.button
-              key={o.id}
-              type="button"
-              disabled={!!picked}
-              onClick={() => {
-                setPicked(o.id);
-                if (o.id === quiz.answer) tapSuccess();
-                else {
-                  tapLight();
-                  void controls.start({ x: [0, -10, 10, -6, 6, 0], transition: { duration: 0.45 } });
-                }
-              }}
-              className={`relative flex w-full items-center gap-3 rounded-[20px] px-5 py-4 text-left text-lg ring-1 transition-colors ${
-                state === "right" ? "bg-emerald-500/25 ring-emerald-400" : state === "wrong" ? "bg-red-500/20 ring-red-400/70" : state === "other" ? "bg-white/[0.04] text-white/50 ring-white/10" : "bg-white/[0.08] ring-white/15 hover:bg-white/[0.12]"
-              }`}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0, scale: state === "right" ? 1.03 : 1 }}
-              transition={{ delay: picked ? 0 : 0.4 + i * 0.12, type: "spring", stiffness: 260, damping: 22 }}
-            >
-              {o.flag && (
-                <span className="text-2xl" aria-hidden>
-                  {o.flag}
+      <motion.div
+        animate={controls}
+        className="relative mx-auto mt-6 w-full max-w-sm rounded-[26px] bg-white/[0.07] p-3 ring-1 ring-white/12 backdrop-blur-md"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.6, ease: EASE }}
+      >
+        {quiz.photo && (
+          <div className="relative h-[20dvh] min-h-[120px] overflow-hidden rounded-[18px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={quiz.photo} alt="One of your photos from this year" className="h-full w-full object-cover" />
+          </div>
+        )}
+        <p className="mt-4 px-2 text-center text-lg font-semibold leading-snug">{quiz.question}</p>
+        <div className="mt-4 space-y-2.5">
+          {quiz.options.map((o, i) => {
+            const isAnswer = o.id === quiz.answer;
+            const state = !picked ? "idle" : isAnswer ? "right" : o.id === picked ? "wrong" : "other";
+            return (
+              <button
+                key={o.id}
+                type="button"
+                disabled={!!picked}
+                onClick={() => {
+                  setPicked(o.id);
+                  if (isAnswer) tapSuccess();
+                  else {
+                    tapLight();
+                    void controls.start({ x: [0, -10, 10, -6, 6, 0], transition: { duration: 0.45 } });
+                  }
+                }}
+                className={`flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-left ring-1 transition-colors ${
+                  state === "right"
+                    ? "bg-[#fa51a2]/20 ring-2 ring-[#fa51a2]"
+                    : state === "wrong"
+                      ? "bg-white/[0.04] text-white/60 ring-white/20"
+                      : state === "other"
+                        ? "bg-white/[0.03] text-white/45 ring-white/10"
+                        : "bg-white/[0.06] ring-white/15 hover:bg-white/[0.1]"
+                }`}
+              >
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-1 ${state === "right" ? "bg-[#fa51a2] ring-[#fa51a2]" : "ring-white/40"}`}>
+                  {String.fromCharCode(65 + i)}
                 </span>
-              )}
-              <span className="flex-1 font-medium">{o.label}</span>
-              {state === "right" && <Check size={22} className="text-emerald-300" aria-hidden />}
-            </motion.button>
-          );
-        })}
+                <span className="flex-1 font-medium">
+                  {o.flag && <span className="mr-1.5">{o.flag}</span>}
+                  {o.label}
+                </span>
+                {state === "right" && <Check size={20} className="mr-1 text-[#ffb3d6]" aria-hidden />}
+              </button>
+            );
+          })}
+        </div>
+        <div className="relative mt-3 min-h-[3rem] text-center">
+          {right && <Burst />}
+          <AnimatePresence>
+            {picked && (
+              <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="text-sm text-white/80">
+                <span className="font-semibold text-white">{right ? "You remembered! " : "Not quite: "}</span>
+                {quiz.reveal}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
-      <div className="relative mx-auto mt-6 min-h-[7rem] w-full max-w-md text-center">
-        {right && <Burst />}
-        <AnimatePresence>
-          {picked && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <p className="font-serif text-2xl">{right ? "You remembered." : "Not quite."}</p>
-              <p className="mt-1 text-white/75">{quiz.reveal}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
       {picked && (
-        <motion.button type="button" onClick={onNext} className="btn-accent mx-auto mt-auto w-full max-w-md !rounded-full py-4 text-lg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
-          Keep going
+        <motion.button type="button" onClick={onNext} className="mx-auto mt-auto inline-flex items-center gap-2 rounded-full bg-[#ffe4f1] px-8 py-3.5 text-lg font-semibold text-[#2b0b2e]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}>
+          Keep going <ArrowRight size={18} aria-hidden />
         </motion.button>
       )}
+      <span className="sr-only">{w.year}</span>
     </div>
   );
 }
 
-/** One photo of the mosaic: first onto a pile in the middle, one by one, then all into place. */
-function MosaicTile({ photo, i, n }: { photo: WrappedPhoto; i: number; n: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const controls = useAnimationControls();
+// Where each print lands on the table, and how it's turned.
+const PRINTS = [
+  { x: -24, y: 0, r: -7, w: 50 },
+  { x: 26, y: 4, r: 5, w: 48 },
+  { x: -28, y: 31, r: 4, w: 40 },
+  { x: 2, y: 29, r: -3, w: 34 },
+  { x: 30, y: 33, r: 6, w: 40 },
+  { x: -22, y: 61, r: -4, w: 46 },
+  { x: 25, y: 62, r: 5, w: 44 },
+];
+
+function Memories({ w, photos, onChoose }: { w: WrappedYear; photos: WrappedPhoto[]; onChoose: () => void }) {
   const reduce = useReducedMotion();
-  useLayoutEffect(() => {
-    const el = ref.current;
-    const box = el?.parentElement?.getBoundingClientRect();
-    if (!el || !box || reduce) {
-      controls.set({ opacity: 1 });
-      return;
-    }
-    const r = el.getBoundingClientRect();
-    const dx = box.left + box.width / 2 - (r.left + r.width / 2);
-    const dy = box.top + box.height / 2 - (r.top + r.height / 2);
-    const turn = ((i * 37) % 24) - 12;
-    const pileAt = 0.3 + i * 0.32;
-    const settleAt = 0.6 + n * 0.32 + i * 0.04;
-    let alive = true;
-    controls.set({ x: dx, y: dy, scale: 1.9, rotate: turn, opacity: 0, zIndex: i });
-    void (async () => {
-      await controls.start({ opacity: 1, scale: 1.55, transition: { delay: pileAt, duration: 0.45, ease: EASE } });
-      if (!alive) return;
-      await controls.start({ x: 0, y: 0, scale: 1, rotate: 0, transition: { type: "spring", stiffness: 110, damping: 17, delay: Math.max(0, settleAt - pileAt - 0.45) } });
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [controls, i, n, reduce]);
+  const shown = photos.slice(0, PRINTS.length);
   return (
-    <motion.div ref={ref} animate={controls} initial={{ opacity: 0 }} className="relative aspect-square overflow-hidden rounded-xl shadow-[0_12px_30px_-10px_rgba(0,0,0,0.7)] ring-2 ring-white/90">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={photo.url} alt="" className="h-full w-full object-cover" />
+    <div className={page}>
+      <div className="relative">
+        <Title>A year in memories</Title>
+        <button
+          type="button"
+          data-own-taps
+          onClick={onChoose}
+          className="absolute -right-2 -top-10 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold ring-1 ring-white/20 hover:bg-white/15"
+        >
+          <ImagePlus size={13} aria-hidden /> Choose
+        </button>
+      </div>
+      {/* Prints dropped on a table, one after another */}
+      <div className="relative mx-auto mt-6 w-full max-w-sm flex-1">
+        {shown.map((p, i) => {
+          const at = PRINTS[i];
+          return (
+            <motion.div
+              key={p.id}
+              className="absolute bg-white p-[5px] pb-[18px] shadow-[0_16px_30px_-10px_rgba(0,0,0,0.75)]"
+              style={{ left: `calc(50% + ${at.x}% - ${at.w / 2}%)`, top: `${at.y}%`, width: `${at.w}%`, zIndex: i }}
+              initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.6, rotate: at.r * 3, y: -40 }}
+              animate={{ opacity: 1, scale: 1, rotate: at.r, y: 0 }}
+              transition={{ type: "spring", stiffness: 160, damping: 17, delay: 0.5 + i * 0.45 }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt="" className="aspect-[4/3] w-full object-cover" />
+            </motion.div>
+          );
+        })}
+      </div>
+      <motion.p
+        className="mt-2 text-center font-serif text-3xl italic text-white/90"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 + shown.length * 0.45, duration: 0.8 }}
+      >
+        Thank you, {w.year} <span className="not-italic text-[#ff8cc6]">♡</span>
+      </motion.p>
+    </div>
+  );
+}
+
+function Hexagon({ badge, i }: { badge: Badge; i: number }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      className="flex flex-col items-center text-center"
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.6 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 220, damping: 14, delay: 0.5 + i * 0.25 }}
+    >
+      <div className="relative h-[92px] w-[82px]">
+        <svg viewBox="0 0 82 92" className="absolute inset-0 h-full w-full" aria-hidden>
+          <defs>
+            <linearGradient id={`hex-${badge.key}`} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor={badge.from} />
+              <stop offset="1" stopColor={badge.to} />
+            </linearGradient>
+          </defs>
+          <path d="M41 3 L77 23.5 L77 68.5 L41 89 L5 68.5 L5 23.5 Z" fill={`url(#hex-${badge.key})`} fillOpacity="0.28" stroke={`url(#hex-${badge.key})`} strokeWidth="3" strokeLinejoin="round" />
+        </svg>
+        <badge.icon size={34} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ color: badge.from }} aria-hidden />
+      </div>
+      <p className="mt-2 text-sm font-semibold">{badge.title}</p>
+      <p className="text-xs text-white/60">{badge.note}</p>
     </motion.div>
   );
 }
 
-function Photos({ w, photos, onChoose }: { w: WrappedYear; photos: WrappedPhoto[]; onChoose: () => void }) {
-  const cols = photos.length <= 4 ? 2 : 3;
+function Achievements({ w, badges }: { w: WrappedYear; badges: Badge[] }) {
+  const line = w.newCountries.length
+    ? `You explored ${w.newCountries.length} new ${w.newCountries.length === 1 ? "country" : "countries"} this year!`
+    : w.events.length
+      ? `${w.events.length} ${w.events.length === 1 ? "moment" : "moments"} worth remembering this year!`
+      : `${w.countries.length} ${w.countries.length === 1 ? "country" : "countries"} this year!`;
   return (
-    <div className={page}>
-      <Stars />
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#ffb3d6]">Your year in photos</p>
-          <p className="mt-1 font-serif text-2xl">{w.year}, in your own pictures</p>
+    <div className="absolute inset-0">
+      <div className="absolute inset-x-0 bottom-0 h-[48%]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={PEAKS.url} alt="" className="h-full w-full object-cover" />
+        <span className="absolute inset-0 bg-gradient-to-b from-[#120818] via-[#120818]/40 to-[#120818]/30" aria-hidden />
+      </div>
+      <div className={page}>
+        <Title>
+          Your
+          <br />
+          achievements
+        </Title>
+        <div className="mx-auto mt-8 flex w-full max-w-sm justify-center gap-5">
+          {badges.map((b, i) => (
+            <Hexagon key={b.key} badge={b} i={i} />
+          ))}
         </div>
-        <button type="button" data-own-taps onClick={onChoose} className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-2 text-xs font-semibold ring-1 ring-white/20 hover:bg-white/15">
-          <ImagePlus size={14} aria-hidden /> Choose
-        </button>
+        <motion.div
+          className="mx-auto mt-8 flex w-full max-w-sm items-center gap-4 rounded-[22px] bg-white/[0.08] px-5 py-4 ring-1 ring-white/12 backdrop-blur-md"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 + badges.length * 0.25, duration: 0.7, ease: EASE }}
+        >
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#fbbf24]/30 to-[#fa51a2]/30 text-2xl ring-1 ring-white/20" aria-hidden>
+            👑
+          </span>
+          <p className="text-lg font-semibold leading-snug">
+            {line} <span aria-hidden>👏</span>
+          </p>
+        </motion.div>
       </div>
-      <div className="relative mx-auto mt-6 grid w-full max-w-md gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-        {photos.map((p, i) => (
-          <MosaicTile key={p.id} photo={p} i={i} n={photos.length} />
-        ))}
-      </div>
-      <p className="mt-auto pt-4 text-center text-xs text-white/50">From the photos you&apos;ve saved in ExpandiaX this year.</p>
-    </div>
-  );
-}
-
-function Moments({ w, paused }: { w: WrappedYear; paused: boolean }) {
-  const deck = w.events.slice(0, 8);
-  const [at, setAt] = useState(0);
-  useEffect(() => {
-    if (paused || at >= deck.length - 1) return;
-    const t = setTimeout(() => setAt((a) => a + 1), 3000);
-    return () => clearTimeout(t);
-  }, [at, paused, deck.length]);
-  return (
-    <div className={page}>
-      <Stars />
-      <p className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-[#ffb3d6]">{deck.length === 1 ? "The moment that made your year" : "The moments that made your year"}</p>
-      <div className="relative mx-auto mt-6 h-[60dvh] w-full max-w-sm">
-        <AnimatePresence initial={false}>
-          {deck.map((e, i) => {
-            const depth = i - at;
-            if (depth < 0 || depth > 2) return null;
-            const country = e.code ? countryByCode(e.code) : null;
-            const place = [e.venue, e.city].filter(Boolean).join(", ");
-            return (
-              <motion.div
-                key={e.id}
-                className="absolute inset-0 overflow-hidden rounded-[28px] bg-[#2b0b2e] shadow-[0_30px_60px_-20px_rgba(0,0,0,0.8)] ring-1 ring-white/15"
-                style={{ zIndex: 10 - depth }}
-                initial={{ opacity: 0, x: 120, rotate: 8, scale: 0.9 }}
-                animate={{ opacity: depth === 0 ? 1 : 0.6, x: 0, y: depth * 16, rotate: depth === 0 ? 0 : depth % 2 ? 3 : -3, scale: 1 - depth * 0.05 }}
-                exit={{ opacity: 0, x: -260, rotate: -12, transition: { duration: 0.5 } }}
-                transition={{ type: "spring", stiffness: 140, damping: 20 }}
-              >
-                <div className="relative h-[62%] bg-[linear-gradient(135deg,#7a2276,#2b0b2e)]">
-                  {e.photo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={e.photo} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="absolute inset-0 flex items-center justify-center text-[6rem]" aria-hidden>
-                      {ICON[e.type] ?? "✨"}
-                    </span>
-                  )}
-                  <span className="absolute inset-0 bg-gradient-to-t from-[#2b0b2e] via-transparent to-transparent" aria-hidden />
-                  <span className="absolute left-4 top-4 rounded-full bg-black/35 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-                    {ICON[e.type] ?? "✨"} {TYPE[e.type] ?? "A moment"}
-                  </span>
-                </div>
-                <div className="px-5 pt-3">
-                  <p className="font-serif text-[1.9rem] leading-tight">{e.title}</p>
-                  <p className="mt-1 text-sm text-[#ffb3d6]">{formatEventDates(e.date, e.endDate)}</p>
-                  {(place || country) && (
-                    <p className="mt-0.5 truncate text-sm text-white/70">
-                      {country?.flag} {place || country?.name}
-                    </p>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
-      {deck.length > 1 && (
-        <p className="mt-auto pt-4 text-center text-sm text-white/60">
-          {at + 1} of {deck.length}
-          {w.events.length > deck.length ? ` (and ${w.events.length - deck.length} more)` : ""}
-        </p>
-      )}
+      <Credit who={PEAKS.author} href={PEAKS.authorUrl} />
     </div>
   );
 }
 
 function Finale({ w, cover, onChangeCover, onReplay }: { w: WrappedYear; cover: string | null; onChangeCover: () => void; onReplay: () => void }) {
-  const wide = `/api/wrapped/poster?year=${w.year}&format=wide${cover ? `&photo=${cover}` : ""}`;
-  const story = `/api/wrapped/poster?year=${w.year}&format=story${cover ? `&photo=${cover}` : ""}`;
-  const [loaded, setLoaded] = useState(false);
+  const reduce = useReducedMotion();
+  const hl = w.highlights.find((h) => h.id === cover);
+  const pic = hl ? { url: hl.photo, title: hl.title, from: hl.from, to: hl.to } : (() => {
+    const p = w.photos.find((x) => x.id === cover) ?? w.photos[0];
+    return p ? { url: p.url, title: p.label, from: p.takenAt?.slice(0, 10) ?? null, to: null } : null;
+  })();
+  const photoParam = hl ? w.photos.find((p) => p.url === hl.photo)?.id ?? null : cover;
+  const story = `/api/wrapped/poster?year=${w.year}&format=story${photoParam ? `&photo=${photoParam}` : ""}`;
+  const wide = `/api/wrapped/poster?year=${w.year}&format=wide${photoParam ? `&photo=${photoParam}` : ""}`;
   const files = useRef(new Map<string, Promise<File | null>>());
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | "wide" | "story">(null);
@@ -643,17 +863,16 @@ function Finale({ w, cover, onChangeCover, onReplay }: { w: WrappedYear; cover: 
     }
     return p;
   }, []);
-  // Both made ahead, so Share opens at once.
+  // Made ahead, so Share opens at once.
   useEffect(() => {
-    setLoaded(false);
-    void get(wide, `expandiax-${w.year}.png`);
     void get(story, `expandiax-${w.year}-story.png`);
-  }, [wide, story, get, w.year]);
+    void get(wide, `expandiax-${w.year}.png`);
+  }, [story, wide, get, w.year]);
 
-  async function share(which: "wide" | "story") {
+  async function share(which: "story" | "wide") {
     setNote(null);
     setBusy(which);
-    const f = await get(which === "wide" ? wide : story, which === "wide" ? `expandiax-${w.year}.png` : `expandiax-${w.year}-story.png`);
+    const f = await get(which === "story" ? story : wide, which === "story" ? `expandiax-${w.year}-story.png` : `expandiax-${w.year}.png`);
     setBusy(null);
     if (!f) return setNote("Couldn't make the picture. Try again?");
     try {
@@ -669,62 +888,86 @@ function Finale({ w, cover, onChangeCover, onReplay }: { w: WrappedYear; cover: 
   }
 
   return (
-    <div className={page} data-own-taps>
-      <Stars />
-      <p className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-[#ffb3d6]">Your {w.year}, in one picture</p>
-      <motion.div
-        className="relative mx-auto mt-5 aspect-video w-full max-w-xl overflow-hidden rounded-[18px] bg-white/5 shadow-[0_30px_80px_-20px_rgba(250,81,162,0.45)] ring-1 ring-white/15"
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.9, ease: EASE }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img key={wide} src={wide} alt={`Your ${w.year} on ExpandiaX`} onLoad={() => setLoaded(true)} className={`h-full w-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`} />
-        {!loaded && (
-          <span className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="animate-spin text-white/60" aria-hidden />
-          </span>
-        )}
-      </motion.div>
-      {w.photos.length > 1 && (
-        <button type="button" onClick={onChangeCover} className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-[#ffb3d6] hover:bg-white/10">
-          <ImagePlus size={15} aria-hidden /> Change photo
-        </button>
+    <div className="absolute inset-0" data-own-taps>
+      {pic && (
+        <motion.div className="absolute inset-0" initial={{ scale: 1.12 }} animate={{ scale: reduce ? 1.12 : 1 }} transition={{ duration: 10, ease: "easeOut" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={pic.url} alt="" className="h-full w-full object-cover" />
+        </motion.div>
       )}
-      <div className="mx-auto mt-auto w-full max-w-md space-y-3">
-        {note && <p className="text-center text-sm text-white/70">{note}</p>}
-        <div className="flex gap-3">
-          <button type="button" onClick={() => void share("story")} disabled={!!busy} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7c3aed] via-[#fa51a2] to-[#fb7822] py-4 text-base font-semibold shadow-[0_12px_30px_-12px_rgba(250,81,162,0.9)]">
-            {busy === "story" ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Sparkles size={18} aria-hidden />} Story
+      <div aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,#120818_0%,rgba(18,8,24,0.55)_22%,rgba(18,8,24,0.05)_45%,rgba(18,8,24,0.55)_70%,#120818_96%)]" />
+      <div className={page}>
+        <Title>
+          Your
+          <br />
+          One to Remember
+        </Title>
+        {w.photos.length > 1 && (
+          <button type="button" onClick={onChangeCover} className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full bg-black/30 px-3 py-1.5 text-xs font-semibold backdrop-blur-sm hover:bg-black/45">
+            <ImagePlus size={13} aria-hidden /> Change photo
           </button>
-          <button type="button" onClick={() => void share("wide")} disabled={!!busy} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-white py-4 text-base font-semibold text-[#2b0b2e]">
-            {busy === "wide" ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Share2 size={18} aria-hidden />} Share
+        )}
+        <div className="mx-auto mt-auto w-full max-w-sm">
+          {pic && (
+            <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.7 }}>
+              <p className="text-2xl font-bold">{pic.title}</p>
+              {pic.from && (
+                <p className="mt-1 inline-flex items-center gap-1.5 text-white/85">
+                  <CalendarDays size={15} aria-hidden /> {shortRange(pic.from, pic.to)} {w.year}
+                </p>
+              )}
+            </motion.div>
+          )}
+          {note && <p className="mt-3 text-center text-sm text-white/80">{note}</p>}
+          <button
+            type="button"
+            onClick={() => void share("story")}
+            disabled={!!busy}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#ffe4f1] py-4 text-lg font-semibold text-[#2b0b2e] shadow-[0_14px_40px_-12px_rgba(250,81,162,0.8)]"
+          >
+            {busy === "story" ? <Loader2 size={19} className="animate-spin" aria-hidden /> : <InstagramGlyph />} Share to Instagram
+          </button>
+          <div className="mt-3 flex gap-3">
+            <Link href="/my-world" className="flex flex-1 items-center justify-center rounded-full py-3.5 font-medium ring-1 ring-white/40 hover:bg-white/10">
+              Keep exploring
+            </Link>
+            <button type="button" onClick={() => void share("wide")} disabled={!!busy} aria-label="Share the wide picture" className="flex h-[52px] w-[52px] items-center justify-center rounded-full ring-1 ring-white/40 hover:bg-white/10">
+              {busy === "wide" ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Share2 size={18} aria-hidden />}
+            </button>
+          </div>
+          <button type="button" onClick={onReplay} className="mx-auto mt-3 block text-sm text-white/60 hover:text-white">
+            Watch again
           </button>
         </div>
-        <button type="button" onClick={onReplay} className="mx-auto flex items-center gap-1.5 text-sm text-white/60 hover:text-white">
-          <RotateCcw size={14} aria-hidden /> Watch again
-        </button>
-        <p className="text-center text-[11px] text-white/40">Made from what you&apos;ve saved in ExpandiaX{w.partial ? " (some trips without exact dates)" : ""}.</p>
       </div>
     </div>
+  );
+}
+
+function InstagramGlyph() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
+      <circle cx="12" cy="12" r="4.25" />
+      <circle cx="17.4" cy="6.6" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
   );
 }
 
 function Empty({ w }: { w: WrappedYear }) {
   return (
     <div className={page} data-own-taps>
-      <Stars />
       <div className="my-auto text-center">
         <p className="text-6xl" aria-hidden>
           🌍
         </p>
-        <h2 className="mt-5 font-serif text-[2.2rem] leading-tight">
-          Your {w.year} story is <span className="italic text-[#ff8cc6]">still being written.</span>
+        <h2 className="mt-5 font-sans text-[2.1rem] font-bold leading-tight">
+          Your {w.year} story is <span className="font-serif italic text-[#ff8cc6]">still being written.</span>
         </h2>
         <p className="mx-auto mt-3 max-w-sm text-white/70">Add the places and the moments from this year, and your Wrapped will tell their story.</p>
       </div>
-      <div className="mx-auto w-full max-w-md space-y-3">
-        <Link href="/my-world" className="btn-accent flex w-full items-center justify-center !rounded-full py-4 text-lg">
+      <div className="mx-auto w-full max-w-sm space-y-3">
+        <Link href="/my-world" className="flex w-full items-center justify-center rounded-full bg-[#ffe4f1] py-4 text-lg font-semibold text-[#2b0b2e]">
           Add this year&apos;s countries
         </Link>
         <Link href="/events/new" className="flex w-full items-center justify-center rounded-full py-3.5 text-base font-medium ring-1 ring-white/30 hover:bg-white/10">
@@ -754,23 +997,23 @@ function PhotoChooser({
   return (
     <motion.div className="absolute inset-0 z-40 flex items-end bg-black/60" data-own-taps initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <motion.div
-        className="flex max-h-[85dvh] w-full flex-col rounded-t-[28px] bg-[#1c0820] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 ring-1 ring-white/10"
+        className="flex max-h-[85dvh] w-full flex-col rounded-t-[28px] bg-[#1f0a25] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 ring-1 ring-white/10"
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", stiffness: 300, damping: 32 }}
       >
         <div className="flex items-center justify-between px-1">
-          <p className="font-serif text-xl">{mode === "cover" ? "The photo for your year" : "Photos in your Wrapped"}</p>
+          <p className="text-xl font-bold">{mode === "cover" ? "Your One to Remember" : "Photos in your Wrapped"}</p>
           <button
             type="button"
             onClick={() => onDone(mode === "cover" ? { cover: pick } : { hidden: [...off] })}
-            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#2b0b2e]"
+            className="rounded-full bg-[#ffe4f1] px-4 py-2 text-sm font-semibold text-[#2b0b2e]"
           >
             Done
           </button>
         </div>
-        <p className="mt-1 px-1 text-xs text-white/55">{mode === "cover" ? "Tap one." : `Tap to leave one out. Up to ${MAX_PHOTOS} are used (${Math.min(shown, MAX_PHOTOS)} now).`}</p>
+        <p className="mt-1 px-1 text-xs text-white/55">{mode === "cover" ? "Tap one." : `Tap to leave one out (${Math.min(shown, MAX_PHOTOS)} in).`}</p>
         <div className="mt-3 grid flex-1 grid-cols-4 gap-1.5 overflow-y-auto">
           {photos.map((p) => {
             const on = mode === "cover" ? pick === p.id : !off.has(p.id);
@@ -807,3 +1050,4 @@ function PhotoChooser({
     </motion.div>
   );
 }
+

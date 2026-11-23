@@ -150,6 +150,8 @@ type Props = {
   onReady?: () => void;
   /** Countries in the order they were travelled: glowing arcs between them, light running along each (Year Wrapped). */
   route?: string[];
+  /** The Earth at night (city lights), whatever the app's theme (Year Wrapped). */
+  night?: boolean;
 };
 
 export function WorldGlobeInner({
@@ -169,9 +171,10 @@ export function WorldGlobeInner({
   pullBack = false,
   onReady,
   route,
+  night = false,
 }: Props) {
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const isDark = night || resolvedTheme === "dark";
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const placed = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
