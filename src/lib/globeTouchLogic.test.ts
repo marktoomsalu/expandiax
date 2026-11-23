@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approachProgress, compareGlobes, decideTouch, isFreshBumpPair, randomCode } from "./globeTouchLogic";
+import { approachProgress, compareGlobes, decideTouch, isFreshBumpPair, randomCode, travelMatch } from "./globeTouchLogic";
 
 const at = (pairs: [number, number][]) => pairs.map(([meters, t]) => ({ meters, at: t }));
 
@@ -55,5 +55,14 @@ describe("compareGlobes", () => {
     const mine = [{ code: "EE", lived: true }, { code: "IT", lived: false }, { code: "GL", lived: false }];
     const theirs = [{ code: "IT", lived: false }, { code: "XK", lived: false }];
     expect(compareGlobes(mine, theirs)).toEqual({ both: ["IT"], onlyMine: ["EE"], onlyTheirs: ["XK"], together: 3 });
+  });
+});
+
+describe("travel match", () => {
+  it("weighs what's shared against both worlds", () => {
+    expect(travelMatch(12, 20, 17)).toBe(65);
+    expect(travelMatch(5, 5, 60)).toBe(29);
+    expect(travelMatch(10, 10, 10)).toBe(100);
+    expect(travelMatch(0, 10, 10)).toBe(0);
   });
 });

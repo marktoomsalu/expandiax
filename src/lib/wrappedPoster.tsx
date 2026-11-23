@@ -12,7 +12,7 @@ import { collageDefault, type WrappedYear } from "@/lib/wrapped";
 import { AROUND, BORDER, COLLAGE_SLOTS, inside, MAIN, POSTER_GLOBE, POSTER_H, POSTER_W, PosterArt, storyFacts } from "@/lib/wrappedPosterArt";
 
 const fontCache = new Map<string, Promise<ArrayBuffer | null>>();
-function loadFont(query: string): Promise<ArrayBuffer | null> {
+export function loadFont(query: string): Promise<ArrayBuffer | null> {
   let p = fontCache.get(query);
   if (!p) {
     p = (async () => {
@@ -30,12 +30,12 @@ function loadFont(query: string): Promise<ArrayBuffer | null> {
 }
 
 let logo: Promise<string> | null = null;
-const loadLogo = () => (logo ??= readFile(path.join(process.cwd(), "public", "wordmark.svg")).then((b) => `data:image/svg+xml;base64,${b.toString("base64")}`));
+export const loadLogo = () => (logo ??= readFile(path.join(process.cwd(), "public", "wordmark.svg")).then((b) => `data:image/svg+xml;base64,${b.toString("base64")}`));
 
 let world: Promise<WorldFeature[]> | null = null;
-const loadWorld = () => (world ??= readFile(path.join(process.cwd(), "public", "data", "world-110m.json"), "utf8").then((raw) => worldFeatures(JSON.parse(raw) as Topology)));
+export const loadWorld = () => (world ??= readFile(path.join(process.cwd(), "public", "data", "world-110m.json"), "utf8").then((raw) => worldFeatures(JSON.parse(raw) as Topology)));
 
-async function photoData(url: string | null | undefined, w: number, h: number): Promise<string | null> {
+export async function photoData(url: string | null | undefined, w: number, h: number): Promise<string | null> {
   if (!url) return null;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });

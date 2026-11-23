@@ -26,6 +26,8 @@ import {
 } from "@/lib/globeTouch";
 import { compareGlobes, type GlobeCountry } from "@/lib/globeTouchLogic";
 import { setTouchAsked, setTouchReady, isTouchReady } from "@/lib/globeTouchReady";
+import { StoryShareButton } from "@/components/StoryShareButton";
+import { noteFeature } from "@/lib/usageClient";
 
 const TouchGlobe = dynamic(() => import("./TouchGlobeInner").then((m) => m.TouchGlobeInner), { ssr: false });
 
@@ -260,7 +262,11 @@ export function TouchGlobes({
   if (!mounted) body = null;
   else if (!demo && !hasGlobeTouch()) body = <Unsupported />;
   else if (!started) body = <Intro me={me} myCountries={myCountries} size={size} onStart={begin} />;
-  else if (result) body = <Reveal me={me} result={result} size={size} onFollow={follow} onShareDreams={shareDreams} onAgain={again} />;
+  else if (result) {
+    // The Story picture: made on the server from the same touch (only the two of you, within the hour).
+    const story = demo ? (process.env.NODE_ENV !== "production" ? "/api/story/connect?demo=1" : null) : touch ? `/api/story/connect?code=${touch.myCode}&peer=${touch.peerCode}` : null;
+    body = <Reveal me={me} result={result} size={size} story={story} onFollow={follow} onShareDreams={shareDreams} onAgain={again} />;
+  }
   else if (failed) body = <Failed onAgain={again} />;
   else body = <Searching state={s} myCountries={myCountries} size={size} touching={!!touch} />;
 
@@ -416,7 +422,7 @@ function Searching({ state, myCountries, size, touching }: { state: TouchState; 
   );
 }
 
-function Reveal({ me, result, size, onFollow, onShareDreams, onAgain }: { me: TouchMe; result: Result; size: number; onFollow: () => void; onShareDreams: () => void; onAgain: () => void }) {
+function Reveal({ me, result, size, story, onFollow, onShareDreams, onAgain }: { me: TouchMe; result: Result; size: number; story: string | null; onFollow: () => void; onShareDreams: () => void; onAgain: () => void }) {
   const { peer } = result;
   const name = firstName(peer);
   const g = useMemo(() => compareGlobes(result.my_countries, result.peer_countries), [result.my_countries, result.peer_countries]);
@@ -472,6 +478,12 @@ function Reveal({ me, result, size, onFollow, onShareDreams, onAgain }: { me: To
       <p className="touch-rise mt-8 font-serif text-2xl" style={{ animationDelay: "1800ms" }}>
         Together you&rsquo;ve seen {g.together} {g.together === 1 ? "country" : "countries"}.
       </p>
+
+      {story && (
+        <div className="touch-rise mt-5 flex w-full" style={{ animationDelay: "1950ms" }}>
+          <StoryShareButton src={story} title={`world-connect-${name}`} onShare={() => noteFeature("connect_story")} />
+        </div>
+      )}
 
       <FollowCard result={result} name={name} onFollow={onFollow} />
       <DreamsCard result={result} name={name} onShare={onShareDreams} />

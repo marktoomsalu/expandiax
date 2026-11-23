@@ -63,3 +63,13 @@ export function compareGlobes(mine: GlobeCountry[], theirs: GlobeCountry[]) {
   const onlyTheirs = [...b].filter((c) => !a.has(c)).sort(byName);
   return { both, onlyMine, onlyTheirs, together: a.size + onlyTheirs.length };
 }
+
+/**
+ * How alike two travellers' worlds are, 0–100: the countries they share,
+ * weighed against both their worlds (cosine: someone who's been to 5 places,
+ * all shared with a friend who's been to 60, isn't a 100% match).
+ */
+export function travelMatch(both: number, mine: number, theirs: number): number {
+  if (!both || !mine || !theirs) return 0;
+  return Math.round((both / Math.sqrt(mine * theirs)) * 100);
+}

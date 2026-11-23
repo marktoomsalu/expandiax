@@ -94,6 +94,8 @@ export function drawGlobe(
     reach?: number;
     /** Step back for someone who's been all over. */
     widen?: boolean;
+    /** Turn towards these places (default: the route and the countries). */
+    focus?: string[];
   }
 ): GlobeArt {
   const { size } = opts;
@@ -111,7 +113,7 @@ export function drawGlobe(
   // Asia, Europe…) it can land in an empty ocean with half the places round
   // the back. So each place (and that average) is tried as the middle, and
   // the one that shows the most of their places, nearest the front, wins.
-  const points = [...new Set([...(opts.route ?? []), ...opts.countries])].map(at).filter((p): p is [number, number] => !!p);
+  const points = [...new Set(opts.focus ?? [...(opts.route ?? []), ...opts.countries])].map(at).filter((p): p is [number, number] => !!p);
   let reach = opts.reach ?? 1.1;
   let center = bestView(points, reach);
   // All over the world (most places out of that view): step back a little

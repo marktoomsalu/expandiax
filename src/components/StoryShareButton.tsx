@@ -28,14 +28,20 @@ export function StoryShareButton({
   photoId,
   eyebrow,
   title,
+  src,
+  onShare,
 }: {
-  kind: "event" | "country";
-  id: string;
+  kind?: "event" | "country";
+  id?: string;
+  /** Another Story picture than a memory's (World Connect's): its address. */
+  src?: string;
+  /** Counted as used (the usage totals). */
+  onShare?: () => void;
   /** A country's trip: the same one the card shows. */
   visitId?: string | null;
   /** The photo they're on in the card: the one the Story shows. */
   photoId?: string | null;
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
@@ -46,7 +52,8 @@ export function StoryShareButton({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const url =
-    `/api/story/memory?kind=${kind}&id=${id}&eyebrow=${encodeURIComponent(eyebrow)}` +
+    src ??
+    `/api/story/memory?kind=${kind}&id=${id}&eyebrow=${encodeURIComponent(eyebrow ?? "")}` +
     (visitId ? `&visit=${visitId}` : "") +
     (photoId ? `&photo=${photoId}` : "");
   const name = `expandiax-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "memory"}.png`;
@@ -87,6 +94,7 @@ export function StoryShareButton({
 
   async function share() {
     tapLight();
+    onShare?.();
     setNote(null);
     let f: File | null = ready[url] ?? null;
     if (!f) {
