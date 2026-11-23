@@ -21,48 +21,74 @@ function InstagramGlyph() {
  * screen, so the tap opens the sheet at once (iPhone only allows sharing
  * straight from a tap).
  */
-export function StoryShareButton({ kind, id, eyebrow, title }: { kind: "event" | "country"; id: string; eyebrow: string; title: string }) {
+export function StoryShareButton({
+  kind,
+  id,
+  visitId,
+  photoId,
+  eyebrow,
+  title,
+}: {
+  kind: "event" | "country";
+  id: string;
+  /** A country's trip: the same one the card shows. */
+  visitId?: string | null;
+  /** The photo they're on in the card: the one the Story shows. */
+  photoId?: string | null;
+  eyebrow: string;
+  title: string;
+}) {
   const ref = useRef<HTMLButtonElement>(null);
-  const loading = useRef<Promise<File | null> | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  // One picture per photo, kept as they're made: swiping back is instant.
+  const made = useRef(new Map<string, Promise<File | null>>());
+  const [ready, setReady] = useState<Record<string, File>>({});
+  const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const url = `/api/story/memory?kind=${kind}&id=${id}&eyebrow=${encodeURIComponent(eyebrow)}`;
+  const url =
+    `/api/story/memory?kind=${kind}&id=${id}&eyebrow=${encodeURIComponent(eyebrow)}` +
+    (visitId ? `&visit=${visitId}` : "") +
+    (photoId ? `&photo=${photoId}` : "");
   const name = `expandiax-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "memory"}.png`;
 
   const prepare = useCallback(() => {
-    loading.current ??= fetch(url)
-      .then((r) => (r.ok ? r.blob() : null))
-      .then((b) => (b ? new File([b], name, { type: "image/png" }) : null))
-      .then((f) => {
-        setFile(f);
-        return f;
-      })
-      .catch(() => null);
-    return loading.current;
+    let p = made.current.get(url);
+    if (!p) {
+      p = fetch(url)
+        .then((r) => (r.ok ? r.blob() : null))
+        .then((b) => (b ? new File([b], name, { type: "image/png" }) : null))
+        .then((f) => {
+          if (f) setReady((r) => ({ ...r, [url]: f }));
+          else made.current.delete(url);
+          return f;
+        })
+        .catch(() => {
+          made.current.delete(url);
+          return null;
+        });
+      made.current.set(url, p);
+    }
+    return p;
   }, [url, name]);
 
-  // Ready before the tap: made once the card comes into view.
+  // Ready before the tap: once the card is on screen, the photo they've settled on (not every one swiped past).
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          void prepare();
-          io.disconnect();
-        }
-      },
-      { rootMargin: "200px" }
-    );
+    const io = new IntersectionObserver(([entry]) => entry.isIntersecting && setVisible(true), { rootMargin: "200px" });
     io.observe(el);
     return () => io.disconnect();
-  }, [prepare]);
+  }, []);
+  useEffect(() => {
+    if (!visible) return;
+    const t = setTimeout(() => void prepare(), 500);
+    return () => clearTimeout(t);
+  }, [visible, prepare]);
 
   async function share() {
     tapLight();
     setNote(null);
-    let f = file;
+    let f: File | null = ready[url] ?? null;
     if (!f) {
       setBusy(true);
       f = await prepare();

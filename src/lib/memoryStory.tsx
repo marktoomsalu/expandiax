@@ -58,8 +58,9 @@ async function pictures(url: string | null): Promise<{ hero: string | null; back
  * the feed shows it, floating on the same photo blurred into ExpandiaX
  * purple, the ExpandiaX wordmark above.
  */
-export async function renderMemoryStory(m: ThenMemory): Promise<ImageResponse> {
-  const photoUrl = m.photos[0]?.url ?? m.fallbackImage ?? (m.stock ? stockUrl(m.stock.raw, 1600, "4:3", 80) : null);
+export async function renderMemoryStory(m: ThenMemory, photoId?: string | null): Promise<ImageResponse> {
+  const chosen = (photoId && m.photos.find((p) => p.id === photoId)) || m.photos[0];
+  const photoUrl = chosen?.url ?? m.fallbackImage ?? (m.stock ? stockUrl(m.stock.raw, 1600, "4:3", 80) : null);
   const [{ hero, backdrop }, font, italic, inter, interBold, wordmark] = await Promise.all([
     pictures(photoUrl),
     loadFont("Fraunces:opsz,wght@72,600"),
@@ -75,7 +76,6 @@ export async function renderMemoryStory(m: ThenMemory): Promise<ImageResponse> {
     interBold && { name: "Inter", data: interBold, weight: 700 as const, style: "normal" as const },
   ].filter((f): f is NonNullable<typeof f> => !!f);
   const meta = [m.dateLabel, m.place].filter(Boolean).join("  ·  ");
-  const photoCount = m.photos.length;
   const titleSize = m.title.length > 22 ? 64 : m.title.length > 14 ? 76 : 88;
 
   return new ImageResponse(
@@ -115,11 +115,6 @@ export async function renderMemoryStory(m: ThenMemory): Promise<ImageResponse> {
           >
             <div style={{ display: "flex", width: CARD, height: PHOTO_H, position: "relative", background: `linear-gradient(135deg, ${m.gradient[0]}, ${m.gradient[1]})` }}>
               {hero && <img alt="" src={hero} width={CARD} height={PHOTO_H} style={{ width: CARD, height: PHOTO_H, objectFit: "cover" }} />}
-              {photoCount > 1 && (
-                <div style={{ position: "absolute", top: 30, right: 30, display: "flex", alignItems: "center", padding: "12px 22px", borderRadius: 999, background: "rgba(0,0,0,0.45)", color: "white", fontSize: 30, fontWeight: 700 }}>
-                  {photoCount} photos
-                </div>
-              )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", padding: "44px 56px 52px" }}>
               {m.eyebrow && (
