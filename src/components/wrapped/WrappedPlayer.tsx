@@ -329,6 +329,9 @@ export function WrappedPlayer({ w, startAt = 0 }: { w: WrappedYear; startAt?: nu
 }
 
 /** What the finale can show: their highlights first, then any photo of the year. */
+/** Photos next/image may resize (the hosts in next.config.mjs); anything else is shown as it is. */
+const resizable = (url: string) => /^https:\/\/(([a-z0-9-]+\.)+supabase\.co|i\.scdn\.co|([a-z0-9-]+\.)+mzstatic\.com)\//.test(url);
+
 function coverChoices(w: WrappedYear): WrappedPhoto[] {
   const hl = w.highlights.map((h) => ({ id: h.id, url: h.photo, takenAt: h.from, label: h.title, code: h.code }));
   return [...hl, ...w.photos.filter((p) => !hl.some((h) => h.url === p.url))];
@@ -436,7 +439,7 @@ function Intro({ w, onGo }: { w: WrappedYear; onGo: () => void }) {
           </motion.p>
         </div>
         <motion.p {...word(1.8)} className="mt-10 text-center text-xl leading-snug text-white/90">
-          {w.firstName ? `${w.firstName}, your` : "Your"} {w.year}
+          Your {w.year}
           <br />
           in experiences
         </motion.p>
@@ -488,12 +491,12 @@ function Glance({ w }: { w: WrappedYear }) {
       </div>
       {/* The Earth at night, rising from below */}
       <motion.div
-        className="pointer-events-none absolute inset-x-[-30%] bottom-[-62%]"
+        className="pointer-events-none absolute inset-x-[-30%] bottom-[-44%]"
         initial={{ opacity: 0, y: 60 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1.1, delay: 0.2, ease: EASE }}
       >
-        <GlobePicture countries={w.countries} home={w.homeCode} route={w.journey.map((s) => s.code)} tilt={-22} drawDelay={1.2} className="w-full" />
+        <GlobePicture countries={w.countries} home={w.homeCode} route={w.journey.map((s) => s.code)} tilt={36} drawDelay={1.2} className="w-full" />
       </motion.div>
     </div>
   );
@@ -583,8 +586,7 @@ function Highlights({ w }: { w: WrappedYear }) {
             animate={{ opacity: 1, x: 0, rotate: i % 2 ? 1.5 : -1.5 }}
             transition={{ type: "spring", stiffness: 120, damping: 16, delay: 0.5 + i * 0.35 }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={h.photo} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <Image src={h.photo} alt="" fill sizes="(max-width: 640px) 100vw, 400px" unoptimized={!resizable(h.photo)} className="object-cover" />
             <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" aria-hidden />
             <span className={`absolute right-3 top-3 rounded-full bg-gradient-to-br px-2.5 py-1 text-sm font-bold text-white shadow ${RANK[i]}`}>#{i + 1}</span>
             <div className="absolute inset-x-4 bottom-3">
@@ -606,6 +608,14 @@ function QuizSlide({ w, quiz, onNext }: { w: WrappedYear; quiz: Quiz; onNext: ()
   const [picked, setPicked] = useState<string | null>(null);
   const right = picked === quiz.answer;
   const controls = useAnimationControls();
+  // Answered: a moment to see it, then on to the next chapter.
+  const next = useRef(onNext);
+  next.current = onNext;
+  useEffect(() => {
+    if (!picked) return;
+    const t = setTimeout(() => next.current(), 2800);
+    return () => clearTimeout(t);
+  }, [picked]);
   return (
     <div className={page} data-own-taps>
       <Title>
@@ -625,8 +635,7 @@ function QuizSlide({ w, quiz, onNext }: { w: WrappedYear; quiz: Quiz; onNext: ()
       >
         {quiz.photo && (
           <div className="relative h-[20dvh] min-h-[120px] overflow-hidden rounded-[18px]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={quiz.photo} alt="One of your photos from this year" className="h-full w-full object-cover" />
+            <Image src={quiz.photo} alt="One of your photos from this year" fill sizes="(max-width: 640px) 100vw, 400px" unoptimized={!resizable(quiz.photo)} className="object-cover" />
           </div>
         )}
         <p className="mt-4 px-2 text-center text-lg font-semibold leading-snug">{quiz.question}</p>
@@ -681,11 +690,6 @@ function QuizSlide({ w, quiz, onNext }: { w: WrappedYear; quiz: Quiz; onNext: ()
           </AnimatePresence>
         </div>
       </motion.div>
-      {picked && (
-        <motion.button type="button" onClick={onNext} className="mx-auto mt-auto inline-flex items-center gap-2 rounded-full bg-[#ffe4f1] px-8 py-3.5 text-lg font-semibold text-[#2b0b2e]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}>
-          Keep going <ArrowRight size={18} aria-hidden />
-        </motion.button>
-      )}
       <span className="sr-only">{w.year}</span>
     </div>
   );
@@ -731,8 +735,9 @@ function Memories({ w, photos, onChoose }: { w: WrappedYear; photos: WrappedPhot
               animate={{ opacity: 1, scale: 1, rotate: at.r, y: 0 }}
               transition={{ type: "spring", stiffness: 160, damping: 17, delay: 0.5 + i * 0.45 }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.url} alt="" className="aspect-[4/3] w-full object-cover" />
+              <div className="relative aspect-[4/3] w-full">
+                <Image src={p.url} alt="" fill sizes="(max-width: 640px) 50vw, 220px" unoptimized={!resizable(p.url)} className="object-cover" />
+              </div>
             </motion.div>
           );
         })}
@@ -1004,7 +1009,8 @@ function PhotoChooser({
           </button>
         </div>
         <p className="mt-1 px-1 text-xs text-white/55">{mode === "cover" ? "Tap one." : `Tap to leave one out (${Math.min(shown, MAX_PHOTOS)} in).`}</p>
-        <div className="mt-3 grid flex-1 grid-cols-4 gap-1.5 overflow-y-auto">
+        <div className="-mx-1 mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-1">
+          <div className="grid grid-cols-3 gap-2">
           {photos.map((p) => {
             const on = mode === "cover" ? pick === p.id : !off.has(p.id);
             return (
@@ -1023,18 +1029,18 @@ function PhotoChooser({
                     });
                 }}
                 aria-pressed={on}
-                className={`relative aspect-square overflow-hidden rounded-lg ${on ? "ring-2 ring-[#fa51a2]" : "opacity-40"}`}
+                className={`relative block w-full overflow-hidden rounded-xl bg-white/5 pt-[100%] transition-opacity ${on ? "ring-2 ring-[#fa51a2]" : "opacity-40"}`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.url} alt={p.label} className="h-full w-full object-cover" />
+                <Image src={p.url} alt={p.label} fill sizes="(max-width: 640px) 33vw, 160px" unoptimized={!resizable(p.url)} className="object-cover" />
                 {on && (
-                  <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#fa51a2]">
-                    <Check size={12} strokeWidth={3} aria-hidden />
+                  <span className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#fa51a2] shadow">
+                    <Check size={14} strokeWidth={3} aria-hidden />
                   </span>
                 )}
               </button>
             );
           })}
+          </div>
         </div>
       </motion.div>
     </motion.div>
