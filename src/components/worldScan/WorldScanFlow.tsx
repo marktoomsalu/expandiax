@@ -16,9 +16,8 @@ import { CountriesWall, type CountryPick } from "./CountriesWall";
 import { MemoriesView } from "./MemoriesView";
 import { ScanFinish } from "./ScanFinish";
 import { InviteHero } from "./InviteHero";
-import { PhotoPrimer } from "./PhotoPrimer";
 
-type Phase = "invite" | "explain" | "denied" | "scanning" | "awakening" | "reveal" | "countries" | "memories" | "finish" | "empty" | "error";
+type Phase = "invite" | "denied" | "scanning" | "awakening" | "reveal" | "countries" | "memories" | "finish" | "empty" | "error";
 
 /** Why nothing was found: no photos to read, photos without a place saved, or only photos from home. */
 type EmptyReason = "no-photos" | "no-places" | "home-only";
@@ -107,16 +106,17 @@ export function WorldScanFlow({
   }, [world]);
 
   /**
-   * "Discover my world": first, in plain words, what happens with their
-   * photos (only if iPhone hasn't asked them yet); already answered yes, it
+   * "Discover my world": not asked yet, iPhone asks now (the first screen
+   * has already said what's read and where); already answered yes, it
    * starts; answered no before, iPhone won't ask again, so the way to
    * Settings, or by hand.
    */
   function discover() {
-    tapLight();
-    if (access === "full" || access === "limited") return void start();
-    if (access === "denied" || access === "restricted") return setPhase("denied");
-    setPhase("explain");
+    if (access === "denied" || access === "restricted") {
+      tapLight();
+      return setPhase("denied");
+    }
+    void start();
   }
 
   async function start() {
@@ -232,9 +232,6 @@ export function WorldScanFlow({
   switch (phase) {
     case "invite":
       scene = <InviteHero mode={mode} error={error} onStart={discover} onManual={onManual} burst={mode === "new" && firstInvite.current} />;
-      break;
-    case "explain":
-      scene = <PhotoPrimer onContinue={() => void start()} onBack={() => setPhase("invite")} />;
       break;
     case "denied":
       scene = <Denied restricted={access === "restricted"} onManual={onManual} onRetry={start} />;
