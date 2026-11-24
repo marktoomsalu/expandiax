@@ -128,8 +128,10 @@ export function ScanFinish({
       <div className="mt-4 w-full shrink-0">
         {mode === "new" ? (
           <>
-            {/* What they kept is waiting on the phone; signing up just gives it a home. */}
-            <Link href="/sign-up" className="btn-accent w-full py-4 text-lg">
+            {/* What they kept is waiting on the phone; signing up just gives it a home.
+                Sign-up takes this page's place in the history: nothing to swipe back to
+                (going back would start the whole search over). */}
+            <Link href="/sign-up" replace className="btn-accent w-full py-4 text-lg">
               Save my world
             </Link>
             <p className="mt-2 text-xs text-white/50">So your world is kept safe.</p>
