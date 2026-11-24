@@ -8,6 +8,7 @@ import { featuresReleased, joinedBeforeFeatures } from "@/lib/appVersion";
 import { TOUR, claimIntro, introHolder, markTourSeen, onIntroChange, releaseIntro, tourSeen } from "@/lib/introQueue";
 import { openChat } from "@/lib/chat";
 import { tapLight } from "@/lib/haptics";
+import { canScanPhotos } from "@/lib/photoScan";
 
 const QUIET = ["/touch", "/start", "/sign-in", "/sign-up", "/onboarding", "/join"];
 
@@ -25,8 +26,8 @@ export function ChatTour({ joinedAt }: { joinedAt: string }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    // Part of "what's new": only for people who were here before 1.1.
-    if (!hasGlobeTouch() || !joinedBeforeFeatures(joinedAt)) return;
+    // Part of 1.1's "what's new": only for people who were here before 1.1, and never in the 1.2 app (its only "what's new" is Discover my world).
+    if (!hasGlobeTouch() || !joinedBeforeFeatures(joinedAt) || canScanPhotos()) return;
     let alive = true;
     const tryOpen = async () => {
       if (open || QUIET.some((p) => window.location.pathname.startsWith(p))) return;

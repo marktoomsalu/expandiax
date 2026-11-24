@@ -27,6 +27,8 @@ export function onIntroChange(fn: () => void) {
 // the one before, and World Connect also waits until the chat is closed
 // again (the chat tour's "Open chat" goes straight into it).
 export const TOUR = {
+  /** 1.2's "What's new" (Discover my world): the only one in the 1.2 app; 1.1's tour isn't shown there. */
+  find: "expandiax:whats-new:1.2",
   whatsNew: "expandiax:whats-new:1.1",
   chat: "expandiax:chat-tour:1.1",
   worldConnect: "expandiax:world-connect-tour:1.1",

@@ -83,7 +83,7 @@ export function FinderReview({ findings, saving, error, onSave }: { findings: Fi
   return (
     <div className="mx-auto max-w-md px-5 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-[calc(4.25rem+env(safe-area-inset-top))]">
       <motion.p className="eyebrow" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        From my photos
+        Discover my world
       </motion.p>
       <motion.h1 className="mt-2 font-serif text-[2rem] leading-[1.08]" initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }}>
         Your photos <span className="italic text-accent">found {n} {n === 1 ? "thing" : "things"}.</span>

@@ -49,14 +49,14 @@ export default function PrivacyPage() {
           </li>
           <li>
             <Strong>Finding your world in your photos.</Strong> In our iPhone app you can let ExpandiaX look through your
-            photo library (<em>Discover my world</em>, and <em>From my photos</em> for members). Only when and where each
+            photo library (<em>Discover my world</em>, our automatic memory finder, when signing up and any time after). Only when and where each
             photo was taken is read, on your phone, and turned there into countries, dates and nearby towns. No photos
             are uploaded and your library is not sent to us. To recognise concerts and matches, the app checks a day,
             nearby town names, venue names and a rough area (about 20 km) against setlist.fm and our own event list, and
             looks up venue names on OpenStreetMap (Nominatim). No photos and no exact location are sent, and nothing from
             these checks is stored. Our event list is built from open data (openfootball, Wikidata, confs.tech) and from
             events that at least two members have made public, never showing who. Only what you choose to keep is saved,
-            and <em>From my photos</em> changes only the trips and events you tick. You can say no to photo access, or
+            and for members it changes only the trips and events you tick. You can say no to photo access, or
             choose which photos the app may see, in your iPhone&rsquo;s Settings.
           </li>
           <li>

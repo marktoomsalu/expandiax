@@ -34,7 +34,7 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * "From my photos": a member's own memory assistant. It looks through their
+ * "Discover my world" (once "From my photos"): a member's own memory assistant. It looks through their
  * photos (on the phone), sets what it finds against what they've saved,
  * and offers only what's missing or could be richer: new trips and events,
  * and exact days, places and venues for ones already there. Nothing is

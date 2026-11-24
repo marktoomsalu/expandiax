@@ -76,7 +76,7 @@ export function FinderIntro({ countryCodes, error, onStart }: { countryCodes: st
       <PhotoFan codes={countryCodes} />
 
       <motion.p {...rise(0.45)} className="eyebrow mt-[min(2.25rem,4dvh)]">
-        From my photos
+        Discover my world · Automatic memory finder
       </motion.p>
       <motion.h1 {...rise(0.55)} className="mt-2 font-serif text-[2.1rem] leading-[1.08]">
         Your photos remember <span className="italic text-accent">more than your map.</span>

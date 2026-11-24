@@ -124,7 +124,7 @@ export function FinderDone({ applied, countryCodes, homeCode }: { applied: Appli
         <Link href="/my-world" className="btn-accent flex w-full items-center justify-center !rounded-full py-4 text-lg">
           See my world
         </Link>
-        <p className="mt-3 text-xs text-muted">Find more any time: + › From my photos</p>
+        <p className="mt-3 text-xs text-muted">Find more any time: + › Discover my world</p>
       </motion.div>
     </div>
   );

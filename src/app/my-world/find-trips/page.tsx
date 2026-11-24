@@ -2,9 +2,9 @@ import { redirect } from "next/navigation";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
 import { FindTrips } from "./FindTrips";
 
-export const metadata = { title: "From my photos" };
+export const metadata = { title: "Discover my world" };
 
-/** "From my photos" for members: what their photos know that ExpandiaX doesn't yet. */
+/** "Discover my world" (the automatic memory finder) for members: what their photos know that ExpandiaX doesn't yet. */
 export default async function FindTripsPage() {
   const supabase = createClient();
   const user = await getAuthUser();

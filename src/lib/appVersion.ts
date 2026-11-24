@@ -27,15 +27,33 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-let pending: Promise<string | null> | null = null;
+type StoreInfo = { ios: string | null; iosReleasedAt: string | null };
+let pending: Promise<StoreInfo> | null = null;
 
-/** The App Store's version (fetched once per app session), or null if unknown. */
-export function storeVersion(): Promise<string | null> {
+/** The App Store's version and when it came out (fetched once per app session). */
+export function storeInfo(): Promise<StoreInfo> {
   pending ??= fetch("/api/app-version")
     .then((r) => (r.ok ? r.json() : null))
-    .then((d: { ios?: string | null } | null) => d?.ios ?? null)
-    .catch(() => null);
+    .then((d: Partial<StoreInfo> | null) => ({ ios: d?.ios ?? null, iosReleasedAt: d?.iosReleasedAt ?? null }))
+    .catch(() => ({ ios: null, iosReleasedAt: null }));
   return pending;
+}
+
+/** The App Store's version (fetched once per app session), or null if unknown. */
+export const storeVersion = (): Promise<string | null> => storeInfo().then((i) => i.ios);
+
+/** 1.2: Discover my world, the automatic memory finder. */
+export const FIND_VERSION = "1.2";
+
+/**
+ * Whether 1.2 is out on the App Store, and whether this member was here
+ * before it (they updated): someone who joined after has found their world
+ * while signing up, so there's nothing "new" to tell them.
+ */
+export async function findReleasedFor(joinedAt: string | null | undefined): Promise<boolean> {
+  const { ios, iosReleasedAt } = await storeInfo();
+  if (!ios || compareVersions(ios, FIND_VERSION) < 0) return false;
+  return !!joinedAt && (!iosReleasedAt || Date.parse(joinedAt) < Date.parse(iosReleasedAt));
 }
 
 /** Whether 1.1 (and its features) is out on the App Store. */

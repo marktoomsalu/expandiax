@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FromPhotos } from "@/components/fromPhotos/FromPhotos";
 import { canScanPhotos } from "@/lib/photoScan";
 
-/** "From my photos": only in the iPhone app with the scanner (build 12 on); anywhere else, back to the map. */
+/** "Discover my world": only in the iPhone app with the scanner (build 12 on); anywhere else, back to the map. */
 export function FindTrips({ userId, homeCode, countryCodes }: { userId: string; homeCode: string | null; countryCodes: string[] }) {
   const router = useRouter();
   const [ok, setOk] = useState<boolean | null>(null);

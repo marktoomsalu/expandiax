@@ -1,4 +1,4 @@
-// "From my photos": for members. What their photos know that ExpandiaX
+// "Discover my world" for members (once "From my photos"). What their photos know that ExpandiaX
 // doesn't yet: trips and events never added, and exact days, places and
 // venues for the ones that were. Found on the phone (the same scan as Find my
 // world), matched against what's saved so nothing is ever added twice, and

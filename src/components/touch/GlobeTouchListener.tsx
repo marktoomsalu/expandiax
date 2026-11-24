@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { canScanPhotos } from "@/lib/photoScan";
 import { usePathname, useRouter } from "next/navigation";
 import { App } from "@capacitor/app";
 import { getServerState, getState, hasGlobeTouch, startTouch, stopTouch, subscribe, phoneWord, sameKindOfPhone } from "@/lib/globeTouch";
@@ -49,7 +50,8 @@ export function GlobeTouchListener({ joinedAt }: { joinedAt: string }) {
     if (!hasGlobeTouch()) return;
     if (isTouchReady()) setReady(true);
     if (QUIET.includes(path) || chatOpen) return;
-    const due = updater ? !tourSeen(TOUR.worldConnect) && tourSeen(TOUR.chat) : !isTouchReady() && !isTouchAsked();
+    // Updaters: the last step of 1.1's tour, never in the 1.2 app (there, the only "what's new" is Discover my world).
+    const due = updater ? !canScanPhotos() && !tourSeen(TOUR.worldConnect) && tourSeen(TOUR.chat) : !isTouchReady() && !isTouchAsked();
     if (!due) return;
     // A moment after the chat (or the card before) closes, not in the same instant.
     const t = setTimeout(() => setAsking(true), 600);

@@ -416,7 +416,7 @@ export function Denied({ restricted, onManual, onRetry }: { restricted: boolean;
         <button type="button" onClick={onManual} className="w-full rounded-full py-3.5 text-base font-medium text-white ring-1 ring-white/30 hover:bg-white/10">
           Add my countries myself
         </button>
-        <p className="mt-2 text-xs text-white/45">Or any time later: tap + and choose From my photos.</p>
+        <p className="mt-2 text-xs text-white/45">Or any time later: tap + and choose Discover my world.</p>
       </div>
     </div>
   );
@@ -503,7 +503,7 @@ export function ScanError({ failures, onRetry, onManual }: { failures: number; o
         <button type="button" onClick={again ? onRetry : onManual} className="w-full rounded-full py-3.5 text-base font-medium text-white ring-1 ring-white/30 hover:bg-white/10">
           {again ? "Try once more" : "Add my countries myself"}
         </button>
-        {again && <p className="text-xs text-white/50">Later: tap + and choose From my photos.</p>}
+        {again && <p className="text-xs text-white/50">Later: tap + and choose Discover my world.</p>}
       </div>
     </div>
   );

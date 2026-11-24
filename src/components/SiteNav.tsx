@@ -38,7 +38,7 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
   }, []);
   const shownUnread = path === "/notifications" ? 0 : unread;
   const [addOpen, setAddOpen] = useState(false);
-  // "From my photos" (iPhone app with the scanner): its row in the add menu, marked new until first opened.
+  // "Discover my world" (iPhone app with the scanner): its row in the add menu, marked new until first opened.
   const [fromPhotos, setFromPhotos] = useState<null | { fresh: boolean }>(null);
   useEffect(() => {
     if (addOpen) setFromPhotos(canScanPhotos() ? { fresh: !fromPhotosSeen() } : null);
@@ -228,8 +228,8 @@ export function SiteNav({ user, unreadNotifications = 0 }: { user: NavUser; unre
                             <Sparkles size={15} aria-hidden />
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold">From my photos</span>
-                            <span className="block text-xs text-muted">Find what&apos;s missing, fill in the rest</span>
+                            <span className="block text-sm font-semibold">Discover my world</span>
+                            <span className="block text-xs text-muted">Automatic memory finder: trips and concerts from your photos</span>
                           </span>
                           {fromPhotos.fresh && <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">New</span>}
                         </Link>
