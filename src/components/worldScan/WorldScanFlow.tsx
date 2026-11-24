@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Globe2, Settings } from "lucide-react";
+import { Globe2, MapPinOff, RotateCcw, Settings } from "lucide-react";
 import { askPhotoAccess, chooseMorePhotos, openAppSettings, photoAccess, scanPhotos, type PhotoAccess } from "@/lib/photoScan";
 import { findWorld, type FoundWorld, type ScanPlace } from "@/lib/tripFinder";
 import { loadShapes, makeLocator } from "@/lib/countryLocator";
@@ -18,7 +18,13 @@ import { ScanFinish } from "./ScanFinish";
 import { InviteHero } from "./InviteHero";
 import { PhotoPrimer } from "./PhotoPrimer";
 
-type Phase = "invite" | "explain" | "denied" | "scanning" | "awakening" | "reveal" | "countries" | "memories" | "finish" | "empty";
+type Phase = "invite" | "explain" | "denied" | "scanning" | "awakening" | "reveal" | "countries" | "memories" | "finish" | "empty" | "error";
+
+/** Why nothing was found: no photos to read, photos without a place saved, or only photos from home. */
+type EmptyReason = "no-photos" | "no-places" | "home-only";
+
+/** No word from the phone for this long while reading photos: something's stuck. */
+const STALL_MS = 60_000;
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -62,6 +68,9 @@ export function WorldScanFlow({
   const [pick, setPick] = useState<CountryPick | null>(null);
   const [kept, setKept] = useState<KeptWorld | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // How many photos there were, and how many had a place saved: why nothing was found, or that some trips may be missing.
+  const [stats, setStats] = useState<{ total: number; located: number } | null>(null);
+  const [failures, setFailures] = useState(0);
   const [saving, setSaving] = useState(false);
   const locator = useRef<((lat: number, lng: number) => string | null) | null>(null);
   const eventsDone = useRef<Promise<{ events: FoundEvent[]; bigDays: BigDay[] }> | null>(null);
@@ -126,13 +135,29 @@ export function WorldScanFlow({
       return;
     }
     setPhase("scanning");
+    // A scan that stops answering ends in the error screen, never a spinner forever.
+    let heard = Date.now();
+    let watch: ReturnType<typeof setInterval> | undefined;
+    const stalled = new Promise<never>((_, reject) => {
+      watch = setInterval(() => {
+        if (Date.now() - heard > STALL_MS) reject(new Error("stalled"));
+      }, 5000);
+    });
     try {
-      const [result] = await Promise.all([
-        scanPhotos(setProgress),
-        loadShapes().then((s) => (locator.current ??= makeLocator(s))),
-        // Long enough to feel the search, even on a small library.
-        new Promise((r) => setTimeout(r, 1800)),
+      const [result] = await Promise.race([
+        Promise.all([
+          scanPhotos((p) => {
+            heard = Date.now();
+            setProgress(p);
+          }),
+          loadShapes().then((s) => (locator.current ??= makeLocator(s))),
+          // Long enough to feel the search, even on a small library.
+          new Promise((r) => setTimeout(r, 1800)),
+        ]),
+        stalled,
       ]);
+      clearInterval(watch);
+      setStats({ total: result.total, located: result.located });
       const locate = locator.current!;
       const none = { events: [] as FoundEvent[], bigDays: [] as BigDay[] };
       const found = (eventsDone.current = result.moments?.length ? findEvents(result.moments, locate).catch(() => none) : Promise.resolve(none));
@@ -144,8 +169,9 @@ export function WorldScanFlow({
       setPlaces(result.places);
       setPhase("awakening");
     } catch {
-      setError("Something got in the way. Try again?");
-      setPhase("invite");
+      clearInterval(watch);
+      setFailures((n) => n + 1);
+      setPhase("error");
     }
   }
 
@@ -161,6 +187,10 @@ export function WorldScanFlow({
     ]);
     setPhase(late.events.length || late.bigDays.length ? "reveal" : "empty");
   }
+
+  const emptyReason: EmptyReason = !stats || stats.total === 0 ? "no-photos" : stats.located === 0 || stats.located / stats.total < 0.02 ? "no-places" : "home-only";
+  // Many photos without a place saved: some trips may be missing, and they can be added by hand.
+  const missingShare = stats && stats.total >= 30 && stats.located / stats.total < 0.6 ? Math.round((1 - stats.located / stats.total) * 100) : 0;
 
   // Everything kept: the countries (with each one's trips and towns behind them) and the memories.
   function keptWorld(p: CountryPick, memories: KeptEvent[]): KeptWorld {
@@ -231,6 +261,7 @@ export function WorldScanFlow({
             onChangeHome={(code) => setHome(code)}
             onNext={() => setPhase("countries")}
             limited={access === "limited"}
+            missingShare={missingShare}
             onMore={async () => {
               await chooseMorePhotos().catch(() => {});
               void start();
@@ -261,6 +292,7 @@ export function WorldScanFlow({
     case "empty":
       scene = (
         <Empty
+          reason={emptyReason}
           limited={access === "limited"}
           onChooseMore={async () => {
             await chooseMorePhotos().catch(() => {});
@@ -269,6 +301,9 @@ export function WorldScanFlow({
           onManual={onManual}
         />
       );
+      break;
+    case "error":
+      scene = <ScanError failures={failures} onRetry={() => void start()} onManual={onManual} />;
       break;
   }
 
@@ -302,7 +337,7 @@ export function WorldScanFlow({
 
 const shell = "mx-auto flex min-h-[100dvh] max-w-md flex-col px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(3rem+env(safe-area-inset-top))]";
 
-function Denied({ restricted, onManual, onRetry }: { restricted: boolean; onManual: () => void; onRetry: () => void }) {
+export function Denied({ restricted, onManual, onRetry }: { restricted: boolean; onManual: () => void; onRetry: () => void }) {
   // Coming back from Settings with access: carry on by themselves.
   useEffect(() => {
     const onVisible = () => {
@@ -326,13 +361,13 @@ function Denied({ restricted, onManual, onRetry }: { restricted: boolean; onManu
         <h1 className="mt-6 font-serif text-4xl">No problem.</h1>
         <p className="mt-3 max-w-xs text-base leading-relaxed text-white/70">
           {restricted
-            ? "Photos are switched off on this phone. Add your countries and memories yourself: your world adds up just the same."
-            : "Your photos stay private. Add your countries and memories yourself: your world adds up just the same."}
+            ? "Photos are switched off on this phone. Add your countries and memories yourself: it takes a minute, and your world adds up just the same."
+            : "Your photos stay private. Add your countries and memories yourself: it takes a minute, and your world adds up just the same."}
         </p>
       </div>
       <div className="space-y-3 pt-8 text-center">
         <button type="button" onClick={onManual} className="btn-accent w-full py-4 text-lg">
-          Add it myself
+          Add my countries myself
         </button>
         {!restricted && (
           <>
@@ -343,7 +378,7 @@ function Denied({ restricted, onManual, onRetry }: { restricted: boolean; onManu
             >
               <Settings size={17} aria-hidden /> Allow photos in Settings
             </button>
-            <p className="text-xs text-white/50">Changed your mind? It carries on by itself when you come back.</p>
+            <p className="text-xs text-white/50">Allow it there and this carries on by itself when you come back. Or any time later: tap + and choose From my photos.</p>
           </>
         )}
       </div>
@@ -351,25 +386,83 @@ function Denied({ restricted, onManual, onRetry }: { restricted: boolean; onManu
   );
 }
 
-function Empty({ limited, onChooseMore, onManual }: { limited: boolean; onChooseMore: () => void; onManual: () => void }) {
+/** Nothing found, and why, with the way on that fits: more photos, or adding it themselves. */
+export function Empty({ reason, limited, onChooseMore, onManual }: { reason: EmptyReason; limited: boolean; onChooseMore: () => void; onManual: () => void }) {
+  const copy: Record<EmptyReason, { icon: React.ReactNode; title: string; body: React.ReactNode }> = {
+    "no-photos": {
+      icon: <span className="text-6xl" aria-hidden>📷</span>,
+      title: limited ? "No photos to look at yet." : "No photos on this phone yet.",
+      body: limited ? "Choose a few photos from your trips and we'll look again." : "Add your countries yourself. It takes a minute, and you can look in your photos again any time later.",
+    },
+    "no-places": {
+      icon: (
+        <span className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-[#ffb3d6]">
+          <MapPinOff size={36} aria-hidden />
+        </span>
+      ),
+      title: "Your photos don't say where they were taken.",
+      body: (
+        <>
+          iPhone only saves a photo&apos;s place when Location is on for the Camera. Add your countries yourself instead: it takes a minute.
+          <span className="mt-3 block rounded-2xl bg-white/[0.07] px-4 py-3 text-left text-[13px] text-white/70 ring-1 ring-white/10">
+            <span className="font-semibold text-white">For your next trips:</span> Settings › Privacy &amp; Security › Location Services › Camera › While Using the App.
+          </span>
+        </>
+      ),
+    },
+    "home-only": {
+      icon: <span className="text-6xl" aria-hidden>🧭</span>,
+      title: "Your trips are hiding well.",
+      body: limited ? "The photos you chose were all taken at home. Choose some from your trips and we'll look again." : "Every photo with a place saved was taken at home. Add the countries you've been to yourself: it takes a minute.",
+    },
+  };
+  const c = copy[reason];
+  const more = limited && reason !== "no-places";
   return (
     <div className={shell}>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <p className="text-6xl" aria-hidden>
-          🧭
-        </p>
-        <h1 className="mt-5 font-serif text-4xl leading-tight">Your trips are hiding well.</h1>
-        <p className="mt-2 text-base text-white/65">{limited ? "Share a few trip photos and we'll look again." : "No photos abroad with a place saved."}</p>
+        {c.icon}
+        <h1 className="mt-5 font-serif text-[2.1rem] leading-tight">{c.title}</h1>
+        <div className="mt-3 max-w-xs text-base leading-relaxed text-white/70">{c.body}</div>
       </div>
-      <div className="pt-8 text-center">
-        {limited && (
-          <button type="button" onClick={onChooseMore} className="btn-accent mb-4 w-full py-4 text-lg">
+      <div className="space-y-3 pt-8 text-center">
+        {more && (
+          <button type="button" onClick={onChooseMore} className="btn-accent w-full py-4 text-lg">
             Choose photos
           </button>
         )}
-        <button type="button" onClick={onManual} className={limited ? "text-sm text-white/60 hover:text-white" : "btn-accent w-full py-4 text-lg"}>
-          Add it myself
+        <button type="button" onClick={onManual} className={more ? "w-full rounded-full py-3.5 text-base font-medium text-white ring-1 ring-white/30 hover:bg-white/10" : "btn-accent w-full py-4 text-lg"}>
+          Add my countries myself
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** Reading the photos went wrong: nothing changed, try again, or carry on by hand (first, after a second failure). */
+export function ScanError({ failures, onRetry, onManual }: { failures: number; onRetry: () => void; onManual: () => void }) {
+  const again = failures >= 2;
+  return (
+    <div className={shell}>
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <span className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-[#ffb3d6]">
+          <RotateCcw size={34} aria-hidden />
+        </span>
+        <h1 className="mt-6 font-serif text-[2.1rem] leading-tight">{again ? "Still not working." : "That didn't quite work."}</h1>
+        <p className="mt-3 max-w-xs text-base leading-relaxed text-white/70">
+          {again
+            ? "Your photos are fine and nothing was saved. Add your countries yourself for now: you can look in your photos again any time later."
+            : "We couldn't finish reading your photos. Your photos are fine and nothing was saved."}
+        </p>
+      </div>
+      <div className="space-y-3 pt-8 text-center">
+        <button type="button" onClick={again ? onManual : onRetry} className="btn-accent w-full py-4 text-lg">
+          {again ? "Add my countries myself" : "Try again"}
+        </button>
+        <button type="button" onClick={again ? onRetry : onManual} className="w-full rounded-full py-3.5 text-base font-medium text-white ring-1 ring-white/30 hover:bg-white/10">
+          {again ? "Try once more" : "Add my countries myself"}
+        </button>
+        {again && <p className="text-xs text-white/50">Later: tap + and choose From my photos.</p>}
       </div>
     </div>
   );

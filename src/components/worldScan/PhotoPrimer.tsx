@@ -1,13 +1,15 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { CalendarDays, ChevronLeft, ListChecks, MapPin, Smartphone, Star } from "lucide-react";
+import { Check, ChevronLeft, Globe2, Route, ShieldCheck, Ticket } from "lucide-react";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 /**
- * Before iPhone asks for the photo library: what ExpandiaX will read, where
- * it happens, and that nothing is kept without them, in plain words. Shown
+ * Before iPhone asks for the photo library: what they get from it (their
+ * countries, their trips rebuilt, the moments in them), then what happens to
+ * their photos (only date and place, on the phone, nothing kept without
+ * them), in plain words. Shown
  * once, only to people who haven't answered iPhone yet. One way on
  * ("Continue", to iPhone's own question, as Apple's guidelines ask of a
  * screen like this); back is the other, to "Add it myself".
@@ -27,46 +29,41 @@ export function PhotoPrimer({ onContinue, onBack }: { onContinue: () => void; on
       </button>
 
       <div className="flex min-h-0 flex-1 flex-col justify-center">
-        {/* All we read from a photo: shown, not just said. */}
-        <motion.div {...rise(0.05)} className="mx-auto flex items-center gap-3" aria-hidden>
-          <div className="relative h-24 w-[4.5rem] rotate-[-4deg] overflow-hidden rounded-2xl bg-[linear-gradient(160deg,#f7c59f,#c8553d)] shadow-[0_14px_30px_-12px_rgba(0,0,0,0.6)] ring-2 ring-white/80">
-            <span className="absolute inset-0 bg-[linear-gradient(transparent_55%,rgba(0,0,0,0.35))]" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-sm ring-1 ring-white/15">
-              <CalendarDays size={14} className="text-[#ffb3d6]" /> 12 July 2023
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-sm ring-1 ring-white/15">
-              <MapPin size={14} className="text-[#ffb3d6]" /> Lisbon, Portugal
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-sm ring-1 ring-white/15">
-              <Star size={14} className="text-[#ffb3d6]" /> A favourite
-            </span>
-          </div>
-        </motion.div>
-
-        <motion.h1 {...rise(0.15)} className="mt-6 text-center font-serif text-[2rem] leading-[1.1]">
-          Here&apos;s exactly <span className="italic text-[#ff8cc6]">what happens</span>
+        <motion.h1 {...rise(0.05)} className="text-center font-serif text-[2rem] leading-[1.1]">
+          Your photos <span className="italic text-[#ff8cc6]">remember</span> your world
         </motion.h1>
+        <motion.p {...rise(0.12)} className="mx-auto mt-2 max-w-xs text-center text-[15px] leading-snug text-white/70">
+          Every photo knows when and where it was taken. Together they tell your story.
+        </motion.p>
 
-        <motion.ul {...rise(0.3)} className="mt-6 space-y-4">
-          <Row icon={<CalendarDays size={18} />} title="Only when and where">
-            The date, place and favourite mark saved with each photo. Never what&apos;s in the picture.
+        {/* What they get. */}
+        <motion.ul {...rise(0.25)} className="mt-6 space-y-3.5">
+          <Row icon={<Globe2 size={18} />} title="Every country you've been to">
+            Found in seconds, even the ones you&apos;d forgotten.
           </Row>
-          <Row icon={<Smartphone size={18} />} title="Worked out on your phone">
-            Your photos aren&apos;t uploaded. To spot concerts and matches, only a day, nearby town and venue names and a rough area are checked online.
+          <Row icon={<Route size={18} />} title="Your trips, rebuilt">
+            When you went, how long you stayed and the towns along the way.
           </Row>
-          <Row icon={<ListChecks size={18} />} title="Nothing kept without you">
-            You see every country, trip and memory first and keep only what you want. Change access any time in Settings.
+          <Row icon={<Ticket size={18} />} title="Moments worth keeping">
+            Concerts, matches and festivals, back with their photos.
           </Row>
         </motion.ul>
 
-        <motion.div {...rise(0.45)} className="mt-6 rounded-2xl bg-white/[0.07] px-4 py-3 text-sm leading-snug text-white/75 ring-1 ring-white/10">
-          <p className="font-semibold text-white">Next, your iPhone asks</p>
-          <p className="mt-1">
-            <span className="text-white">Allow Full Access</span> finds the most. <span className="text-white">Limit Access</span> lets you pick photos: only those are looked at, and you can add more later.
+        {/* What happens to their photos: plain and short. */}
+        <motion.div {...rise(0.4)} className="mt-6 rounded-2xl bg-white/[0.07] px-4 py-3.5 ring-1 ring-white/10">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <ShieldCheck size={16} className="text-[#ffb3d6]" aria-hidden /> Your photos stay yours
           </p>
+          <ul className="mt-2 space-y-1.5 text-[13px] leading-snug text-white/75">
+            <Fact>Only the date and place are read, never what&apos;s in a picture.</Fact>
+            <Fact>It all happens on your phone. Nothing is uploaded.</Fact>
+            <Fact>You see everything first and keep only what you want.</Fact>
+          </ul>
         </motion.div>
+
+        <motion.p {...rise(0.5)} className="mt-4 text-center text-[13px] leading-snug text-white/60">
+          Next, your iPhone asks. <span className="text-white">Allow Full Access</span> finds the most; <span className="text-white">Limit Access</span> lets you pick photos. Change it any time in Settings.
+        </motion.p>
       </div>
 
       <motion.div {...rise(0.55)} className="pt-5">
@@ -81,6 +78,15 @@ export function PhotoPrimer({ onContinue, onBack }: { onContinue: () => void; on
         </p>
       </motion.div>
     </div>
+  );
+}
+
+function Fact({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2">
+      <Check size={14} className="mt-0.5 shrink-0 text-[#ffb3d6]" aria-hidden />
+      <span>{children}</span>
+    </li>
   );
 }
 

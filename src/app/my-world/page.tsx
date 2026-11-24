@@ -1,4 +1,5 @@
 import { DraftsList } from "@/components/Drafts";
+import { PhotoDiscoveryNudge } from "@/components/worldScan/PhotoDiscoveryNudge";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FirstFriends } from "@/components/FirstFriends";
@@ -130,6 +131,9 @@ export default async function MyWorldPage() {
           <AddCountryButton className="btn-accent"><Plus size={17} /> Add country</AddCountryButton>
         </div>
       </div>
+
+      {/* Started without their photos? The way back to finding their world in them (iPhone app only). */}
+      <PhotoDiscoveryNudge />
 
       {/* Like Events: each country waiting for photos, straight into adding them. */}
       <PhotoReminder

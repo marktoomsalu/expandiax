@@ -18,6 +18,7 @@ export function ScanReveal({
   onChangeHome,
   onNext,
   limited = false,
+  missingShare = 0,
   onMore,
 }: {
   world: FoundWorld;
@@ -28,6 +29,8 @@ export function ScanReveal({
   onNext: () => void;
   /** They let ExpandiaX see only some photos: say so, and offer more (never pushed). */
   limited?: boolean;
+  /** Share of their photos (%) with no place saved, when it's a lot: some trips may be missing. */
+  missingShare?: number;
   onMore?: () => void;
 }) {
   const reduce = useReducedMotion();
@@ -140,7 +143,13 @@ export function ScanReveal({
         </motion.p>
       )}
 
-      <motion.div {...rise(1.7)} className={limited && onMore ? "pt-5" : "pt-8"}>
+      {missingShare > 0 && (
+        <motion.p {...rise(1.65)} className="mx-auto mt-4 max-w-xs rounded-2xl bg-white/[0.07] px-4 py-3 text-center text-[13px] leading-snug text-white/70 ring-1 ring-white/10">
+          {missingShare}% of your photos don&apos;t say where they were taken, so a trip or two may be missing. Add them on the next screen with <span className="font-semibold text-white">Add a country</span>.
+        </motion.p>
+      )}
+
+      <motion.div {...rise(1.7)} className={(limited && onMore) || missingShare > 0 ? "pt-5" : "pt-8"}>
         <button type="button" onClick={onNext} className="btn-accent w-full py-4 text-lg">
           See my countries
         </button>
