@@ -33,7 +33,8 @@ export default function SignUpPage() {
   // The new first look (Apple and Google first, email smaller), only in
   // iPhone app builds with Find my world until it's released.
   const [welcome, setWelcome] = useState(false);
-  useEffect(() => setWelcome(canScanPhotos()), []);
+  // ?email: straight to the form (from "Sign up with email" at the end of Find my world).
+  useEffect(() => setWelcome(canScanPhotos() && !new URLSearchParams(location.search).has("email")), []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -12,6 +12,8 @@ import { OdometerCounter } from "@/components/start/OdometerCounter";
 import { countryByCode, TOTAL_COUNTRIES } from "@/lib/countries";
 import { MIN_AGE } from "@/lib/legal";
 import { keptCountries, loadKeptWorld, type KeptEvent, type KeptWorld } from "@/lib/worldScan";
+import { startBadges } from "@/lib/startBadges";
+import { tapSuccess } from "@/lib/haptics";
 
 const WorldGlobeInner = dynamic(() => import("@/components/WorldGlobeInner").then((m) => m.WorldGlobeInner), {
   ssr: false,
@@ -29,9 +31,9 @@ const STARS = [
 
 /** What's ahead once they've joined: what their world becomes. */
 const AHEAD = [
-  { icon: Images, title: "Keep every memory", line: "Photos, songs and stories" },
-  { icon: Users, title: "Share it with friends", line: "See where they've been" },
-  { icon: Compass, title: "Discover what's next", line: "Events and dream places" },
+  { icon: Images, title: "Keep every memory" },
+  { icon: Users, title: "Share it with friends" },
+  { icon: Compass, title: "Discover what's next" },
 ];
 
 /** A memory they found, floating by the globe: "🇳🇴 Luna Vale". */
@@ -59,16 +61,27 @@ function MemoryChip({ e, className, delay }: { e: KeptEvent; className: string; 
  *
  * One screen, over the whole app in the night purple of Find my world (so
  * the story carries straight on), nothing to scroll: the globe takes the
- * room the rest leaves, smaller on a small phone.
+ * room the rest leaves, smaller on a small phone. It's also where Find my
+ * world ends for new people (`kept`, `celebrate`): the badges they've
+ * earned pop in, one by one, as the reward, and signing up keeps it all.
  */
-export function SignUpWelcome({ onEmail }: { onEmail: () => void }) {
+export function SignUpWelcome({ onEmail, kept, celebrate = false }: { onEmail: () => void; kept?: KeptWorld | null; celebrate?: boolean }) {
   const reduce = useReducedMotion();
-  const [world, setWorld] = useState<KeptWorld | null>(null);
-  useEffect(() => setWorld(loadKeptWorld()), []);
+  const [world, setWorld] = useState<KeptWorld | null>(kept ?? null);
+  useEffect(() => {
+    if (!kept) setWorld(loadKeptWorld());
+  }, [kept]);
   const codes = useMemo(() => (world ? keptCountries(world) : []), [world]);
   const memories = world?.events ?? [];
   const theirs = codes.length > 0;
   const pct = Math.round((codes.length / TOTAL_COUNTRIES) * 1000) / 10;
+  const earned = useMemo(() => startBadges({ countryCodes: codes }).earned, [codes]);
+  // Straight from finding it: a little buzz as the badges land.
+  useEffect(() => {
+    if (!celebrate || !earned.length) return;
+    const t = setTimeout(() => tapSuccess(), reduce ? 0 : 1250);
+    return () => clearTimeout(t);
+  }, [celebrate, earned.length, reduce]);
   const rise = (delay: number) => ({
     initial: reduce ? { opacity: 0 } : { opacity: 0, y: 14 },
     animate: { opacity: 1, y: 0 },
@@ -117,20 +130,44 @@ export function SignUpWelcome({ onEmail }: { onEmail: () => void }) {
           {memories[1] && <MemoryChip e={memories[1]} className="bottom-[14%] right-0" delay={1.5} />}
         </motion.div>
         {theirs && (
-          <motion.p {...rise(0.45)} className="shrink-0 text-center text-sm text-white/70">
-            {pct}% of the world{memories.length ? ` · ${memories.length} ${memories.length === 1 ? "memory" : "memories"}` : ""}, ready to keep
-          </motion.p>
+          // The badges they've earned, popping in one by one, and how much of the world it is.
+          <motion.div {...rise(0.45)} className="flex shrink-0 items-center justify-center gap-3">
+            {earned.length > 0 && (
+              <span className="flex -space-x-2" aria-hidden>
+                {earned.slice(0, 5).map((b, i) => (
+                  <motion.span
+                    key={b.id}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#fa51a2] to-[#fb7822] shadow-[0_6px_16px_-6px_rgba(250,81,162,0.9)] ring-2 ring-[#2b0b2e]"
+                    initial={reduce ? false : { scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: reduce ? 0 : 0.9 + i * 0.12, type: "spring", stiffness: 320, damping: 15 }}
+                  >
+                    <b.icon size={16} />
+                  </motion.span>
+                ))}
+              </span>
+            )}
+            <p className="text-left text-sm leading-tight text-white/70">
+              {earned.length > 0 && (
+                <span className="block font-semibold text-white">
+                  {earned.length} {earned.length === 1 ? "badge" : "badges"} earned
+                </span>
+              )}
+              <span className="block">
+                {pct}% of the world{memories.length ? ` · ${memories.length} ${memories.length === 1 ? "memory" : "memories"}` : ""}
+              </span>
+            </p>
+          </motion.div>
         )}
 
         {/* What joining opens up. */}
         <motion.ul {...rise(0.6)} className="mt-4 grid shrink-0 grid-cols-3 gap-2 [@media(max-height:700px)]:mt-3">
-          {AHEAD.map(({ icon: Icon, title, line }) => (
-            <li key={title} className="flex flex-col items-center rounded-2xl bg-white/[0.07] px-1.5 py-3 text-center ring-1 ring-white/10">
+          {AHEAD.map(({ icon: Icon, title }) => (
+            <li key={title} className="flex flex-col items-center rounded-2xl bg-white/[0.07] px-1.5 py-2.5 text-center ring-1 ring-white/10">
               <span className="gradient-travel flex h-9 w-9 items-center justify-center rounded-full shadow-[0_6px_16px_-6px_rgba(250,81,162,0.9)]">
                 <Icon size={17} aria-hidden />
               </span>
-              <span className="mt-2 text-[12.5px] font-semibold leading-tight">{title}</span>
-              <span className="mt-0.5 text-[11px] leading-tight text-white/55 [@media(max-height:700px)]:hidden">{line}</span>
+              <span className="mt-1.5 text-[12px] font-semibold leading-tight">{title}</span>
             </li>
           ))}
         </motion.ul>

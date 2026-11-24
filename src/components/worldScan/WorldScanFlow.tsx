@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { SignUpWelcome } from "@/components/signup/SignUpWelcome";
 import { MapPinOff, RotateCcw } from "lucide-react";
 import { askPhotoAccess, chooseMorePhotos, photoAccess, scanPhotos, type PhotoAccess } from "@/lib/photoScan";
 import { findWorld, type FoundWorld, type ScanPlace } from "@/lib/tripFinder";
@@ -56,6 +58,7 @@ export function WorldScanFlow({
   /** What they kept, at the end. */
   onKeep: (world: KeptWorld) => Promise<void> | void;
 }) {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("invite");
   const [access, setAccess] = useState<PhotoAccess | null>(null);
   const [progress, setProgress] = useState({ done: 0, total: 0, located: 0 });
@@ -249,6 +252,10 @@ export function WorldScanFlow({
       setSaving(false);
     }
   }
+
+  // New people end on signing up itself: their world, the badges they've earned, and the way to keep it.
+  // (Email opens the sign-up form in this page's place: nothing behind it to swipe back to.)
+  if (phase === "finish" && mode === "new" && kept) return <SignUpWelcome kept={kept} celebrate onEmail={() => router.replace("/sign-up?email=1")} />;
 
   let scene: React.ReactNode = null;
   switch (phase) {
