@@ -11,8 +11,7 @@ import { motion } from "framer-motion";
 import { WorldScanFlow } from "@/components/worldScan/WorldScanFlow";
 import { preloadInviteWall } from "@/components/worldScan/InviteHero";
 import { canScanPhotos } from "@/lib/photoScan";
-import { clearKeptWorld, loadKeptWorld, saveKeptWorld, type KeptWorld } from "@/lib/worldScan";
-import { ScanFinish } from "@/components/worldScan/ScanFinish";
+import { saveKeptWorld } from "@/lib/worldScan";
 import { BackButton, StepTransition } from "@/components/start/StepTransition";
 import {
   clearPendingPhoto,
@@ -42,14 +41,11 @@ export default function StartPage() {
   const [scanning, setScanning] = useState(false);
   // "Start my journey" in the app: the globe screen leaves first (flying into the globe), then the photo wall arrives.
   const [leaving, setLeaving] = useState(false);
-  // A world found and kept, not yet saved to an account (back from sign-up, say): straight back to it, not the very start.
-  const [waiting, setWaiting] = useState<KeptWorld | null>(null);
 
   useEffect(() => {
     const loaded = loadDraft();
     setDraft(loaded);
     setStep(stepForDraft(loaded));
-    if (canScanPhotos()) setWaiting(loadKeptWorld());
     setHydrated(true);
   }, []);
 
@@ -67,25 +63,6 @@ export default function StartPage() {
   }
 
   if (!hydrated) return null;
-
-  if (waiting && !scanning) {
-    return (
-      <div className="fixed inset-0 z-[80] overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_50%_25%,#5a1758_0%,#2b0b2e_55%,#14051a_100%)] text-white">
-        <ScanFinish
-          mode="new"
-          kept={waiting}
-          limited={false}
-          saving={false}
-          onStartOver={() => {
-            clearKeptWorld();
-            setWaiting(null);
-            setLeaving(false);
-            setStep("cold-open");
-          }}
-        />
-      </div>
-    );
-  }
 
   if (scanning) {
     return (
