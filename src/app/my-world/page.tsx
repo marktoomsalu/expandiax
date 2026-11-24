@@ -1,5 +1,6 @@
 import { DraftsList } from "@/components/Drafts";
 import { PhotoDiscoveryNudge } from "@/components/worldScan/PhotoDiscoveryNudge";
+import { WelcomeBackReview } from "@/components/worldScan/WelcomeBackReview";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FirstFriends } from "@/components/FirstFriends";
@@ -94,6 +95,8 @@ export default async function MyWorldPage() {
 
   return (
     <div className="mx-auto max-w-shell px-5 py-10">
+      {/* Back with an account already, after finding their world again: what's new, to pick from. */}
+      <WelcomeBackReview userId={user.id} firstName={profile && hasRealName(profile.display_name) ? profile.display_name.trim().split(/\s+/)[0] : null} />
       {/* New members land here after sign-up: "Who's coming with you?" */}
       <Suspense fallback={null}>
         <FirstFriends userId={user.id} />

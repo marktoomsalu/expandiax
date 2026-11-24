@@ -12,6 +12,9 @@ import { sameVenue } from "@/lib/eventMatch";
 import { placeKey } from "@/lib/photoPlaces";
 import { savePlaces } from "@/components/PhotoPlaceSuggestion";
 import type { EventType } from "@/lib/types";
+import { alreadySaved, keptCountries, type ExistingVisit, type MemberWorld } from "@/lib/worldNews";
+
+export { alreadySaved, keptCountries, worldNews, chosenWorld, type MemberWorld, type WorldNews } from "@/lib/worldNews";
 
 export type KeptTrip = {
   code: string;
@@ -101,24 +104,7 @@ export function worldScanned(): boolean {
   }
 }
 
-/** The countries a kept world puts on the map: home first, then each trip's and event's. */
-export function keptCountries(world: KeptWorld): string[] {
-  const codes = [...(world.homeCode ? [world.homeCode] : []), ...world.trips.map((t) => t.code), ...(world.countries ?? []), ...(world.events ?? []).map((e) => e.code)];
-  return [...new Set(codes)].filter((c) => !!countryByCode(c));
-}
 
-type ExistingVisit = { visited_country_id: string; year: number; visited_from: string | null; visited_to: string | null };
-
-/** Whether a found trip is one already saved (same country, overlapping dates or the same year with no dates). */
-export function alreadySaved(trip: KeptTrip, visits: ExistingVisit[]): boolean {
-  return visits.some((v) => {
-    if (v.visited_from) {
-      const to = v.visited_to ?? v.visited_from;
-      return v.visited_from <= trip.to && to >= trip.from;
-    }
-    return v.year === Number(trip.from.slice(0, 4));
-  });
-}
 
 /**
  * Writes a kept world for real: the countries (home saved as home if none
@@ -224,4 +210,25 @@ async function saveEvents(userId: string, list: KeptEvent[]): Promise<{ id: stri
     if (!error && data) out.push({ id: data.id as string, event: e });
   }
   return out;
+}
+
+// ------------------------------------------------- back with an account already
+
+/** A member's countries, trips and events, as far as worldNews needs them. */
+export async function loadMemberWorld(userId: string, world: KeptWorld): Promise<MemberWorld> {
+  const supabase = createClient();
+  const { data: countries } = await supabase.from("visited_countries").select("id, country_code").eq("user_id", userId);
+  const rows = (countries ?? []) as { id: string; country_code: string }[];
+  const codeOf = new Map(rows.map((r) => [r.id, r.country_code]));
+  const wanted = rows.filter((r) => world.trips.some((t) => t.code === r.country_code)).map((r) => r.id);
+  const { data: visits } = wanted.length
+    ? await supabase.from("country_visits").select("visited_country_id, year, visited_from, visited_to").in("visited_country_id", wanted)
+    : { data: [] as ExistingVisit[] };
+  const byCode: Record<string, ExistingVisit[]> = {};
+  for (const v of (visits ?? []) as ExistingVisit[]) (byCode[codeOf.get(v.visited_country_id) ?? ""] ??= []).push(v);
+  const dates = [...new Set((world.events ?? []).map((e) => e.date))];
+  const { data: events } = dates.length
+    ? await supabase.from("events").select("event_date, title, venue").eq("user_id", userId).in("event_date", dates)
+    : { data: [] as MemberWorld["events"] };
+  return { codes: rows.map((r) => r.country_code), visits: byCode, events: (events ?? []) as MemberWorld["events"] };
 }

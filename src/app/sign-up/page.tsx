@@ -13,6 +13,7 @@ import { PRIVACY_VERSION, TERMS_VERSION } from "@/lib/legal";
 import { PASSWORD_HINT, PASSWORD_MIN_LENGTH, passwordProblem } from "@/lib/password";
 import { SignUpWelcome } from "@/components/signup/SignUpWelcome";
 import { canScanPhotos } from "@/lib/photoScan";
+import { loadKeptWorld } from "@/lib/worldScan";
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
@@ -95,7 +96,12 @@ export default function SignUpPage() {
     // worked (so nobody can test which emails are registered) but creates
     // nothing and sends nothing. Its sign: a user with no identities.
     if (data.user && !data.session && (data.user.identities?.length ?? 0) === 0) {
-      setError("There's already an account with this email. Sign in instead, or reset your password if you've forgotten it.");
+      // What they found in their photos waits on the phone: after signing in, they pick what to add (WelcomeBackReview).
+      setError(
+        loadKeptWorld()
+          ? "You already have an account with this email. Sign in, and you can add what you just found to it: nothing in it changes until you choose."
+          : "There's already an account with this email. Sign in instead, or reset your password if you've forgotten it."
+      );
       setAlreadyHere(true);
       setBusy(false);
       return;
