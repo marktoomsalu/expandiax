@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { MessageCircle, ShieldCheck, Sparkles, Ticket, Wand2 } from "lucide-react";
+import { MessageCircle, Sparkles } from "lucide-react";
+import { DiscoverIntro } from "@/components/whatsNew/DiscoverIntro";
 import { hasGlobeTouch, phoneWord } from "@/lib/globeTouch";
 import { featuresReleased, findReleasedFor, joinedBeforeFeatures } from "@/lib/appVersion";
 import { canScanPhotos } from "@/lib/photoScan";
@@ -96,39 +97,13 @@ export function WhatsNew({ joinedAt, preview = false }: { joinedAt: string; prev
 
   if (finder)
     return (
-      <div className="fixed inset-0 z-[96] flex items-end justify-center bg-[rgba(10,2,14,0.74)]" role="dialog" aria-modal="true" aria-labelledby="whats-new-h">
-        <div
-          className="w-full max-w-md rounded-t-[28px] px-6 pt-7 text-white sm:mb-6 sm:rounded-[28px]"
-          style={{ background: "radial-gradient(120% 90% at 50% 0%, #4a1450 0%, #2b0b2e 55%, #12041a 100%)", paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" }}
-        >
-          <p className="flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-white/55">
-            <Sparkles size={13} aria-hidden /> New in ExpandiaX
-          </p>
-          <h2 id="whats-new-h" className="mt-2 text-center font-serif text-3xl leading-tight">
-            Discover <span className="italic text-[#ff8cc6]">my world</span>
-          </h2>
-          <p className="mt-1.5 text-center text-sm text-white/70">Your automatic memory finder</p>
-          <ul className="mt-6 space-y-5">
-            {feature(Wand2, "It finds them for you", "Countries, trips and their dates, found automatically from when and where your photos were taken.", "#fa51a2", "#fb7822")}
-            {feature(Ticket, "Your moments, too", "Concerts, matches and festivals you were at, back with their photos.", "#7c1d6f", "#fa51a2")}
-            {feature(ShieldCheck, "Private by design", "Read on your phone, nothing uploaded. You choose what's kept.", "#4a1450", "#7c1d6f")}
-          </ul>
-          <button
-            type="button"
-            onClick={() => {
-              close();
-              router.push("/my-world/find-trips");
-            }}
-            className="mt-7 w-full rounded-full py-4 text-lg font-bold text-[#2b0b2e]"
-            style={{ background: "linear-gradient(90deg, #fa51a2, #fb7822)" }}
-          >
-            Discover my world
-          </button>
-          <button type="button" onClick={close} className="mt-2 w-full py-2.5 text-sm font-medium text-white/65 hover:text-white">
-            Maybe later
-          </button>
-        </div>
-      </div>
+      <DiscoverIntro
+        onStart={() => {
+          close();
+          router.push("/my-world/find-trips");
+        }}
+        onLater={close}
+      />
     );
 
   return (
