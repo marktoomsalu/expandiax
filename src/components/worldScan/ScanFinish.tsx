@@ -22,11 +22,14 @@ export function ScanFinish({
   kept: world,
   limited,
   saving,
+  onStartOver,
 }: {
   mode: "new" | "member";
   kept: KeptWorld;
   limited: boolean;
   saving: boolean;
+  /** Back here from sign-up: forget it and look again from the start. */
+  onStartOver?: () => void;
 }) {
   const reduce = useReducedMotion();
   const homeCode = world.homeCode;
@@ -132,7 +135,17 @@ export function ScanFinish({
             <Link href="/sign-up" className="btn-accent w-full py-4 text-lg">
               Save my world
             </Link>
-            <p className="mt-2 text-xs text-white/50">So your world is kept safe.</p>
+            <p className="mt-2 text-xs text-white/50">
+              So your world is kept safe.
+              {onStartOver && (
+                <>
+                  {" "}
+                  <button type="button" onClick={onStartOver} className="underline underline-offset-2 hover:text-white">
+                    Start again
+                  </button>
+                </>
+              )}
+            </p>
           </>
         ) : (
           <>
