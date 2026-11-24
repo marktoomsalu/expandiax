@@ -20,6 +20,7 @@ export function ScanReveal({
   limited = false,
   missingShare = 0,
   onMore,
+  onFull,
 }: {
   world: FoundWorld;
   /** Null while still looking. */
@@ -31,6 +32,8 @@ export function ScanReveal({
   limited?: boolean;
   /** Share of their photos (%) with no place saved, when it's a lot: some trips may be missing. */
   missingShare?: number;
+  /** Limit Access: the guide to Full Access. */
+  onFull?: () => void;
   onMore?: () => void;
 }) {
   const reduce = useReducedMotion();
@@ -140,6 +143,14 @@ export function ScanReveal({
           <button type="button" onClick={onMore} className="font-semibold text-white underline underline-offset-2">
             Add more photos
           </button>
+          {onFull && (
+            <>
+              {" "}or{" "}
+              <button type="button" onClick={onFull} className="font-semibold text-white underline underline-offset-2">
+                allow Full Access
+              </button>
+            </>
+          )}
         </motion.p>
       )}
 

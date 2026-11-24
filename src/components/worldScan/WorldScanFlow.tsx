@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Globe2, MapPinOff, RotateCcw, Settings } from "lucide-react";
-import { askPhotoAccess, chooseMorePhotos, openAppSettings, photoAccess, scanPhotos, type PhotoAccess } from "@/lib/photoScan";
+import { MapPinOff, RotateCcw } from "lucide-react";
+import { askPhotoAccess, chooseMorePhotos, photoAccess, scanPhotos, type PhotoAccess } from "@/lib/photoScan";
 import { findWorld, type FoundWorld, type ScanPlace } from "@/lib/tripFinder";
 import { loadShapes, makeLocator } from "@/lib/countryLocator";
 import { findEvents, nameTrips, type BigDay, type FoundEvent, type TripTown } from "@/lib/worldStory";
@@ -16,6 +16,7 @@ import { CountriesWall, type CountryPick } from "./CountriesWall";
 import { MemoriesView } from "./MemoriesView";
 import { ScanFinish } from "./ScanFinish";
 import { InviteHero } from "./InviteHero";
+import { PhotoSettingsGuide, PhotoSettingsSheet } from "./PhotoSettingsGuide";
 
 type Phase = "invite" | "denied" | "scanning" | "awakening" | "reveal" | "countries" | "memories" | "finish" | "empty" | "error";
 
@@ -70,6 +71,9 @@ export function WorldScanFlow({
   // How many photos there were, and how many had a place saved: why nothing was found, or that some trips may be missing.
   const [stats, setStats] = useState<{ total: number; located: number } | null>(null);
   const [failures, setFailures] = useState(0);
+  // Limit Access: the guide to Full Access, and whether they went to Settings from it.
+  const [fullSheet, setFullSheet] = useState(false);
+  const wentForFull = useRef(false);
   const [saving, setSaving] = useState(false);
   const locator = useRef<((lat: number, lng: number) => string | null) | null>(null);
   const eventsDone = useRef<Promise<{ events: FoundEvent[]; bigDays: BigDay[] }> | null>(null);
@@ -89,6 +93,24 @@ export function WorldScanFlow({
       .then(setAccess)
       .catch(() => {});
   }, []);
+
+  // Back from Settings with Full Access (after choosing Limit Access): look again, at everything.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || !wentForFull.current) return;
+      void photoAccess()
+        .then((s) => {
+          if (s !== "full") return;
+          wentForFull.current = false;
+          setFullSheet(false);
+          setAccess("full");
+          void start("full");
+        })
+        .catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
 
   const world: FoundWorld | null = useMemo(() => {
     if (!places || !locator.current) return null;
@@ -119,11 +141,11 @@ export function WorldScanFlow({
     void start();
   }
 
-  async function start() {
+  async function start(known?: PhotoAccess) {
     tapLight();
     setError(null);
     noteFeature("world_scan_started");
-    let status = access;
+    let status = known ?? access;
     try {
       if (status !== "full" && status !== "limited") status = await askPhotoAccess();
     } catch {
@@ -259,6 +281,7 @@ export function WorldScanFlow({
             onNext={() => setPhase("countries")}
             limited={access === "limited"}
             missingShare={missingShare}
+            onFull={() => setFullSheet(true)}
             onMore={async () => {
               await chooseMorePhotos().catch(() => {});
               void start();
@@ -291,6 +314,7 @@ export function WorldScanFlow({
         <Empty
           reason={emptyReason}
           limited={access === "limited"}
+          onFull={() => setFullSheet(true)}
           onChooseMore={async () => {
             await chooseMorePhotos().catch(() => {});
             void start();
@@ -328,6 +352,7 @@ export function WorldScanFlow({
           {scene}
         </motion.div>
       </AnimatePresence>
+      <PhotoSettingsSheet open={fullSheet} onClose={() => setFullSheet(false)} onOpen={() => (wentForFull.current = true)} />
     </div>
   );
 }
@@ -349,42 +374,49 @@ export function Denied({ restricted, onManual, onRetry }: { restricted: boolean;
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [onRetry]);
 
-  return (
-    <div className={shell}>
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <span className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 text-[#ffb3d6]">
-          <Globe2 size={38} aria-hidden />
-        </span>
-        <h1 className="mt-6 font-serif text-4xl">No problem.</h1>
-        <p className="mt-3 max-w-xs text-base leading-relaxed text-white/70">
-          {restricted
-            ? "Photos are switched off on this phone. Add your countries and memories yourself: it takes a minute, and your world adds up just the same."
-            : "Your photos stay private. Add your countries and memories yourself: it takes a minute, and your world adds up just the same."}
-        </p>
+  if (restricted)
+    return (
+      <div className={shell}>
+        <div className="flex flex-1 flex-col items-center justify-center text-center">
+          <h1 className="font-serif text-4xl">No problem.</h1>
+          <p className="mt-3 max-w-xs text-base leading-relaxed text-white/70">
+            Photos are switched off on this phone. Add your countries and memories yourself: it takes a minute, and your world adds up just the same.
+          </p>
+        </div>
+        <div className="pt-8">
+          <button type="button" onClick={onManual} className="btn-accent w-full py-4 text-lg">
+            Add my countries myself
+          </button>
+        </div>
       </div>
-      <div className="space-y-3 pt-8 text-center">
-        <button type="button" onClick={onManual} className="btn-accent w-full py-4 text-lg">
+    );
+
+  // Said no: two taps in Settings to find it after all, shown; or by hand, just as good.
+  return (
+    <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(2.25rem+env(safe-area-inset-top))]">
+      <div className="flex flex-1 flex-col justify-center">
+        <h1 className="text-center font-serif text-[2.1rem] leading-tight">
+          Photos are off,
+          <br />
+          <span className="italic text-[#ff8cc6]">for now.</span>
+        </h1>
+        <p className="mx-auto mt-2 max-w-xs text-center text-[15px] leading-snug text-white/70">Want your world found in seconds after all? It takes two taps in Settings.</p>
+        <div className="mt-5">
+          <PhotoSettingsGuide now="None" />
+        </div>
+      </div>
+      <div className="pt-4 text-center">
+        <button type="button" onClick={onManual} className="w-full rounded-full py-3.5 text-base font-medium text-white ring-1 ring-white/30 hover:bg-white/10">
           Add my countries myself
         </button>
-        {!restricted && (
-          <>
-            <button
-              type="button"
-              onClick={() => void openAppSettings()}
-              className="flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-base font-medium text-white ring-1 ring-white/30 hover:bg-white/10"
-            >
-              <Settings size={17} aria-hidden /> Allow photos in Settings
-            </button>
-            <p className="text-xs text-white/50">Allow it there and this carries on by itself when you come back. Or any time later: tap + and choose From my photos.</p>
-          </>
-        )}
+        <p className="mt-2 text-xs text-white/45">Or any time later: tap + and choose From my photos.</p>
       </div>
     </div>
   );
 }
 
 /** Nothing found, and why, with the way on that fits: more photos, or adding it themselves. */
-export function Empty({ reason, limited, onChooseMore, onManual }: { reason: EmptyReason; limited: boolean; onChooseMore: () => void; onManual: () => void }) {
+export function Empty({ reason, limited, onChooseMore, onFull, onManual }: { reason: EmptyReason; limited: boolean; onChooseMore: () => void; onFull?: () => void; onManual: () => void }) {
   const copy: Record<EmptyReason, { icon: React.ReactNode; title: string; body: React.ReactNode }> = {
     "no-photos": {
       icon: <span className="text-6xl" aria-hidden>📷</span>,
@@ -431,6 +463,11 @@ export function Empty({ reason, limited, onChooseMore, onManual }: { reason: Emp
         <button type="button" onClick={onManual} className={more ? "w-full rounded-full py-3.5 text-base font-medium text-white ring-1 ring-white/30 hover:bg-white/10" : "btn-accent w-full py-4 text-lg"}>
           Add my countries myself
         </button>
+        {more && onFull && (
+          <button type="button" onClick={onFull} className="py-1 text-sm font-medium text-white/70 underline underline-offset-4 hover:text-white">
+            Or allow Full Access
+          </button>
+        )}
       </div>
     </div>
   );
