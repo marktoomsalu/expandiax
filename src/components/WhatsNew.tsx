@@ -26,9 +26,18 @@ export function WhatsNew({ joinedAt, preview = false }: { joinedAt: string; prev
   // `preview`: 1.2's sheet, open (design previews only).
   const [open, setOpen] = useState(preview);
   const [finder, setFinder] = useState(preview);
+  // A look before it's out: any page with ?whats-new=1.2 shows the 1.2 sheet, without counting as seen.
+  const [peek, setPeek] = useState(false);
 
   useEffect(() => {
-    if (preview || QUIET.some((p) => path.startsWith(p))) return;
+    if (preview) return;
+    if (new URLSearchParams(window.location.search).get("whats-new") === "1.2") {
+      setPeek(true);
+      setFinder(true);
+      setOpen(true);
+      return;
+    }
+    if (QUIET.some((p) => path.startsWith(p))) return;
     // The 1.2 app: Discover my world, unless they've already used it.
     if (canScanPhotos()) {
       if (tourSeen(TOUR.find)) return;
@@ -66,6 +75,7 @@ export function WhatsNew({ joinedAt, preview = false }: { joinedAt: string; prev
     tapLight();
     setOpen(false);
     releaseIntro("whats-new");
+    if (peek) return;
     if (finder) return markTourSeen(TOUR.find);
     // Next: the chat tour, then World Connect.
     markTourSeen(TOUR.whatsNew);
