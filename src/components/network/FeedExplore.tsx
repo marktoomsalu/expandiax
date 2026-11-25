@@ -1,12 +1,13 @@
 import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Compass, MapPin, Plane } from "lucide-react";
+import { ArrowRight, Compass, MapPin, Plane, Sparkles, Ticket, Users } from "lucide-react";
 import { loadExplore } from "@/lib/exploreData";
 import type { Here } from "@/lib/location";
 import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { slugify } from "@/lib/explore";
+import { formatDate } from "@/lib/utils";
 import { stockPhotoFor } from "@/lib/stockPhotos";
 import { loadDreamBoard, loadFriendCountries, loadNetworkHome, type MapCountry, type PersonCard, type PlaceCard, type TripIdea } from "@/lib/experienceNetworkData";
 import { featuredEvent, placementHref } from "@/lib/sponsors";
@@ -261,8 +262,8 @@ export function FeedExplore({
 
   return (
     <div className="mt-6 space-y-10">
-      <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-[#140d18]" aria-busy="true" aria-label="Departures, loading" />}>
-        <Departures board={board} home={home} />
+      <Suspense fallback={<div className="aspect-[16/10] animate-pulse rounded-2xl bg-raised" aria-busy="true" aria-label="Where your friends have been, loading" />}>
+        <FriendsWorld countries={friendCountries} />
       </Suspense>
       <Suspense fallback={<RowSkeleton title="Suggested for you" />}>
         <SuggestedPeopleRow viewerId={viewerId} />
@@ -270,11 +271,11 @@ export function FeedExplore({
       <Suspense fallback={null}>
         <Twin explore={explore} me={me} />
       </Suspense>
-      <Suspense fallback={null}>
-        <BeenWhereYouDream board={board} />
+      <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-[#140d18]" aria-busy="true" aria-label="Your dream trips, loading" />}>
+        <Departures board={board} home={home} />
       </Suspense>
       <Suspense fallback={null}>
-        <FriendsWorld countries={friendCountries} />
+        <BeenWhereYouDream board={board} />
       </Suspense>
       <Suspense fallback={null}>
         <IdeasSection home={home} origin={origin} />
@@ -282,7 +283,9 @@ export function FeedExplore({
       <Suspense fallback={null}>
         <OnYourRadar events={events} board={board} homeCountry={homeCountry} />
       </Suspense>
-      <KeepExploring city={city} place={here?.place ?? null} />
+      <Suspense fallback={null}>
+        <KeepExploring city={city} place={here?.place ?? null} events={events} explore={explore} home={home} />
+      </Suspense>
       <Suspense fallback={null}>
         <EmptyNote home={home} events={events} />
       </Suspense>
@@ -355,7 +358,19 @@ async function Departures({ board: pending, home }: { board: Promise<Board>; hom
       ];
     });
   }
-  return <DeparturesBoard rows={rows} seeAll={board.total > rows.length ? { href: "/my-world#dreams-h", total: board.total } : null} />;
+  // What the board is, in plain words above it: your dream list, and who you know has been to each place.
+  return (
+    <section aria-labelledby="dreams-board-h">
+      <Head
+        id="dreams-board-h"
+        title={board.length ? "Your dream trips" : "Where to next?"}
+        sub={board.length ? "The places on your dream list, and who you know has been. Tap one to ask for tips." : "Places people you follow have been. Add one to your dream list and ask them for tips."}
+      />
+      <div className="mt-3">
+        <DeparturesBoard rows={rows} seeAll={board.total > rows.length ? { href: "/my-world#dreams-h", total: board.total } : null} />
+      </div>
+    </section>
+  );
 }
 
 async function Twin({ explore, me }: { explore: Promise<Explore>; me: { username: string; display_name: string; avatar_url: string | null } }) {
@@ -511,26 +526,130 @@ async function OnYourRadar({ events, board, homeCountry }: { events: Promise<Net
 }
 
 /** Everything else Explore has, a tap away instead of more rows. */
-function KeepExploring({ city, place }: { city: string; place: string | null }) {
-  const links = [
-    { href: `/explore/events${city}`, label: place ? `What's on near ${place}` : "What's on near you" },
-    { href: "/explore/people", label: "People you may know" },
-    { href: "/explore/trending", label: "Trending memories" },
-    { href: "/explore/places?circle=network", label: "Places your network knows" },
-  ];
+/** A Keep exploring card: a glimpse of what's behind it, what it is, and the way in. */
+function PreviewCard({ href, title, line, children }: { href: string; title: string; line: string; children: React.ReactNode }) {
+  return (
+    <li>
+      <Link href={href} className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm transition-colors hover:border-accent">
+        <span className="relative block h-28 overflow-hidden bg-gradient-to-br from-accent-soft via-surface to-raised">{children}</span>
+        <span className="flex flex-1 flex-col px-3 pb-3 pt-2.5">
+          <span className="flex items-center justify-between gap-2 text-sm font-semibold leading-tight">
+            {title} <ArrowRight size={14} className="shrink-0 text-accent transition-transform group-hover:translate-x-0.5" aria-hidden />
+          </span>
+          <span className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted">{line}</span>
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+/** Up to three pictures, fanned out like prints on a table. */
+function Fan({ images }: { images: string[] }) {
+  const turns = ["-rotate-6 left-3 top-4", "rotate-3 left-1/2 top-3 -translate-x-1/2", "rotate-6 right-3 top-5"];
+  return (
+    <>
+      {images.slice(0, 3).map((src, i) => (
+        <span key={src} className={`absolute h-20 w-16 overflow-hidden rounded-lg bg-raised shadow-md ring-2 ring-white dark:ring-[#2a2430] ${turns[i]}`} style={{ zIndex: i === 1 ? 2 : 1 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" />
+        </span>
+      ))}
+    </>
+  );
+}
+
+const centred = "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-accent/70";
+const unique = (list: (string | null | undefined)[]) => [...new Set(list.filter((x): x is string => !!x))];
+const firstFew = (list: string[], total: number) => (list.length ? `${list.slice(0, 2).join(", ")}${total > 2 ? ` and ${total - 2} more` : ""}` : "");
+
+/**
+ * Keep exploring: not plain links but a glimpse of each, from what's really
+ * there for this person (the next events near them, people like them, the
+ * artists trending, the places their network knows), so they know what
+ * they'll find before they tap.
+ */
+export async function KeepExploring({
+  city,
+  place,
+  events: pendingEvents,
+  explore: pendingExplore,
+  home: pendingHome,
+}: {
+  city: string;
+  place: string | null;
+  events: Promise<NetworkEventCard[]>;
+  explore: Promise<Explore>;
+  home: Promise<Home>;
+}) {
+  const [events, explore, home] = await Promise.all([pendingEvents.catch(() => [] as NetworkEventCard[]), pendingExplore.catch(() => null), pendingHome.catch(() => null)]);
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = events.filter((e) => e.date >= today);
+  const people = home?.people ?? [];
+  const trending = explore?.trending ?? [];
+  const places = home?.networkPlaces ?? [];
+  const next = upcoming[0];
+  const eventPics = unique(upcoming.map((e) => e.image));
+  const trendPics = unique(trending.map((t) => t.image));
+  const placePics = unique(places.map((p) => p.photo));
+
   return (
     <section aria-labelledby="more-h">
-      <h2 id="more-h" className="font-mono text-[10px] font-semibold tracking-[0.25em] text-muted">
-        KEEP EXPLORING
+      <h2 id="more-h" className="font-serif text-xl">
+        Keep exploring
       </h2>
-      <ul className="mt-3 flex flex-wrap gap-2">
-        {links.map((l) => (
-          <li key={l.href}>
-            <Link href={l.href} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-sm hover:border-accent">
-              {l.label} <ArrowRight size={13} className="text-muted" aria-hidden />
-            </Link>
-          </li>
-        ))}
+      <ul className="mt-3 grid grid-cols-2 gap-3">
+        <PreviewCard
+          href={`/explore/events${city}`}
+          title={place ? `What's on near ${place}` : "What's on near you"}
+          line={next ? `${next.name}, ${formatDate(next.date)}${upcoming.length > 1 ? ` · ${upcoming.length} coming up` : ""}` : "Concerts, matches and festivals coming up"}
+        >
+          {eventPics.length ? <Fan images={eventPics} /> : <Ticket size={34} className={centred} aria-hidden />}
+        </PreviewCard>
+
+        <PreviewCard
+          href="/explore/people"
+          title="People you may know"
+          line={people.length ? `${firstFew(people.map((p) => p.display_name.split(" ")[0]), people.length)}: travellers like you` : "Travellers with a world like yours"}
+        >
+          {people.length ? (
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="flex -space-x-3">
+                {people.slice(0, 3).map((p) => (
+                  <span key={p.id} className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-serif text-lg text-accent shadow-md ring-[3px] ring-surface">
+                    {p.avatar_url ? <Image src={p.avatar_url} alt="" fill sizes="56px" className="object-cover" /> : p.display_name.charAt(0)}
+                  </span>
+                ))}
+              </span>
+            </span>
+          ) : (
+            <Users size={34} className={centred} aria-hidden />
+          )}
+        </PreviewCard>
+
+        <PreviewCard
+          href="/explore/trending"
+          title="Trending memories"
+          line={trending.length ? `${firstFew(trending.map((t) => t.name), trending.length)}` : "What members are keeping right now"}
+        >
+          {trendPics.length ? <Fan images={trendPics} /> : <Sparkles size={34} className={centred} aria-hidden />}
+        </PreviewCard>
+
+        <PreviewCard
+          href="/explore/places?circle=network"
+          title="Places your network knows"
+          line={places.length ? `${firstFew(places.map((p) => p.name), places.length)}` : "Where the people you follow have been"}
+        >
+          {placePics.length ? (
+            <Fan images={placePics} />
+          ) : (
+            <span className="absolute inset-0 flex items-center justify-center text-3xl" aria-hidden>
+              {places
+                .slice(0, 3)
+                .map((p) => countryByCode(p.country)?.flag)
+                .join(" ") || "🌍"}
+            </span>
+          )}
+        </PreviewCard>
       </ul>
     </section>
   );
