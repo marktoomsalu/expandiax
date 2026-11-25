@@ -101,3 +101,13 @@ describe("decideAll (concerts and our catalogue)", () => {
     expect(decideAll(moment({ near: [], photos: 10, hours: 1 }), [], [known({ kind: "festival", title: "Far", lat: 51.9, lng: -0.27 })], ["London"], "2025")).toBeNull();
   });
 });
+
+describe("concert grounds the venue lists miss", () => {
+  it("finds Tallinn's Song Festival Grounds for photos taken in the crowd", async () => {
+    const { EXTRA_VENUES } = await import("./extraVenues");
+    const venues = venuesFromRows(EXTRA_VENUES.EE);
+    // About 300 m from its middle, where the crowd stands.
+    expect(venuesNear({ lat: 59.4459, lng: 24.8143 }, venues).map((v) => v.name)).toContain("Tallinn Song Festival Grounds");
+    expect(sameVenue("Tallinna Lauluväljak", "Lauluväljak")).toBe(true);
+  });
+});

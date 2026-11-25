@@ -97,10 +97,10 @@ export default function SignUpPage() {
     // worked (so nobody can test which emails are registered) but creates
     // nothing and sends nothing. Its sign: a user with no identities.
     if (data.user && !data.session && (data.user.identities?.length ?? 0) === 0) {
-      // What they found in their photos waits on the phone: after signing in, they pick what to add (WelcomeBackReview).
+      // What they found in their photos waits on the phone: after signing in, Discover my world shows what's new to them.
       setError(
         loadKeptWorld()
-          ? "You already have an account with this email. Sign in, and you can add what you just found to it: nothing in it changes until you choose."
+          ? "You already have an account with this email. Sign in, and Discover my world shows what you just found that isn't in it yet: nothing changes until you choose."
           : "There's already an account with this email. Sign in instead, or reset your password if you've forgotten it."
       );
       setAlreadyHere(true);
@@ -172,7 +172,8 @@ export default function SignUpPage() {
         {error && <p role="alert" className="rounded-lg border border-red-800/20 bg-red-800/5 px-3 py-2 text-sm text-red-800 dark:text-red-400">{error}</p>}
         {error && alreadyHere && (
           <p className="flex gap-4 text-sm font-medium">
-            <Link href="/sign-in" className="text-accent hover:underline">Sign in</Link>
+            {/* With a world just found on this phone: straight on to Discover my world after signing in. */}
+            <Link href={loadKeptWorld() ? "/sign-in?next=/my-world/find-trips" : "/sign-in"} className="text-accent hover:underline">Sign in</Link>
             <Link href="/forgot-password" className="text-accent hover:underline">Reset password</Link>
           </p>
         )}

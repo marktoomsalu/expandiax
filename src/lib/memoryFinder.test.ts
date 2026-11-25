@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({}) }));
 vi.mock("@/components/PhotoPlaceSuggestion", () => ({ savePlaces: async () => new Map() }));
 
-import { matchMemories, type Saved, type SavedVisit, type SavedEvent } from "./memoryFinder";
+import { matchMemories, wasSkipped, type Saved, type SavedVisit, type SavedEvent } from "./memoryFinder";
 import type { FoundTrip } from "./tripFinder";
 import type { FoundEvent, TripTown } from "./worldStory";
 
@@ -114,5 +114,18 @@ describe("matchMemories: events over several days", () => {
       savedEvents: [savedEvent({ title: "Roskilde Festival", date: "2025-07-02", end: "2025-07-05", venue: "Roskilde Festival", code: "DK" })],
     });
     expect(r).toMatchObject({ suggestions: [], matchedEvents: 1 });
+  });
+});
+
+describe("turned-down suggestions", () => {
+  it("stay turned down, even if a later scan moves the trip's first day a little", () => {
+    const skipped = new Set(["nt:CN:2024-03-01"]);
+    expect(wasSkipped("nt:CN:2024-03-01", skipped)).toBe(true);
+    expect(wasSkipped("nt:CN:2024-03-03", skipped)).toBe(true);
+  });
+  it("don't hide another trip to the same country on other dates", () => {
+    const skipped = new Set(["nt:CN:2024-03-01"]);
+    expect(wasSkipped("nt:CN:2025-10-12", skipped)).toBe(false);
+    expect(wasSkipped("nt:JP:2024-03-01", skipped)).toBe(false);
   });
 });

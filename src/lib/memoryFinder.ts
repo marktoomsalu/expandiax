@@ -243,17 +243,38 @@ export function matchMemories(input: {
     if (!saved.countries.has(e.code)) newCountries.add(e.code);
   }
 
-  const order = { "better-trip": 0, "better-event": 0, "which-trip": 0, "new-trip": 1, "new-event": 2 } as const;
+  // What's new first (the most value right away), then what's saved made better.
+  const order = { "new-trip": 0, "new-event": 1, "better-trip": 2, "better-event": 2, "which-trip": 2 } as const;
   const when = (s: Suggestion) =>
     s.kind === "which-trip" ? s.options[0].trip.from : s.kind === "better-trip" || s.kind === "new-trip" ? s.trip.from : s.event.date;
   return {
-    suggestions: out.filter((s) => !skipped.has(s.key)).sort((a, b) => order[a.kind] - order[b.kind] || when(b).localeCompare(when(a))),
+    suggestions: out.filter((s) => !wasSkipped(s.key, skipped)).sort((a, b) => order[a.kind] - order[b.kind] || when(b).localeCompare(when(a))),
     matchedTrips,
     matchedEvents,
   };
 }
 
 // ---------------------------------------------------------------- skipping
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Whether a suggestion was turned down before: the same one, or for a new
+ * trip, a trip to the same country starting within a few days of it (a later
+ * scan can move a trip's first day by one as more photos arrive). Another
+ * trip to that country on other dates is still suggested.
+ */
+export function wasSkipped(key: string, skipped: Set<string>): boolean {
+  if (skipped.has(key)) return true;
+  const m = /^nt:([A-Z]{2}):(\d{4}-\d{2}-\d{2})$/.exec(key);
+  if (!m) return false;
+  const at = Date.parse(`${m[2]}T00:00:00Z`);
+  for (const k of skipped) {
+    const o = /^nt:([A-Z]{2}):(\d{4}-\d{2}-\d{2})$/.exec(k);
+    if (o && o[1] === m[1] && Math.abs(Date.parse(`${o[2]}T00:00:00Z`) - at) <= 3 * DAY_MS) return true;
+  }
+  return false;
+}
 
 const SKIP_KEY = "expandiax:from-photos-skipped";
 const SEEN_KEY = "expandiax:from-photos-seen";

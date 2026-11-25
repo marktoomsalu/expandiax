@@ -76,10 +76,10 @@ export function FinderIntro({ countryCodes, error, onStart }: { countryCodes: st
       <PhotoFan codes={countryCodes} />
 
       <motion.p {...rise(0.45)} className="eyebrow mt-[min(2.25rem,4dvh)]">
-        Discover my world · Automatic memory finder
+        Discover my world
       </motion.p>
       <motion.h1 {...rise(0.55)} className="mt-2 font-serif text-[2.1rem] leading-[1.08]">
-        Your photos remember <span className="italic text-accent">more than your map.</span>
+        Your photos remember <span className="italic text-accent">the details you forgot.</span>
       </motion.h1>
 
       <motion.ul {...rise(0.7)} className="mt-6 space-y-4">
@@ -89,7 +89,7 @@ export function FinderIntro({ countryCodes, error, onStart }: { countryCodes: st
           </span>
           <span className="pt-0.5 text-[15px] leading-snug">
             <span className="font-semibold">Trips and events you haven&apos;t added</span>
-            <span className="block text-muted">Concerts, matches and races too</span>
+            <span className="block text-muted">Found automatically, concerts and matches too</span>
           </span>
         </li>
         <li className="flex items-start gap-3.5">
@@ -107,7 +107,7 @@ export function FinderIntro({ countryCodes, error, onStart }: { countryCodes: st
           </span>
           <span className="pt-0.5 text-[15px] leading-snug">
             <span className="font-semibold">Only when and where</span>
-            <span className="block text-muted">Each photo&apos;s date and place, read on your phone. Never what&apos;s in it, and no photos uploaded.</span>
+            <span className="block text-muted">We only read the date and location saved with each photo and video, never what&apos;s in them. No photos are uploaded.</span>
           </span>
         </li>
       </motion.ul>

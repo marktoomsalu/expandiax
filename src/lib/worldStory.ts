@@ -9,6 +9,7 @@ import { distanceKm } from "./tripPlaces";
 import type { FoundTrip } from "./tripFinder";
 import type { ScanMoment } from "./photoScan";
 import type { EventType } from "./types";
+import { EXTRA_VENUES } from "./extraVenues";
 
 export type TripTown = { name: string; lat: number; lng: number; arrived: string | null; departed: string | null; photos: number };
 
@@ -69,7 +70,8 @@ function loadVenues(code: string): Promise<Venue[]> {
   if (!p) {
     p = fetch(`/data/venues/${code}.json`)
       .then((r) => (r.ok ? (r.json() as Promise<[string, number, number, string, string[]?][]>) : []))
-      .then(venuesFromRows)
+      // Plus the concert grounds the list misses (lib/extraVenues).
+      .then((rows) => venuesFromRows([...rows, ...(EXTRA_VENUES[code] ?? [])]))
       .catch(() => {
         venueCache.delete(code);
         return [];
@@ -80,6 +82,10 @@ function loadVenues(code: string): Promise<Venue[]> {
 }
 
 const hourOf = (stamp: string) => Number(stamp.slice(11, 13));
+
+/** How many moments are asked about in all, and how many per request (the server's own limit). */
+const ASK_MAX = 60;
+const ASK_BATCH = 30;
 const hoursBetween = (a: string, b: string) => (Date.parse(`${b}:00Z`) - Date.parse(`${a}:00Z`)) / 3_600_000;
 
 /** Whether a moment looks like going out to something: an evening, or a long busy day. */
@@ -110,7 +116,8 @@ export function askFor(id: string, m: ScanMoment, code: string, near: Venue[], t
     day: m.s.slice(0, 10),
     countryCode: code,
     towns: townNames({ lat: m.la, lng: m.ln }, towns),
-    venues: [...new Set(near.slice(0, 3).flatMap((v) => [v.name, ...v.aka.slice(0, 2)]))].slice(0, 6),
+    // All of the nearest venue's names first (setlist.fm may know it only by one of them: "Johan Cruijff ArenA"), then the others'.
+    venues: [...new Set(near.slice(0, 3).flatMap((v) => [v.name, ...v.aka]))].slice(0, 6),
     area: { lat: Math.round(m.la * 5) / 5, lng: Math.round(m.ln * 5) / 5 },
   };
 }
@@ -121,20 +128,37 @@ export function askFor(id: string, m: ScanMoment, code: string, near: Venue[], t
  * and rough areas, and the phone decides from its answer.
  */
 export async function findEvents(moments: ScanMoment[], locate: (lat: number, lng: number) => string | null): Promise<{ events: FoundEvent[]; bigDays: BigDay[] }> {
-  // Evenings and big days; and any few hours of photos at a stadium (an afternoon match).
-  const candidates: ScanMoment[] = [];
-  for (const m of [...moments].sort((a, b) => b.n - a.n)) {
-    if (candidates.length >= 60) break;
-    if (eventLike(m)) candidates.push(m);
-    else if (m.n >= 8) {
-      const code = locate(m.la, m.ln);
-      if (code && venuesNear({ lat: m.la, lng: m.ln }, await loadVenues(code)).some((v) => v.kind === "s")) candidates.push(m);
-    }
+  // Which moments to ask about, likeliest first: an evening at a concert venue
+  // (stadium, arena, music hall), then any time at a stadium (an afternoon
+  // match) or an evening at a theatre, then big busy days with no venue.
+  // Ranking by photo count alone let a sightseeing day with hundreds of
+  // photos crowd out a concert with twenty.
+  type Ranked = { m: ScanMoment; score: number; key: string };
+  const ranked: Ranked[] = [];
+  for (const m of [...moments].sort((a, b) => b.n - a.n).slice(0, 500)) {
+    const code = locate(m.la, m.ln);
+    if (!code) continue;
+    const near = venuesNear({ lat: m.la, lng: m.ln }, await loadVenues(code));
+    const end = hourOf(m.e);
+    const evening = end >= 18 || end < 4;
+    const stage = near.find((v) => v.kind !== "t");
+    let score = 0;
+    if (stage && evening) score = 3;
+    else if (near.some((v) => v.kind === "s") || (near.length && evening)) score = 2;
+    else if (eventLike(m)) score = 1;
+    if (!score) continue;
+    // One question per night at one venue (photos before and after a break are two moments).
+    ranked.push({ m, score, key: `${m.s.slice(0, 10)}|${near[0]?.name ?? `${m.la.toFixed(2)},${m.ln.toFixed(2)}`}` });
   }
+  const seenKeys = new Set<string>();
+  const candidates = ranked
+    .sort((a, b) => b.score - a.score || b.m.n + b.m.v * 3 - (a.m.n + a.m.v * 3))
+    .filter((r) => (seenKeys.has(r.key) ? false : (seenKeys.add(r.key), true)))
+    .map((r) => r.m);
   type Asked = { ask: MomentAsk; moment: Moment; scan: ScanMoment; code: string; city: string | null };
   const asked: Asked[] = [];
   for (const m of candidates) {
-    if (asked.length >= 30) break;
+    if (asked.length >= ASK_MAX) break;
     const code = locate(m.la, m.ln);
     if (!code) continue;
     const [venues, towns] = await Promise.all([loadVenues(code), loadTowns(code)]);
@@ -146,12 +170,20 @@ export async function findEvents(moments: ScanMoment[], locate: (lat: number, ln
   }
   if (!asked.length) return { events: [], bigDays: [] };
 
-  const res = await fetch("/api/scan/events", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ moments: asked.map((a) => a.ask) }),
-  });
-  const answers = res.ok ? ((await res.json()) as { answers: { id: string; shows: ShowFound[]; known?: KnownEvent[] }[] }).answers : [];
+  // Asked in batches the server takes (30 each), side by side: twice as many nights checked in about the same time.
+  type Answer = { id: string; shows: ShowFound[]; known?: KnownEvent[] };
+  const batches: Asked[][] = [];
+  for (let i = 0; i < asked.length; i += ASK_BATCH) batches.push(asked.slice(i, i + ASK_BATCH));
+  const answers = (
+    await Promise.all(
+      batches.map((b) =>
+        fetch("/api/scan/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ moments: b.map((a) => a.ask) }) })
+          .then((r) => (r.ok ? (r.json() as Promise<{ answers: Answer[] }>) : { answers: [] }))
+          .then((d) => d.answers)
+          .catch(() => [] as Answer[])
+      )
+    )
+  ).flat();
   const byId = new Map(answers.map((a) => [a.id, a]));
 
   const events: FoundEvent[] = [];

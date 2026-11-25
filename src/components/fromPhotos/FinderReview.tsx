@@ -24,9 +24,9 @@ function savedWhen(v: SavedVisit) {
 const norm = (s: string) => s.toLowerCase().trim();
 
 /**
- * Everything found, to look over: richer versions of what's saved, then new
- * trips, then new events. All ticked; untick what isn't right. Nothing is
- * written until "Save".
+ * Everything found, to look over: new trips, then new events (the most
+ * value right away), then richer versions of what's saved. All ticked;
+ * untick what isn't right. Nothing is written until "Save".
  */
 export function FinderReview({ findings, saving, error, onSave }: { findings: Findings; saving: boolean; error: string | null; onSave: (changes: Change[], skipped: string[]) => void }) {
   const reduce = useReducedMotion();
@@ -76,7 +76,6 @@ export function FinderReview({ findings, saving, error, onSave }: { findings: Fi
     return <EventCard key={s.key} {...common} s={s} />;
   };
 
-  const n = all.length;
   const matched = findings.matchedTrips + findings.matchedEvents;
   const label = saving ? "Saving…" : changes.length ? `Save ${changes.length} ${changes.length === 1 ? "change" : "changes"}` : "Nothing ticked";
 
@@ -86,25 +85,25 @@ export function FinderReview({ findings, saving, error, onSave }: { findings: Fi
         Discover my world
       </motion.p>
       <motion.h1 className="mt-2 font-serif text-[2rem] leading-[1.08]" initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: EASE }}>
-        Your photos <span className="italic text-accent">found {n} {n === 1 ? "thing" : "things"}.</span>
+        {headline(newTrips.length, newEvents.length, better.length)}
       </motion.h1>
       <motion.p className="mt-2 text-[15px] text-muted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}>
         Untick anything that isn&apos;t right. Nothing changes until you save.
       </motion.p>
 
-      {better.length > 0 && (
-        <Section title="Make better" note="already in ExpandiaX" start={0}>
-          {better.map((s, i) => card(s, i))}
-        </Section>
-      )}
       {newTrips.length > 0 && (
-        <Section title={newTrips.length === 1 ? "New trip" : "New trips"} start={better.length}>
-          {newTrips.map((s, i) => card(s, better.length + i))}
+        <Section title={newTrips.length === 1 ? "New trip" : "New trips"} start={0}>
+          {newTrips.map((s, i) => card(s, i))}
         </Section>
       )}
       {newEvents.length > 0 && (
-        <Section title={newEvents.length === 1 ? "New event" : "New events"} start={better.length + newTrips.length}>
-          {newEvents.map((s, i) => card(s, better.length + newTrips.length + i))}
+        <Section title={newEvents.length === 1 ? "New event" : "New events"} start={newTrips.length}>
+          {newEvents.map((s, i) => card(s, newTrips.length + i))}
+        </Section>
+      )}
+      {better.length > 0 && (
+        <Section title="Make better" note="already in ExpandiaX" start={newTrips.length + newEvents.length}>
+          {better.map((s, i) => card(s, newTrips.length + newEvents.length + i))}
         </Section>
       )}
 
@@ -163,6 +162,23 @@ export function FinderReview({ findings, saving, error, onSave }: { findings: Fi
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/** What was found, in words: "We found 12 trips and 3 events you haven't added yet." */
+function headline(trips: number, events: number, better: number) {
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const found = [trips ? plural(trips, "trip", "trips") : null, events ? plural(events, "event", "events") : null].filter(Boolean).join(" and ");
+  if (found)
+    return (
+      <>
+        We found <span className="italic text-accent">{found}</span> you haven&apos;t added yet.
+      </>
+    );
+  return (
+    <>
+      We found <span className="italic text-accent">{plural(better, "way", "ways")}</span> to make your memories better.
+    </>
   );
 }
 
