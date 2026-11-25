@@ -481,3 +481,26 @@ export async function loadCircleCountries(supabase: Supabase, viewerId: string):
     network: build((id) => circle.following.has(id), [...places.friends, ...places.network], (t) => t.network),
   };
 }
+
+/** Explore's own friends map: per country, the friends (you follow each other) who've been, by their public countries. No towns: kept light. */
+export async function loadFriendCountries(supabase: Supabase, viewerId: string): Promise<MapCountry[]> {
+  const circle = await viewerCircle(supabase, viewerId);
+  const ids = [...circle.friends];
+  if (!ids.length) return [];
+  const [{ data: rows }, { data: blocked }, { data: profiles }] = await Promise.all([
+    supabase.from("visited_countries").select("user_id, country_code").in("user_id", ids).eq("is_public", true).limit(5000),
+    supabase.from("blocks").select("blocked_id").eq("blocker_id", viewerId),
+    supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", ids),
+  ]);
+  const blockedIds = new Set((blocked ?? []).map((b) => b.blocked_id));
+  const person = new Map(((profiles ?? []) as Person[]).map((p) => [p.id, p]));
+  const by = new Map<string, Set<string>>();
+  for (const r of (rows ?? []) as { user_id: string; country_code: string }[]) {
+    if (blockedIds.has(r.user_id)) continue;
+    (by.get(r.country_code) ?? by.set(r.country_code, new Set()).get(r.country_code)!).add(r.user_id);
+  }
+  return [...by.entries()]
+    .map(([code, set]) => ({ code, people: [...set].map((id) => person.get(id)).filter((p): p is Person => !!p), towns: [] }))
+    .filter((c) => c.people.length > 0)
+    .sort((a, b) => b.people.length - a.people.length || a.code.localeCompare(b.code));
+}

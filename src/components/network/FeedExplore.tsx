@@ -8,12 +8,12 @@ import { createClient } from "@/lib/supabase/server";
 import { countryByCode } from "@/lib/countries";
 import { slugify } from "@/lib/explore";
 import { stockPhotoFor } from "@/lib/stockPhotos";
-import { loadDreamBoard, loadNetworkHome, type PersonCard, type PlaceCard, type TripIdea } from "@/lib/experienceNetworkData";
+import { loadDreamBoard, loadFriendCountries, loadNetworkHome, type MapCountry, type PersonCard, type PlaceCard, type TripIdea } from "@/lib/experienceNetworkData";
 import { featuredEvent, placementHref } from "@/lib/sponsors";
 import { countPlacement, loadSponsors } from "@/lib/sponsorsData";
 import { BoardingPass } from "../explore/BoardingPass";
 import { DeparturesBoard, type BoardRow } from "../explore/DeparturesBoard";
-import { PlacesSwitch } from "../explore/PlacesSwitch";
+import { FriendsMap } from "../explore/FriendsMap";
 import { sourcesCredit } from "@/lib/eventSources";
 import { loadNetworkEvents, type NetworkEventCard } from "@/lib/networkEvents";
 import { flightTo, originFor, type Flight } from "@/lib/flights";
@@ -234,7 +234,7 @@ export function cityQuery(here: Here | null) {
 /**
  * The Explore tab, built around where you want to go next: your dream
  * destinations on a departures board, your travel twin's boarding pass,
- * the people who've been where you're dreaming, postcards from your people,
+ * the people who've been where you're dreaming, where your friends have been (a map),
  * stamps for your next trip — and one event, only when it's personal.
  * Everything else is a tap away under "Keep exploring".
  */
@@ -257,6 +257,7 @@ export function FeedExplore({
   const board = loadDreamBoard(supabase, viewerId);
   const origin = originFor(here?.where ?? null, homeCountry);
   const city = cityQuery(here);
+  const friendCountries = loadFriendCountries(supabase, viewerId);
 
   return (
     <div className="mt-6 space-y-10">
@@ -272,8 +273,8 @@ export function FeedExplore({
       <Suspense fallback={null}>
         <BeenWhereYouDream board={board} />
       </Suspense>
-      <Suspense fallback={<RowSkeleton title="Through your friends' eyes" tall />}>
-        <Postcards home={home} />
+      <Suspense fallback={null}>
+        <FriendsWorld countries={friendCountries} />
       </Suspense>
       <Suspense fallback={null}>
         <IdeasSection home={home} origin={origin} />
@@ -417,24 +418,20 @@ async function BeenWhereYouDream({ board: pending }: { board: Promise<Board> }) 
   );
 }
 
-// Tilted postcards and stamps need a little room, most of all on the left
+// Tilted stamps need a little room, most of all on the left
 // (and the snap keeps the first one there instead of at the screen's edge).
-const postRail = "no-scrollbar -mx-5 mt-3 flex snap-x scroll-pl-7 gap-4 overflow-x-auto pb-4 pl-7 pr-5 pt-4";
 const stampRail = "no-scrollbar -mx-5 mt-4 flex snap-x scroll-pl-7 gap-4 overflow-x-auto pb-3 pl-7 pr-5 pt-2";
 
-/** Friends' places and the wider network's, as postcards behind one switch. */
-async function Postcards({ home }: { home: Promise<Home> }) {
-  const { friendPlaces, networkPlaces } = await home;
-  if (!friendPlaces.length && !networkPlaces.length) return null;
-  const row = (places: PlaceCard[]) =>
-    places.length ? (
-      <ul className={postRail}>
-        {places.map((p, i) => (
-          <PlaceCardBig key={p.key} p={p} tilt={i % 2 ? 1.4 : -1.4} />
-        ))}
-      </ul>
-    ) : null;
-  return <PlacesSwitch friends={row(friendPlaces)} network={row(networkPlaces)} />;
+/** Where your friends have been: the map, right on Explore (only with friends who have places). */
+async function FriendsWorld({ countries: pending }: { countries: Promise<MapCountry[]> }) {
+  const countries = await pending;
+  if (!countries.length) return null;
+  return (
+    <section aria-labelledby="friends-world-h">
+      <Head id="friends-world-h" title="Where your friends have been" sub="Tap a country to see who's been." />
+      <FriendsMap countries={countries} compact />
+    </section>
+  );
 }
 
 async function IdeasSection({ home, origin }: { home: Promise<Home>; origin: string | null }) {

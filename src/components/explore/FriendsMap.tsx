@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { geoArea, geoCentroid, geoNaturalEarth1, geoPath, type GeoPermissibleObjects } from "d3-geo";
+import { geoArea, geoNaturalEarth1, geoPath, type GeoPermissibleObjects } from "d3-geo";
 import { feature } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 import { ArrowRight, MapPin, X } from "lucide-react";
@@ -15,11 +15,15 @@ import { cn } from "@/lib/utils";
 
 type Region = "World" | (typeof CONTINENTS)[number];
 type Shape = { type: "Feature"; properties: Record<string, never>; id: string; geometry: unknown; code: string | null; continent: string | null };
+type Box = { x: number; y: number; w: number; h: number };
 
-const W = 360;
+// The whole world is drawn once at this size; a region is a view of it (the
+// viewBox), so switching regions glides rather than redraws.
+const MW = 1000;
+const MH = 520;
 
 // How many have been, as depth of pink: 1, 2–3, 4–6, 7 or more.
-const SHADES = ["#fcd3e6", "#f9a2c9", "#f76aa8", "#d92f86"];
+const SHADES = ["#fcc8df", "#f994c0", "#f45ca1", "#d1257d"];
 const shadeOf = (n: number) => (n >= 7 ? SHADES[3] : n >= 4 ? SHADES[2] : n >= 2 ? SHADES[1] : SHADES[0]);
 const LEGEND = [
   { label: "1", fill: SHADES[0] },
@@ -28,7 +32,7 @@ const LEGEND = [
   { label: "7+", fill: SHADES[3] },
 ];
 
-/** A country's main land only (France without French Guiana, Spain without the Canaries): what a region is framed by. */
+/** A country's main land only (France without French Guiana, Spain without the Canaries): what frames a region and holds its number. */
 function mainland(s: Shape) {
   const g = s.geometry as { type: string; coordinates: unknown };
   if (g.type !== "MultiPolygon") return { type: "Feature", geometry: g, properties: {} };
@@ -57,14 +61,24 @@ const loadWorld = () =>
         })
     ));
 
+/** Grow a box to the frame's shape, around its middle, with a little room. */
+function toFrame(b: Box, aspect: number, pad = 0.06): Box {
+  let w = b.w * (1 + pad * 2);
+  let h = b.h * (1 + pad * 2);
+  if (w / h > aspect) h = w / aspect;
+  else w = h * aspect;
+  return { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h };
+}
+
 /**
- * "Places your friends know" as a map: every country coloured by how many
- * of your friends (or people you follow) have been, a number on the ones
- * big enough to hold it, a region at a time to see more. Tap a country:
- * who's been, the towns they logged, and the way to explore it. The
- * countries most of them know are listed underneath.
+ * Where your friends have been, as a flat map: every country coloured by
+ * how many have been (the number on it where it fits), a continent at a
+ * time with a smooth glide between them, white borders that stay crisp at
+ * any zoom. Tap a country: who's been (and, on the full page, their towns
+ * and the countries most of them know). `compact` is Explore's own:
+ * nothing below the map but the country tapped.
  */
-export function FriendsMap({ countries, circle }: { countries: MapCountry[]; circle: "friends" | "network" }) {
+export function FriendsMap({ countries, circle = "friends", compact = false }: { countries: MapCountry[]; circle?: "friends" | "network"; compact?: boolean }) {
   const [shapes, setShapes] = useState<Shape[] | null>(null);
   const [region, setRegion] = useState<Region>("World");
   const [picked, setPicked] = useState<string | null>(null);
@@ -73,53 +87,55 @@ export function FriendsMap({ countries, circle }: { countries: MapCountry[]; cir
   }, []);
 
   const byCode = useMemo(() => new Map(countries.map((c) => [c.code, c])), [countries]);
-  // Regions worth a tab: the ones with someone in them.
   const regions = useMemo(() => {
     const has = new Set(countries.map((c) => countryByCode(c.code)?.continent).filter(Boolean));
     return ["World", ...CONTINENTS.filter((c) => has.has(c))] as Region[];
   }, [countries]);
+  const aspect = compact ? 16 / 10 : 3 / 2;
 
-  // The map for this region: fitted to its countries (Russia aside for Europe, so Europe isn't mostly Siberia), centred on them.
-  const drawn = useMemo(() => {
+  // The world, drawn once: each country's outline, where its main land sits, and the box round each continent.
+  const map = useMemo(() => {
     if (!shapes?.length) return null;
-    const inRegion = (s: Shape) => region === "World" || s.continent === region;
-    const fitTo = shapes.filter((s) => inRegion(s) && !(region === "Europe" && s.code === "RU") && s.code !== "AQ");
-    const H = region === "World" ? 200 : 300;
-    const projection = geoNaturalEarth1();
-    if (region !== "World") {
-      const lngs = fitTo.map((s) => geoCentroid(mainland(s) as never)[0]);
-      const mid = lngs.reduce((a, b) => a + b, 0) / Math.max(1, lngs.length);
-      projection.rotate([-mid, 0]);
-    }
-    projection.fitExtent(
-      [
-        [8, 8],
-        [W - 8, H - 8],
-      ],
-      { type: "FeatureCollection", features: region === "World" ? shapes.filter((s) => s.code !== "AQ") : fitTo.map(mainland) } as never
-    );
+    const visible = shapes.filter((s) => s.code !== "AQ");
+    const projection = geoNaturalEarth1().fitSize([MW, MH], { type: "FeatureCollection", features: visible } as never);
     const path = geoPath(projection);
-    const items = shapes
-      .filter((s) => s.code !== "AQ")
+    const items = visible
       .map((s) => {
         const d = path(s as unknown as GeoPermissibleObjects);
         if (!d) return null;
-        const c = s.code ? byCode.get(s.code) : undefined;
-        // Where the number goes: the middle of the country's main land (France's on France, not out at sea for French Guiana).
         const main = mainland(s) as unknown as GeoPermissibleObjects;
         const [[x0, y0], [x1, y1]] = path.bounds(main);
         const [cx, cy] = path.centroid(main);
-        // A number only where it fits (and inside the frame).
-        const roomy = (x1 - x0) * (y1 - y0) > (region === "World" ? 260 : 300) && cx > 10 && cx < W - 10 && cy > 10 && cy < H - 10;
-        return { id: s.id, code: s.code, d, n: c?.people.length ?? 0, cx, cy, roomy };
+        return { id: s.id, code: s.code, continent: s.continent, d, cx, cy, bw: x1 - x0, bh: y1 - y0, x0, y0, x1, y1 };
       })
       .filter((x): x is NonNullable<typeof x> => !!x);
-    return { H, items };
-  }, [shapes, region, byCode]);
+    const boxes = {} as Record<Region, Box>;
+    boxes.World = { x: 0, y: 0, w: MW, h: MH };
+    for (const c of CONTINENTS) {
+      // Europe without Siberia; Oceania without the islands past the date line.
+      const of = items.filter((i) => i.continent === c && !(c === "Europe" && i.code === "RU") && !(c === "Oceania" && i.cx < MW / 2));
+      if (!of.length) continue;
+      const x0 = Math.min(...of.map((i) => i.x0));
+      const y0 = Math.min(...of.map((i) => i.y0));
+      boxes[c] = { x: x0, y: y0, w: Math.max(...of.map((i) => i.x1)) - x0, h: Math.max(...of.map((i) => i.y1)) - y0 };
+    }
+    return { items, boxes };
+  }, [shapes]);
 
+  const framed = map ? toFrame(map.boxes[region] ?? map.boxes.World, aspect, region === "World" ? 0 : 0.06) : { x: 0, y: 0, w: MW, h: MW / aspect };
+  // The key sits over the bottom of the map: grow the view downwards so the countries end above it.
+  const keyShare = compact ? 0.14 : 0.11;
+  const box = (() => {
+    const h = framed.h / (1 - keyShare);
+    const w = h * aspect;
+    return { x: framed.x + framed.w / 2 - w / 2, y: framed.y, w, h };
+  })();
+  // A screen pixel in map units (the map is about 360px wide on a phone): numbers keep their size at any zoom.
+  const px = box.w / 360;
   const sel = picked ? byCode.get(picked) ?? null : null;
   const top = useMemo(() => countries.filter((c) => region === "World" || countryByCode(c.code)?.continent === region).slice(0, 8), [countries, region]);
   const most = Math.max(1, ...top.map((c) => c.people.length));
+  const whoWord = circle === "friends" ? "Friends" : "People";
 
   const choose = (code: string | null) => {
     if (!code || !byCode.has(code)) return setPicked(null);
@@ -128,15 +144,15 @@ export function FriendsMap({ countries, circle }: { countries: MapCountry[]; cir
   };
 
   if (countries.length === 0)
-    return (
+    return compact ? null : (
       <p className="mt-10 text-center text-sm text-muted">
         {circle === "friends" ? "No friends' places yet - they show up here as your friends add their trips." : "No places yet - they show up here as people you follow add their trips."}
       </p>
     );
 
   return (
-    <div className="mt-4">
-      {/* Regions */}
+    <div className={compact ? "mt-3" : "mt-4"}>
+      {/* Continents */}
       <div role="tablist" aria-label="Region" className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
         {regions.map((r) => (
           <button
@@ -160,51 +176,59 @@ export function FriendsMap({ countries, circle }: { countries: MapCountry[]; cir
       </div>
 
       {/* The map */}
-      <div className="relative mt-3 overflow-hidden rounded-2xl border border-line bg-[#f4f0ea] dark:bg-[#17131c]">
-        {drawn ? (
-          <AnimatePresence mode="wait">
-            <motion.svg
-              key={region}
-              viewBox={`0 0 ${W} ${drawn.H}`}
-              className="block h-auto w-full"
-              role="img"
-              aria-label={`Map of ${region === "World" ? "the world" : region}: countries coloured by how many ${circle === "friends" ? "friends" : "people you follow"} have been`}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              {drawn.items.map((it) => (
+      <div className="relative mt-3 overflow-hidden rounded-2xl border border-line bg-[#eef4f7] dark:bg-[#141821]" style={{ aspectRatio: String(aspect) }}>
+        {map ? (
+          <motion.svg
+            className="absolute inset-0 h-full w-full"
+            preserveAspectRatio="xMidYMid meet"
+            initial={false}
+            animate={{ viewBox: `${box.x} ${box.y} ${box.w} ${box.h}` }}
+            transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+            role="img"
+            aria-label={`Map of ${region === "World" ? "the world" : region}: countries coloured by how many ${circle === "friends" ? "friends" : "people you follow"} have been`}
+          >
+            {map.items.map((it) => {
+              const n = it.code ? byCode.get(it.code)?.people.length ?? 0 : 0;
+              const on = !!picked && it.code === picked;
+              return (
                 <path
                   key={it.id}
                   d={it.d}
                   onClick={() => choose(it.code)}
-                  className={cn("transition-[fill] duration-200", it.n ? "cursor-pointer" : "fill-[#e4ddd2] dark:fill-[#2c2633]")}
-                  style={it.n ? { fill: shadeOf(it.n) } : undefined}
-                  stroke={picked && it.code === picked ? "#2b0b2e" : "rgba(255,255,255,0.9)"}
-                  strokeWidth={picked && it.code === picked ? 1.4 : 0.35}
+                  className={cn("transition-[fill] duration-300", n ? "cursor-pointer" : "fill-[#ddd5c9] dark:fill-[#302a38]")}
+                  style={n ? { fill: shadeOf(n) } : undefined}
+                  stroke={on ? "#2b0b2e" : "#ffffff"}
+                  strokeWidth={on ? 2 : 0.8}
                   strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
                 />
-              ))}
-              {/* Numbers on the countries roomy enough for one */}
-              {drawn.items
-                .filter((it) => it.n > 0 && it.roomy)
-                .map((it) => (
-                  <g key={`n-${it.id}`} onClick={() => choose(it.code)} className="cursor-pointer">
-                    <circle cx={it.cx} cy={it.cy} r={it.n > 9 ? 7.5 : 6.5} fill="#2b0b2e" stroke="#fff" strokeWidth={1} />
-                    <text x={it.cx} y={it.cy + 2.6} textAnchor="middle" fontSize={7.5} fontWeight={700} fill="#fff">
-                      {it.n}
-                    </text>
-                  </g>
-                ))}
-            </motion.svg>
-          </AnimatePresence>
+              );
+            })}
+            {/* The numbers, sized for this view, once it has arrived. */}
+            <AnimatePresence>
+              <motion.g key={region} initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.55, duration: 0.3 } }} exit={{ opacity: 0, transition: { duration: 0.12 } }}>
+                {map.items.map((it) => {
+                  const n = it.code ? byCode.get(it.code)?.people.length ?? 0 : 0;
+                  const roomy = (it.bw / px) * (it.bh / px) > 170 && it.cx > box.x + 8 * px && it.cx < box.x + box.w - 8 * px && it.cy > box.y + 8 * px && it.cy < box.y + box.h - 8 * px;
+                  if (!n || !roomy) return null;
+                  return (
+                    <g key={it.id} onClick={() => choose(it.code)} className="cursor-pointer">
+                      <circle cx={it.cx} cy={it.cy} r={(n > 9 ? 7.5 : 6.5) * px} fill="#2b0b2e" stroke="#fff" strokeWidth={px} />
+                      <text x={it.cx} y={it.cy + 2.6 * px} textAnchor="middle" fontSize={7.5 * px} fontWeight={700} fill="#fff">
+                        {n}
+                      </text>
+                    </g>
+                  );
+                })}
+              </motion.g>
+            </AnimatePresence>
+          </motion.svg>
         ) : (
-          <div className="aspect-[9/5] w-full animate-pulse" />
+          <div className="absolute inset-0 animate-pulse" />
         )}
         {/* Key */}
-        <div className="flex items-center justify-between gap-2 border-t border-line/70 bg-surface/80 px-3 py-2 text-[11px] text-muted backdrop-blur">
-          <span>{circle === "friends" ? "Friends" : "People"} who&rsquo;ve been</span>
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-surface/85 px-3 py-1.5 text-[11px] text-muted backdrop-blur">
+          <span>{whoWord} who&rsquo;ve been</span>
           <span className="flex items-center gap-2">
             {LEGEND.map((l) => (
               <span key={l.label} className="flex items-center gap-1">
@@ -216,7 +240,7 @@ export function FriendsMap({ countries, circle }: { countries: MapCountry[]; cir
         </div>
       </div>
 
-      {/* The country tapped: who's been, their towns, and the way in. */}
+      {/* The country tapped: who's been (their towns, on the full page), and the way in. */}
       <AnimatePresence>
         {sel && (
           <motion.div
@@ -228,7 +252,7 @@ export function FriendsMap({ countries, circle }: { countries: MapCountry[]; cir
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-serif text-2xl leading-tight">
+                <p className="font-serif text-xl leading-tight">
                   {countryByCode(sel.code)?.flag} {countryByCode(sel.code)?.name}
                 </p>
                 <p className="mt-0.5 text-sm text-muted">
@@ -251,7 +275,7 @@ export function FriendsMap({ countries, circle }: { countries: MapCountry[]; cir
                 </li>
               ))}
             </ul>
-            {sel.towns.length > 0 && (
+            {!compact && sel.towns.length > 0 && (
               <p className="mt-3 flex items-start gap-1.5 text-sm text-muted">
                 <MapPin size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden />
                 <span>{sel.towns.slice(0, 6).map((t) => t.name).join(" · ")}</span>
@@ -264,8 +288,8 @@ export function FriendsMap({ countries, circle }: { countries: MapCountry[]; cir
         )}
       </AnimatePresence>
 
-      {/* Where most of them have been */}
-      {top.length > 0 && (
+      {/* Where most of them have been (the full page) */}
+      {!compact && top.length > 0 && (
         <section className="mt-6" aria-labelledby="most-h">
           <h2 id="most-h" className="font-serif text-xl">
             {circle === "friends" ? "Where your friends have been most" : "Where people you follow have been most"}
