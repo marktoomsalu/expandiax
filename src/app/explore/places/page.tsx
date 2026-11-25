@@ -1,63 +1,34 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Search } from "lucide-react";
 import { createClient, getAuthUser } from "@/lib/supabase/server";
-import { CONTINENTS, countryByCode } from "@/lib/countries";
-import { loadNetworkPlaces } from "@/lib/experienceNetworkData";
-import { PLACE_ROWS, PlaceCardBig } from "@/components/network/FeedExplore";
+import { loadCircleCountries } from "@/lib/experienceNetworkData";
+import { PLACE_ROWS } from "@/components/network/FeedExplore";
 import { ExploreListShell } from "@/components/network/ExploreCards";
+import { FriendsMap } from "@/components/explore/FriendsMap";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Places" };
 
-type Params = { circle?: string; q?: string; continent?: string };
+type Params = { circle?: string };
 
-/** "See all" for the Explore tab's place rows: every town, searchable and by continent. */
+/** "See all" for the Explore tab's place rows: a map of where your friends (or everyone you follow) have been. */
 export default async function NetworkPlacesPage({ searchParams }: { searchParams?: Params }) {
   const user = await getAuthUser();
   if (!user) redirect("/sign-in?next=/explore/places");
 
   const circle = searchParams?.circle === "network" ? "network" : "friends";
-  const q = (searchParams?.q ?? "").trim();
-  const continent = CONTINENTS.find((c) => c === searchParams?.continent) ?? null;
-
-  const all = await loadNetworkPlaces(createClient(), user.id);
-  const list = all[circle];
-  const continentOf = (code: string) => countryByCode(code)?.continent ?? null;
-  const present = CONTINENTS.filter((c) => list.some((p) => continentOf(p.country) === c));
-  const needle = q.toLowerCase();
-  const shown = list.filter(
-    (p) =>
-      (!continent || continentOf(p.country) === continent) &&
-      (!needle || p.name.toLowerCase().includes(needle) || (countryByCode(p.country)?.name.toLowerCase().includes(needle) ?? false))
-  );
-
-  const href = (next: Params) => {
-    const qs = new URLSearchParams();
-    const merged = { circle, q, continent: continent ?? "", ...next };
-    if (merged.circle !== "friends") qs.set("circle", merged.circle!);
-    if (merged.q) qs.set("q", merged.q);
-    if (merged.continent) qs.set("continent", merged.continent);
-    const s = qs.toString();
-    return `/explore/places${s ? `?${s}` : ""}`;
-  };
-  const chip = (on: boolean) =>
-    cn(
-      "shrink-0 rounded-full border px-3.5 py-1.5 text-sm transition-colors",
-      on ? "border-accent bg-accent text-white" : "border-line bg-surface text-muted hover:border-accent/50 hover:text-ink"
-    );
+  const all = await loadCircleCountries(createClient(), user.id);
 
   return (
     <ExploreListShell title={PLACE_ROWS[circle].title} sub={PLACE_ROWS[circle].sub}>
-
       <nav aria-label="Whose places" className="mt-5 flex rounded-full border border-line bg-surface p-1">
         {(["friends", "network"] as const).map((c) => (
           <Link
             key={c}
-            href={href({ circle: c, continent: "" })}
+            href={c === "network" ? "/explore/places?circle=network" : "/explore/places"}
             aria-current={c === circle ? "page" : undefined}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition-colors",
+              "flex flex-1 items-center justify-center rounded-full px-3 py-2 text-sm font-semibold transition-colors",
               c === circle ? "bg-accent text-white shadow-md shadow-accent/25" : "text-muted hover:text-ink"
             )}
           >
@@ -65,42 +36,7 @@ export default async function NetworkPlacesPage({ searchParams }: { searchParams
           </Link>
         ))}
       </nav>
-
-      <form action="/explore/places" role="search" className="relative mt-3">
-        {circle !== "friends" && <input type="hidden" name="circle" value={circle} />}
-        {continent && <input type="hidden" name="continent" value={continent} />}
-        <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
-        <input name="q" type="search" defaultValue={q} placeholder="Search a town or country…" aria-label="Search places" className="field !rounded-full !py-2.5 !pl-11" />
-      </form>
-
-      {present.length > 1 && (
-        <div className="no-scrollbar -mx-5 mt-3 flex gap-2 overflow-x-auto px-5 pb-1">
-          <Link href={href({ continent: "" })} className={chip(!continent)}>
-            All
-          </Link>
-          {present.map((c) => (
-            <Link key={c} href={href({ continent: c })} className={chip(continent === c)}>
-              {c}
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {shown.length > 0 ? (
-        <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {shown.map((p) => (
-            <PlaceCardBig key={p.key} p={p} wide />
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-10 text-center text-sm text-muted">
-          {list.length === 0
-            ? circle === "friends"
-              ? "No friends' places yet - they show up here as people you follow, who follow you back, add their trips."
-              : "No places yet - they show up here as people you follow add their trips."
-            : `Nothing matches${q ? ` “${q}”` : ""}${continent ? ` in ${continent}` : ""}.`}
-        </p>
-      )}
+      <FriendsMap key={circle} countries={all[circle]} circle={circle} />
     </ExploreListShell>
   );
 }

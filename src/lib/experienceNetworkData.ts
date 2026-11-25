@@ -439,3 +439,45 @@ export function networkRows(travellers: Traveller[], viewerHome: string | null, 
   if (sorted.length) rows.push({ key: "all", label: `Everyone you can see who's been here (${sorted.length})`, people: sorted.map(toPerson) });
   return rows;
 }
+
+/** A country on the friends map: who's been (friends, or everyone you follow) and the towns they logged. */
+export type MapCountry = { code: string; people: Person[]; towns: { name: string; people: string[] }[] };
+
+/**
+ * "Places your friends know" as a map: for every country, the friends (or
+ * people you follow) who've been, by their public countries, and the towns
+ * they logged there. Blocked people are left out; nobody's private
+ * countries are seen.
+ */
+export async function loadCircleCountries(supabase: Supabase, viewerId: string): Promise<{ friends: MapCountry[]; network: MapCountry[] }> {
+  const circle = await viewerCircle(supabase, viewerId);
+  if (circle.following.size === 0) return { friends: [], network: [] };
+  const ids = [...circle.following];
+  const [{ data: rows }, { data: blocked }, { data: profiles }, places] = await Promise.all([
+    supabase.from("visited_countries").select("user_id, country_code").in("user_id", ids).eq("is_public", true).limit(5000),
+    supabase.from("blocks").select("blocked_id").eq("blocker_id", viewerId),
+    supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", ids),
+    loadNetworkPlaces(supabase, viewerId),
+  ]);
+  const blockedIds = new Set((blocked ?? []).map((b) => b.blocked_id));
+  const person = new Map(((profiles ?? []) as Person[]).map((p) => [p.id, p]));
+  const build = (inCircle: (id: string) => boolean, towns: PlaceCard[], who: (p: PlaceCard) => string[]): MapCountry[] => {
+    const by = new Map<string, Set<string>>();
+    for (const r of (rows ?? []) as { user_id: string; country_code: string }[]) {
+      if (blockedIds.has(r.user_id) || !inCircle(r.user_id)) continue;
+      (by.get(r.country_code) ?? by.set(r.country_code, new Set()).get(r.country_code)!).add(r.user_id);
+    }
+    return [...by.entries()]
+      .map(([code, set]) => ({
+        code,
+        people: [...set].map((id) => person.get(id)).filter((p): p is Person => !!p),
+        towns: towns.filter((t) => t.country === code).map((t) => ({ name: t.name, people: who(t) })),
+      }))
+      .filter((c) => c.people.length > 0)
+      .sort((a, b) => b.people.length - a.people.length || a.code.localeCompare(b.code));
+  };
+  return {
+    friends: build((id) => circle.friends.has(id), places.friends, (t) => t.friends),
+    network: build((id) => circle.following.has(id), [...places.friends, ...places.network], (t) => t.network),
+  };
+}
