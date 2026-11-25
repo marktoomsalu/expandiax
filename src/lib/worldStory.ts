@@ -83,8 +83,8 @@ function loadVenues(code: string): Promise<Venue[]> {
 
 const hourOf = (stamp: string) => Number(stamp.slice(11, 13));
 
-/** How many moments are asked about in all, and how many per request (the server's own limit). */
-const ASK_MAX = 60;
+/** How many moments are asked about: one request (the server's limit), likeliest nights first. */
+const ASK_MAX = 30;
 const ASK_BATCH = 30;
 const hoursBetween = (a: string, b: string) => (Date.parse(`${b}:00Z`) - Date.parse(`${a}:00Z`)) / 3_600_000;
 
@@ -170,7 +170,7 @@ export async function findEvents(moments: ScanMoment[], locate: (lat: number, ln
   }
   if (!asked.length) return { events: [], bigDays: [] };
 
-  // Asked in batches the server takes (30 each), side by side: twice as many nights checked in about the same time.
+  // One request: two side by side share setlist.fm's limit and both ran past the server's time limit, losing every answer.
   type Answer = { id: string; shows: ShowFound[]; known?: KnownEvent[] };
   const batches: Asked[][] = [];
   for (let i = 0; i < asked.length; i += ASK_BATCH) batches.push(asked.slice(i, i + ASK_BATCH));

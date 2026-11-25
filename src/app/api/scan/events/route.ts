@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const MAX_MOMENTS = 30;
+const BUDGET_MS = 45_000;
 
 // A venue's place is kept for a month: venues don't move.
 const cachedGeocode: Geocode = (venue, city, countryCode) =>
@@ -51,8 +52,11 @@ export async function POST(request: NextRequest) {
   const db = createClient();
   const answers: { id: string; shows: ShowFound[]; known: KnownEvent[] }[] = [];
   const queue = [...asks];
+  // The phone sends its likeliest nights first. Stop starting new ones well
+  // before the 60 s limit: a cut-off request would lose every answer.
+  const started = Date.now();
   async function worker() {
-    for (let a = queue.shift(); a; a = queue.shift()) {
+    for (let a = queue.shift(); a && Date.now() - started < BUDGET_MS; a = queue.shift()) {
       const [shows, known] = await Promise.all([
         process.env.SETLISTFM_API_KEY ? showsFor(a, cachedGeocode).catch(() => []) : Promise.resolve([]),
         knownFor(a, db).catch(() => []),

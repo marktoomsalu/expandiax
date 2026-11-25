@@ -12,7 +12,7 @@ const near = (s: ShowThatNight, area: { lat: number; lng: number }, km: number) 
 
 export async function showsFor(a: MomentAsk, geocode: Geocode): Promise<ShowFound[]> {
   // At the venue itself, by any of its names: the surest answer.
-  for (const name of a.venues.slice(0, 4)) {
+  for (const name of a.venues.slice(0, 3)) {
     const found = await showsAtVenue(name, a.day).catch(() => []);
     if (found.length) return found.slice(0, 8).map((s) => ({ ...plain(s), lat: null, lng: null, atVenue: true }));
   }
