@@ -36,6 +36,11 @@ const COPY: Record<AskReason, { title: string; body: string; example: { title: s
     body: "Get a ping when someone answers you, likes your memories or follows you.",
     example: { title: "New answer", body: "Alex answered: “The little bakery by the harbour!”" },
   },
+  update: {
+    title: "Let your memories find you",
+    body: "Know when friends follow you, like your memories or message you, and now and then get a memory back.",
+    example: { title: "On this day", body: "A year ago you were in Lisbon 🇵🇹 Relive it?" },
+  },
   message: {
     title: "Know when they reply",
     body: "Get a ping the moment they answer, so the conversation keeps going.",
@@ -43,7 +48,8 @@ const COPY: Record<AskReason, { title: string; body: string; example: { title: s
   },
 };
 
-const BLOCKED_PATHS = ["/start", "/sign-in", "/sign-up", "/auth", "/onboarding"];
+// Not over full-screen flows: it waits for the next calm moment instead.
+const BLOCKED_PATHS = ["/start", "/sign-in", "/sign-up", "/auth", "/onboarding", "/my-world/find-trips"];
 const TWO_MINUTES = 120;
 
 /**

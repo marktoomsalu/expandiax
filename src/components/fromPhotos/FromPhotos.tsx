@@ -22,6 +22,7 @@ import {
   type Saved,
 } from "@/lib/memoryFinder";
 import { noteFeature } from "@/lib/usageClient";
+import { askForPush } from "@/lib/pushAsk";
 import { tapLight } from "@/lib/haptics";
 import { FinderIntro, FinderDenied } from "./FinderIntro";
 import { FinderLooking, type Stage } from "./FinderLooking";
@@ -140,6 +141,8 @@ export function FromPhotos({ userId, homeCode, countryCodes }: { userId: string;
       const done = await applyChanges(userId, saved.current, changes);
       noteFeature("from_photos_saved");
       setApplied(done);
+      // New memories saved: a good moment for notifications, if iPhone hasn't asked yet.
+      askForPush("memory", 2500);
       setPhase("done");
       router.refresh();
     } catch {

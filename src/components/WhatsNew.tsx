@@ -10,6 +10,7 @@ import { canScanPhotos } from "@/lib/photoScan";
 import { fromPhotosSeen } from "@/lib/memoryFinder";
 import { TOUR, claimIntro, markTourSeen, releaseIntro, tourSeen } from "@/lib/introQueue";
 import { tapLight } from "@/lib/haptics";
+import { askForPush } from "@/lib/pushAsk";
 
 const QUIET = ["/touch", "/start", "/sign-in", "/sign-up", "/onboarding", "/join"];
 
@@ -77,7 +78,12 @@ export function WhatsNew({ joinedAt, preview = false }: { joinedAt: string; prev
     setOpen(false);
     releaseIntro("whats-new");
     if (peek) return;
-    if (finder) return markTourSeen(TOUR.find);
+    if (finder) {
+      markTourSeen(TOUR.find);
+      // Updated to 1.2 and iPhone has never asked about notifications: now's the moment (never again once they've answered).
+      askForPush("update", 1200);
+      return;
+    }
     // Next: the chat tour, then World Connect.
     markTourSeen(TOUR.whatsNew);
   }

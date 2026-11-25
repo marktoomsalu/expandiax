@@ -9,6 +9,7 @@
 //   like     liking someone's memory
 //   comment  a comment, a question or an answer
 //   message  sending a chat message
+//   update   right after the new version's "What's new" (1.2: Discover my world)
 // "Turn on" shows iPhone's box; "Not now" doesn't use it up, and the
 // sheet may come back after a few days (at most three "Not now"s; after
 // that only Settings asks). Once per app session at most, only in the app,
@@ -18,7 +19,7 @@
 import { PushNotifications } from "@capacitor/push-notifications";
 import { isNativePlatform } from "./capacitor";
 
-export type AskReason = "time" | "memory" | "follow" | "like" | "comment" | "message";
+export type AskReason = "time" | "memory" | "follow" | "like" | "comment" | "message" | "update";
 
 export const ASK_AGAIN_DAYS = 3;
 export const MAX_NOT_NOW = 3;
