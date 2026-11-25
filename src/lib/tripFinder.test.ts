@@ -127,3 +127,12 @@ describe("tripDates and tripLength", () => {
     expect(tripLength("2023-09-01", "2024-02-10")).toBe("5 months");
   });
 });
+
+describe("trips from long ago", () => {
+  it("finds them just like recent ones, and lights them up first (oldest first)", () => {
+    const world = findWorld([...homeLife, ...days("IT", "2004-07-10", 4), ...days("PT", "2009-08-02", 3), ...days("FR", "2024-05-03", 3)], locate, "EE");
+    expect(world.trips.map((t) => `${t.code} ${t.from.slice(0, 4)}`).sort()).toEqual(["FR 2024", "IT 2004", "PT 2009"]);
+    expect(world.countries.filter((c) => c.code !== "EE").map((c) => c.code)).toEqual(["IT", "PT", "FR"]);
+    expect(world.firstYear).toBe(2004);
+  });
+});
