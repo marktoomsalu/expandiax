@@ -83,9 +83,9 @@ function loadVenues(code: string): Promise<Venue[]> {
 
 const hourOf = (stamp: string) => Number(stamp.slice(11, 13));
 
-/** How many moments are asked about: one request (the server's limit), likeliest nights first. */
+/** How many moments are asked about, and in what groups: a small first one so the first concerts show fast. */
 const ASK_MAX = 30;
-const ASK_BATCH = 30;
+const ASK_GROUPS = [5, 8, 8, 9];
 const hoursBetween = (a: string, b: string) => (Date.parse(`${b}:00Z`) - Date.parse(`${a}:00Z`)) / 3_600_000;
 
 /** Whether a moment looks like going out to something: an evening, or a long busy day. */
@@ -127,7 +127,12 @@ export function askFor(id: string, m: ScanMoment, code: string, near: Venue[], t
  * are found on the phone; the server only hears days, town and venue names
  * and rough areas, and the phone decides from its answer.
  */
-export async function findEvents(moments: ScanMoment[], locate: (lat: number, lng: number) => string | null): Promise<{ events: FoundEvent[]; bigDays: BigDay[] }> {
+export async function findEvents(
+  moments: ScanMoment[],
+  locate: (lat: number, lng: number) => string | null,
+  /** Called with everything found so far, each time a group of nights is answered. */
+  onPartial?: (found: { events: FoundEvent[]; bigDays: BigDay[] }) => void
+): Promise<{ events: FoundEvent[]; bigDays: BigDay[] }> {
   // Which moments to ask about, likeliest first: an evening at a concert venue
   // (stadium, arena, music hall), then any time at a stadium (an afternoon
   // match) or an evening at a theatre, then big busy days with no venue.
@@ -155,8 +160,7 @@ export async function findEvents(moments: ScanMoment[], locate: (lat: number, ln
     .sort((a, b) => b.score - a.score || b.m.n + b.m.v * 3 - (a.m.n + a.m.v * 3))
     .filter((r) => (seenKeys.has(r.key) ? false : (seenKeys.add(r.key), true)))
     .map((r) => r.m);
-  type Asked = { ask: MomentAsk; moment: Moment; scan: ScanMoment; code: string; city: string | null };
-  const asked: Asked[] = [];
+  const asked: AskedNight[] = [];
   for (const m of candidates) {
     if (asked.length >= ASK_MAX) break;
     const code = locate(m.la, m.ln);
@@ -170,22 +174,31 @@ export async function findEvents(moments: ScanMoment[], locate: (lat: number, ln
   }
   if (!asked.length) return { events: [], bigDays: [] };
 
-  // One request: two side by side share setlist.fm's limit and both ran past the server's time limit, losing every answer.
+  // Asked a few nights at a time, likeliest first, one group after another
+  // (setlist.fm takes about two questions a second, whatever we do): the
+  // first concerts show within seconds instead of after all 30.
   type Answer = { id: string; shows: ShowFound[]; known?: KnownEvent[] };
-  const batches: Asked[][] = [];
-  for (let i = 0; i < asked.length; i += ASK_BATCH) batches.push(asked.slice(i, i + ASK_BATCH));
-  const answers = (
-    await Promise.all(
-      batches.map((b) =>
-        fetch("/api/scan/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ moments: b.map((a) => a.ask) }) })
-          .then((r) => (r.ok ? (r.json() as Promise<{ answers: Answer[] }>) : { answers: [] }))
-          .then((d) => d.answers)
-          .catch(() => [] as Answer[])
-      )
-    )
-  ).flat();
-  const byId = new Map(answers.map((a) => [a.id, a]));
+  const byId = new Map<string, Answer>();
+  let at = 0;
+  for (const size of ASK_GROUPS) {
+    const group = asked.slice(at, at + size);
+    at += size;
+    if (!group.length) break;
+    const answers = await fetch("/api/scan/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ moments: group.map((a) => a.ask) }) })
+      .then((r) => (r.ok ? (r.json() as Promise<{ answers: Answer[] }>) : { answers: [] as Answer[] }))
+      .then((d) => d.answers)
+      .catch(() => [] as Answer[]);
+    for (const a of answers) byId.set(a.id, a);
+    // Concerts as they come; big days only at the end (one could still turn out to be a concert).
+    if (at < asked.length) onPartial?.({ events: decideFound(asked.slice(0, at), byId).events, bigDays: [] });
+  }
+  return decideFound(asked, byId);
+}
 
+type AskedNight = { ask: MomentAsk; moment: Moment; scan: ScanMoment; code: string; city: string | null };
+
+/** From the answers so far: the events, and the big days still to name. */
+function decideFound(asked: AskedNight[], byId: Map<string, { shows: ShowFound[]; known?: KnownEvent[] }>): { events: FoundEvent[]; bigDays: BigDay[] } {
   const events: FoundEvent[] = [];
   const bigDays: BigDay[] = [];
   for (const a of asked) {

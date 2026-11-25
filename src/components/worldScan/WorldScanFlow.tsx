@@ -67,6 +67,7 @@ export function WorldScanFlow({
   const [towns, setTowns] = useState<Record<string, TripTown[]>>({});
   const [events, setEvents] = useState<FoundEvent[] | null>(null);
   const [bigDays, setBigDays] = useState<BigDay[]>([]);
+  const [eventsLooking, setEventsLooking] = useState(false);
   const [hasMoments, setHasMoments] = useState(false);
   const [pick, setPick] = useState<CountryPick | null>(null);
   const [kept, setKept] = useState<KeptWorld | null>(null);
@@ -185,11 +186,19 @@ export function WorldScanFlow({
       setStats({ total: result.total, located: result.located });
       const locate = locator.current!;
       const none = { events: [] as FoundEvent[], bigDays: [] as BigDay[] };
-      const found = (eventsDone.current = result.moments?.length ? findEvents(result.moments, locate).catch(() => none) : Promise.resolve(none));
+      // Concerts appear as each group of nights is answered; the rest keeps looking.
+      setEventsLooking(!!result.moments?.length);
+      const found = (eventsDone.current = result.moments?.length
+        ? findEvents(result.moments, locate, (f) => {
+            setEvents(f.events);
+            setBigDays(f.bigDays);
+          }).catch(() => none)
+        : Promise.resolve(none));
       setHasMoments(!!result.moments?.length);
       void found.then((f) => {
         setEvents(f.events);
         setBigDays(f.bigDays);
+        setEventsLooking(false);
       });
       setPlaces(result.places);
       setPhase("awakening");
@@ -311,7 +320,7 @@ export function WorldScanFlow({
         );
       break;
     case "memories":
-      if (pick) scene = <MemoriesView events={events} bigDays={bigDays} saveLabel={saveLabel} onSave={(m) => void finish(keptWorld(pick, m))} />;
+      if (pick) scene = <MemoriesView events={events} bigDays={bigDays} looking={eventsLooking} saveLabel={saveLabel} onSave={(m) => void finish(keptWorld(pick, m))} />;
       break;
     case "finish":
       if (kept) scene = <ScanFinish mode={mode} kept={kept} limited={access === "limited"} saving={saving} />;

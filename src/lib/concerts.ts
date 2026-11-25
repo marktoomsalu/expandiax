@@ -63,6 +63,18 @@ export function pastShowFromSetlist(s: SetlistFmSetlist): PastShow | null {
   };
 }
 
+/**
+ * How long a setlist.fm answer is kept: a day, but a month for a night more
+ * than a week ago (what played then doesn't change). Everyone scanning the
+ * same concert, and every scan again, gets it at once.
+ */
+function keepFor(path: string): number {
+  const m = /[?&]date=(\d{2})-(\d{2})-(\d{4})/.exec(path);
+  const day = 60 * 60 * 24;
+  if (!m) return day;
+  return Date.now() - Date.parse(`${m[3]}-${m[2]}-${m[1]}T00:00:00Z`) > 7 * day * 1000 ? 30 * day : day;
+}
+
 async function setlistFm<T>(path: string): Promise<T | null> {
   const key = process.env.SETLISTFM_API_KEY;
   if (!key) throw new Error("not_configured");
@@ -70,7 +82,7 @@ async function setlistFm<T>(path: string): Promise<T | null> {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`https://api.setlist.fm/rest/1.0${path}`, {
       headers: { "x-api-key": key, Accept: "application/json", "Accept-Language": "en" },
-      next: { revalidate: 60 * 60 * 24 },
+      next: { revalidate: keepFor(path) },
     });
     if (res.status === 429 && attempt < 3) {
       await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));

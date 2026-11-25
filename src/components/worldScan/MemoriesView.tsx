@@ -48,11 +48,14 @@ type Named = { kind: string; title: string };
 export function MemoriesView({
   events,
   bigDays,
+  looking = false,
   onSave,
   saveLabel,
 }: {
   /** Null while still looking. */
   events: FoundEvent[] | null;
+  /** Still looking for more (concerts so far are already shown). */
+  looking?: boolean;
   bigDays: BigDay[];
   saveLabel: string;
   onSave: (kept: KeptEvent[]) => void;
@@ -132,7 +135,7 @@ export function MemoriesView({
 
       <div className="flex flex-col gap-3 px-4 pb-44 pt-3">
         <AnimatePresence>
-          {events === null && (
+          {(events === null || looking) && (
             <motion.div
               key="looking"
               className="flex items-center gap-3 rounded-2xl bg-white/[0.06] px-4 py-3 text-sm text-white/70 ring-1 ring-white/10"
@@ -143,13 +146,13 @@ export function MemoriesView({
               <motion.span animate={{ rotate: [0, -12, 12, 0] }} transition={{ duration: 1.2, repeat: Infinity }} aria-hidden>
                 <Ticket size={18} className="text-[#ffb3d6]" />
               </motion.span>
-              Looking for concerts, matches and festivals…
+              {events?.length ? "Looking for more…" : "Looking for concerts, matches and festivals…"}
             </motion.div>
           )}
         </AnimatePresence>
 
         {list(found, bigDays, true)}
-        {events !== null && !found.length && !bigDays.length && (
+        {events !== null && !looking && !found.length && !bigDays.length && (
           <p className="px-1 pt-10 text-center text-sm text-white/55">No concerts or big days found this time. You can add them any time.</p>
         )}
       </div>

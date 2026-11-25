@@ -88,12 +88,14 @@ export function FromPhotos({ userId, homeCode, countryCodes }: { userId: string;
 
       setStage("events");
       const none = { events: [] as FoundEvent[], bigDays: [] as BigDay[] };
+      // The concerts found so far: if the listings are slow, these are kept rather than nothing.
+      let soFar = none;
       const [towns, found] = await Promise.all([
         nameTrips(world.trips.filter((t) => t.sure && t.code !== world.homeCode)),
         Promise.race([
-          result.moments?.length ? findEvents(result.moments, locate).catch(() => none) : Promise.resolve(none),
+          result.moments?.length ? findEvents(result.moments, locate, (f) => (soFar = f)).catch(() => soFar) : Promise.resolve(none),
           // Event listings that don't answer don't hold everything else up.
-          wait(45_000).then(() => none),
+          wait(45_000).then(() => soFar),
         ]),
         wait(1400),
       ]);
