@@ -37,12 +37,21 @@ export function ScanAwakening({
   // The fly to each country takes most of its turn, so it lands as the next one comes.
   const step = Math.max(320, Math.min(1100, 9000 / Math.max(1, order.length)));
   const [shown, setShown] = useState(0);
+  // The countries start lighting up only once the globe is really there, so the
+  // first one (and its year) is never counted over an empty screen. If the globe
+  // is slow to load (a slow connection), they start after a few seconds anyway.
+  const [globeReady, setGlobeReady] = useState(false);
+  useEffect(() => {
+    if (!world) return;
+    const t = setTimeout(() => setGlobeReady(true), 4000);
+    return () => clearTimeout(t);
+  }, [world]);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
 
   // One country at a time; quicker when there are many, so it never drags.
   useEffect(() => {
-    if (!world) return;
+    if (!world || !globeReady) return;
     if (reduce || order.length === 0) {
       setShown(order.length);
       const t = setTimeout(() => doneRef.current(), 600);
@@ -60,9 +69,9 @@ export function ScanAwakening({
         t = setTimeout(() => doneRef.current(), 1400);
       }
     };
-    t = setTimeout(next, 900);
+    t = setTimeout(next, 600);
     return () => clearTimeout(t);
-  }, [world, order, reduce, step]);
+  }, [world, order, reduce, step, globeReady]);
 
   const lit = order.slice(0, shown).map((c) => c.code);
   const current = shown > 0 ? order[shown - 1] : null;
@@ -114,6 +123,7 @@ export function ScanAwakening({
             focusClose
             focusMs={Math.round(step * 0.9)}
             pullBack={done}
+            onReady={() => setGlobeReady(true)}
           />
         </div>
       </div>

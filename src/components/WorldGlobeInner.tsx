@@ -179,6 +179,14 @@ export function WorldGlobeInner({
   const placed = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [features, setFeatures] = useState<GeoFeature[]>([]);
+  // Ready means really there: the globe drawn and the countries on it (onReady fires once, then).
+  const [globeUp, setGlobeUp] = useState(false);
+  const readyFired = useRef(false);
+  useEffect(() => {
+    if (!globeUp || !features.length || readyFired.current) return;
+    readyFired.current = true;
+    onReady?.();
+  }, [globeUp, features.length, onReady]);
   const [hoverId, setHoverId] = useState<string | null>(null);
   // A tapped country's name, for globes where a tap opens nothing (profiles).
   const [tapped, setTapped] = useState<{ id: string; text: string } | null>(null);
@@ -341,7 +349,7 @@ export function WorldGlobeInner({
       <div className="no-select relative overflow-hidden rounded-card" style={{ height: size.height }}>
         <Globe
           ref={globeRef}
-          onGlobeReady={onReady}
+          onGlobeReady={() => setGlobeUp(true)}
           width={size.width}
           height={size.height}
           backgroundColor="rgba(0,0,0,0)"
