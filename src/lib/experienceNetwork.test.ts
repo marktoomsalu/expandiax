@@ -69,6 +69,11 @@ describe("placesForYou", () => {
       ["Rome", [], ["f2"]],
     ]);
   });
+  it("remembers whose each town is, so a place's photo is only ever one of its own people's", () => {
+    const out = placesForYou([row("f1", "BE", "Brussels"), row("x9", "BE", "Brussels")], { ...viewer, friends: new Set(["f1"]) });
+    expect(out[0].friends).toEqual(["f1"]);
+    expect(out[0].cityOwner).toEqual({ "f1-Brussels": "f1", "x9-Brussels": "x9" });
+  });
   it("lifts places you dream of", () => {
     const out = placesForYou([row("x1", "IT", "Rome"), row("x2", "IT", "Rome"), row("x3", "PT", "Porto")], { ...viewer, dreamCountries: new Set(["PT"]) });
     expect(out[0].name).toBe("Porto");

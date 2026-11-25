@@ -85,6 +85,8 @@ export type PlaceForYou = {
   network: string[]; // everyone you follow who's been, friends included
   people: string[]; // everyone you can see who's been
   cityIds: string[];
+  /** Whose each town row (cityIds) is: a place's photo comes only from the people it's about. */
+  cityOwner: Record<string, string>;
 };
 
 /**
@@ -103,11 +105,12 @@ export function placesForYou(
     if (r.userId === viewer.id) continue;
     const key = `${r.country}:${placeKey(r.town)}`;
     if (!placeKey(r.town) || mine.has(key)) continue;
-    const p = places.get(key) ?? places.set(key, { key, country: r.country, name: r.town.trim(), lat: null, lng: null, friends: [], network: [], people: [], cityIds: [] }).get(key)!;
+    const p = places.get(key) ?? places.set(key, { key, country: r.country, name: r.town.trim(), lat: null, lng: null, friends: [], network: [], people: [], cityIds: [], cityOwner: {} }).get(key)!;
     if (!p.people.includes(r.userId)) p.people.push(r.userId);
     if (viewer.following.has(r.userId) && !p.network.includes(r.userId)) p.network.push(r.userId);
     if (viewer.friends?.has(r.userId) && !p.friends.includes(r.userId)) p.friends.push(r.userId);
     p.cityIds.push(r.cityId);
+    p.cityOwner[r.cityId] = r.userId;
     if (p.lat == null && r.lat != null && r.lng != null) {
       p.lat = r.lat;
       p.lng = r.lng;

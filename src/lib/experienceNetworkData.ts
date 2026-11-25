@@ -244,7 +244,12 @@ function splitPlaces(ranked: PlaceForYou[], limit: number) {
 async function decoratePlaces(supabase: Supabase, groups: { circle: "friends" | "network"; places: PlaceForYou[] }[], known = new Map<string, Person>()) {
   const who = (p: PlaceForYou, circle: "friends" | "network") => (circle === "friends" ? p.friends : p.network);
   const faceIds = [...new Set(groups.flatMap((g) => g.places.flatMap((p) => who(p, g.circle).slice(0, 3))))].filter((id) => !known.has(id));
-  const cityIds = groups.flatMap((g) => g.places.flatMap((p) => p.cityIds.slice(0, 20)));
+  // Only towns of the people a card is about (friends, or people you follow): never a stranger's photo.
+  const theirCities = (p: PlaceForYou, circle: "friends" | "network") => {
+    const whose = new Set(who(p, circle));
+    return p.cityIds.filter((id) => whose.has(p.cityOwner?.[id] ?? ""));
+  };
+  const cityIds = groups.flatMap((g) => g.places.flatMap((p) => theirCities(p, g.circle).slice(0, 20)));
   const [{ data: faces }, { data: photos }] = await Promise.all([
     faceIds.length ? supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", faceIds) : Promise.resolve({ data: [] as Person[] }),
     cityIds.length
@@ -263,7 +268,7 @@ async function decoratePlaces(supabase: Supabase, groups: { circle: "friends" | 
           .slice(0, 3)
           .map((id) => known.get(id))
           .filter((x): x is Person => !!x),
-        photo: p.cityIds.map((id) => photoByCity.get(id)).find(Boolean) ?? null,
+        photo: theirCities(p, g.circle).map((id) => photoByCity.get(id)).find(Boolean) ?? null,
       })
     )
   );
