@@ -20,7 +20,7 @@ export type BoardRow = {
 };
 
 const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const STATUS = { ask: "ASK THEM", dreaming: "DREAMING", suggested: "SUGGESTED" } as const;
+const STATUS = { ask: "ASK FOR TIPS", dreaming: "DREAMING", suggested: "SUGGESTED" } as const;
 
 /**
  * Text on split-flap tiles, like an airport departures board: on arrival

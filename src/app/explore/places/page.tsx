@@ -62,7 +62,6 @@ export default async function NetworkPlacesPage({ searchParams }: { searchParams
             )}
           >
             {c === "friends" ? "Friends" : "Your network"}
-            <span className={c === circle ? "text-white/80" : "text-muted"}>{all[c].length}</span>
           </Link>
         ))}
       </nav>
@@ -88,7 +87,7 @@ export default async function NetworkPlacesPage({ searchParams }: { searchParams
       )}
 
       {shown.length > 0 ? (
-        <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+        <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {shown.map((p) => (
             <PlaceCardBig key={p.key} p={p} wide />
           ))}

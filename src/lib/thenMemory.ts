@@ -113,7 +113,8 @@ export async function loadThenMemory(
   return {
     visitId: latest?.id ?? null,
     id: picked.id,
-    href: picked.href,
+    // "Relive it": straight to this one trip, not the list of every trip to the country.
+    href: latest && picked.href.startsWith("/my-world/") ? `/my-world/${c.country_code.toLowerCase()}/visits/${latest.id}` : picked.href,
     eyebrow: eyebrow(latest ? new Date(`${sortKey(latest)}T00:00:00`) : null),
     kind: "country",
     eventType: null,

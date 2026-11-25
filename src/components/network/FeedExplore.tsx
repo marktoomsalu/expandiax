@@ -59,7 +59,7 @@ export function PlaceCardBig({ p, wide = false, tilt = 0 }: { p: PlaceCard; wide
   const stock = p.photo ? null : stockPhotoFor(p.country, p.key);
   const n = p.circle === "friends" ? p.friends.length : p.network.length;
   return (
-    <li className={wide ? "relative" : "relative w-60 shrink-0 snap-start sm:w-64"} style={wide ? undefined : { transform: `rotate(${tilt}deg)` }}>
+    <li className={wide ? "relative min-w-0" : "relative w-60 shrink-0 snap-start sm:w-64"} style={wide ? undefined : { transform: `rotate(${tilt}deg)` }}>
       <Link
         href={`/explore/place/${p.country.toLowerCase()}/${slugify(p.name)}`}
         className="group block rounded-xl bg-white p-2 pb-3 shadow-md shadow-black/10 ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-1 hover:rotate-0 dark:bg-[#f6f1e7]"
@@ -272,7 +272,7 @@ export function FeedExplore({
       <Suspense fallback={null}>
         <BeenWhereYouDream board={board} />
       </Suspense>
-      <Suspense fallback={<RowSkeleton title="Postcards from your people" tall />}>
+      <Suspense fallback={<RowSkeleton title="Through your friends' eyes" tall />}>
         <Postcards home={home} />
       </Suspense>
       <Suspense fallback={null}>
@@ -308,8 +308,8 @@ function RowSkeleton({ title, tall }: { title: string; tall?: boolean }) {
 }
 
 export const PLACE_ROWS = {
-  friends: { title: "Places your friends know", sub: "Where friends - people you follow who follow you back - have been." },
-  network: { title: "Places your network has been to", sub: "Where others you follow have been." },
+  friends: { title: "Places your friends know", sub: "Places your friends have been to." },
+  network: { title: "Places your network has been to", sub: "Places others you follow have been to." },
 };
 
 const placeHref = (code: string, place: string) =>
@@ -380,7 +380,7 @@ async function BeenWhereYouDream({ board: pending }: { board: Promise<Board> }) 
                   {c.flag} {r.place || c.name}
                 </Link>
                 <Link href={`/explore/country/${r.code.toLowerCase()}#ask`} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-accent hover:underline">
-                  Ask them <ArrowRight size={13} aria-hidden />
+                  Ask for tips <ArrowRight size={13} aria-hidden />
                 </Link>
               </div>
               <ul className="divide-y divide-line">

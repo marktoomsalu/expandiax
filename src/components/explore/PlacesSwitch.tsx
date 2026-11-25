@@ -17,9 +17,9 @@ export function PlacesSwitch({ friends, network }: { friends: React.ReactNode | 
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <h2 id="places-h" className="font-serif text-xl leading-tight">
-            Postcards from your people
+            Through your friends&rsquo; eyes
           </h2>
-          <p className="mt-0.5 text-xs text-muted">{tab === "friends" ? "Where friends - who follow you back - have been." : "Where others you follow have been."}</p>
+          <p className="mt-0.5 text-xs text-muted">{tab === "friends" ? "Places your friends have been to." : "Places others you follow have been to."}</p>
         </div>
         <Link
           href={`/explore/places${tab === "network" ? "?circle=network" : ""}`}
