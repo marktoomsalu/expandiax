@@ -20,8 +20,8 @@ describe("store links", () => {
     expect(url.searchParams.get("referrer")).toBe("utm_source=youtube&utm_medium=video&utm_campaign=intro");
   });
 
-  it("sends iPhone to the App Store", () => {
-    expect(storeTarget(IPHONE, CHANNELS.yt)).toMatch(/^https:\/\/apps\.apple\.com\/app\/(apple-store\/)?id6799725181/);
+  it("sends iPhone to the App Store as the YouTube campaign", () => {
+    expect(storeTarget(IPHONE, CHANNELS.yt)).toBe("https://apps.apple.com/app/apple-store/id6799725181?pt=129264299&ct=ExpandiaX%20YouTube&mt=8");
   });
 
   it("sends computers to the homepage, tagged", () => {

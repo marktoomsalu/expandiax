@@ -12,12 +12,13 @@ import { APP_STORE_ID, PLAY_STORE_ID } from "@/lib/appStore";
  * (Analytics → Acquisition → Campaigns). Until it's set, iPhone visitors still
  * reach the store, just without the campaign tag.
  */
-export const APP_STORE_PROVIDER_TOKEN = "";
+export const APP_STORE_PROVIDER_TOKEN = "129264299";
 
-export type Channel = { source: string; medium: string; campaign: string };
+/** `appStore`: the campaign's name as generated in App Store Connect (its ct, up to 40 characters). */
+export type Channel = { source: string; medium: string; campaign: string; appStore: string };
 
 export const CHANNELS = {
-  yt: { source: "youtube", medium: "video", campaign: "intro" },
+  yt: { source: "youtube", medium: "video", campaign: "intro", appStore: "ExpandiaX YouTube" },
 } satisfies Record<string, Channel>;
 
 export function phoneOf(userAgent: string | null | undefined): "ios" | "android" | null {
@@ -34,8 +35,7 @@ export function storeTarget(userAgent: string | null | undefined, c: Channel): s
   if (phone === "android") return `https://play.google.com/store/apps/details?id=${PLAY_STORE_ID}&referrer=${encodeURIComponent(utm)}`;
   if (phone === "ios") {
     if (!APP_STORE_PROVIDER_TOKEN) return `https://apps.apple.com/app/id${APP_STORE_ID}`;
-    // Apple's campaign token: up to 40 characters.
-    const ct = `${c.source}-${c.campaign}`.slice(0, 40);
+    const ct = c.appStore.slice(0, 40);
     return `https://apps.apple.com/app/apple-store/id${APP_STORE_ID}?pt=${APP_STORE_PROVIDER_TOKEN}&ct=${encodeURIComponent(ct)}&mt=8`;
   }
   return `/?${utm}`;
